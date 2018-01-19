@@ -49,8 +49,8 @@ func New(tl trillian.TrillianLogClient, logID int64, tm trillian.TrillianMapClie
 		tlog:  tl,
 		tmap:  tm,
 
-		unsortedBlocks: make(chan *types.Block, 100000),
-		sortedBlocks:   make(chan *types.Block, 100000),
+		unsortedBlocks: make(chan *types.Block, 1000),
+		sortedBlocks:   make(chan *types.Block, 1000),
 	}
 }
 

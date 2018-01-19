@@ -54,6 +54,10 @@ func New(tl trillian.TrillianLogClient, logID int64, tm trillian.TrillianMapClie
 	}
 }
 
+const maxNumBlocks int64 = 100
+
+var numBlocks = maxNumBlocks
+
 func (m *Mapper) fetchBlocks(ctx context.Context, from int64) {
 	ticker := time.NewTicker(time.Second)
 
@@ -65,16 +69,19 @@ nextAttempt:
 		case <-ticker.C:
 		}
 
-		num := int64(200)
-		leaves := make([]int64, num)
-		for i := int64(0); i < num; i++ {
+		leaves := make([]int64, numBlocks)
+		for i := int64(0); i < numBlocks; i++ {
 			leaves[i] = from + i
 		}
 
 		entries, err := m.tlog.GetLeavesByIndex(ctx, &trillian.GetLeavesByIndexRequest{LogId: m.logID, LeafIndex: leaves})
 		if err != nil {
-			glog.Errorf("Failed to get %d leaves starting at index %d: %v", num, from, err)
+			glog.Errorf("Failed to get %d leaves starting at index %d: %v", numBlocks, from, err)
+			numBlocks /= 2
 			continue nextAttempt
+		}
+		if numBlocks < maxNumBlocks {
+			numBlocks += (maxNumBlocks - numBlocks) / 2
 		}
 
 		for _, l := range entries.Leaves {
@@ -86,7 +93,7 @@ nextAttempt:
 			m.unsortedBlocks <- block
 		}
 
-		from += num
+		from += numBlocks
 	}
 }
 

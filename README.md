@@ -30,9 +30,11 @@ go build ./cmd/createtree/
 Create a Map in Trillian:
 ```bash
 go build ./cmd/createtree/
-./createtree --admin_server=localhost:8095 --tree_type=MAP --hash_strategy=TEST_MAP_HASHER 
+./createtree --admin_server=localhost:8095 --tree_type=MAP --hash_strategy=TEST_MAP_HASHER
 <MAPID printed here>
 ```
+
+Save the LOGID and MAPID, you will need them later.
 
 Build and run geth.
 We're going to use the rinkeby.io test-net because everything takes too long on
@@ -41,26 +43,29 @@ the main net :)
 
 ```bash
 # In yet another terminal:
+go get github.com/ethereum/go-ethereum
+cd ${GOPATH}/src/github.com/ethereum/go-ethereum
 make geth
 
 # download rinkeby config, and init the data dir:
 wget https://www.rinkeby.io/rinkeby.json
-${GOPATH}/src/github.com/ethereum/go-ethereum/build/bin/geth --datadir=$HOME/.rinkeby init rinkeby.json
+build/bin/geth --datadir=$HOME/rinkeby init rinkeby.json
 
 # Finally, run geth to sync the data:
-${GOPATH}/src/github.com/ethereum/go-ethereum/build/bin/geth --networkid=4 --datadir=$HOME/.rinkeby --cache=1024 --syncmode=full --verbosity 3 --ethstats='yournode:Respect my authoritah!@stats.rinkeby.io' --bootnodes=enode://a24ac7c5484ef4ed0c5eb2d36620ba4e4aa13b8c84684e1b4aab0cebea2ae45cb4d375b77eab56516d34bfbd3c1a833fc51296ff084b770b94fb9028c4d25ccf@52.169.42.101:30303 --rpc console
+build/bin/geth --networkid=4 --datadir=$HOME/rinkeby --cache=1024 --syncmode=full --verbosity 3 --ethstats='yournode:Respect my authoritah!@stats.rinkeby.io' --bootnodes=enode://a24ac7c5484ef4ed0c5eb2d36620ba4e4aa13b8c84684e1b4aab0cebea2ae45cb4d375b77eab56516d34bfbd3c1a833fc51296ff084b770b94fb9028c4d25ccf@52.169.42.101:30303 --rpc console
 
 ```
 
-Build and run the tether Follower:
+Build and run the tether Follower (here's where you use your saved LOGID):
 
 ```bash
 # Yes, another terminal:
+go get github.com/9600org/tether
+cd $(GOPATH)/github.com/9600org/tether
 go run ./cmd/follower/main.go --geth=http://127.0.0.1:8545 --trillian_log=localhost:8090 --log_id LOGID --logtostderr
 ```
 
-Build and run the tether Mapper:
-(Note this doesn't actuall map anything, yet, so set MAPID to some random non-zero number.)
+Build and run the tether Mapper (here's where you use your saved LOGID and MAPID):
 
 ```bash
 # ... yup
@@ -68,5 +73,3 @@ go run ./cmd/mapper/main.go --logtostderr --trillian_log=localhost:8090 --log_id
 ```
 
 Watch as your diskspace gets eaten.
-
-

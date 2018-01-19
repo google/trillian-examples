@@ -31,6 +31,8 @@ const (
 	oneEther int64 = 1000000000000000000
 )
 
+var oneEtherRatio = big.NewFloat(float64(1) / float64(oneEther))
+
 type Mapper struct {
 	logID, mapID int64
 	tlog         trillian.TrillianLogClient
@@ -141,6 +143,13 @@ func deriveChainId(v *big.Int) *big.Int {
 	return v.Div(v, big.NewInt(2))
 }
 
+func ethBalance(b *big.Int) string {
+	a := &big.Float{}
+	a.SetInt(b)
+	a = a.Mul(a, oneEtherRatio)
+	return fmt.Sprintf("Ξ%s", a.String())
+}
+
 // deriveSigner makes a *best* guess about which signer to use.
 func deriveSigner(V *big.Int) types.Signer {
 	if V.Sign() != 0 && isProtectedV(V) {
@@ -172,6 +181,7 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 	// Add miner credit
 	minerIndex := index(b.Coinbase().Bytes())
 	credit := big.NewInt(int64(5) * int64(1+len(b.Uncles())/32))
+	glog.Infof("Miner credit: %s", credit.String())
 	credit.Mul(credit, big.NewInt(oneEther))
 	deltas[minerIndex] = credit
 
@@ -185,9 +195,19 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 		if err != nil {
 			return fmt.Errorf("unable to derive sender on tx@%d@%v", i, b.Number())
 		}
+
+		// Handle sender costs
+		sIndex := index(from.Bytes())
+		sBal, ok := deltas[sIndex]
+		if !ok {
+			sBal = big.NewInt(0)
+		}
+		sBal.Sub(sBal, tx.Cost())
+		deltas[sIndex] = sBal
+
 		to := tx.To()
 		if to == nil {
-			glog.Infof("Ignoring start-contract TX with nil To: address %d@%v", i, b.Number())
+			glog.Infof("start-contract TX with nil To: address %d@%v", i, b.Number())
 			continue
 		}
 
@@ -198,14 +218,6 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 		}
 		rBal.Add(rBal, tx.Value())
 		deltas[rIndex] = rBal
-
-		sIndex := index(from.Bytes())
-		sBal, ok := deltas[sIndex]
-		if !ok {
-			sBal = big.NewInt(0)
-		}
-		sBal.Sub(sBal, tx.Cost())
-		deltas[sIndex] = sBal
 
 		{
 			// only using floats for printing, map should use the fixed point representation!
@@ -261,11 +273,11 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 			continue
 		}
 		delete(deltas, k)
-		glog.V(1).Infof("index %x... had: Ξ%f", l.Leaf.Index[:5], (float64(bal.Int64()) / float64(oneEther)))
+		glog.V(1).Infof("index %x... had: %s", l.Leaf.Index[:5], ethBalance(bal))
 		bal.Add(bal, d)
 		l.Leaf.LeafValue = []byte(bal.String())
 		setRequest.Leaves = append(setRequest.Leaves, l.Leaf)
-		glog.Infof("index %x... now has: Ξ%f", l.Leaf.Index[:5], (float64(bal.Int64()) / float64(oneEther)))
+		glog.Infof("index %x... now has: %s", l.Leaf.Index[:5], ethBalance(bal))
 	}
 
 	if len(deltas) != 0 {

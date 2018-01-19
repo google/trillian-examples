@@ -21,9 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/golang/glog"
 	"github.com/google/trillian"
+	"github.com/google/trillian-examples/etherslurp/follower"
 	"google.golang.org/grpc"
-
-	"trillian-examples-ethereum/follower"
 )
 
 var (

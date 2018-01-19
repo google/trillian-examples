@@ -20,9 +20,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian"
+	"github.com/google/trillian-examples/etherslurp/mapper"
 	"google.golang.org/grpc"
-
-	"trillian-examples-ethereum/mapper"
 )
 
 var (

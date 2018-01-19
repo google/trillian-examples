@@ -19,7 +19,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -49,8 +48,8 @@ func New(tl trillian.TrillianLogClient, logID int64, tm trillian.TrillianMapClie
 		tlog:  tl,
 		tmap:  tm,
 
-		unsortedBlocks: make(chan *types.Block, 1000),
-		sortedBlocks:   make(chan *types.Block, 1000),
+		unsortedBlocks: make(chan *types.Block, 200),
+		sortedBlocks:   make(chan *types.Block, 200),
 	}
 }
 
@@ -59,14 +58,12 @@ const maxNumBlocks int64 = 100
 var numBlocks = maxNumBlocks
 
 func (m *Mapper) fetchBlocks(ctx context.Context, from int64) {
-	ticker := time.NewTicker(time.Second)
-
 nextAttempt:
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		default:
 		}
 
 		leaves := make([]int64, numBlocks)
@@ -78,10 +75,14 @@ nextAttempt:
 		if err != nil {
 			glog.Errorf("Failed to get %d leaves starting at index %d: %v", numBlocks, from, err)
 			numBlocks /= 2
+			if numBlocks == 0 {
+				numBlocks = 1
+			}
+			time.Sleep(time.Second)
 			continue nextAttempt
 		}
 		if numBlocks < maxNumBlocks {
-			numBlocks += (maxNumBlocks - numBlocks) / 2
+			numBlocks++
 		}
 
 		for _, l := range entries.Leaves {
@@ -98,10 +99,7 @@ nextAttempt:
 }
 
 func (m *Mapper) pipelineBlocks(ctx context.Context, from int64) {
-	ticker := time.NewTicker(time.Second)
 	blocksByNumber := make(map[int64]*types.Block)
-
-	go m.fetchBlocks(ctx, from)
 
 nextAttempt:
 	for {
@@ -112,19 +110,17 @@ nextAttempt:
 			return
 		case b := <-m.unsortedBlocks:
 			blocksByNumber[b.Number().Int64()] = b
-		case <-ticker.C:
-		}
-
-		// try to sort some blocks:
-		for {
-			b, found := blocksByNumber[from]
-			if !found {
-				continue nextAttempt
+			// try to sort some blocks:
+			for {
+				b, found := blocksByNumber[from]
+				if !found {
+					continue nextAttempt
+				}
+				delete(blocksByNumber, from)
+				m.sortedBlocks <- b
+				from++
 			}
-			m.sortedBlocks <- b
-			from++
 		}
-
 	}
 }
 
@@ -300,15 +296,18 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 	return nil
 }
 
-func (m *Mapper) Map(ctx context.Context) {
-	from := int64(0)
-	go m.pipelineBlocks(ctx, from)
+func (m *Mapper) Map(ctx context.Context, from int64) {
+	go m.fetchBlocks(ctx, 0)
+	go m.pipelineBlocks(ctx, 0)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case nextBlock := <-m.sortedBlocks:
+			if nextBlock.Number().Int64() < from {
+				continue
+			}
 			if nextBlock.Number().Int64() != from {
 				glog.Exitf("Got unexpected block number %s, wanted %d", nextBlock.Number(), from)
 			}

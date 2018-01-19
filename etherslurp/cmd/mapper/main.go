@@ -29,6 +29,7 @@ var (
 	trillianMap = flag.String("trillian_map", "", "URL of the Trillian Map RPC server.")
 	logID       = flag.Int64("log_id", 0, "Trillian LogID to populate.")
 	mapID       = flag.Int64("map_id", 0, "Trillian MapID to populate.")
+	from        = flag.Int64("from", 0, "Block to start at.")
 )
 
 func main() {
@@ -53,5 +54,5 @@ func main() {
 	}
 
 	m := mapper.New(trillian.NewTrillianLogClient(tlc), *logID, trillian.NewTrillianMapClient(tmc), *mapID)
-	m.Map(ctx)
+	m.Map(ctx, *from)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"math/big"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian"
+	"github.com/google/trillian/merkle"
+	"github.com/google/trillian/merkle/maphasher"
 )
 
 const page = `
@@ -26,7 +29,26 @@ const page = `
 	{{if .ErrorText}}
 		<font color="darkred">{{.ErrorText}}</font>
 	{{else if .AccountID}}
-	Account <b>{{.AccountID}}</b> has <b>{{.Amount}}<b/>
+	Account <i>{{.AccountID}}</i><br/>
+	Balance <i>{{.Amount}}</i><br/>
+	As at block <i>XXX</i><br/>
+	<br/>
+	<br/>
+	Inclusion Proof is
+	{{if .ProofValid}}
+	  <font color="green">{{.ProofDesc}}</font>
+  {{else}}
+	  <font color="red">{{.ProofDesc}}</font>
+	{{end}}
+	<br/>
+	<br/>
+	SMR:<br/>
+	<pre>{{.SMR}}</pre>
+	</br>
+	</br>
+	InclusionProof:<br/>
+	<pre>{{.Proof}}</pre>
+	<br/>
 	{{end}}
 
 	<br/>
@@ -58,9 +80,13 @@ type UI struct {
 const keyAccount = "account"
 
 type accountInfo struct {
-	AccountID string
-	Amount    string
-	ErrorText string
+	AccountID  string
+	Amount     string
+	ErrorText  string
+	ProofValid bool
+	ProofDesc  string
+	Proof      string
+	SMR        string
 }
 
 func index(a []byte) []byte {
@@ -68,13 +94,13 @@ func index(a []byte) []byte {
 	return r[:]
 }
 
-func (ui *UI) getLeaf(ctx context.Context, ac string) (*trillian.MapLeaf, error) {
+func (ui *UI) getLeaf(ctx context.Context, ac string) (*trillian.MapLeafInclusion, *trillian.SignedMapRoot, error) {
 	if strings.HasPrefix(ac, "0x") {
 		ac = ac[2:]
 	}
 	acBytes, err := hex.DecodeString(ac)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't decode accountID hex string: %v", err)
+		return nil, nil, fmt.Errorf("couldn't decode accountID hex string: %v", err)
 	}
 
 	getRequest := &trillian.GetMapLeavesRequest{
@@ -85,10 +111,10 @@ func (ui *UI) getLeaf(ctx context.Context, ac string) (*trillian.MapLeaf, error)
 	glog.Info("Get map leaves...")
 	get, err := ui.tmc.GetLeaves(ctx, getRequest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current balance for ac %v: %v", ac, err)
+		return nil, nil, fmt.Errorf("failed to get current balance for ac %v: %v", ac, err)
 	}
 	glog.Infof("Got %d map leaves.", len(get.MapLeafInclusion))
-	return get.MapLeafInclusion[0].Leaf, nil
+	return get.MapLeafInclusion[0], get.MapRoot, nil
 }
 
 func ethBalance(b *big.Int) string {
@@ -98,26 +124,45 @@ func ethBalance(b *big.Int) string {
 	return fmt.Sprintf("Ξ%s", a.String())
 }
 
+func jsonOrErr(a interface{}) string {
+	r, err := json.MarshalIndent(a, "", "  ")
+	if err != nil {
+		return err.Error()
+	}
+	return string(r)
+}
+
 func (ui *UI) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	acString := req.FormValue(keyAccount)
 
 	var ac accountInfo
 	if acString != "" {
 		ac.AccountID = acString
-		leaf, err := ui.getLeaf(req.Context(), acString)
+		leafInc, smr, err := ui.getLeaf(req.Context(), acString)
 		if err != nil {
 			ac.ErrorText = err.Error()
-		}
-		if len(leaf.LeafValue) == 0 {
-			ac.ErrorText = fmt.Sprintf("Account %s is unknown", acString)
 		} else {
-			bal := big.NewInt(0)
-			var ok bool
-			bal, ok = bal.SetString(string(leaf.LeafValue), 10)
-			if !ok {
-				ac.ErrorText = fmt.Sprintf("Couldn't parse account balance %v", string(leaf.LeafValue))
+			if len(leafInc.Leaf.LeafValue) == 0 {
+				ac.ErrorText = fmt.Sprintf("Account %s is unknown", acString)
 			} else {
-				ac.Amount = ethBalance(bal)
+				bal := big.NewInt(0)
+				var ok bool
+				bal, ok = bal.SetString(string(leafInc.Leaf.LeafValue), 10)
+				if !ok {
+					ac.ErrorText = fmt.Sprintf("Couldn't parse account balance %v", string(leafInc.Leaf.LeafValue))
+				} else {
+					ac.Amount = ethBalance(bal)
+					err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf.Index, leafInc.Leaf.LeafValue, smr.RootHash, leafInc.Inclusion, maphasher.Default)
+					if err != nil {
+						ac.ProofValid = false
+						ac.ProofDesc = fmt.Sprintf("INVALID: %s", err)
+					} else {
+						ac.ProofValid = true
+						ac.ProofDesc = "VALID"
+					}
+					ac.Proof = jsonOrErr(leafInc.Inclusion)
+					ac.SMR = jsonOrErr(smr)
+				}
 			}
 		}
 	}

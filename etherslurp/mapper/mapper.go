@@ -282,24 +282,22 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 }
 
 func (m *Mapper) Map(ctx context.Context) {
-	go m.pipelineBlocks(ctx, 0)
+	from := int64(0)
+	go m.pipelineBlocks(ctx, from)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case nextBlock := <-m.sortedBlocks:
+			if nextBlock.Number().Int64() != from {
+				glog.Exitf("Got unexpected block number %s, wanted %d", nextBlock.Number(), from)
+			}
 			// TODO(al): batching...
 			if err := m.mapTransactionsFrom(ctx, nextBlock); err != nil {
 				glog.Exitf("Couldn't map transactions from block %v", err)
 			}
+			from++
 		}
-
-		/*
-			mapHead, err := m.tmap.GetSignedMapRoot(ctx, &trillian.GetSignedMapRootRequest{MapId: m.mapID})
-			if err != nil {
-				glog.Errorf("Failed to get latest map head: %v", err)
-			}
-		*/
 	}
 }

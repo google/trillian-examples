@@ -74,3 +74,12 @@ go run ./etherslurp/cmd/mapper/main.go --logtostderr --trillian_log=localhost:80
 ```
 
 Watch as your diskspace gets eaten.
+
+# UI
+If you'd like to inspect the contents of the map, there's a very simple web UI you can use to do so (again, using your saved MAPID):
+
+```bash
+# in another terminal, run:
+cd $(GOPATH)/github.com/google/trillian-examples
+go run ./etherslurp/cmd/ui/main.go --logtostderr --trillian_map=localhost:8095 --map_id=MAPID
+```

@@ -55,14 +55,14 @@ make rungeth
 
 ```
 
-Build and run the tether Follower (here's where you use your saved LOGID):
+Build and run the tether Follower:
 
 ```bash
 # Yes, another terminal:
 make follower
 ```
 
-Build and run the tether Mapper (here's where you use your saved LOGID and MAPID):
+Build and run the tether Mapper:
 
 ```bash
 # ... yup

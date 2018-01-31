@@ -12,3 +12,12 @@
 
 # Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
 .glide/
+
+# Emacs backups
+*~
+
+# Artefacts of the etherslurp demo
+etherslurp/OME
+etherslurp/logid
+etherslurp/mapid
+etherslurp/rinkeby.json

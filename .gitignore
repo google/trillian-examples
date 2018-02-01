@@ -25,7 +25,9 @@ coverage.txt
 
 # Terraform related files
 *.tfstate
-*.tfstate.backup# Artefacts of the etherslurp demo
+*.tfstate.backup
+
+# Artefacts of the etherslurp demo
 etherslurp/OME
 etherslurp/logid
 etherslurp/mapid

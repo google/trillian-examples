@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	regname     = flag.String("register", "register", "name of register (e.g. 'country')")
+	regName     = flag.String("register", "register", "name of register (e.g. 'country')")
 	trillianLog = flag.String("trillian_log", "localhost:8090", "address of the Trillian Log RPC server.")
 	logId       = flag.Int64("log_id", 0, "Trillian LogID to populate.")
 )
@@ -33,6 +33,7 @@ type leaf struct {
 	Item  map[string]interface{}
 }
 
+// Process implements the register.ItemProcessor interface.
 func (d *dumper) Process(e map[string]interface{}, h string, i map[string]interface{}) error {
 	log.Printf("%#v %s %#v", e, h, i)
 
@@ -70,7 +71,7 @@ func (d *dumper) Process(e map[string]interface{}, h string, i map[string]interf
 func main() {
 	flag.Parse()
 
-	r, err := register.NewRegister(*regname)
+	r, err := register.NewRegister(*regName)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/golang/glog"
 	"github.com/google/trillian"
-	"google.golang.org/genproto/googleapis/rpc/code"
+	"google.golang.org/grpc/codes"
 )
 
 type FollowerOpts struct {
@@ -109,8 +109,8 @@ nextAttempt:
 				glog.Errorf("Failed to Queue block %v: %v", nextBlock, err)
 				continue nextAttempt
 			}
-			c := code.Code(r.QueuedLeaf.GetStatus().GetCode())
-			if c != code.Code_OK {
+			c := codes.Code(r.QueuedLeaf.GetStatus().GetCode())
+			if c != codes.OK {
 				glog.Errorf("Leaf add failed: %s", r.QueuedLeaf.GetStatus())
 			}
 			if nextBlock%1000 == 0 {

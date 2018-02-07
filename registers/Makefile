@@ -15,3 +15,6 @@ createlog:: $R/logid
 
 $R/logid:
 	cd $T && go build ./cmd/createtree/ && ./createtree --admin_server=localhost:8090 > $R/logid
+
+deletelog::
+	cd $T && go run cmd/deletetree/main.go --admin_server=localhost:8090 --log_id=`cat $R/logid`

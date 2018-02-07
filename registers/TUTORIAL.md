@@ -40,11 +40,11 @@ logid):
 ```make createlog```
 
 So now we have a log ready for entries from the register. To fill that
-log, we connect to the log using ```grpc.Dial()```, then create a new
-log client with ```trillian.NewTrillianLogClient```.
+log, the application connects to the log using `grpc.Dial()`, then
+creates a new log client with `trillian.NewTrillianLogClient`.
 
-We then feed each entry as we get it to the log, using
-```QueueLeaf()``` on the log client. The rest is just housekeeping.
+It then feeds each entry as we get it to the log, using
+`QueueLeaf()` on the log client. The rest is just housekeeping.
 
 I chose to use JSON to encode the leaves because the registers
 themselves use JSON. JSON is not actually a very good encoding format,

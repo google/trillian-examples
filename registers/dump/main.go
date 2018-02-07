@@ -9,8 +9,8 @@ import (
 
 	"github.com/benlaurie/gds-registers/register"
 	"github.com/google/trillian"
-	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 )
 
 var (
@@ -53,16 +53,16 @@ func (d *dumper) Process(e map[string]interface{}, h string, i map[string]interf
 	}
 
 	// And check everything worked
-	c := code.Code(r.QueuedLeaf.GetStatus().GetCode())
+	c := codes.Code(r.QueuedLeaf.GetStatus().GetCode())
 	// Do we really need to cast?
-	if c != code.Code_OK && c != code.Code_ALREADY_EXISTS {
-		return fmt.Errorf("Bad return status: %s", r.QueuedLeaf.Status)
+	if c != codes.OK && c != codes.AlreadyExists {
+		return fmt.Errorf("bad return status: %s", r.QueuedLeaf.Status)
 	}
 
 	// count
-	if c == code.Code_OK {
+	if c == codes.OK {
 		d.newEntries++
-	} else if c == code.Code_ALREADY_EXISTS {
+	} else if c == codes.AlreadyExists {
 		d.duplicateEntries++
 	}
 	return nil
@@ -81,6 +81,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to dial Trillian Log: %v", err)
 	}
+	defer g.Close()
 
 	tc := trillian.NewTrillianLogClient(g)
 

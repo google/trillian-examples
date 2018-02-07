@@ -34,8 +34,8 @@ Run the log server (this will tie up a terminal window):
 
 ```make tlserver```
 
-And create a log (if you need to redo this, you'll need to delete
-logid):
+And create a log (if you need to redo this, you can run `make
+deletelog` first):
 
 ```make createlog```
 

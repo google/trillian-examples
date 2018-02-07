@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/golang/glog"
 	"github.com/google/trillian"
+	"google.golang.org/genproto/googleapis/rpc/code"
 )
 
 type FollowerOpts struct {
@@ -103,9 +104,14 @@ nextAttempt:
 			// either we can use the Mirroring APIs once they're ready, or use the
 			// hash chain hashes to sort it out in the wash when we construct the
 			// Map from the entries in the Log.
-			if _, err := f.tc.QueueLeaves(ctx, &trillian.QueueLeavesRequest{LogId: f.logID, Leaves: []*trillian.LogLeaf{leaf}}); err != nil {
+			r, err := f.tc.QueueLeaf(ctx, &trillian.QueueLeafRequest{LogId: f.logID, Leaf: leaf})
+			if err != nil {
 				glog.Errorf("Failed to Queue block %v: %v", nextBlock, err)
 				continue nextAttempt
+			}
+			c := code.Code(r.QueuedLeaf.GetStatus().GetCode())
+			if c != code.Code_OK {
+				glog.Errorf("Leaf add failed: %s", r.QueuedLeaf.GetStatus())
 			}
 			if nextBlock%1000 == 0 {
 				glog.Infof("Copied to %v", nextBlock)

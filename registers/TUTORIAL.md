@@ -1,3 +1,7 @@
+This tutorial will show you how to get started with Trillian, build a
+quick working demo, and then transform that into a verifiable,
+reliable service.
+
 Step 1
 ------
 
@@ -12,5 +16,6 @@ You can run it with
 
 ```go run dump/main.go```
 
-By default it uses the "register" register (a list of all registers)
-but you can point it at others with the ```--register``` flag.
+By default it uses the ["register" register (a list of all
+registers)](https://register.register.gov.uk/) but you can point it at
+others with the `--register` flag.

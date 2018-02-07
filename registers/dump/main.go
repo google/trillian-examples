@@ -8,12 +8,13 @@ import (
 )
 
 var (
-	regname = flag.String("register", "register", "name of register (e.g. 'country')")
+	regName = flag.String("register", "register", "name of register (e.g. 'country')")
 )
 
 type dumper struct {
 }
 
+// Process implements the register.ItemProcessor interface.
 func (*dumper) Process(e map[string]interface{}, h string, i map[string]interface{}) error {
 	log.Printf("%#v %s %#v", e, h, i)
 	return nil
@@ -22,7 +23,7 @@ func (*dumper) Process(e map[string]interface{}, h string, i map[string]interfac
 func main() {
 	flag.Parse()
 
-	r, err := register.NewRegister(*regname)
+	r, err := register.NewRegister(*regName)
 	if err != nil {
 		log.Fatal(err)
 	}

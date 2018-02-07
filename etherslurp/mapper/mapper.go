@@ -33,6 +33,7 @@ const (
 
 var oneEtherRatio = big.NewFloat(float64(1) / float64(oneEther))
 
+// Mapper handles the mapping between the Trillian Log and Map.
 type Mapper struct {
 	logID, mapID int64
 	tlog         trillian.TrillianLogClient
@@ -42,6 +43,7 @@ type Mapper struct {
 	sortedBlocks   chan *types.Block
 }
 
+// New creates a new Mapper.
 func New(tl trillian.TrillianLogClient, logID int64, tm trillian.TrillianMapClient, mapID int64) *Mapper {
 	return &Mapper{
 		logID: logID,
@@ -134,8 +136,8 @@ func isProtectedV(V *big.Int) bool {
 	return true
 }
 
-// deriveChainId derives the chain id from the given v parameter
-func deriveChainId(v *big.Int) *big.Int {
+// deriveChainID derives the chain id from the given v parameter
+func deriveChainID(v *big.Int) *big.Int {
 	if v.BitLen() <= 64 {
 		v := v.Uint64()
 		if v == 27 || v == 28 {
@@ -157,10 +159,10 @@ func ethBalance(b *big.Int) string {
 // deriveSigner makes a *best* guess about which signer to use.
 func deriveSigner(V *big.Int) types.Signer {
 	if V.Sign() != 0 && isProtectedV(V) {
-		return types.NewEIP155Signer(deriveChainId(V))
-	} else {
-		return types.HomesteadSigner{}
+		return types.NewEIP155Signer(deriveChainID(V))
 	}
+
+	return types.HomesteadSigner{}
 }
 
 func fmtAddress(a []byte) string {
@@ -297,6 +299,8 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 	return nil
 }
 
+// Map starts mapping operations. This will continue mapping blocks until the provided context
+// expires or there is an error that cannot be handled, which will cause an exit.
 func (m *Mapper) Map(ctx context.Context, from int64) {
 	go m.fetchBlocks(ctx, 0)
 	go m.pipelineBlocks(ctx, 0)

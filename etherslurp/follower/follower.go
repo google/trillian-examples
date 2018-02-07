@@ -25,19 +25,23 @@ import (
 	"github.com/google/trillian"
 )
 
-type FollowerOpts struct {
+// Opts encapsulates the options that can be used with a Follower.
+type Opts struct {
 	BatchSize uint64
 }
 
+// Follower provides functionality for reading blocks added to Ethereum and then queuing
+// them into a Trillian Log.
 type Follower struct {
 	logID int64
 	gc    *ethclient.Client
 	tc    trillian.TrillianLogClient
 
-	opts FollowerOpts
+	opts Opts
 }
 
-func New(gc *ethclient.Client, tc trillian.TrillianLogClient, logID int64, opts FollowerOpts) *Follower {
+// New creates a new Follower.
+func New(gc *ethclient.Client, tc trillian.TrillianLogClient, logID int64, opts Opts) *Follower {
 	if opts.BatchSize <= 0 {
 		opts.BatchSize = 100
 	}
@@ -49,6 +53,8 @@ func New(gc *ethclient.Client, tc trillian.TrillianLogClient, logID int64, opts 
 	}
 }
 
+// Follow begins operations to copy blocks into the log. This will continue until the provided
+// context expires or is cancelled.
 func (f *Follower) Follow(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	nextBlock := int64(-1)

@@ -57,7 +57,7 @@ You can run the logger with:
 go run dump/main.go -log_id=`cat logid`
 ```
 
-Note that if you run it a second time, it will not add any new entries
-(unless the underlying GDS register has changed) because duplicate
-entries are ignored by Trillian, by default at least. (FIXME: can
-dupes occur if added fast enough? Presumably yes?)
+Note that if you run it a second time, it will not usually add any new
+entries, though this is not guaranteed by Trillian, depending on
+exactly how it is configured. That is, it is possible to get duplicate
+log entries under some circumstances.

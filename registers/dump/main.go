@@ -16,12 +16,12 @@ import (
 var (
 	regName     = flag.String("register", "register", "name of register (e.g. 'country')")
 	trillianLog = flag.String("trillian_log", "localhost:8090", "address of the Trillian Log RPC server.")
-	logId       = flag.Int64("log_id", 0, "Trillian LogID to populate.")
+	logID       = flag.Int64("log_id", 0, "Trillian LogID to populate.")
 )
 
 type dumper struct {
 	tc               trillian.TrillianLogClient
-	logId            int64
+	logID            int64
 	ctx              context.Context
 	newEntries       uint64
 	duplicateEntries uint64
@@ -46,7 +46,7 @@ func (d *dumper) Process(e map[string]interface{}, h string, i map[string]interf
 
 	// Send to Trillian
 	tl := &trillian.LogLeaf{LeafValue: j}
-	q := &trillian.QueueLeafRequest{LogId: d.logId, Leaf: tl}
+	q := &trillian.QueueLeafRequest{LogId: d.logID, Leaf: tl}
 	r, err := d.tc.QueueLeaf(d.ctx, q)
 	if err != nil {
 		return err
@@ -85,7 +85,7 @@ func main() {
 
 	tc := trillian.NewTrillianLogClient(g)
 
-	d := &dumper{tc: tc, ctx: context.Background(), logId: *logId}
+	d := &dumper{tc: tc, ctx: context.Background(), logID: *logID}
 	err = r.GetEntries(d)
 	if err != nil {
 		log.Fatal(err)

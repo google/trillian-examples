@@ -18,3 +18,4 @@ $R/logid:
 
 deletelog::
 	cd $T && go run cmd/deletetree/main.go --admin_server=localhost:8090 --log_id=`cat $R/logid`
+	rm $R/logid

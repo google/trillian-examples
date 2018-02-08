@@ -54,9 +54,8 @@ func (d *dumper) Process(e map[string]interface{}, h string, i map[string]interf
 
 	// And check everything worked
 	c := codes.Code(r.QueuedLeaf.GetStatus().GetCode())
-	// Do we really need to cast?
 	if c != codes.OK && c != codes.AlreadyExists {
-		return fmt.Errorf("bad return status: %s", r.QueuedLeaf.Status)
+		return fmt.Errorf("bad return status: %v", r.QueuedLeaf.GetStatus())
 	}
 
 	// count

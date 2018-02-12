@@ -61,3 +61,35 @@ Note that if you run it a second time, it will not usually add any new
 entries, though this is not guaranteed by Trillian, depending on
 exactly how it is configured. That is, it is possible to get duplicate
 log entries under some circumstances.
+
+Step 3
+------
+
+Now we've put stuff into the log, how do we get it out again? If all
+we want to do is dump the records, then its easy. We'll get fancy
+later.
+
+First of all, nothing gets actually committed to the log unless we're
+running a signer. So let's get one started - this will tie another
+terminal up.
+
+```make tlsigner```
+
+Then our application can connect to the log in the usual way and
+retrieve entries from the log using `GetLeavesByRange` on the log
+client. We first find out how many entries there are in the log with
+`GetLatestSignedLogRoot` (we'll come back to why its signed later).
+
+You can run it like this:
+
+```
+go run extract/main.go --log_id=`cat logid`
+```
+
+One subtlety to pay attention to is server skew - in a real system,
+it is entirely possible that not all Trillian servers will be exactly
+in sync, which could lead to us requesting leaves that the server
+doesn't have. In that case, the server will return the number of
+leaves it does have so we can take appropriate action. Although this
+can't happen in this test setup (since there's only one server) it is
+a bad idea to ignore the problem, so we deal with it now.

@@ -45,9 +45,14 @@ func main() {
 		// deal with server skew
 		if r.Skew.GetTreeSizeSet() {
 			ts = r.Skew.GetTreeSize()
+			log.Printf("Skew")
 		}
 
-		for m := 0; m < CHUNK && n < ts; n++ {
+		if n < ts && len(r.Leaves) == 0 {
+			log.Fatalf("No progress at leaf %d", n)
+		}
+
+		for m := 0; m < len(r.Leaves) && n < ts; n++ {
 			if r.Leaves[m] == nil {
 				log.Fatalf("Can't get leaf %d (no error)", n)
 			}

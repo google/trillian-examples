@@ -2,6 +2,7 @@ package trillian_client
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/google/trillian"
@@ -49,25 +50,24 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 		g := &trillian.GetLeavesByRangeRequest{LogId: logID, StartIndex: n, Count: CHUNK}
 		r, err := t.tc.GetLeavesByRange(ctx, g)
 		if err != nil {
-			log.Fatalf("Can't get leaf %d: %v", n, err)
+			fmt.Errorf("Can't get leaf %d: %v", n, err)
 		}
 
 		// deal with server skew
 		if r.Skew.GetTreeSizeSet() {
 			ts = r.Skew.GetTreeSize()
-			log.Printf("Skew")
 		}
 
 		if n < ts && len(r.Leaves) == 0 {
-			log.Fatalf("No progress at leaf %d", n)
+			fmt.Errorf("No progress at leaf %d", n)
 		}
 
 		for m := 0; m < len(r.Leaves) && n < ts; n++ {
 			if r.Leaves[m] == nil {
-				log.Fatalf("Can't get leaf %d (no error)", n)
+				fmt.Errorf("Can't get leaf %d (no error)", n)
 			}
 			if r.Leaves[m].LeafIndex != n {
-				log.Fatalf("Got index %d expected %d", r.Leaves[n].LeafIndex, n)
+				fmt.Errorf("Got index %d expected %d", r.Leaves[n].LeafIndex, n)
 			}
 			err := s.Leaf(r.Leaves[m])
 			if err != nil {

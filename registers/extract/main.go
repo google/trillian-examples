@@ -16,8 +16,8 @@ var (
 type logScanner struct {
 }
 
-func (*logScanner) Leaf(n int64, leaf *trillian.LogLeaf) error {
-	log.Printf("leaf %d: %v", n, leaf)
+func (*logScanner) Leaf(leaf *trillian.LogLeaf) error {
+	log.Printf("leaf %d: %v", leaf.LeafIndex, leaf)
 	return nil
 }
 

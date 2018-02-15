@@ -11,7 +11,7 @@ import (
 const CHUNK = 10
 
 type LogScanner interface {
-	Leaf(n int64, leaf *trillian.LogLeaf) error
+	Leaf(leaf *trillian.LogLeaf) error
 }
 
 type TrillianClient interface {
@@ -66,7 +66,10 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 			if r.Leaves[m] == nil {
 				log.Fatalf("Can't get leaf %d (no error)", n)
 			}
-			err := s.Leaf(n, r.Leaves[m])
+			if r.Leaves[m].LeafIndex != n {
+				log.Fatalf("Got index %d expected %d", r.Leaves[n].LeafIndex, n)
+			}
+			err := s.Leaf(r.Leaves[m])
 			if err != nil {
 				return err
 			}

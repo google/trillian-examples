@@ -50,7 +50,7 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 		g := &trillian.GetLeavesByRangeRequest{LogId: logID, StartIndex: n, Count: CHUNK}
 		r, err := t.tc.GetLeavesByRange(ctx, g)
 		if err != nil {
-			fmt.Errorf("Can't get leaf %d: %v", n, err)
+			return fmt.Errorf("Can't get leaf %d: %v", n, err)
 		}
 
 		// deal with server skew
@@ -59,15 +59,15 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 		}
 
 		if n < ts && len(r.Leaves) == 0 {
-			fmt.Errorf("No progress at leaf %d", n)
+			return fmt.Errorf("No progress at leaf %d", n)
 		}
 
 		for m := 0; m < len(r.Leaves) && n < ts; n++ {
 			if r.Leaves[m] == nil {
-				fmt.Errorf("Can't get leaf %d (no error)", n)
+				return fmt.Errorf("Can't get leaf %d (no error)", n)
 			}
 			if r.Leaves[m].LeafIndex != n {
-				fmt.Errorf("Got index %d expected %d", r.Leaves[n].LeafIndex, n)
+				return fmt.Errorf("Got index %d expected %d", r.Leaves[n].LeafIndex, n)
 			}
 			err := s.Leaf(r.Leaves[m])
 			if err != nil {

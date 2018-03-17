@@ -22,3 +22,24 @@ $R/logid:
 deletelog::
 	cd $T && go run cmd/deletetree/main.go --admin_server=localhost:8090 --log_id=`cat $R/logid`
 	rm $R/logid
+
+dump::
+	go run dump/main.go --log_id=`cat logid` --register=statistical-geography
+
+extract::
+	go run extract/main.go --log_id=`cat logid`
+
+tmserver::
+	cd $T && ./trillian_map_server --logtostderr --rpc_endpoint=localhost:8095
+
+createmap:: $R/mapid
+
+$R/mapid:
+	cd $T && go build ./cmd/createtree/ && ./createtree --admin_server=localhost:8095 --tree_type=MAP --hash_strategy=TEST_MAP_HASHER > $R/mapid
+
+deletemap::
+	cd $T && go run cmd/deletetree/main.go --admin_server=localhost:8090 --log_id=`cat $R/mapid`
+	rm $R/mapid
+
+mapper::
+	go run mapper/main.go --log_id=`cat logid` --map_id=`cat mapid`

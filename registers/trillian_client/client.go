@@ -53,9 +53,11 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 			return fmt.Errorf("Can't get leaf %d: %v", n, err)
 		}
 
-		// deal with server skew
-		if r.Skew.GetTreeSizeSet() {
-			ts = r.Skew.GetTreeSize()
+		// Deal with server skew, if tree size has reduced.
+		// Don't allow increases so this terminates eventually.
+		rts := r.SignedLogRoot.TreeSize
+		if rts < ts {
+			ts = rts
 		}
 
 		if n < ts && len(r.Leaves) == 0 {

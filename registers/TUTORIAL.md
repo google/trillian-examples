@@ -113,4 +113,27 @@ very big and we have to build the map up a little at a time.
 The first thing we need to do is iterate through the log, just as we
 did above. So, we refactor the log reading code to live in
 `trillian_client/client.go`, and then use that to retrieve the log,
-one leaf at a time.
+one leaf at a time. You can see the refactored code that uses it in
+`extract/main.go`.
+
+Each log entry is a combination of an "entry" in the register plus an
+"item" from that entry. The "records" in a GDS register consist of the
+latest version of each entry, keyed by the "key" field, combined with
+all the items for that entry. So, we need to make a map that maps from
+entry keys to entry contents plus the items that go with that entry.
+
+[TBD: explain caching. Factor out cache code? Or start with no caching?]
+
+First we need to run a map server:
+
+`make tmserver`
+
+This will occupy a terminal window.
+
+And then create the map:
+
+`make createmap`
+
+Then we can run the mapper:
+
+`make mapper`

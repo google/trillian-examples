@@ -15,9 +15,6 @@ before_install:
   - go get github.com/alecthomas/gometalinter
   - gometalinter --install
 
-install:
-  - go get -d -t github.com/
-  
 script:
   - set +e
   - gometalinter --config=gometalinter.json --deadline=60s etherslurp/...

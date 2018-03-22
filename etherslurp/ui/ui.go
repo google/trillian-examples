@@ -29,6 +29,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/maphasher"
+	"github.com/google/trillian/types"
 )
 
 const page = `
@@ -166,13 +167,19 @@ func (ui *UI) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					ac.ErrorText = fmt.Sprintf("Couldn't parse account balance %v", string(leafInc.Leaf.LeafValue))
 				} else {
 					ac.Amount = ethBalance(bal)
-					err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf.Index, leafInc.Leaf.LeafValue, smr.RootHash, leafInc.Inclusion, maphasher.Default)
-					if err != nil {
+					var root types.MapRootV1
+					if err := root.UnmarshalBinary(smr.MapRoot); err != nil {
 						ac.ProofValid = false
-						ac.ProofDesc = fmt.Sprintf("INVALID: %s", err)
+						ac.ProofDesc = fmt.Sprintf("ERROR: %s", err)
 					} else {
-						ac.ProofValid = true
-						ac.ProofDesc = "VALID"
+						err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf.Index, leafInc.Leaf.LeafValue, root.RootHash, leafInc.Inclusion, maphasher.Default)
+						if err != nil {
+							ac.ProofValid = false
+							ac.ProofDesc = fmt.Sprintf("INVALID: %s", err)
+						} else {
+							ac.ProofValid = true
+							ac.ProofDesc = "VALID"
+						}
 					}
 					ac.Proof = jsonOrErr(leafInc.Inclusion)
 					ac.SMR = jsonOrErr(smr)

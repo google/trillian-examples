@@ -166,7 +166,7 @@ func (ui *UI) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					ac.ErrorText = fmt.Sprintf("Couldn't parse account balance %v", string(leafInc.Leaf.LeafValue))
 				} else {
 					ac.Amount = ethBalance(bal)
-					err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf.Index, leafInc.Leaf.LeafValue, smr.RootHash, leafInc.Inclusion, maphasher.Default)
+					err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf.Index, leafInc.Leaf.LeafValue, smr.GetMapRoot(), leafInc.Inclusion, maphasher.Default)
 					if err != nil {
 						ac.ProofValid = false
 						ac.ProofDesc = fmt.Sprintf("INVALID: %s", err)

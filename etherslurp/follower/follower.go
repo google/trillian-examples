@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/golang/glog"
 	"github.com/google/trillian"
+	"github.com/google/trillian/types"
 )
 
 // Opts encapsulates the options that can be used with a Follower.
@@ -72,7 +73,12 @@ nextAttempt:
 			if err != nil {
 				continue
 			}
-			nextBlock = sth.SignedLogRoot.TreeSize
+			var logRoot types.LogRootV1
+			if err := logRoot.UnmarshalBinary(sth.SignedLogRoot.LogRoot); err != nil {
+				glog.Warningf("Log root did not unmarshal: %v", err)
+				continue
+			}
+			nextBlock = int64(logRoot.TreeSize)
 			glog.Infof("Got starting STH of:\n%+v", sth)
 		}
 

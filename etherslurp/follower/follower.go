@@ -73,6 +73,7 @@ nextAttempt:
 			if err != nil {
 				continue
 			}
+			// TODO(al): Check signature of root before using it.
 			var logRoot types.LogRootV1
 			if err := logRoot.UnmarshalBinary(sth.SignedLogRoot.LogRoot); err != nil {
 				glog.Warningf("Log root did not unmarshal: %v", err)

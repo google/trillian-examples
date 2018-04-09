@@ -5,7 +5,7 @@
 Check out this repo (using Go), and cd to it:
 
 ```bash
-go get -ud github.com/google/trillian-examples/etherslurp
+go get -u -d -t github.com/google/trillian-examples/etherslurp/...
 # the warning "package github.com/google/trillian-examples/etherslurp: no Go files in .../src/github.com/google/trillian-examples/etherslurp" is expected
 # All terminals need to start in this directory
 cd $GOPATH/src/github.com/google/trillian-examples/etherslurp

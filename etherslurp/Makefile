@@ -1,9 +1,13 @@
+ifndef GOPATH
+$(error GOPATH is not set)
+endif
+
 T=$(GOPATH)/src/github.com/google/trillian
 E=$(GOPATH)/src/github.com/google/trillian-examples/etherslurp
 G=$(GOPATH)/src/github.com/ethereum/go-ethereum/build/bin/geth
 
 trillian::
-	go get -u github.com/google/trillian
+	go get -u -d -t github.com/google/trillian/...
 	cd $T && \
 	go build ./server/trillian_log_server && \
 	go build ./server/trillian_log_signer && \

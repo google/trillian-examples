@@ -180,7 +180,6 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 		return nil
 	}
 	glog.Infof("Mapping %d transactions from block @ %v", len(b.Transactions()), b.Number())
-	glog.V(1).Infof("Block: %v", b.String())
 
 	deltas := make(map[string]*big.Int)
 

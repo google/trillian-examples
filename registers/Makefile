@@ -46,3 +46,6 @@ mapper::
 
 extractmap::
 	go run extractmap/main.go --map_id=`cat mapid` N31 W20 E10
+
+extractmap_all::
+	go run extractmap/main.go --map_id=`cat mapid`

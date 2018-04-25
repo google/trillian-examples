@@ -16,6 +16,30 @@ var (
 	mapID       = flag.Int64("map_id", 0, "Trillian MapID to read.")
 )
 
+func getValue(tmc trillian.TrillianMapClient, hash []byte) *string {
+	index := [1][]byte{hash}
+	req := &trillian.GetMapLeavesRequest{
+		MapId: *mapID,
+		Index: index[:],
+	}
+
+	resp, err := tmc.GetLeaves(context.Background(), req)
+	if err != nil {
+		log.Fatalf("Can't get leaf '%s': %v", hash, err)
+	}
+	if resp.MapLeafInclusion[0].Leaf.LeafValue == nil {
+		return nil
+	}
+	s := string(resp.MapLeafInclusion[0].Leaf.LeafValue)
+	return &s
+}
+
+func getRecord(tmc trillian.TrillianMapClient, k string) {
+	fmt.Printf("%s\n", k)
+	resp := getValue(tmc, records.RecordHash(k))
+	fmt.Printf("%v\n", *resp)
+}
+
 func main() {
 	flag.Parse()
 
@@ -25,19 +49,19 @@ func main() {
 	}
 	tmc := trillian.NewTrillianMapClient(g)
 
-	for _, k := range flag.Args() {
-		fmt.Printf("%s\n", k)
-		hash := records.RecordHash(k)
-		index := [1][]byte{hash}
-		req := &trillian.GetMapLeavesRequest{
-			MapId: *mapID,
-			Index: index[:],
+	if len(flag.Args()) == 0 {
+		n := 0
+		for {
+			resp := getValue(tmc, records.KeyHash(n))
+			if resp == nil {
+				break
+			}
+			getRecord(tmc, *resp)
+			n++
 		}
+	}
 
-		resp, err := tmc.GetLeaves(context.Background(), req)
-		if err != nil {
-			log.Fatalf("Can't get leaf '%s': %v", k, err)
-		}
-		fmt.Printf("%v\n", string(resp.MapLeafInclusion[0].Leaf.LeafValue))
+	for _, k := range flag.Args() {
+		getRecord(tmc, k)
 	}
 }

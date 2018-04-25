@@ -145,3 +145,9 @@ Look things up in the map, command line only.
 
 `make tmserver`
 `make extractmap`
+
+Step 6
+------
+
+Refactor so we have a list of keys, so we can implement the /records
+endpoint (in the next step).

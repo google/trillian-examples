@@ -23,12 +23,18 @@ var (
 	mapID       = flag.Int64("map_id", 0, "Trillian MapID to write.")
 )
 
+// Key types
+const (
+	KTRecord = "record:"
+	KTKey    = "key:"
+)
+
 type record struct {
 	Entry map[string]interface{}
 	Items []map[string]interface{}
 }
 
-// add only adds if the item is not already present in Items.
+// add adds an item. Only adds if the item is not already present in Items.
 func (r *record) add(i map[string]interface{}) {
 	for _, ii := range r.Items {
 		if reflect.DeepEqual(i, ii) {
@@ -38,17 +44,58 @@ func (r *record) add(i map[string]interface{}) {
 	r.Items = append(r.Items, i)
 }
 
+type mapInfo struct {
+	mapID int64
+	tc    trillian.TrillianMapClient
+	ctx   context.Context
+}
+
 type recordCache struct {
 	records *lru.Cache
-	mapID   int64
-	tc      trillian.TrillianMapClient
-	ctx     context.Context
+	m       *mapInfo
 }
 
 func newCache(tc trillian.TrillianMapClient, mapID int64, max int, ctx context.Context) *recordCache {
-	c := &recordCache{records: lru.New(max), mapID: mapID, tc: tc, ctx: ctx}
+	c := &recordCache{records: lru.New(max), m: &mapInfo{mapID: mapID, tc: tc, ctx: ctx}}
 	c.records.OnEvicted = func(key lru.Key, value interface{}) { recordEvicted(c, key, value) }
 	return c
+}
+
+func hash(kt string, key string) []byte {
+	hash := sha256.Sum256([]byte(kt + key))
+	return hash[:]
+}
+
+func recordHash(key string) []byte {
+	return hash(KTRecord, key)
+}
+
+func keyHash(index int) []byte {
+	return hash(KTKey, string(index))
+}
+
+func addToMap(m *mapInfo, h []byte, v []byte) {
+	l := trillian.MapLeaf{
+		Index:     h,
+		LeafValue: v,
+	}
+
+	req := trillian.SetMapLeavesRequest{
+		MapId:  m.mapID,
+		Leaves: []*trillian.MapLeaf{&l},
+	}
+
+	_, err := m.tc.SetLeaves(m.ctx, &req)
+	if err != nil {
+		log.Fatalf("SetLeaves() failed: %v", err)
+	}
+}
+
+var keyCount int
+
+func addKey(m *mapInfo, key string) {
+	addToMap(m, keyHash(keyCount), []byte(key))
+	keyCount++
 }
 
 func recordEvicted(c *recordCache, key lru.Key, value interface{}) {
@@ -59,32 +106,19 @@ func recordEvicted(c *recordCache, key lru.Key, value interface{}) {
 		log.Fatalf("Marshal() failed: %v", err)
 	}
 
-	hash := sha256.Sum256([]byte(key.(string)))
-	l := trillian.MapLeaf{
-		Index:     hash[:],
-		LeafValue: v,
-	}
-
-	req := trillian.SetMapLeavesRequest{
-		MapId:  c.mapID,
-		Leaves: []*trillian.MapLeaf{&l},
-	}
-
-	_, err = c.tc.SetLeaves(c.ctx, &req)
-	if err != nil {
-		log.Fatalf("SetLeaves() failed: %v", err)
-	}
+	hash := recordHash(key.(string))
+	addToMap(c.m, hash, v)
 }
 
 func (c *recordCache) getLeaf(key string) (*record, error) {
-	hash := sha256.Sum256([]byte(key))
-	index := [1][]byte{hash[:]}
+	hash := recordHash(key)
+	index := [1][]byte{hash}
 	req := &trillian.GetMapLeavesRequest{
-		MapId: c.mapID,
+		MapId: c.m.mapID,
 		Index: index[:],
 	}
 
-	resp, err := c.tc.GetLeaves(c.ctx, req)
+	resp, err := c.m.tc.GetLeaves(c.m.ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -164,6 +198,7 @@ func (s *logScanner) Leaf(leaf *trillian.LogLeaf) error {
 	}
 	if cr == nil {
 		s.cache.create(k, e, i)
+		addKey(s.cache.m, k)
 		return nil
 	}
 

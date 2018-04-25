@@ -43,3 +43,6 @@ deletemap::
 
 mapper::
 	go run mapper/main.go --log_id=`cat logid` --map_id=`cat mapid`
+
+extractmap::
+	go run extractmap/main.go --map_id=`cat mapid` N31 W20 E10

@@ -137,3 +137,11 @@ And then create the map:
 Then we can run the mapper:
 
 `make mapper`
+
+Step 5
+------
+
+Look things up in the map, command line only.
+
+`make tmserver`
+`make extractmap`

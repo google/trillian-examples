@@ -2,12 +2,12 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"flag"
 	"fmt"
 	"log"
 
 	"github.com/google/trillian"
+	"github.com/google/trillian-examples/registers/records"
 	"google.golang.org/grpc"
 )
 
@@ -27,8 +27,8 @@ func main() {
 
 	for _, k := range flag.Args() {
 		fmt.Printf("%s\n", k)
-		hash := sha256.Sum256([]byte(k))
-		index := [1][]byte{hash[:]}
+		hash := records.RecordHash(k)
+		index := [1][]byte{hash}
 		req := &trillian.GetMapLeavesRequest{
 			MapId: *mapID,
 			Index: index[:],

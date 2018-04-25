@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/golang/groupcache/lru"
 	"github.com/google/trillian"
+	"github.com/google/trillian-examples/registers/records"
 	"github.com/google/trillian-examples/registers/trillian_client"
 	"google.golang.org/grpc"
 )
@@ -21,12 +21,6 @@ var (
 	logID       = flag.Int64("log_id", 0, "Trillian LogID to read.")
 	trillianMap = flag.String("trillian_map", "localhost:8095", "address of the Trillian Map RPC server.")
 	mapID       = flag.Int64("map_id", 0, "Trillian MapID to write.")
-)
-
-// Key types
-const (
-	KTRecord = "record:"
-	KTKey    = "key:"
 )
 
 type record struct {
@@ -61,19 +55,6 @@ func newCache(tc trillian.TrillianMapClient, mapID int64, max int, ctx context.C
 	return c
 }
 
-func hash(kt string, key string) []byte {
-	hash := sha256.Sum256([]byte(kt + key))
-	return hash[:]
-}
-
-func recordHash(key string) []byte {
-	return hash(KTRecord, key)
-}
-
-func keyHash(index int) []byte {
-	return hash(KTKey, string(index))
-}
-
 func addToMap(m *mapInfo, h []byte, v []byte) {
 	l := trillian.MapLeaf{
 		Index:     h,
@@ -94,7 +75,7 @@ func addToMap(m *mapInfo, h []byte, v []byte) {
 var keyCount int
 
 func addKey(m *mapInfo, key string) {
-	addToMap(m, keyHash(keyCount), []byte(key))
+	addToMap(m, records.KeyHash(keyCount), []byte(key))
 	keyCount++
 }
 
@@ -106,12 +87,12 @@ func recordEvicted(c *recordCache, key lru.Key, value interface{}) {
 		log.Fatalf("Marshal() failed: %v", err)
 	}
 
-	hash := recordHash(key.(string))
+	hash := records.RecordHash(key.(string))
 	addToMap(c.m, hash, v)
 }
 
 func (c *recordCache) getLeaf(key string) (*record, error) {
-	hash := recordHash(key)
+	hash := records.RecordHash(key)
 	index := [1][]byte{hash}
 	req := &trillian.GetMapLeavesRequest{
 		MapId: c.m.mapID,

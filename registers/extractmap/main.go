@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -16,27 +15,9 @@ var (
 	mapID       = flag.Int64("map_id", 0, "Trillian MapID to read.")
 )
 
-func getValue(tmc trillian.TrillianMapClient, hash []byte) *string {
-	index := [1][]byte{hash}
-	req := &trillian.GetMapLeavesRequest{
-		MapId: *mapID,
-		Index: index[:],
-	}
-
-	resp, err := tmc.GetLeaves(context.Background(), req)
-	if err != nil {
-		log.Fatalf("Can't get leaf '%s': %v", hash, err)
-	}
-	if resp.MapLeafInclusion[0].Leaf.LeafValue == nil {
-		return nil
-	}
-	s := string(resp.MapLeafInclusion[0].Leaf.LeafValue)
-	return &s
-}
-
 func getRecord(tmc trillian.TrillianMapClient, k string) {
 	fmt.Printf("%s\n", k)
-	resp := getValue(tmc, records.RecordHash(k))
+	resp := records.GetValue(tmc, *mapID, records.RecordHash(k))
 	fmt.Printf("%v\n", *resp)
 }
 
@@ -51,7 +32,7 @@ func main() {
 
 	if len(flag.Args()) == 0 {
 		for n := 0; ; n++ {
-			resp := getValue(tmc, records.KeyHash(n))
+			resp := records.GetValue(tmc, *mapID, records.KeyHash(n))
 			if resp == nil {
 				break
 			}

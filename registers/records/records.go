@@ -1,7 +1,13 @@
 package records
 
 // Key types
-import "crypto/sha256"
+import (
+	"context"
+	"crypto/sha256"
+	"log"
+
+	"github.com/google/trillian"
+)
 
 const (
 	KTRecord = "record:"
@@ -19,4 +25,22 @@ func RecordHash(key string) []byte {
 
 func KeyHash(index int) []byte {
 	return hash(KTKey, string(index))
+}
+
+func GetValue(tmc trillian.TrillianMapClient, id int64, hash []byte) *string {
+	index := [1][]byte{hash}
+	req := &trillian.GetMapLeavesRequest{
+		MapId: id,
+		Index: index[:],
+	}
+
+	resp, err := tmc.GetLeaves(context.Background(), req)
+	if err != nil {
+		log.Fatalf("Can't get leaf '%s': %v", hash, err)
+	}
+	if resp.MapLeafInclusion[0].Leaf.LeafValue == nil {
+		return nil
+	}
+	s := string(resp.MapLeafInclusion[0].Leaf.LeafValue)
+	return &s
 }

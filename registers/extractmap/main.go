@@ -50,14 +50,12 @@ func main() {
 	tmc := trillian.NewTrillianMapClient(g)
 
 	if len(flag.Args()) == 0 {
-		n := 0
-		for {
+		for n := 0; ; n++ {
 			resp := getValue(tmc, records.KeyHash(n))
 			if resp == nil {
 				break
 			}
 			getRecord(tmc, *resp)
-			n++
 		}
 	}
 

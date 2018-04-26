@@ -49,3 +49,6 @@ extractmap::
 
 extractmap_all::
 	go run extractmap/main.go --map_id=`cat mapid`
+
+webserver::
+	go run webserver/main.go --map_id=`cat mapid`

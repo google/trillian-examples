@@ -174,3 +174,5 @@ Then run the webserver:
 `make webserver`
 
 and surf to http://localhost:8080/records.json.
+
+Note that currently only the records.json endpoint is handled.

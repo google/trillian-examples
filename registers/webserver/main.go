@@ -1,8 +1,10 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -17,7 +19,28 @@ var (
 	mapID       = flag.Int64("map_id", 0, "Trillian MapID to read.")
 )
 
+// FIXME: rather than use a global, make a closure around serveRecords
 var tmc trillian.TrillianMapClient
+
+func fixRecord(j string) ([]byte, string) {
+	var v map[string]interface{}
+	json.Unmarshal([]byte(j), &v)
+	log.Printf("%v", v)
+
+	f := make(map[string]interface{})
+	i := v["Entry"].(map[string]interface{})
+	for _, s := range []string{"entry-number", "entry-timestamp", "index-entry-number", "key"} {
+		f[s] = i[s]
+	}
+	f["item"] = v["Items"]
+
+	jj, err := json.Marshal(f)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return jj, f["key"].(string)
+}
 
 func serveRecords(w http.ResponseWriter, r *http.Request) {
 	var err error
@@ -45,6 +68,7 @@ func serveRecords(w http.ResponseWriter, r *http.Request) {
 		start = (start - 1) * size
 	}
 
+	io.WriteString(w, "{")
 	for n := start; n < start+size; n++ {
 		resp := records.GetValue(tmc, *mapID, records.KeyHash(n))
 		if resp == nil {
@@ -52,8 +76,14 @@ func serveRecords(w http.ResponseWriter, r *http.Request) {
 		}
 		resp = records.GetValue(tmc, *mapID, records.RecordHash(*resp))
 		// FIXME: not formatted exactly like GDS registers...
-		fmt.Fprintf(w, "%s\n", *resp)
+		//fmt.Fprintf(w, "%s\n", *resp)
+		r, k := fixRecord(*resp)
+		if n != start {
+			io.WriteString(w, ",")
+		}
+		fmt.Fprintf(w, "\"%s\":%s", k, r)
 	}
+	io.WriteString(w, "}")
 }
 
 func main() {

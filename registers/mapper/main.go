@@ -38,12 +38,14 @@ func (r *record) add(i map[string]interface{}) {
 }
 
 type mapInfo struct {
-	mapID int64
-	tc    trillian.TrillianMapClient
-	ctx   context.Context
+	mapID    int64
+	tc       trillian.TrillianMapClient
+	ctx      context.Context
+	keyCount int
 }
 
 func newInfo(tc trillian.TrillianMapClient, mapID int64, ctx context.Context) *mapInfo {
+	// FIXME: need to figure out current keyCount...
 	i := &mapInfo{mapID: mapID, tc: tc, ctx: ctx}
 	return i
 }
@@ -53,7 +55,7 @@ func (i *mapInfo) createRecord(key string, entry map[string]interface{}, item ma
 	i.saveRecord(key, &record{Entry: entry, Items: ii[:]})
 }
 
-func addToMap(i *mapInfo, h []byte, v []byte) {
+func (i *mapInfo) addToMap(h []byte, v []byte) {
 	l := trillian.MapLeaf{
 		Index:     h,
 		LeafValue: v,
@@ -79,13 +81,11 @@ func (i *mapInfo) saveRecord(key string, value interface{}) {
 	}
 
 	hash := records.RecordHash(key)
-	addToMap(i, hash, v)
+	i.addToMap(hash, v)
 }
 
-var keyCount int
-
-func addKey(m *mapInfo, key string) {
-	addToMap(m, records.KeyHash(keyCount), []byte(key))
+func (i *mapInfo) addKey(key string) {
+	i.addToMap(records.KeyHash(keyCount), []byte(key))
 	keyCount++
 }
 

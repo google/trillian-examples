@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/groupcache/lru"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/registers/trillian_client"
 	"google.golang.org/grpc"
@@ -38,20 +37,23 @@ func (r *record) add(i map[string]interface{}) {
 	r.Items = append(r.Items, i)
 }
 
-type recordCache struct {
-	records *lru.Cache
-	mapID   int64
-	tc      trillian.TrillianMapClient
-	ctx     context.Context
+type mapInfo struct {
+	mapID int64
+	tc    trillian.TrillianMapClient
+	ctx   context.Context
 }
 
-func newCache(tc trillian.TrillianMapClient, mapID int64, max int, ctx context.Context) *recordCache {
-	c := &recordCache{records: lru.New(max), mapID: mapID, tc: tc, ctx: ctx}
-	c.records.OnEvicted = func(key lru.Key, value interface{}) { recordEvicted(c, key, value) }
-	return c
+func newInfo(tc trillian.TrillianMapClient, mapID int64, ctx context.Context) *mapInfo {
+	i := &mapInfo{mapID: mapID, tc: tc, ctx: ctx}
+	return i
 }
 
-func recordEvicted(c *recordCache, key lru.Key, value interface{}) {
+func (i *mapInfo) createRecord(key string, entry map[string]interface{}, item map[string]interface{}) {
+	ii := [1]map[string]interface{}{item}
+	i.saveRecord(key, &record{Entry: entry, Items: ii[:]})
+}
+
+func (i *mapInfo) saveRecord(key string, value interface{}) {
 	fmt.Printf("evicting %v -> %v\n", key, value)
 
 	v, err := json.Marshal(value)
@@ -59,32 +61,32 @@ func recordEvicted(c *recordCache, key lru.Key, value interface{}) {
 		log.Fatalf("Marshal() failed: %v", err)
 	}
 
-	hash := sha256.Sum256([]byte(key.(string)))
+	hash := sha256.Sum256([]byte(key))
 	l := trillian.MapLeaf{
 		Index:     hash[:],
 		LeafValue: v,
 	}
 
 	req := trillian.SetMapLeavesRequest{
-		MapId:  c.mapID,
+		MapId:  i.mapID,
 		Leaves: []*trillian.MapLeaf{&l},
 	}
 
-	_, err = c.tc.SetLeaves(c.ctx, &req)
+	_, err = i.tc.SetLeaves(i.ctx, &req)
 	if err != nil {
 		log.Fatalf("SetLeaves() failed: %v", err)
 	}
 }
 
-func (c *recordCache) getLeaf(key string) (*record, error) {
+func (i *mapInfo) getLeaf(key string) (*record, error) {
 	hash := sha256.Sum256([]byte(key))
 	index := [1][]byte{hash[:]}
 	req := &trillian.GetMapLeavesRequest{
-		MapId: c.mapID,
+		MapId: i.mapID,
 		Index: index[:],
 	}
 
-	resp, err := c.tc.GetLeaves(c.ctx, req)
+	resp, err := i.tc.GetLeaves(i.ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -106,22 +108,18 @@ func (c *recordCache) getLeaf(key string) (*record, error) {
 }
 
 // Get the current record for the given key, possibly going to Trillian to look it up, possibly flushing the cache if needed.
-func (c *recordCache) get(key string) (*record, error) {
-	r, ok := c.records.Get(key)
-	if !ok {
-		rr, err := c.getLeaf(key)
-		if err != nil {
-			return nil, err
-		}
-		c.cacheExisting(key, rr)
-		r = rr
+func (i *mapInfo) get(key string) (*record, error) {
+	r, err := i.getLeaf(key)
+	if err != nil {
+		return nil, err
 	}
 	if r == nil {
 		return nil, nil
 	}
-	return r.(*record), nil
+	return r, nil
 }
 
+/*
 // create creates a new entry or replaces the existing one.
 func (c *recordCache) create(key string, entry map[string]interface{}, item map[string]interface{}) {
 	c.records.Add(key, &record{Entry: entry, Items: []map[string]interface{}{item}})
@@ -134,9 +132,10 @@ func (c *recordCache) cacheExisting(key string, r *record) {
 func (c *recordCache) flush() {
 	c.records.Clear()
 }
+*/
 
 type logScanner struct {
-	cache *recordCache
+	info *mapInfo
 }
 
 func (s *logScanner) Leaf(leaf *trillian.LogLeaf) error {
@@ -158,12 +157,12 @@ func (s *logScanner) Leaf(leaf *trillian.LogLeaf) error {
 	i := l["Item"].(map[string]interface{})
 	log.Printf("k: %s ts: %s", k, t)
 
-	cr, err := s.cache.get(k)
+	cr, err := s.info.get(k)
 	if err != nil {
 		return err
 	}
 	if cr == nil {
-		s.cache.create(k, e, i)
+		s.info.createRecord(k, e, i)
 		return nil
 	}
 
@@ -177,12 +176,13 @@ func (s *logScanner) Leaf(leaf *trillian.LogLeaf) error {
 		return nil
 	} else if t.After(ct) {
 		log.Printf("Replace")
-		s.cache.create(k, e, i)
+		s.info.createRecord(k, e, i)
 		return nil
 	}
 
 	log.Printf("Add")
 	cr.add(i)
+	s.info.saveRecord(k, cr)
 
 	return nil
 }
@@ -199,9 +199,8 @@ func main() {
 	}
 	tmc := trillian.NewTrillianMapClient(g)
 
-	rc := newCache(tmc, *mapID, 3, context.Background())
-	defer rc.flush()
-	err = tc.Scan(*logID, &logScanner{cache: rc})
+	i := newInfo(tmc, *mapID, context.Background())
+	err = tc.Scan(*logID, &logScanner{info: i})
 	if err != nil {
 		log.Fatal(err)
 	}

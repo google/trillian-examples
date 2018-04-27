@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/groupcache/lru"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/registers/trillian_client"
 	"google.golang.org/grpc"
@@ -49,12 +48,12 @@ func newInfo(tc trillian.TrillianMapClient, mapID int64, ctx context.Context) *m
 	return i
 }
 
-func (i *mapInfo) createRecord(key lru.Key, entry map[string]interface{}, item map[string]interface{}) {
+func (i *mapInfo) createRecord(key string, entry map[string]interface{}, item map[string]interface{}) {
 	ii := [1]map[string]interface{}{item}
 	i.saveRecord(key, &record{Entry: entry, Items: ii[:]})
 }
 
-func (i *mapInfo) saveRecord(key lru.Key, value interface{}) {
+func (i *mapInfo) saveRecord(key string, value interface{}) {
 	fmt.Printf("evicting %v -> %v\n", key, value)
 
 	v, err := json.Marshal(value)
@@ -62,7 +61,7 @@ func (i *mapInfo) saveRecord(key lru.Key, value interface{}) {
 		log.Fatalf("Marshal() failed: %v", err)
 	}
 
-	hash := sha256.Sum256([]byte(key.(string)))
+	hash := sha256.Sum256([]byte(key))
 	l := trillian.MapLeaf{
 		Index:     hash[:],
 		LeafValue: v,

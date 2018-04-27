@@ -130,21 +130,6 @@ func (i *mapInfo) get(key string) (*record, error) {
 	return r, nil
 }
 
-/*
-// create creates a new entry or replaces the existing one.
-func (c *recordCache) create(key string, entry map[string]interface{}, item map[string]interface{}) {
-	c.records.Add(key, &record{Entry: entry, Items: []map[string]interface{}{item}})
-}
-
-func (c *recordCache) cacheExisting(key string, r *record) {
-	c.records.Add(key, r)
-}
-
-func (c *recordCache) flush() {
-	c.records.Clear()
-}
-*/
-
 type logScanner struct {
 	info *mapInfo
 }

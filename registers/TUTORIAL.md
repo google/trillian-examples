@@ -122,8 +122,6 @@ latest version of each entry, keyed by the "key" field, combined with
 all the items for that entry. So, we need to make a map that maps from
 entry keys to entry contents plus the items that go with that entry.
 
-[TBD: explain caching. Factor out cache code? Or start with no caching?]
-
 First we need to run a map server:
 
 `make tmserver`

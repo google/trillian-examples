@@ -85,8 +85,8 @@ func (i *mapInfo) saveRecord(key string, value interface{}) {
 }
 
 func (i *mapInfo) addKey(key string) {
-	i.addToMap(records.KeyHash(keyCount), []byte(key))
-	keyCount++
+	i.addToMap(records.KeyHash(i.keyCount), []byte(key))
+	i.keyCount++
 }
 
 func (i *mapInfo) getLeaf(key string) (*record, error) {
@@ -159,7 +159,7 @@ func (s *logScanner) Leaf(leaf *trillian.LogLeaf) error {
 	}
 	if cr == nil {
 		s.info.createRecord(k, e, i)
-		addKey(s.info, k)
+		s.info.addKey(k)
 		return nil
 	}
 

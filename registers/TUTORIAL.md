@@ -30,6 +30,10 @@ Build Trillian:
 
 ```make trillian```
 
+(Note that if you have already have Trillian source, this will update
+it, but the update does not always seem to be reliable, see the
+[Trillian README](https://github.com/google/trillian#using-the-code))
+
 Run the log server (this will tie up a terminal window):
 
 ```make tlserver```

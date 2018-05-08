@@ -2,7 +2,7 @@ T=$(GOPATH)/src/github.com/google/trillian
 R=$(GOPATH)/src/github.com/google/trillian-examples/registers
 
 trillian::
-	go get -u github.com/google/trillian
+	go get -u -t -v github.com/google/trillian
 	cd $T && \
 	go build ./server/trillian_log_server && \
 	go build ./server/trillian_log_signer && \

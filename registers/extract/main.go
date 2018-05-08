@@ -43,8 +43,8 @@ func main() {
 		}
 
 		// deal with server skew
-		if r.Skew.GetTreeSizeSet() {
-			ts = r.Skew.GetTreeSize()
+		if r.SignedLogRoot.TreeSize < ts {
+			ts = r.SignedLogRoot.TreeSize
 			log.Printf("Skew")
 		}
 

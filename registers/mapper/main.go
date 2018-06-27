@@ -72,8 +72,7 @@ func (i *mapInfo) saveRecord(key string, value interface{}) {
 		Leaves: []*trillian.MapLeaf{&l},
 	}
 
-	_, err = i.tc.SetLeaves(i.ctx, &req)
-	if err != nil {
+	if _, err = i.tc.SetLeaves(i.ctx, &req); err != nil {
 		log.Fatalf("SetLeaves() failed: %v", err)
 	}
 }
@@ -124,13 +123,10 @@ type logScanner struct {
 }
 
 func (s *logScanner) Leaf(leaf *trillian.LogLeaf) error {
-	//log.Printf("leaf %d: %s", leaf.LeafIndex, leaf.LeafValue)
 	var l map[string]interface{}
-	err := json.Unmarshal(leaf.LeafValue, &l)
-	if err != nil {
+	if err := json.Unmarshal(leaf.LeafValue, &l); err != nil {
 		return err
 	}
-	//log.Printf("%v", l)
 
 	e := l["Entry"].(map[string]interface{})
 	t, err := time.Parse(time.RFC3339, e["entry-timestamp"].(string))

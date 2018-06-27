@@ -1,3 +1,17 @@
+// Copyright 2018 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package ui
 
 import (
@@ -15,6 +29,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/maphasher"
+	"github.com/google/trillian/types"
 )
 
 const page = `
@@ -63,6 +78,7 @@ const (
 
 var oneEtherRatio = big.NewFloat(float64(1) / float64(oneEther))
 
+// New creates a new UI.
 func New(tmc trillian.TrillianMapClient, mapID int64) *UI {
 	return &UI{
 		mapID: mapID,
@@ -71,6 +87,7 @@ func New(tmc trillian.TrillianMapClient, mapID int64) *UI {
 	}
 }
 
+// UI encapsulates data related to serving the web ui for the application.
 type UI struct {
 	mapID int64
 	tmc   trillian.TrillianMapClient
@@ -95,9 +112,7 @@ func index(a []byte) []byte {
 }
 
 func (ui *UI) getLeaf(ctx context.Context, ac string) (*trillian.MapLeafInclusion, *trillian.SignedMapRoot, error) {
-	if strings.HasPrefix(ac, "0x") {
-		ac = ac[2:]
-	}
+	ac = strings.TrimPrefix(ac, "0x")
 	acBytes, err := hex.DecodeString(ac)
 	if err != nil {
 		return nil, nil, fmt.Errorf("couldn't decode accountID hex string: %v", err)
@@ -152,13 +167,19 @@ func (ui *UI) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					ac.ErrorText = fmt.Sprintf("Couldn't parse account balance %v", string(leafInc.Leaf.LeafValue))
 				} else {
 					ac.Amount = ethBalance(bal)
-					err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf.Index, leafInc.Leaf.LeafValue, smr.RootHash, leafInc.Inclusion, maphasher.Default)
-					if err != nil {
+					var root types.MapRootV1
+					if err := root.UnmarshalBinary(smr.MapRoot); err != nil {
 						ac.ProofValid = false
-						ac.ProofDesc = fmt.Sprintf("INVALID: %s", err)
+						ac.ProofDesc = fmt.Sprintf("ERROR: %s", err)
 					} else {
-						ac.ProofValid = true
-						ac.ProofDesc = "VALID"
+						err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf.Index, leafInc.Leaf.LeafValue, root.RootHash, leafInc.Inclusion, maphasher.Default)
+						if err != nil {
+							ac.ProofValid = false
+							ac.ProofDesc = fmt.Sprintf("INVALID: %s", err)
+						} else {
+							ac.ProofValid = true
+							ac.ProofDesc = "VALID"
+						}
 					}
 					ac.Proof = jsonOrErr(leafInc.Inclusion)
 					ac.SMR = jsonOrErr(smr)
@@ -170,7 +191,4 @@ func (ui *UI) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		glog.Errorf("Failed to write template: %v", err)
 	}
 
-}
-
-func (ui *UI) sendSearchForm(w http.ResponseWriter) {
 }

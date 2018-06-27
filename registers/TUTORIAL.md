@@ -70,7 +70,7 @@ Step 3
 ------
 
 Now we've put stuff into the log, how do we get it out again? If all
-we want to do is dump the records, then its easy. We'll get fancy
+we want to do is dump the records, then it's easy. We'll get fancy
 later.
 
 First of all, nothing gets actually committed to the log unless we're
@@ -82,7 +82,7 @@ terminal up.
 Then our application can connect to the log in the usual way and
 retrieve entries from the log using `GetLeavesByRange` on the log
 client. We first find out how many entries there are in the log with
-`GetLatestSignedLogRoot` (we'll come back to why its signed later).
+`GetLatestSignedLogRoot` (we'll come back to why it's signed later).
 
 You can run it like this:
 

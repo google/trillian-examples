@@ -1,3 +1,5 @@
+// Package trillian_client provides some useful utilities for
+// interacting with Trillian.
 package trillian_client
 
 import (
@@ -9,12 +11,15 @@ import (
 	"google.golang.org/grpc"
 )
 
-const CHUNK = 10
+const chunk = 10
 
+// A type that is passed to TrillianClient.Scan(). Leaf() is called on
+// it for each leaf in the log.
 type LogScanner interface {
 	Leaf(leaf *trillian.LogLeaf) error
 }
 
+// A Trillian client. Create a new one with trillian_client.New().
 type TrillianClient interface {
 	Scan(logID int64, s LogScanner) error
 	Close()
@@ -25,6 +30,8 @@ type trillianClient struct {
 	tc trillian.TrillianLogClient
 }
 
+// New creates and connects new TrillianClient, given the URL of the
+// Trillian server.
 func New(logAddr string) TrillianClient {
 	g, err := grpc.Dial(logAddr, grpc.WithInsecure())
 	if err != nil {
@@ -47,7 +54,7 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 
 	ts := lr.SignedLogRoot.TreeSize
 	for n := int64(0); n < ts; {
-		g := &trillian.GetLeavesByRangeRequest{LogId: logID, StartIndex: n, Count: CHUNK}
+		g := &trillian.GetLeavesByRangeRequest{LogId: logID, StartIndex: n, Count: chunk}
 		r, err := t.tc.GetLeavesByRange(ctx, g)
 		if err != nil {
 			return fmt.Errorf("Can't get leaf %d: %v", n, err)

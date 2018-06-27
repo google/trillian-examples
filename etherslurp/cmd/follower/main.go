@@ -49,6 +49,6 @@ func main() {
 		glog.Exitf("Failed to dial Trillian Log: %v", err)
 	}
 
-	f := follower.New(gc, trillian.NewTrillianLogClient(tc), *logID, follower.FollowerOpts{})
+	f := follower.New(gc, trillian.NewTrillianLogClient(tc), *logID, follower.Opts{})
 	f.Follow(ctx)
 }

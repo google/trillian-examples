@@ -39,7 +39,7 @@ func main() {
 
 	tmc, err := grpc.Dial(*trillianMap, grpc.WithInsecure())
 	if err != nil {
-		//		glog.Exitf("Failed to dial Trillian Map: %v", err)
+		glog.Exitf("Failed to dial Trillian Map: %v", err)
 	}
 
 	ui := ui.New(trillian.NewTrillianMapClient(tmc), *mapID)

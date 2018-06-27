@@ -1,0 +1,23 @@
+{
+  "Deadline": "90s",
+  "Linters": {
+    "license": "./scripts/check_license.sh:PATH:LINE:MESSAGE"
+  },
+  "Enable": [
+    "gocyclo",
+    "gofmt",
+    "goimports",
+    "golint",
+    "license",
+    "megacheck",
+    "misspell",
+    "vet"
+  ],
+  "Exclude": [
+    ".+\\.pb\\.go",
+    ".+\\.pb\\.gw\\.go",
+    "mock_.+\\.go"
+  ],
+  "Cyclo": 25,
+  "Vendor": true
+}

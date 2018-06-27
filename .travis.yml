@@ -1,0 +1,25 @@
+language: go
+
+go:
+  - "1.10.x"
+
+os:
+  - linux
+
+env:
+  -
+  - GOFLAGS='-race'
+
+go_import_path: github.com/google/trillian-examples
+
+before_install:
+  - go get -v github.com/golang/lint/golint
+  - go get github.com/alecthomas/gometalinter
+  - gometalinter --install
+
+script:
+  - set +e
+  - gometalinter --config=gometalinter.json --deadline=60s etherslurp/...
+  - go build github.com/google/trillian-examples/...
+  - go test github.com/google/trillian-examples/...
+

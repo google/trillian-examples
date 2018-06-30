@@ -32,3 +32,7 @@ etherslurp/OME
 etherslurp/logid
 etherslurp/mapid
 etherslurp/rinkeby.json
+
+# Artefacts of the registers demo
+registers/logid
+registers/mapid

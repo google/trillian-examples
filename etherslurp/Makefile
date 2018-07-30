@@ -42,10 +42,13 @@ $E/rinkeby.json:
 	wget https://www.rinkeby.io/rinkeby.json
 
 initgeth:: $G $E/rinkeby.json
-	$G --datadir=$HOME/rinkeby init $E/rinkeby.json
+	$G --datadir=${HOME}/rinkeby init $E/rinkeby.json
 
 rungeth::
-	$G --networkid=4 --datadir=$HOME/rinkeby --cache=1024 --syncmode=full --verbosity 3 --ethstats='yournode:Respect my authoritah!@stats.rinkeby.io' --bootnodes=enode://a24ac7c5484ef4ed0c5eb2d36620ba4e4aa13b8c84684e1b4aab0cebea2ae45cb4d375b77eab56516d34bfbd3c1a833fc51296ff084b770b94fb9028c4d25ccf@52.169.42.101:30303 --rpc console
+	$G --networkid=4 --datadir=${HOME}/rinkeby --cache=1024 --syncmode=full --verbosity 3 --ethstats='yournode:Respect my authoritah!@stats.rinkeby.io' --bootnodes=enode://a24ac7c5484ef4ed0c5eb2d36620ba4e4aa13b8c84684e1b4aab0cebea2ae45cb4d375b77eab56516d34bfbd3c1a833fc51296ff084b770b94fb9028c4d25ccf@52.169.42.101:30303 --rpc console
+
+cleangeth::
+	rm -rf ${HOME}/rinkeby
 
 follower::
 	go run ./cmd/follower/main.go --geth=http://127.0.0.1:8545 --trillian_log=localhost:8090 --log_id `cat logid` --logtostderr

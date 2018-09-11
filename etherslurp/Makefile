@@ -17,7 +17,7 @@ tlserver::
 	cd $T && ./trillian_log_server --logtostderr ...
 
 tlsigner::
-	cd $T && ./trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8092 --batch_size=1000 --sequencer_guard_window=0 --sequencer_interval=200ms
+	cd $T && ./trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8092 --batch_size=1000 --sequencer_guard_window=0 --sequencer_interval=200ms --rpc_endpoint=localhost:8093
 
 tmserver::
 	cd $T && ./trillian_map_server --logtostderr --rpc_endpoint=localhost:8095

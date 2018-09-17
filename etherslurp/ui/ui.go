@@ -172,7 +172,7 @@ func (ui *UI) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 						ac.ProofValid = false
 						ac.ProofDesc = fmt.Sprintf("ERROR: %s", err)
 					} else {
-						err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf.Index, leafInc.Leaf.LeafValue, root.RootHash, leafInc.Inclusion, maphasher.Default)
+						err := merkle.VerifyMapInclusionProof(ui.mapID, leafInc.Leaf, root.RootHash, leafInc.Inclusion, maphasher.Default)
 						if err != nil {
 							ac.ProofValid = false
 							ac.ProofDesc = fmt.Sprintf("INVALID: %s", err)

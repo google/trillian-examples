@@ -38,4 +38,5 @@ registers/logid
 registers/mapid
 
 # Artefacts of the Gossip Hub
+/hub_server
 /make_hub_cfg

@@ -38,5 +38,8 @@ registers/logid
 registers/mapid
 
 # Artefacts of the Gossip Hub
+/createtree
 /hub_server
 /make_hub_cfg
+/trillian_log_server
+/trillian_log_signer

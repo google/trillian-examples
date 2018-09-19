@@ -16,18 +16,28 @@ package integration_test
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/pem"
 	"flag"
+	"fmt"
+	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/trillian-examples/gossip/hub"
 	"github.com/google/trillian-examples/gossip/integration"
 	"github.com/google/trillian/storage/testdb"
 )
 
 var (
-	hubCount = flag.Int("hubs", 3, "Number of parallel Gossip Hubs to test")
-	logCount = flag.Int("logs", 3, "Number of source logs tracked by each hub")
-	mmd      = flag.Duration("mmd", 120*time.Second, "MMD for tested hubs")
+	hubServers  = flag.String("hub_servers", "", "Comma-separated list of (assumed interchangeable) hub servers, each as address:port")
+	hubConfig   = flag.String("hub_config", "", "File holding Hub configuration")
+	srcPrivKeys = flag.String("src_priv_keys", "", "List of files holding source private keys (comma-separated); must match --hub_config")
+	hubCount    = flag.Int("hubs", 3, "Number of parallel Gossip Hubs to test")
+	logCount    = flag.Int("logs", 3, "Number of source logs tracked by each hub")
+	mmd         = flag.Duration("mmd", 120*time.Second, "MMD for tested hubs")
 )
 
 func TestInProcessGossipIntegration(t *testing.T) {
@@ -56,4 +66,58 @@ func TestInProcessGossipIntegration(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestLiveGossipIntegration(t *testing.T) {
+	flag.Parse()
+	if *hubServers == "" {
+		t.Skip("Integration test skipped as no hub server addresses provided")
+	}
+	if *hubConfig == "" {
+		t.Skip("Integration test skipped as no hub configuration provided")
+	}
+	if *srcPrivKeys == "" {
+		t.Skip("Integration test skipped as no source private keys provided")
+	}
+	ctx := context.Background()
+
+	multiCfg, err := hub.ConfigFromSingleFile(*hubConfig, "placeholder")
+	if err != nil {
+		t.Fatalf("Failed to read Hub config file: %v", err)
+	}
+
+	var logKeys []*ecdsa.PrivateKey
+	for _, filename := range strings.Split(*srcPrivKeys, ",") {
+		logKey, err := privateKeyFromPEM(filename)
+		if err != nil {
+			t.Fatalf("Failed to read private key %q: %v", filename, err)
+		}
+		logKeys = append(logKeys, logKey)
+	}
+
+	for _, cfg := range multiCfg.HubConfig {
+		cfg := cfg // capture config
+		t.Run(cfg.Prefix, func(t *testing.T) {
+			t.Parallel()
+			if err := integration.RunIntegrationForHub(ctx, cfg, *hubServers, *mmd, logKeys); err != nil {
+				t.Errorf("%s: failed: %v", cfg.Prefix, err)
+			}
+		})
+	}
+}
+
+func privateKeyFromPEM(filename string) (*ecdsa.PrivateKey, error) {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read private key file: %v", err)
+	}
+	block, _ := pem.Decode(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode PEM file: %v", err)
+	}
+	privKey, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ECDSA key: %v", err)
+	}
+	return privKey, nil
 }

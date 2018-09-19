@@ -329,9 +329,9 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	corruptBlob.SourceSignature[corruptAt] = corruptBlob.SourceSignature[corruptAt] + 1
 	sgt, err = t.client().AddSignedBlob(ctx, corruptBlob.SourceID, corruptBlob.BlobData, corruptBlob.SourceSignature)
 	if err == nil {
-		return fmt.Errorf("got AddChain(corrupt-sig)=(%+v,nil); want (nil,error)", sgt)
+		return fmt.Errorf("got AddSignedBlob(corrupt-sig)=(%+v,nil); want (nil,error)", sgt)
 	}
-	fmt.Printf("%s: AddChain(corrupt-sig)=nil,%v\n", t.prefix, err)
+	fmt.Printf("%s: AddSignedBlob(corrupt-sig)=nil,%v\n", t.prefix, err)
 
 	// Stage 13: invalid consistency proof
 	proof, err := t.client().GetSTHConsistency(ctx, 2, 299)

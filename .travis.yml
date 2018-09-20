@@ -1,5 +1,13 @@
 language: go
 
+addons:
+  apt:
+    sources:
+      - mysql-5.7-trusty
+    packages:
+      - mysql-server
+      - mysql-client
+
 go:
   - "1.10.x"
 
@@ -7,19 +15,55 @@ os:
   - linux
 
 env:
-  -
+  - WITH_COVERAGE=true
   - GOFLAGS='-race'
+
+matrix:
+  fast_finish: true
+
 
 go_import_path: github.com/google/trillian-examples
 
 before_install:
-  - go get -v github.com/golang/lint/golint
+  - sudo mysql -e "use mysql; update user set authentication_string=PASSWORD('') where User='root'; update user set plugin='mysql_native_password';FLUSH PRIVILEGES;"
+  - sudo mysql_upgrade
+  - sudo service mysql stop
+  - sudo service mysql start
+
+install:
+  - mkdir ../protoc
+  - |
+    (
+      cd ../protoc
+      wget "https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip"
+      unzip "protoc-3.5.1-${TRAVIS_OS_NAME}-x86_64.zip"
+    )
+  - export PATH="$(pwd)/../protoc/bin:$PATH"
+  # googleapis is not Go code, but it's required for .pb.go regeneration because of API dependencies.
+  - git clone --depth=1 https://github.com/googleapis/googleapis.git "$GOPATH/src/github.com/googleapis/googleapis"
+  - go get ${GOFLAGS} -d -t ./...
   - go get github.com/alecthomas/gometalinter
+  - go get github.com/golang/protobuf/proto
+  - go get github.com/golang/protobuf/protoc-gen-go
   - gometalinter --install
 
-script:
-  - set +e
-  - gometalinter --config=gometalinter.json --deadline=60s etherslurp/...
-  - go build github.com/google/trillian-examples/...
-  - go test github.com/google/trillian-examples/...
+before_script:
+  - ${GOPATH}/src/github.com/google/trillian/scripts/resetdb.sh --force
 
+script:
+  - set -e
+  - cd "$HOME/gopath/src/github.com/google/trillian-examples"
+  - export GO_TEST_TIMEOUT=20m
+  - ./scripts/presubmit.sh ${WITH_COVERAGE:+--coverage}
+  - |
+      # Check re-generation didn't change anything.
+      echo "Checking that generated files are the same as checked-in versions."
+      git diff --  --exit-code
+  - |
+      if [[ "${WITH_ETCD}" == "true" ]]; then
+        export ETCD_DIR="${GOPATH}/bin"
+      fi
+  - set +e
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

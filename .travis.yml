@@ -45,6 +45,7 @@ install:
   - go get github.com/alecthomas/gometalinter
   - go get github.com/golang/protobuf/proto
   - go get github.com/golang/protobuf/protoc-gen-go
+  - go get -d -t github.com/google/trillian/...
   - gometalinter --install
 
 before_script:
@@ -63,6 +64,7 @@ script:
       if [[ "${WITH_ETCD}" == "true" ]]; then
         export ETCD_DIR="${GOPATH}/bin"
       fi
+  - ./gossip/integration/gossip_test.sh
   - set +e
 
 after_success:

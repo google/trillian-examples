@@ -274,7 +274,7 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 		k := string(l.Leaf.Index)
 		d, ok := deltas[k]
 		if !ok {
-			glog.Warning("No delta for leaf index %x", l.Leaf.Index)
+			glog.Warningf("No delta for leaf index %x", l.Leaf.Index)
 			continue
 		}
 		delete(deltas, k)

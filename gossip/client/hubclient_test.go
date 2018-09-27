@@ -575,14 +575,26 @@ func TestGetSourceKeys(t *testing.T) {
 	_, pubKeyDER := generateKeys(t)
 
 	tests := []struct {
-		desc    string
-		body    string
-		status  int
-		wantErr string
+		desc     string
+		body     string
+		status   int
+		wantErr  string
+		wantKind string
 	}{
 		{
-			desc: "Valid",
-			body: fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s"}]}`, b64(pubKeyDER)),
+			desc:     "Valid",
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s"}]}`, b64(pubKeyDER)),
+			wantKind: "",
+		},
+		{
+			desc:     "Valid CT Source",
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s","kind":"RFC6962STH"}]}`, b64(pubKeyDER)),
+			wantKind: "RFC6962STH",
+		},
+		{
+			desc:     "Valid Unknown Source",
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s","kind":"bis-STH"}]}`, b64(pubKeyDER)),
+			wantKind: "bis-STH",
 		},
 		{
 			desc:    "Malformed JSON",
@@ -618,7 +630,7 @@ func TestGetSourceKeys(t *testing.T) {
 			if len(test.wantErr) != 0 {
 				t.Errorf("GetSourceKeys()=%v,nil; want nil, err containing %q", got, test.wantErr)
 			}
-			want := []*api.SourceKey{{ID: "https://a-log.com", PubKey: pubKeyDER}}
+			want := []*api.SourceKey{{ID: "https://a-log.com", PubKey: pubKeyDER, Kind: test.wantKind}}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("GetSourceKeys()=%+v; want %+v", got, want)
 			}

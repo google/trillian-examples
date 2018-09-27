@@ -62,4 +62,10 @@ message TrackedSource {
   string id = 2;
   keyspb.PublicKey public_key = 3;
   sigpb.DigitallySigned.HashAlgorithm hash_algorithm = 4;
+  // kind indicates
+  enum Kind {
+    UNKNOWN = 0;
+    RFC6962STH = 1;
+  }
+  Kind kind = 5;
 }

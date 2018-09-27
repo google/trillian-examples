@@ -32,6 +32,7 @@ import (
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/api"
+	"github.com/google/trillian-examples/gossip/hub/configpb"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
@@ -144,6 +145,7 @@ type sourceCryptoInfo struct {
 	pubKeyData []byte // DER-encoded public key
 	pubKey     crypto.PublicKey
 	hasher     crypto.Hash
+	kind       configpb.TrackedSource_Kind
 }
 
 // hubInfo holds information about a specific hub instance.
@@ -461,7 +463,12 @@ func (h *hubInfo) getEntries(ctx context.Context, start, end int64) (*api.GetEnt
 func (h *hubInfo) getSourceKeys(ctx context.Context) *api.GetSourceKeysResponse {
 	var jsonRsp api.GetSourceKeysResponse
 	for sourceID, info := range h.cryptoMap {
-		l := api.SourceKey{ID: sourceID, PubKey: info.pubKeyData}
+		kind := api.UnknownKind
+		switch info.kind {
+		case configpb.TrackedSource_RFC6962STH:
+			kind = api.RFC6962STHKind
+		}
+		l := api.SourceKey{ID: sourceID, PubKey: info.pubKeyData, Kind: kind}
 		jsonRsp.Entries = append(jsonRsp.Entries, &l)
 	}
 	return &jsonRsp

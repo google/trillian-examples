@@ -38,6 +38,7 @@ import (
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/api"
+	"github.com/google/trillian-examples/gossip/hub/configpb"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
@@ -45,14 +46,16 @@ import (
 )
 
 const (
-	testTreeID   = int64(55)
-	testDeadline = 500 * time.Millisecond
-	testSourceID = "https://the-log.example.com"
+	testTreeID     = int64(55)
+	testDeadline   = 500 * time.Millisecond
+	testSourceID   = "https://the-log.example.com"
+	testCTSourceID = "https://rfc6962.example.com"
 )
 
 var (
 	testSourceKey       *ecdsa.PrivateKey
 	testSourcePubKeyDER []byte
+	testSources         []*api.SourceKey
 )
 
 func init() {
@@ -66,7 +69,10 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to marshal public key to DER: %v", err))
 	}
-
+	testSources = []*api.SourceKey{
+		{ID: testSourceID, PubKey: testSourcePubKeyDER, Kind: api.UnknownKind},
+		{ID: testCTSourceID, PubKey: testSourcePubKeyDER, Kind: api.RFC6962STHKind},
+	}
 }
 
 type handlerTestInfo struct {
@@ -100,6 +106,12 @@ func setupTest(t *testing.T, signer crypto.Signer) handlerTestInfo {
 			pubKeyData: testSourcePubKeyDER,
 			pubKey:     testSourceKey.Public(),
 			hasher:     crypto.SHA256,
+		},
+		testCTSourceID: {
+			pubKeyData: testSourcePubKeyDER,
+			pubKey:     testSourceKey.Public(),
+			hasher:     crypto.SHA256,
+			kind:       configpb.TrackedSource_RFC6962STH,
 		},
 	}
 	return handlerTestInfo{
@@ -1140,14 +1152,28 @@ func TestGetSourceKeys(t *testing.T) {
 		t.Fatalf("getSourceKeys()=_,%v; want _,nil", gotErr)
 	}
 
-	var got api.GetSourceKeysResponse
-	if err := json.Unmarshal(gotRsp.Body.Bytes(), &got); err != nil {
+	var rsp api.GetSourceKeysResponse
+	if err := json.Unmarshal(gotRsp.Body.Bytes(), &rsp); err != nil {
 		t.Fatalf("Failed to unmarshal json response: %s", gotRsp.Body.Bytes())
 	}
-	want := api.GetSourceKeysResponse{Entries: []*api.SourceKey{{ID: testSourceID, PubKey: testSourcePubKeyDER}}}
-	if !reflect.DeepEqual(got, want) {
+	if got, want := sourceSet(t, rsp.Entries), sourceSet(t, testSources); !reflect.DeepEqual(got, want) {
 		t.Errorf("getSourceKeys()=%+v, want %+v", got, want)
 	}
+}
+
+// sourceSet converts a slice of SourceKey objects into a set of strings
+// to allow orderless comparison.
+func sourceSet(t *testing.T, srcs []*api.SourceKey) map[string]bool {
+	t.Helper()
+	result := make(map[string]bool)
+	for _, src := range srcs {
+		data, err := json.Marshal(src)
+		if err != nil {
+			t.Fatalf("Failed to JSON marshal entry: %v", err)
+		}
+		result[string(data)] = true
+	}
+	return result
 }
 
 func TestToHTTPStatus(t *testing.T) {

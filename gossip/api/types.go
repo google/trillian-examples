@@ -199,9 +199,11 @@ type GetEntriesResponse struct {
 // GET https://<hub server>/gossip/v0/get-source-keys
 // Inputs: None
 // Outputs:
-//   entries: An array of objects, each consisting of
+//   entries: An array of objects, each consisting of:
 //      id: The identifier for the source.
 //      pub_key:  The base64-encoded public key for the source.
+//      kind: The type of the source (e.g. an RFC 6962 CT Log generating
+//            signed tree heads).
 
 // GetSourceKeysPath is the final path component for this entrypoint.
 const GetSourceKeysPath = "get-source-keys"
@@ -211,10 +213,25 @@ type GetSourceKeysResponse struct {
 	Entries []*SourceKey `json:"entries"`
 }
 
+// Possible values for SourceKey.Kind
+const (
+	// UnknownKind indicates that no information is known about the source of
+	// the signed blobs (and so only signature verification is possible). Any
+	// unrecognized kind values will be treated as UnknownKind.
+	UnknownKind = "UNKNOWN"
+	// RFC6962STH indicates that the source is expected to only generate
+	// submissions that are Signed Tree Heads as described by RFC 6962.
+	// The BlobData for a submission is expected to be the result of
+	// tls.Marshal(ct.TreeHeadSignature), and may be rejected if this is not
+	// the case.
+	RFC6962STHKind = "RFC6962STH"
+)
+
 // SourceKey holds key information about a source that is tracked by this hub.
 type SourceKey struct {
 	ID     string `json:"id"`
 	PubKey []byte `json:"pub_key"` // DER encoded
+	Kind   string `json:"kind"`
 }
 
 // TimestampedEntryHash calculates the leaf hash value for a timestamped entry in the hub:

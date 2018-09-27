@@ -149,7 +149,7 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		default:
 			return nil, fmt.Errorf("Failed to determine hash algorithm %d", src.HashAlgorithm)
 		}
-		cryptoMap[src.Id] = sourceCryptoInfo{pubKeyData: src.PublicKey.Der, pubKey: pubKey, hasher: hasher}
+		cryptoMap[src.Id] = sourceCryptoInfo{pubKeyData: src.PublicKey.Der, pubKey: pubKey, hasher: hasher, kind: src.Kind}
 	}
 
 	// Load the private key for this hub.

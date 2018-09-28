@@ -246,3 +246,31 @@ func AcceptableSource(pubKey crypto.PublicKey, srcKeys []*api.SourceKey) bool {
 	}
 	return false
 }
+
+// GetLatestForSource retrieves the 'latest' entry for a source.
+func (c *HubClient) GetLatestForSource(ctx context.Context, sourceID string) (*api.TimestampedEntry, error) {
+	var rsp api.GetLatestForSourceResponse
+	params := map[string]string{api.GetLatestForSourceID: sourceID}
+	httpRsp, body, err := c.GetAndParse(ctx, api.PathPrefix+api.GetLatestForSourcePath, params, &rsp)
+	if err != nil {
+		return nil, err
+	}
+
+	var entry api.TimestampedEntry
+	if rest, err := tls.Unmarshal(rsp.Entry, &entry); err != nil {
+		return nil, jsonclient.RspError{Err: err, StatusCode: httpRsp.StatusCode, Body: body}
+	} else if len(rest) > 0 {
+		return nil, jsonclient.RspError{
+			Err:        fmt.Errorf("trailing data (%d bytes) after TimestampedEntry", len(rest)),
+			StatusCode: httpRsp.StatusCode,
+			Body:       body,
+		}
+	}
+
+	// Check it comes from the expected source.
+	if !bytes.Equal(entry.SourceID, []byte(sourceID)) {
+		return nil, fmt.Errorf("entry from unexpected source %q returned for %q", string(entry.SourceID), sourceID)
+	}
+
+	return &entry, nil
+}

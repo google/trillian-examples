@@ -234,6 +234,31 @@ type SourceKey struct {
 	Kind   string `json:"kind"`
 }
 
+// Retrieve latest entry for a source.
+// The definition of 'latest' depends on what kind the source is; in general, it is the
+// most recently submitted entry, but for a source of CT STHs, it is the entry with the
+// latest timestamp inside the parsed STH data.
+// GET https://<hub server>/gossip/v0/get-latest-for-src
+// Inputs:
+//    source_id: The source to retrieve latest data for.
+// Outputs:
+//    entry:  A TLS-encoded TimestampedEntry structure, holding the 'latest' known entry
+//            for the source.  This is best-effort, and may not be available (in which
+//            case a 204 No Content status is returned).
+
+// GetLatestForSourcePath is the final path component for this entrypoint.
+const GetLatestForSourcePath = "get-latest-for-src"
+
+const (
+	// GetLatestForSourceID is the parameter name.
+	GetLatestForSourceID = "src_id"
+)
+
+// GetLatestForSourceResponse represents the JSON response to the get-proof-by-hash GET method.
+type GetLatestForSourceResponse struct {
+	Entry []byte `json:"entry"` // a TLS-encoded TimestampedEntry
+}
+
 // TimestampedEntryHash calculates the leaf hash value for a timestamped entry in the hub:
 //   SHA256(0x00 || tls-encode(entry))
 func TimestampedEntryHash(entry *TimestampedEntry) ([]byte, error) {

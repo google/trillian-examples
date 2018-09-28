@@ -366,6 +366,21 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	}
 	fmt.Printf("%s: GetProofByHash(wrong,%d)=(nil,%v)\n", t.prefix, sthN.TreeHead.TreeSize, err)
 
+	// [CT-specific] Stage 15: add a blob signed by a CT Log key that isn't an STH.
+	if src, privKey := t.pickSourceOfKind(configpb.TrackedSource_RFC6962STH); src != nil && privKey != nil {
+		data := make([]byte, 100)
+		rand.Read(data)
+		nonBlob, err := blobForData(src, privKey, data)
+		if err != nil {
+			return fmt.Errorf("failed to sign blob data: %v", err)
+		}
+		sgt, err = t.client().AddSignedBlob(ctx, nonBlob.SourceID, nonBlob.BlobData, nonBlob.SourceSignature)
+		if err == nil {
+			return fmt.Errorf("got AddChain(non-STH-blob)=(%+v,nil); want (nil,error)", sgt)
+		}
+		fmt.Printf("%s: AddChain(non-STH-blob)=nil,%v\n", t.prefix, err)
+	}
+
 	return nil
 }
 

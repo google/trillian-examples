@@ -37,6 +37,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/jsonclient"
+	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian-examples/gossip/api"
 	"github.com/google/trillian-examples/gossip/client"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
@@ -46,6 +47,8 @@ import (
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/kylelemons/godebug/pretty"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 var (
@@ -109,10 +112,11 @@ type signedBlob api.AddSignedBlobRequest
 
 // testInfo holds per-test information.
 type testInfo struct {
-	prefix  string
-	cfg     *configpb.HubConfig
-	pool    ClientPool
-	srcKeys []*ecdsa.PrivateKey
+	prefix     string
+	cfg        *configpb.HubConfig
+	pool       ClientPool
+	srcKeys    []*ecdsa.PrivateKey
+	srcsOfKind map[configpb.TrackedSource_Kind][]int
 }
 
 func (t *testInfo) client() *client.HubClient {
@@ -128,15 +132,23 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	if len(cfg.Source) != len(srcKeys) {
 		return fmt.Errorf("source mismatch: %d configured, %d private keys provided", len(cfg.Source), len(srcKeys))
 	}
+
+	// Track which kinds of sources have been configured.
+	srcsOfKind := make(map[configpb.TrackedSource_Kind][]int)
+	for i, src := range cfg.Source {
+		srcsOfKind[src.Kind] = append(srcsOfKind[src.Kind], i)
+	}
+
 	pool, err := NewRandomPool(servers, cfg.PublicKey, cfg.Prefix)
 	if err != nil {
 		return fmt.Errorf("failed to create pool: %v", err)
 	}
 	t := testInfo{
-		prefix:  cfg.Prefix,
-		cfg:     cfg,
-		pool:    pool,
-		srcKeys: srcKeys,
+		prefix:     cfg.Prefix,
+		cfg:        cfg,
+		pool:       pool,
+		srcKeys:    srcKeys,
+		srcsOfKind: srcsOfKind,
 	}
 
 	// Stage 0: get accepted source keys, which should match the private keys we have to play with.
@@ -197,12 +209,12 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 
 	// Stage 3: add the same signed blob but with a different source signature,
 	// expect an SGT that is the same as before (except the signature maybe).
-	newSignature, err := t.regenerateSignature(blob)
+	newBlob, err := t.reSignedBlob(blob)
 	if err != nil {
 		return fmt.Errorf("failed to generate new signature for blob: %v", err)
 	}
 
-	sgt, err = t.client().AddSignedBlob(ctx, blob.SourceID, blob.BlobData, newSignature)
+	sgt, err = t.client().AddSignedBlob(ctx, newBlob.SourceID, newBlob.BlobData, newBlob.SourceSignature)
 	if err != nil {
 		return fmt.Errorf("got re-AddSignedBlob()=(nil,%v); want (_,nil)", err)
 	}
@@ -363,13 +375,50 @@ func timeFromNS(ts uint64) time.Time {
 }
 
 func (t *testInfo) getSignedBlob() (*signedBlob, error) {
+	src, privKey := t.pickSource()
+	return t.blobForSource(src, privKey)
+}
+
+func (t *testInfo) pickSource() (*configpb.TrackedSource, *ecdsa.PrivateKey) {
 	which := rand.Intn(len(t.cfg.Source))
-	src := t.cfg.Source[which]
-	privKey := t.srcKeys[which]
+	return t.cfg.Source[which], t.srcKeys[which]
+}
 
-	data := make([]byte, 100)
-	rand.Read(data)
+func (t *testInfo) pickSourceOfKind(kind configpb.TrackedSource_Kind) (*configpb.TrackedSource, *ecdsa.PrivateKey) {
+	srcIndices := t.srcsOfKind[kind]
+	if len(srcIndices) == 0 {
+		return nil, nil
+	}
+	idx := rand.Intn(len(srcIndices))
+	which := srcIndices[idx]
+	return t.cfg.Source[which], t.srcKeys[which]
+}
 
+func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.PrivateKey) (*signedBlob, error) {
+	var data []byte
+	switch src.Kind {
+	case configpb.TrackedSource_RFC6962STH:
+		// Fake up a CT STH
+		th := ct.TreeHeadSignature{
+			Version:       ct.V1,
+			SignatureType: ct.TreeHashSignatureType,
+			Timestamp:     1000000,
+			TreeSize:      100,
+		}
+		rand.Read(th.SHA256RootHash[:])
+		var err error
+		data, err = tls.Marshal(th)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create fake CT tree head: %v", err)
+		}
+	default:
+		data = make([]byte, 100)
+		rand.Read(data)
+	}
+	return blobForData(src, privKey, data)
+}
+
+func blobForData(src *configpb.TrackedSource, privKey *ecdsa.PrivateKey, data []byte) (*signedBlob, error) {
 	digest := sha256.Sum256(data)
 	sig, err := privKey.Sign(cryptorand.Reader, digest[:], crypto.SHA256)
 	if err != nil {
@@ -382,24 +431,15 @@ func (t *testInfo) getSignedBlob() (*signedBlob, error) {
 		SourceSignature: sig,
 	}, nil
 }
-func (t *testInfo) regenerateSignature(blob *signedBlob) ([]byte, error) {
-	var privKey *ecdsa.PrivateKey
+
+func (t *testInfo) reSignedBlob(blob *signedBlob) (*signedBlob, error) {
 	for i, src := range t.cfg.Source {
 		if src.Id == blob.SourceID {
-			privKey = t.srcKeys[i]
-			break
+			privKey := t.srcKeys[i]
+			return blobForData(src, privKey, blob.BlobData)
 		}
 	}
-	if privKey == nil {
-		return nil, fmt.Errorf("failed to find private key for %s", blob.SourceID)
-	}
-
-	digest := sha256.Sum256(blob.BlobData)
-	sig, err := privKey.Sign(cryptorand.Reader, digest[:], crypto.SHA256)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign blob data: %v", err)
-	}
-	return sig, nil
+	return nil, fmt.Errorf("failed to find private key for %s", blob.SourceID)
 }
 
 // awaitTreeSize loops until an STH is retrieved that is the specified size (or larger, if exact is false).
@@ -460,7 +500,8 @@ func checkConsistencyProof(sth1, sth2 *api.SignedHubTreeHead, proof [][]byte) er
 // BuildTestConfig builds a test Hub configuration for the specified number
 // of Gossip Hubs, each of which tracks the srcCount sources.  The private
 // keys for the sources are also returned, to allow creation and submission
-// of source-signed data.
+// of source-signed data.  The created sources alternate between generators
+// of CT STHs and generators of anonymous signed blobs.
 func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.PrivateKey, error) {
 	var srcKeys []*ecdsa.PrivateKey
 	var srcs []*configpb.TrackedSource
@@ -474,11 +515,16 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to marshal source public key to DER: %v", err)
 		}
+		kind := configpb.TrackedSource_UNKNOWN
+		if i%2 == 0 {
+			kind = configpb.TrackedSource_RFC6962STH
+		}
 		src := configpb.TrackedSource{
 			Name:          fmt.Sprintf("source-%02d", i),
 			Id:            fmt.Sprintf("https://source-%02d.example.com", i),
 			PublicKey:     &keyspb.PublicKey{Der: pubKeyDER},
 			HashAlgorithm: sigpb.DigitallySigned_SHA256,
+			Kind:          kind,
 		}
 		srcKeys = append(srcKeys, srcKey)
 		srcs = append(srcs, &src)

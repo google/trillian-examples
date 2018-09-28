@@ -700,3 +700,90 @@ func TestAcceptableSource(t *testing.T) {
 		})
 	}
 }
+
+func TestGetLatestForSource(t *testing.T) {
+	ctx := context.Background()
+	want := &api.TimestampedEntry{
+		SourceID:        []byte("https://a-log.com"),
+		BlobData:        []byte{0x01},
+		SourceSignature: []byte{0x02},
+		HubTimestamp:    0x0000000012345678,
+	}
+	data := h2b(
+		"0011" + "68747470733a2f2f612d6c6f672e636f6d" +
+			"0001" + "01" +
+			"0001" + "02" +
+			"0000000012345678")
+
+	tests := []struct {
+		desc     string
+		sourceID string
+		body     string
+		status   int
+		wantErr  string
+	}{
+		{
+			desc:     "Valid",
+			sourceID: "https://a-log.com",
+			body:     fmt.Sprintf(`{"entry":"%s"}`, b64(data)),
+		},
+		{
+			desc:     "Source mismatch",
+			sourceID: "https://another-log.com",
+			body:     fmt.Sprintf(`{"entry":"%s"}`, b64(data)),
+			wantErr:  "unexpected source",
+		},
+		{
+			desc:     "Invalid trailing data",
+			sourceID: "https://a-log.com",
+			body:     fmt.Sprintf(`{"entry":"%s"}`, b64(append(data, 0xff))),
+			wantErr:  "trailing data",
+		},
+		{
+			desc:     "Invalid TLS data",
+			sourceID: "https://a-log.com",
+			body:     fmt.Sprintf(`{"entry":"%s"}`, b64([]byte{0x01, 0x02})),
+			wantErr:  "tls: syntax error",
+		},
+		{
+			desc:     "Malformed JSON",
+			sourceID: "https://a-log.com",
+			body:     "fllumpf",
+			wantErr:  "invalid character",
+		},
+		{
+			desc:     "GET failure",
+			sourceID: "https://a-log.com",
+			body:     "Utter failure",
+			status:   404,
+			wantErr:  "404 Not Found",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			ts := serveAt(t, api.GetLatestForSourcePath, test.status, test.body)
+			defer ts.Close()
+			cl, err := client.New(ts.URL, &http.Client{}, jsonclient.Options{})
+			if err != nil {
+				t.Fatalf("Failed to create client: %v", err)
+			}
+
+			got, gotErr := cl.GetLatestForSource(ctx, test.sourceID)
+			if gotErr != nil {
+				if len(test.wantErr) == 0 {
+					t.Errorf("GetLatestForSource()=nil,%v; want _, nil", gotErr)
+				} else if !strings.Contains(gotErr.Error(), test.wantErr) {
+					t.Errorf("GetLatestForSource()=nil,%v; want _, err containing %q", gotErr, test.wantErr)
+				}
+				return
+			}
+			if len(test.wantErr) != 0 {
+				t.Errorf("GetLatestForSource()=%v,nil; want nil, err containing %q", got, test.wantErr)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("GetLatestForSource()=%+v; want %+v", got, want)
+			}
+		})
+	}
+}

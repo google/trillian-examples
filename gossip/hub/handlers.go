@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	ct "github.com/google/certificate-transparency-go"
 	tcrypto "github.com/google/trillian/crypto"
 )
 
@@ -77,6 +78,23 @@ func setupMetrics(mf monitoring.MetricFactory) {
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
 var Entrypoints = []string{api.AddSignedBlobPath, api.GetSTHPath, api.GetSTHConsistencyPath, api.GetProofByHashPath, api.GetEntriesPath, api.GetSourceKeysPath}
+
+type kindSubmissionCheck func(data, sig []byte) error
+
+var kindChecker = map[configpb.TrackedSource_Kind]kindSubmissionCheck{
+	configpb.TrackedSource_RFC6962STH: ctSTHChecker,
+}
+
+func ctSTHChecker(data, sig []byte) error {
+	// Check that the data has the structure of a CT tree head.
+	var th ct.TreeHeadSignature
+	if rest, err := tls.Unmarshal(data, &th); err != nil {
+		return fmt.Errorf("submission for CT source failed to parse as tree head: %v", err)
+	} else if len(rest) > 0 {
+		return fmt.Errorf("submission for CT source has %d bytes of trailing data after tree head", len(rest))
+	}
+	return nil
+}
 
 // PathHandlers maps from a path to the relevant AppHandler instance.
 type PathHandlers map[string]AppHandler
@@ -219,6 +237,14 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobReque
 	if err := tcrypto.Verify(cryptoInfo.pubKey, cryptoInfo.hasher, req.BlobData, req.SourceSignature); err != nil {
 		glog.V(1).Infof("%s: failed to validate signature from %q: %v", h.hubPrefix, req.SourceID, err)
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to validate signature from %q", req.SourceID)
+	}
+
+	// Perform any other checks appropriate for the kind of source.
+	if kc := kindChecker[cryptoInfo.kind]; kc != nil {
+		if err := kc(req.BlobData, req.SourceSignature); err != nil {
+			glog.V(1).Infof("%s: failed to validate %v-specific data from %q: %v", h.hubPrefix, cryptoInfo.kind, req.SourceID, err)
+			return nil, http.StatusBadRequest, fmt.Errorf("failed to validate data from %q: %v", req.SourceID, err)
+		}
 	}
 
 	// Use the current time (in nanos since Unix epoch) and use to build the Trillian leaf.

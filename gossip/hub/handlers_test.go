@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,6 +44,8 @@ import (
 	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	ct "github.com/google/certificate-transparency-go"
 )
 
 const (
@@ -236,9 +239,31 @@ func makeGetSLRRsp(t *testing.T, timestamp, treeSize int64, hash []byte) *trilli
 	return &trillian.GetLatestSignedLogRootResponse{SignedLogRoot: makeSLR(t, timestamp, treeSize, hash)}
 }
 
+// signData returns data, signature-over-data as a 2 element slice of base-64 encoded strings.
+func signData(t *testing.T, data []byte) []interface{} {
+	digest := sha256.Sum256(data)
+	sig, err := testSourceKey.Sign(rand.Reader, digest[:], crypto.SHA256)
+	if err != nil {
+		t.Fatalf("Failed to sign data: %v", err)
+	}
+	return []interface{}{base64.StdEncoding.EncodeToString(data), base64.StdEncoding.EncodeToString(sig)}
+}
+
 func TestAddSignedBlob(t *testing.T) {
 	ctx := context.Background()
-	data := []byte{0x00, 0x00, 0x00}
+
+	th := ct.TreeHeadSignature{
+		Version:       ct.V1,
+		SignatureType: ct.TreeHashSignatureType,
+		Timestamp:     1000000,
+		TreeSize:      100,
+	}
+	rand.Read(th.SHA256RootHash[:])
+	data, err := tls.Marshal(th)
+	if err != nil {
+		t.Fatalf("failed to create fake CT tree head: %v", err)
+	}
+
 	digest := sha256.Sum256(data)
 	sig, err := testSourceKey.Sign(rand.Reader, digest[:], crypto.SHA256)
 	if err != nil {
@@ -291,6 +316,18 @@ func TestAddSignedBlob(t *testing.T) {
 			body:       `{"source_id":"https://the-log.example.com","blob_data":"AAAA","src_signature":"AAAA"}`,
 			wantStatus: http.StatusBadRequest,
 			wantErr:    "failed to validate signature",
+		},
+		{
+			desc:       "not-a-ct-sth",
+			body:       fmt.Sprintf(`{"source_id":"https://rfc6962.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, []byte{0x00})...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "failed to parse as tree head",
+		},
+		{
+			desc:       "trailing-ct-sth",
+			body:       fmt.Sprintf(`{"source_id":"https://rfc6962.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, append(data, 0xff))...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "1 bytes of trailing data",
 		},
 		{
 			desc:       "backend-failure",

@@ -366,8 +366,10 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	}
 	fmt.Printf("%s: GetProofByHash(wrong,%d)=(nil,%v)\n", t.prefix, sthN.TreeHead.TreeSize, err)
 
-	// [CT-specific] Stage 15: add a blob signed by a CT Log key that isn't an STH.
 	if src, privKey := t.pickSourceOfKind(configpb.TrackedSource_RFC6962STH); src != nil && privKey != nil {
+		// [CT-specific] tests.
+
+		// Stage 15: add a blob signed by a CT Log key that isn't an STH.
 		data := make([]byte, 100)
 		rand.Read(data)
 		nonBlob, err := blobForData(src, privKey, data)
@@ -376,9 +378,50 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 		}
 		sgt, err = t.client().AddSignedBlob(ctx, nonBlob.SourceID, nonBlob.BlobData, nonBlob.SourceSignature)
 		if err == nil {
-			return fmt.Errorf("got AddChain(non-STH-blob)=(%+v,nil); want (nil,error)", sgt)
+			return fmt.Errorf("got AddSignedBlob(non-STH-blob)=(%+v,nil); want (nil,error)", sgt)
 		}
-		fmt.Printf("%s: AddChain(non-STH-blob)=nil,%v\n", t.prefix, err)
+		fmt.Printf("%s: AddSignedBlob(non-STH-blob)=nil,%v\n", t.prefix, err)
+
+		// Stage 16: add a bigger STH and check get-latest-for-src shows it.
+		// Use the same client throughout, so best-effort get-latest-for-src works.
+		client := t.client()
+		sth1Blob, err := blobForData(src, privKey, dataForSTH(200, 1000005))
+		if err != nil {
+			return fmt.Errorf("failed to generate STH test blob: %v", err)
+		}
+		sth1SGT, err := client.AddSignedBlob(ctx, sth1Blob.SourceID, sth1Blob.BlobData, sth1Blob.SourceSignature)
+		if err != nil {
+			return fmt.Errorf("got AddSignedBlob(sth-200-blob)=(nil,%v); want (_,nil)", err)
+		}
+		fmt.Printf("%s: Uploaded sth-200-blob to hub, got SGT\n", t.prefix)
+
+		entry, err := client.GetLatestForSource(ctx, sth1Blob.SourceID)
+		if err != nil {
+			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", sth1Blob.SourceID, err)
+		}
+		if !reflect.DeepEqual(entry, &sth1SGT.TimestampedEntry) {
+			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", sth1Blob.SourceID, entry, sth1SGT)
+		}
+		fmt.Printf("%s: GetLatestForSource(%s) matches sth-200-blob\n", t.prefix, sth1Blob.SourceID)
+
+		// Stage 17: add a smaller STH and check get-latest-for-src is unaffected.
+		sth2Blob, err := blobForData(src, privKey, dataForSTH(150, 1000002))
+		if err != nil {
+			return fmt.Errorf("failed to generate STH test blob: %v", err)
+		}
+		if _, err := client.AddSignedBlob(ctx, sth2Blob.SourceID, sth2Blob.BlobData, sth2Blob.SourceSignature); err != nil {
+			return fmt.Errorf("got AddSignedBlob(sth-150-blob)=(nil,%v); want (_,nil)", err)
+		}
+		fmt.Printf("%s: Uploaded sth-150-blob to hub, got SGT\n", t.prefix)
+
+		entry, err = client.GetLatestForSource(ctx, sth2Blob.SourceID)
+		if err != nil {
+			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", sth1Blob.SourceID, err)
+		}
+		if !reflect.DeepEqual(entry, &sth1SGT.TimestampedEntry) {
+			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", sth1Blob.SourceID, entry, sth1SGT)
+		}
+		fmt.Printf("%s: GetLatestForSource(%s) still matches sth-200-blob\n", t.prefix, sth1Blob.SourceID)
 	}
 
 	return nil
@@ -409,23 +452,26 @@ func (t *testInfo) pickSourceOfKind(kind configpb.TrackedSource_Kind) (*configpb
 	return t.cfg.Source[which], t.srcKeys[which]
 }
 
+func dataForSTH(sz, ts uint64) []byte {
+	th := ct.TreeHeadSignature{
+		Version:       ct.V1,
+		SignatureType: ct.TreeHashSignatureType,
+		TreeSize:      sz,
+		Timestamp:     ts,
+	}
+	rand.Read(th.SHA256RootHash[:])
+	data, err := tls.Marshal(th)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create fake CT tree head: %v", err))
+	}
+	return data
+}
+
 func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.PrivateKey) (*signedBlob, error) {
 	var data []byte
 	switch src.Kind {
 	case configpb.TrackedSource_RFC6962STH:
-		// Fake up a CT STH
-		th := ct.TreeHeadSignature{
-			Version:       ct.V1,
-			SignatureType: ct.TreeHashSignatureType,
-			Timestamp:     1000000,
-			TreeSize:      100,
-		}
-		rand.Read(th.SHA256RootHash[:])
-		var err error
-		data, err = tls.Marshal(th)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create fake CT tree head: %v", err)
-		}
+		data = dataForSTH(100, 1000000)
 	default:
 		data = make([]byte, 100)
 		rand.Read(data)

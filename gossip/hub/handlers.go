@@ -77,12 +77,20 @@ func setupMetrics(mf monitoring.MetricFactory) {
 }
 
 // Entrypoints is a list of entrypoint names as exposed in statistics/logging.
-var Entrypoints = []string{api.AddSignedBlobPath, api.GetSTHPath, api.GetSTHConsistencyPath, api.GetProofByHashPath, api.GetEntriesPath, api.GetSourceKeysPath}
+var Entrypoints = []string{api.AddSignedBlobPath, api.GetSTHPath, api.GetSTHConsistencyPath, api.GetProofByHashPath, api.GetEntriesPath, api.GetSourceKeysPath, api.GetLatestForSourcePath}
 
-type kindSubmissionCheck func(data, sig []byte) error
+// kindHandler holds handlers for processing that is specific to particular
+// kinds of sources.
+type kindHandler struct {
+	// submissionCheck performs a check on submitted data to see if it should be admitted.
+	submissionCheck func(data, sig []byte) error
+	// entryIsLater indicates whether one entry for this kind of source is considered
+	// to be 'later' than another.
+	entryIsLater func(prev *api.TimestampedEntry, current *api.TimestampedEntry) bool
+}
 
-var kindChecker = map[configpb.TrackedSource_Kind]kindSubmissionCheck{
-	configpb.TrackedSource_RFC6962STH: ctSTHChecker,
+var kindHandlers = map[configpb.TrackedSource_Kind]kindHandler{
+	configpb.TrackedSource_RFC6962STH: {submissionCheck: ctSTHChecker, entryIsLater: ctSTHIsLater},
 }
 
 func ctSTHChecker(data, sig []byte) error {
@@ -94,6 +102,32 @@ func ctSTHChecker(data, sig []byte) error {
 		return fmt.Errorf("submission for CT source has %d bytes of trailing data after tree head", len(rest))
 	}
 	return nil
+}
+
+// ctSTHIsLater indicates whether the current entry is later than the prev entry,
+// according to the tree size and timestamp held in the CT Log STH.
+func ctSTHIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntry) bool {
+	var prevTH ct.TreeHeadSignature
+	if _, err := tls.Unmarshal(prev.BlobData, &prevTH); err != nil {
+		return true
+	}
+	var curTH ct.TreeHeadSignature
+	if _, err := tls.Unmarshal(current.BlobData, &curTH); err != nil {
+		return false
+	}
+	if curTH.TreeSize > prevTH.TreeSize {
+		return true
+	}
+	if curTH.TreeSize < prevTH.TreeSize {
+		return false
+	}
+	return curTH.Timestamp > prevTH.Timestamp
+}
+
+// rawEntryIsLater indicates whether the current entry is later than the prev entry,
+// based on the timestamp when the entry was originally submitted to the Hub.
+func rawEntryIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntry) bool {
+	return current.HubTimestamp > prev.HubTimestamp
 }
 
 // PathHandlers maps from a path to the relevant AppHandler instance.
@@ -177,23 +211,40 @@ type hubInfo struct {
 	rpcClient trillian.TrillianLogClient
 	signer    *tcrypto.Signer
 	cryptoMap map[string]sourceCryptoInfo
+	// latestEntry keeps a (local) record of the 'latest' entry for a source.
+	// The definition of 'latest' varies according to what kind the source is.
+	latestMu    sync.RWMutex
+	latestEntry map[string]*api.TimestampedEntry
 }
 
 // newHubInfo creates a new instance of hubInfo.
 func newHubInfo(logID int64, prefix string, rpcClient trillian.TrillianLogClient, signer crypto.Signer, cryptoMap map[string]sourceCryptoInfo, opts InstanceOptions) *hubInfo {
 	info := &hubInfo{
-		opts:      opts,
-		hubPrefix: fmt.Sprintf("%s{%d}", prefix, logID),
-		logID:     logID,
-		urlPrefix: prefix,
-		rpcClient: rpcClient,
-		signer:    tcrypto.NewSigner(logID, signer, crypto.SHA256),
-		cryptoMap: cryptoMap,
+		opts:        opts,
+		hubPrefix:   fmt.Sprintf("%s{%d}", prefix, logID),
+		logID:       logID,
+		urlPrefix:   prefix,
+		rpcClient:   rpcClient,
+		signer:      tcrypto.NewSigner(logID, signer, crypto.SHA256),
+		cryptoMap:   cryptoMap,
+		latestEntry: make(map[string]*api.TimestampedEntry),
 	}
 	once.Do(func() { setupMetrics(opts.MetricFactory) })
 	knownHubs.Set(1.0, strconv.FormatInt(logID, 10))
 
 	return info
+}
+
+func (h *hubInfo) getLatestEntry(srcID string) *api.TimestampedEntry {
+	h.latestMu.RLock()
+	defer h.latestMu.RUnlock()
+	return h.latestEntry[srcID]
+}
+
+func (h *hubInfo) setLatestEntry(srcID string, entry *api.TimestampedEntry) {
+	h.latestMu.Lock()
+	defer h.latestMu.Unlock()
+	h.latestEntry[srcID] = entry
 }
 
 func buildLeaf(req *api.AddSignedBlobRequest, timeNanos uint64) (*trillian.LogLeaf, error) {
@@ -240,7 +291,7 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobReque
 	}
 
 	// Perform any other checks appropriate for the kind of source.
-	if kc := kindChecker[cryptoInfo.kind]; kc != nil {
+	if kc := kindHandlers[cryptoInfo.kind].submissionCheck; kc != nil {
 		if err := kc(req.BlobData, req.SourceSignature); err != nil {
 			glog.V(1).Infof("%s: failed to validate %v-specific data from %q: %v", h.hubPrefix, cryptoInfo.kind, req.SourceID, err)
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to validate data from %q: %v", req.SourceID, err)
@@ -285,6 +336,18 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobReque
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("failed to sign SGT data: %v", err)
 	}
+
+	// Update our local record of the 'latest' entry for this source, where 'latest' depends on the kind
+	// of the source.  This is best-effort, so no need for atomic test-and-set.
+	isLater := rawEntryIsLater
+	if c := kindHandlers[cryptoInfo.kind].entryIsLater; c != nil {
+		isLater = c
+	}
+	prevEntry := h.getLatestEntry(req.SourceID)
+	if prevEntry == nil || isLater(prevEntry, &loggedEntry) {
+		h.setLatestEntry(req.SourceID, &loggedEntry)
+	}
+
 	return &api.AddSignedBlobResponse{TimestampedEntryData: entryData, HubSignature: signature}, http.StatusOK, nil
 }
 
@@ -500,6 +563,23 @@ func (h *hubInfo) getSourceKeys(ctx context.Context) *api.GetSourceKeysResponse 
 	return &jsonRsp
 }
 
+func (h *hubInfo) getLatestForSource(ctx context.Context, srcID string) (*api.GetLatestForSourceResponse, int, error) {
+	if _, ok := h.cryptoMap[srcID]; !ok {
+		glog.V(1).Infof("%s: unknown source %q", h.hubPrefix, srcID)
+		return nil, http.StatusNotFound, fmt.Errorf("unknown source %q", srcID)
+	}
+	entry := h.getLatestEntry(srcID)
+	if entry == nil {
+		glog.V(1).Infof("%s: no latest entry for source %q", h.hubPrefix, srcID)
+		return nil, http.StatusNoContent, fmt.Errorf("no latest entry for source %q", srcID)
+	}
+	entryData, err := tls.Marshal(*entry)
+	if err != nil {
+		return nil, http.StatusInternalServerError, fmt.Errorf("failed to serialize latest entry: %v", err)
+	}
+	return &api.GetLatestForSourceResponse{Entry: entryData}, http.StatusOK, nil
+}
+
 // Handlers returns a map from URL paths (with the given prefix) and AppHandler instances
 // to handle those entrypoints.
 func (h *hubInfo) Handlers(prefix string) PathHandlers {
@@ -510,12 +590,13 @@ func (h *hubInfo) Handlers(prefix string) PathHandlers {
 
 	// Bind the hubInfo instance to give an appHandler instance for each entrypoint.
 	return PathHandlers{
-		prefix + api.PathPrefix + api.AddSignedBlobPath:     AppHandler{info: h, handler: addSignedBlob, epPath: api.AddSignedBlobPath, method: http.MethodPost},
-		prefix + api.PathPrefix + api.GetSTHPath:            AppHandler{info: h, handler: getSTH, epPath: api.GetSTHPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetSTHConsistencyPath: AppHandler{info: h, handler: getSTHConsistency, epPath: api.GetSTHConsistencyPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetProofByHashPath:    AppHandler{info: h, handler: getProofByHash, epPath: api.GetProofByHashPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetEntriesPath:        AppHandler{info: h, handler: getEntries, epPath: api.GetEntriesPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetSourceKeysPath:     AppHandler{info: h, handler: getSourceKeys, epPath: api.GetSourceKeysPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.AddSignedBlobPath:      AppHandler{info: h, handler: addSignedBlob, epPath: api.AddSignedBlobPath, method: http.MethodPost},
+		prefix + api.PathPrefix + api.GetSTHPath:             AppHandler{info: h, handler: getSTH, epPath: api.GetSTHPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetSTHConsistencyPath:  AppHandler{info: h, handler: getSTHConsistency, epPath: api.GetSTHConsistencyPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetProofByHashPath:     AppHandler{info: h, handler: getProofByHash, epPath: api.GetProofByHashPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetEntriesPath:         AppHandler{info: h, handler: getEntries, epPath: api.GetEntriesPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetSourceKeysPath:      AppHandler{info: h, handler: getSourceKeys, epPath: api.GetSourceKeysPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetLatestForSourcePath: AppHandler{info: h, handler: getLatestForSource, epPath: api.GetLatestForSourcePath, method: http.MethodGet},
 	}
 }
 
@@ -670,6 +751,25 @@ func getSourceKeys(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *ht
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
 	if _, err := w.Write(jsonData); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to write get-source-keys rsp: %v because: %v", jsonRsp, err)
+	}
+	return http.StatusOK, nil
+}
+
+func getLatestForSource(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	srcID := r.FormValue(api.GetLatestForSourceID)
+
+	jsonRsp, statusCode, err := c.getLatestForSource(ctx, srcID)
+	if err != nil {
+		return statusCode, err
+	}
+
+	jsonData, err := json.Marshal(&jsonRsp)
+	if err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-latest-for-src rsp: %v because: %v", jsonRsp, err)
+	}
+	w.Header().Set(contentTypeHeader, contentTypeJSON)
+	if _, err := w.Write(jsonData); err != nil {
+		return http.StatusInternalServerError, fmt.Errorf("failed to write get-latest-for-src rsp: %v because: %v", jsonRsp, err)
 	}
 	return http.StatusOK, nil
 }

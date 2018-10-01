@@ -15,6 +15,7 @@
 package hub
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/ecdsa"
@@ -209,6 +210,77 @@ func TestServeHTTP(t *testing.T) {
 			got := w.Result().StatusCode
 			if got != test.want {
 				t.Errorf("ServeHTTP(%v)=%d, want %d", test.req, got, test.want)
+			}
+		})
+	}
+}
+
+func TestCTSTHIsLater(t *testing.T) {
+	sthData := func(sz, ts uint64) []byte {
+		th := ct.TreeHeadSignature{
+			Version:       ct.V1,
+			SignatureType: ct.TreeHashSignatureType,
+			TreeSize:      sz,
+			Timestamp:     ts,
+		}
+		data, _ := tls.Marshal(th)
+		return data
+	}
+	tests := []struct {
+		desc       string
+		prev, curr []byte
+		want       bool
+	}{
+		{
+			desc: "smaller",
+			prev: sthData(100, 10),
+			curr: sthData(90, 10),
+			want: false,
+		},
+		{
+			desc: "bigger",
+			prev: sthData(100, 10),
+			curr: sthData(110, 10),
+			want: true,
+		},
+		{
+			desc: "same-size-newer",
+			prev: sthData(100, 10),
+			curr: sthData(100, 12),
+			want: true,
+		},
+		{
+			desc: "same-size-older",
+			prev: sthData(100, 10),
+			curr: sthData(100, 9),
+			want: false,
+		},
+		{
+			desc: "same-everything",
+			prev: sthData(100, 10),
+			curr: sthData(100, 10),
+			want: false,
+		},
+		{
+			desc: "malformed-prev",
+			prev: []byte{0x01},
+			curr: sthData(100, 10),
+			want: true,
+		},
+		{
+			desc: "malformed-curr",
+			prev: sthData(100, 10),
+			curr: []byte{0x01},
+			want: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			prev := &api.TimestampedEntry{BlobData: test.prev}
+			curr := &api.TimestampedEntry{BlobData: test.curr}
+			got := ctSTHIsLater(prev, curr)
+			if got != test.want {
+				t.Errorf("ctSTHIsLater()=%v, want %v", got, test.want)
 			}
 		})
 	}
@@ -1211,6 +1283,86 @@ func sourceSet(t *testing.T, srcs []*api.SourceKey) map[string]bool {
 		result[string(data)] = true
 	}
 	return result
+}
+
+func TestGetLatestForSource(t *testing.T) {
+	ctx := context.Background()
+	tests := []struct {
+		desc       string
+		uri        string
+		entry      *api.TimestampedEntry
+		wantStatus int
+		wantErr    string
+	}{
+		{
+			desc:       "no-src",
+			uri:        "http:/example.com/gossip/v0/get-latest-for-src",
+			wantStatus: http.StatusNotFound,
+			wantErr:    "unknown source",
+		},
+		{
+			desc:       "unknown-src",
+			uri:        "http:/example.com/gossip/v0/get-latest-for-src?src_id=bogus",
+			wantStatus: http.StatusNotFound,
+			wantErr:    "unknown source",
+		},
+		{
+			desc:       "no-latest",
+			uri:        fmt.Sprintf("http:/example.com/gossip/v0/get-latest-for-src?src_id=%s", testSourceID),
+			wantStatus: http.StatusNoContent,
+			wantErr:    "no latest entry",
+		},
+		{
+			desc: "ok",
+			uri:  fmt.Sprintf("http:/example.com/gossip/v0/get-latest-for-src?src_id=%s", testSourceID),
+			entry: &api.TimestampedEntry{
+				SourceID:        []byte(testSourceID),
+				BlobData:        []byte{0x01, 0x02},
+				SourceSignature: []byte{0x03, 0x04},
+				HubTimestamp:    0x1000000,
+			},
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			req, err := http.NewRequest("GET", test.uri, nil)
+			if err != nil {
+				t.Fatalf("Failed to create request: %v", err)
+			}
+			info := setupTest(t, nil)
+			defer info.mockCtrl.Finish()
+			info.hi.setLatestEntry(testSourceID, test.entry)
+
+			gotRsp := httptest.NewRecorder()
+			gotStatus, gotErr := getLatestForSource(ctx, info.hi, gotRsp, req)
+
+			if gotStatus != test.wantStatus {
+				t.Errorf("getLatestForSource()=%d,_; want %d,_", gotStatus, test.wantStatus)
+			}
+			if gotErr != nil {
+				if len(test.wantErr) == 0 {
+					t.Errorf("getLatestForSource()=_,%v; want _,nil", gotErr)
+				} else if !strings.Contains(gotErr.Error(), test.wantErr) {
+					t.Errorf("getLatestForSource()=_,%v; want _, err containing %q", gotErr, test.wantErr)
+				}
+				return
+			}
+			if len(test.wantErr) > 0 {
+				t.Errorf("getLatestForSource()=_,nil; want _, err containing %q", test.wantErr)
+			}
+
+			var rsp api.GetLatestForSourceResponse
+			if err := json.Unmarshal(gotRsp.Body.Bytes(), &rsp); err != nil {
+				t.Fatalf("Failed to unmarshal json response: %s", gotRsp.Body.Bytes())
+			}
+			want, _ := tls.Marshal(*test.entry)
+			if got := rsp.Entry; !bytes.Equal(got, want) {
+				t.Errorf("getLatestForSource()=%x; want %x", got, want)
+			}
+		})
+	}
 }
 
 func TestToHTTPStatus(t *testing.T) {

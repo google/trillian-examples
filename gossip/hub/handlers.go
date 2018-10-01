@@ -22,7 +22,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -197,14 +196,8 @@ func (h *hubInfo) Handlers(prefix string) PathHandlers {
 }
 
 func addSignedBlob(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		glog.V(1).Infof("%s: Failed to read request body: %v", c.hubPrefix, err)
-		return http.StatusBadRequest, fmt.Errorf("failed to read add-signed-blob body: %v", err)
-	}
-
 	var req api.AddSignedBlobRequest
-	if err := json.Unmarshal(body, &req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		glog.V(1).Infof("%s: Failed to parse request body: %v", c.hubPrefix, err)
 		return http.StatusBadRequest, fmt.Errorf("failed to parse add-signed-blob body: %v", err)
 	}

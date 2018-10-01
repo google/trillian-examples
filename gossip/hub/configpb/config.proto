@@ -26,7 +26,7 @@ message HubMultiConfig {
   // The set of backends that this configuration will use to send requests to.
   // The names of the backends in the HubBackendSet must all be distinct.
   HubBackendSet backends = 1;
-  // The set oubs that will use the above backends. All the protos in this
+  // The set of hubs that will use the above backends. All the protos in this
   // HubConfigSet must set a valid hub_backend_name for the config to be usable.
   HubConfigSet hub_configs = 2;
 }

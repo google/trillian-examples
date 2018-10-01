@@ -29,7 +29,7 @@ type HubMultiConfig struct {
 	// The set of backends that this configuration will use to send requests to.
 	// The names of the backends in the HubBackendSet must all be distinct.
 	Backends *HubBackendSet `protobuf:"bytes,1,opt,name=backends,proto3" json:"backends,omitempty"`
-	// The set oubs that will use the above backends. All the protos in this
+	// The set of hubs that will use the above backends. All the protos in this
 	// HubConfigSet must set a valid hub_backend_name for the config to be usable.
 	HubConfigs           *HubConfigSet `protobuf:"bytes,2,opt,name=hub_configs,json=hubConfigs,proto3" json:"hub_configs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`

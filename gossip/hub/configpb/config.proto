@@ -20,33 +20,24 @@ import "github.com/google/trillian/crypto/keyspb/keyspb.proto";
 import "github.com/google/trillian/crypto/sigpb/sigpb.proto";
 import "google/protobuf/any.proto";
 
-// HubMultiConfig wraps up a HubBackendSet and corresponding HubConfigSet so
-// that they can easily be parsed as a single proto.
+// HubMultiConfig wraps up a collection of HubConfig messages with a
+// corresponding map of backend specifications so that the configuration
+// can be parsed as a single proto.
 message HubMultiConfig {
-  // The set of backends that this configuration will use to send requests to.
-  // The names of the backends in the HubBackendSet must all be distinct.
-  HubBackendSet backends = 1;
-  // The set of hubs that will use the above backends. All the protos in this
+  // The set of hubs that will use the backends below. All the protos in this
   // HubConfigSet must set a valid hub_backend_name for the config to be usable.
-  HubConfigSet hub_configs = 2;
+  repeated HubConfig hub_config = 1;
+
+  // The collection of backends that this configuration will use to send requests to.
+  // The key for the map is the backend name (referenced by HubConfig.backend_name)
+  // and the corresponding value defines the RPC endpoint that clients should use to
+  // send requests to this hub backend. These values should be in the same format as
+  // rpcBackendFlag in the hub_server main and must not be an empty string.
+  map<string, string> hub_backends = 2;
 }
 
-// HubBackendSet describes the set of Trillian backends that support a gossip hub.
-message HubBackendSet {
-  repeated HubBackend backend = 1;
-}
-
-// HubBackend describes a single Trillian backend.
-message HubBackend {
-  // name defines the name of the hub backend for use in HubConfig messages and must be unique.
-  string name = 1;
-  // backend_spec defines the RPC endpoint that clients should use to send requests
-  // to this hub backend. These should be in the same format as rpcBackendFlag in the
-  // hub_server main and must not be an empty string.
-  string backend_spec = 2;
-}
-
-// HubConfigSet describes the different hub instances that this instance will run.
+// HubConfigSet holds a set of hub configurations as a single message to allow
+// configuration of a hub using a default backend.
 message HubConfigSet {
   repeated HubConfig config = 1;
 }
@@ -60,9 +51,9 @@ message HubConfig {
   // The public key is included for the convenience of test tools (and obviously
   // should match the private key above); it is not used by the hub.
   keyspb.PublicKey public_key = 5;
-  // hub_backend_name if set indicates which backend serves this hub. The name must be
-  // one of those defined in the HubBackendSet.
-  string hub_backend_name = 11;
+  // backend_name (if set) indicates which backend serves this hub.  When enclosed in
+  // a HubMultiConfig the name must be one of the keys for the hub_backends map.
+  string backend_name = 6;
 }
 
 // TrackedSource describes a source that this gossip hub will accept signed blobs from.

@@ -32,6 +32,8 @@ import (
 	"github.com/google/trillian/monitoring"
 )
 
+const defaultBackendName = "default"
+
 // ConfigFromSingleFile creates a HubMultiConfig proto from the given
 // filename, which should contain text-protobuf encoded configuration data
 // for a hub configuration without backend information (i.e. a HubConfigSet).
@@ -50,13 +52,12 @@ func ConfigFromSingleFile(filename, beSpec string) (*configpb.HubMultiConfig, er
 		return nil, errors.New("empty hub config found")
 	}
 
-	defaultBackend := &configpb.HubBackend{Name: "default", BackendSpec: beSpec}
 	for _, c := range cfg.Config {
-		c.HubBackendName = defaultBackend.Name
+		c.BackendName = defaultBackendName
 	}
 	return &configpb.HubMultiConfig{
-		Backends:   &configpb.HubBackendSet{Backend: []*configpb.HubBackend{defaultBackend}},
-		HubConfigs: &configpb.HubConfigSet{Config: cfg.Config},
+		HubConfig:   cfg.Config,
+		HubBackends: map[string]string{defaultBackendName: beSpec},
 	}, nil
 }
 
@@ -75,67 +76,39 @@ func ConfigFromMultiFile(filename string) (*configpb.HubMultiConfig, error) {
 		return nil, fmt.Errorf("failed to parse multi-backend hub config: %v", err)
 	}
 
-	if len(cfg.HubConfigs.GetConfig()) == 0 || len(cfg.Backends.GetBackend()) == 0 {
+	if len(cfg.HubConfig) == 0 || len(cfg.HubBackends) == 0 {
 		return nil, errors.New("config is missing backends and/or hub configs")
 	}
 	return &cfg, nil
 }
 
 // ValidateHubMultiConfig checks that a config is valid for use with multiple
-// backend Trillian log servers. The rules applied are:
-//
-// 1. The backend set must define a set of hub backends with distinct
-// (non empty) names and non empty backend specs.
-// 2. The backend specs must all be distinct.
-// 3. The hub configs must all specify a hub backend and each must be one of
-// those defined in the backend set.
-// 4. The prefixes of configured hubs must all be distinct and must not be
-// empty.
-// 5. The set of tree ids for each configured backend must be distinct.
-func ValidateHubMultiConfig(cfg *configpb.HubMultiConfig) (map[string]*configpb.HubBackend, error) {
-	// Check the backends have unique non empty names and build the map.
-	backendMap := make(map[string]*configpb.HubBackend)
-	bSpecMap := make(map[string]bool)
-	for _, backend := range cfg.Backends.Backend {
-		if len(backend.Name) == 0 {
-			return nil, fmt.Errorf("empty backend name: %v", backend)
-		}
-		if len(backend.BackendSpec) == 0 {
-			return nil, fmt.Errorf("empty backend_spec for backend: %v", backend)
-		}
-		if _, ok := backendMap[backend.Name]; ok {
-			return nil, fmt.Errorf("duplicate backend name: %v", backend)
-		}
-		if ok := bSpecMap[backend.BackendSpec]; ok {
-			return nil, fmt.Errorf("duplicate backend spec: %v", backend)
-		}
-		backendMap[backend.Name] = backend
-		bSpecMap[backend.BackendSpec] = true
-	}
-
+// backend Trillian log servers, checking that hub backend references are
+// satisfied and that prefixes and tree IDs are distinct and non-empty.
+func ValidateHubMultiConfig(cfg *configpb.HubMultiConfig) error {
 	// Check that hubs all reference a defined backend and there are no duplicate
 	// or empty prefixes. Apply other HubConfig specific checks.
 	hubNameMap := make(map[string]bool)
 	hubIDMap := make(map[string]bool)
-	for _, hubCfg := range cfg.HubConfigs.Config {
+	for _, hubCfg := range cfg.HubConfig {
 		if len(hubCfg.Prefix) == 0 {
-			return nil, fmt.Errorf("hub config: empty prefix: %v", hubCfg)
+			return fmt.Errorf("hub config: empty prefix: %v", hubCfg)
 		}
 		if hubNameMap[hubCfg.Prefix] {
-			return nil, fmt.Errorf("hub config: duplicate prefix: %s: %v", hubCfg.Prefix, hubCfg)
+			return fmt.Errorf("hub config: duplicate prefix: %s: %v", hubCfg.Prefix, hubCfg)
 		}
-		if _, ok := backendMap[hubCfg.HubBackendName]; !ok {
-			return nil, fmt.Errorf("hub config: references undefined backend: %s: %v", hubCfg.HubBackendName, hubCfg)
+		if _, ok := cfg.HubBackends[hubCfg.BackendName]; !ok {
+			return fmt.Errorf("hub config: references undefined backend: %s: %v", hubCfg.BackendName, hubCfg)
 		}
 		hubNameMap[hubCfg.Prefix] = true
-		hubIDKey := fmt.Sprintf("%s-%d", hubCfg.HubBackendName, hubCfg.LogId)
+		hubIDKey := fmt.Sprintf("%s-%d", hubCfg.BackendName, hubCfg.LogId)
 		if ok := hubIDMap[hubIDKey]; ok {
-			return nil, fmt.Errorf("hub config: dup tree id: %d for: %v", hubCfg.LogId, hubCfg)
+			return fmt.Errorf("hub config: dup tree id: %d for: %v", hubCfg.LogId, hubCfg)
 		}
 		hubIDMap[hubIDKey] = true
 	}
 
-	return backendMap, nil
+	return nil
 }
 
 // InstanceOptions describes the options for a hub instance.

@@ -68,25 +68,19 @@ func TestConfigFromSingleFile(t *testing.T) {
 	}
 }`,
 			want: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "default", BackendSpec: "backend:6962"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{
-							LogId:  123,
-							Prefix: "bobhub",
-							Source: []*configpb.TrackedSource{
-								{
-									Name:          "Google 'Argon2018' log",
-									Id:            "https://ct.googleapis.com/logs/argon2018/",
-									HashAlgorithm: sigpb.DigitallySigned_SHA256,
-								},
+				HubBackends: map[string]string{"default": "backend:6962"},
+				HubConfig: []*configpb.HubConfig{
+					{
+						LogId:  123,
+						Prefix: "bobhub",
+						Source: []*configpb.TrackedSource{
+							{
+								Name:          "Google 'Argon2018' log",
+								Id:            "https://ct.googleapis.com/logs/argon2018/",
+								HashAlgorithm: sigpb.DigitallySigned_SHA256,
 							},
-							HubBackendName: "default",
 						},
+						BackendName: "default",
 					},
 				},
 			},
@@ -144,46 +138,37 @@ func TestConfigFromMultiFile(t *testing.T) {
 		wantErr        string
 	}{
 		{
-			desc: "ValidSingle",
+			desc: "ValidMulti",
 			contents: `
-backends: <
-  backend: <
-    name: "backend1"
-    backend_spec: "backend:6962"
+hub_config: <
+  log_id: 123
+  prefix: "bobhub"
+  source: <
+    name: "Google 'Argon2018' log"
+    id: "https://ct.googleapis.com/logs/argon2018/"
+    hash_algorithm: SHA256
   >
+  backend_name: "backend1"
 >
-hub_configs: <
-  config: <
-    log_id: 123
-    prefix: "bobhub"
-    source: <
-      name: "Google 'Argon2018' log"
-      id: "https://ct.googleapis.com/logs/argon2018/"
-      hash_algorithm: SHA256
-    >
-    hub_backend_name: "backend1"
-  >
->`,
+hub_backends: <
+  key: "backend1"
+  value: "backend:6962"
+>
+`,
 			want: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "backend1", BackendSpec: "backend:6962"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{
-							LogId:  123,
-							Prefix: "bobhub",
-							Source: []*configpb.TrackedSource{
-								{
-									Name:          "Google 'Argon2018' log",
-									Id:            "https://ct.googleapis.com/logs/argon2018/",
-									HashAlgorithm: sigpb.DigitallySigned_SHA256,
-								},
+				HubBackends: map[string]string{"backend1": "backend:6962"},
+				HubConfig: []*configpb.HubConfig{
+					{
+						LogId:  123,
+						Prefix: "bobhub",
+						Source: []*configpb.TrackedSource{
+							{
+								Name:          "Google 'Argon2018' log",
+								Id:            "https://ct.googleapis.com/logs/argon2018/",
+								HashAlgorithm: sigpb.DigitallySigned_SHA256,
 							},
-							HubBackendName: "backend1",
 						},
+						BackendName: "backend1",
 					},
 				},
 			},
@@ -216,7 +201,6 @@ hub_configs: <
 				tempFile.WriteString(test.contents)
 				filename = tempFile.Name()
 			}
-
 			got, gotErr := ConfigFromMultiFile(filename)
 			if gotErr != nil {
 				if len(test.wantErr) == 0 {
@@ -378,95 +362,21 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		wantErr string
 	}{
 		{
-			desc: "missing-backend-name",
-			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{BackendSpec: "testspec"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{},
-			},
-			wantErr: "empty backend name",
-		},
-		{
-			desc: "missing-backend-spec",
-			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "log1"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{},
-			},
-			wantErr: "empty backend_spec",
-		},
-		{
-			desc: "missing-backend-name-and-spec",
-			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{},
-			},
-			wantErr: "empty backend name",
-		},
-		{
-			desc: "dup-backend-name",
-			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "dup", BackendSpec: "testspec"},
-						{Name: "dup", BackendSpec: "testspec"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{},
-			},
-			wantErr: "duplicate backend name",
-		},
-		{
-			desc: "dup-backend-spec",
-			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "backend1", BackendSpec: "testspec"},
-						{Name: "backend2", BackendSpec: "testspec"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{},
-			},
-			wantErr: "duplicate backend spec",
-		},
-		{
 			desc: "missing-backend-reference",
 			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "log1"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{HubBackendName: "log2"},
-					},
+				HubBackends: map[string]string{"log1": "testspec"},
+				HubConfig: []*configpb.HubConfig{
+					{Prefix: "prefix"},
 				},
 			},
-			wantErr: "empty backend",
+			wantErr: "undefined backend",
 		},
 		{
 			desc: "undefined-backend-reference",
 			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "log1", BackendSpec: "testspec"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{HubBackendName: "log2", Prefix: "prefix"},
-					},
+				HubBackends: map[string]string{"log1": "testspec"},
+				HubConfig: []*configpb.HubConfig{
+					{BackendName: "log2", Prefix: "prefix"},
 				},
 			},
 			wantErr: "undefined backend",
@@ -474,19 +384,11 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		{
 			desc: "empty-log-prefix",
 			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "log1", BackendSpec: "testspec1"},
-						{Name: "log2", BackendSpec: "testspec2"},
-						{Name: "log3", BackendSpec: "testspec3"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{HubBackendName: "log1", Prefix: "prefix1"},
-						{HubBackendName: "log2"},
-						{HubBackendName: "log3", Prefix: "prefix3"},
-					},
+				HubBackends: map[string]string{"log1": "testspec1", "log2": "testspec2", "log3": "testspec3"},
+				HubConfig: []*configpb.HubConfig{
+					{BackendName: "log1", Prefix: "prefix1"},
+					{BackendName: "log2"},
+					{BackendName: "log3", Prefix: "prefix3"},
 				},
 			},
 			wantErr: "empty prefix",
@@ -494,17 +396,11 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		{
 			desc: "dup-log-prefix",
 			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "log1", BackendSpec: "testspec1"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{HubBackendName: "log1", Prefix: "prefix1", LogId: 1},
-						{HubBackendName: "log1", Prefix: "prefix2", LogId: 2},
-						{HubBackendName: "log1", Prefix: "prefix1", LogId: 3},
-					},
+				HubBackends: map[string]string{"log1": "testspec"},
+				HubConfig: []*configpb.HubConfig{
+					{BackendName: "log1", Prefix: "prefix1", LogId: 1},
+					{BackendName: "log1", Prefix: "prefix2", LogId: 2},
+					{BackendName: "log1", Prefix: "prefix1", LogId: 3},
 				},
 			},
 			wantErr: "duplicate prefix",
@@ -512,17 +408,11 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		{
 			desc: "dup-log-ids-on-same-backend",
 			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "log1", BackendSpec: "testspec1"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{HubBackendName: "log1", Prefix: "prefix1", LogId: 1},
-						{HubBackendName: "log1", Prefix: "prefix2", LogId: 1},
-						{HubBackendName: "log1", Prefix: "prefix1", LogId: 1},
-					},
+				HubBackends: map[string]string{"log1": "testspec"},
+				HubConfig: []*configpb.HubConfig{
+					{BackendName: "log1", Prefix: "prefix1", LogId: 1},
+					{BackendName: "log1", Prefix: "prefix2", LogId: 1},
+					{BackendName: "log1", Prefix: "prefix1", LogId: 1},
 				},
 			},
 			wantErr: "dup tree id",
@@ -530,38 +420,22 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		{
 			desc: "valid-config",
 			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "log1", BackendSpec: "testspec1"},
-						{Name: "log2", BackendSpec: "testspec2"},
-						{Name: "log3", BackendSpec: "testspec3"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{HubBackendName: "log1", Prefix: "prefix1", LogId: 1},
-						{HubBackendName: "log2", Prefix: "prefix2", LogId: 2},
-						{HubBackendName: "log3", Prefix: "prefix3", LogId: 3},
-					},
+				HubBackends: map[string]string{"log1": "testspec1", "log2": "testspec2", "log3": "testspec3"},
+				HubConfig: []*configpb.HubConfig{
+					{BackendName: "log1", Prefix: "prefix1", LogId: 1},
+					{BackendName: "log2", Prefix: "prefix2", LogId: 2},
+					{BackendName: "log3", Prefix: "prefix3", LogId: 3},
 				},
 			},
 		},
 		{
 			desc: "valid config dup ids on different backends",
 			cfg: configpb.HubMultiConfig{
-				Backends: &configpb.HubBackendSet{
-					Backend: []*configpb.HubBackend{
-						{Name: "log1", BackendSpec: "testspec1"},
-						{Name: "log2", BackendSpec: "testspec2"},
-						{Name: "log3", BackendSpec: "testspec3"},
-					},
-				},
-				HubConfigs: &configpb.HubConfigSet{
-					Config: []*configpb.HubConfig{
-						{HubBackendName: "log1", Prefix: "prefix1", LogId: 999},
-						{HubBackendName: "log2", Prefix: "prefix2", LogId: 999},
-						{HubBackendName: "log3", Prefix: "prefix3", LogId: 999},
-					},
+				HubBackends: map[string]string{"log1": "testspec1", "log2": "testspec2", "log3": "testspec3"},
+				HubConfig: []*configpb.HubConfig{
+					{BackendName: "log1", Prefix: "prefix1", LogId: 999},
+					{BackendName: "log2", Prefix: "prefix2", LogId: 999},
+					{BackendName: "log3", Prefix: "prefix3", LogId: 999},
 				},
 			},
 		},
@@ -569,7 +443,7 @@ func TestValidateHubMultiConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			_, err := ValidateHubMultiConfig(&test.cfg)
+			err := ValidateHubMultiConfig(&test.cfg)
 			if len(test.wantErr) == 0 && err != nil {
 				t.Fatalf("ValidateHubMultiConfig()=%v, want: nil", err)
 			}

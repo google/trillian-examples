@@ -195,6 +195,35 @@ func (h *hubInfo) Handlers(prefix string) PathHandlers {
 	}
 }
 
+func buildLeaf(req *api.AddSignedBlobRequest, timeNanos uint64) (*trillian.LogLeaf, error) {
+	// Build a TimestampedEntry for the data, initially skipping the timestamp and signature
+	// in order to create a timeless identity hash.
+	entry := api.TimestampedEntry{
+		SourceID: []byte(req.SourceID),
+		BlobData: req.BlobData,
+	}
+
+	timelessData, err := tls.Marshal(entry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create timeless hub leaf: %v", err)
+	}
+	identityHash := sha256.Sum256(timelessData)
+
+	// The full leaf has a timestamp and signature (but there may be a pre-existing entry
+	// with different values for these fields).
+	entry.SourceSignature = req.SourceSignature
+	entry.HubTimestamp = timeNanos
+	leafData, err := tls.Marshal(entry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create timestamped hub leaf: %v", err)
+	}
+
+	return &trillian.LogLeaf{
+		LeafValue:        leafData,
+		LeafIdentityHash: identityHash[:],
+	}, nil
+}
+
 func addSignedBlob(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	var req api.AddSignedBlobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -215,41 +244,17 @@ func addSignedBlob(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *ht
 		return http.StatusBadRequest, fmt.Errorf("failed to validate signature from %q", req.SourceID)
 	}
 
-	// Get the current time in milliseconds since Unix epoch, and use this throughout.
+	// Use the current time (in nanos since Unix epoch) and use to build the Trillian leaf.
 	timeNanos := uint64(time.Now().UnixNano())
-
-	// Build a TimestampedEntry for the data, initially skipping the timestamp and signature
-	// in order to create a timeless identity hash.
-	entry := api.TimestampedEntry{
-		SourceID: []byte(req.SourceID),
-		BlobData: req.BlobData,
-	}
-
-	timelessData, err := tls.Marshal(entry)
+	leaf, err := buildLeaf(&req, timeNanos)
 	if err != nil {
-		glog.V(1).Infof("%s: failed to tls.Marshal hub leaf for %q: %v", c.hubPrefix, req.SourceID, err)
-		return http.StatusBadRequest, fmt.Errorf("failed to create timeless hub leaf: %v", err)
-	}
-	identityHash := sha256.Sum256(timelessData)
-
-	// The full leaf has a timestamp and signature (but there may be a pre-existing entry
-	// with different values for these fields).
-	entry.SourceSignature = req.SourceSignature
-	entry.HubTimestamp = timeNanos
-	leafData, err := tls.Marshal(entry)
-	if err != nil {
-		glog.V(1).Infof("%s: failed to tls.Marshal hub leaf for %q: %v", c.hubPrefix, req.SourceID, err)
-		return http.StatusBadRequest, fmt.Errorf("failed to create timestamped hub leaf: %v", err)
-	}
-
-	leaf := trillian.LogLeaf{
-		LeafValue:        leafData,
-		LeafIdentityHash: identityHash[:],
+		glog.V(1).Infof("%s: failed to create leaf for %q: %v", c.hubPrefix, req.SourceID, err)
+		return http.StatusBadRequest, fmt.Errorf("failed to create leaf: %v", err)
 	}
 
 	// Send the leaf on to the Trillian Log server.
 	glog.V(2).Infof("%s: AddLogHead => grpc.QueueLeaves", c.hubPrefix)
-	rsp, err := c.rpcClient.QueueLeaves(ctx, &trillian.QueueLeavesRequest{LogId: c.logID, Leaves: []*trillian.LogLeaf{&leaf}})
+	rsp, err := c.rpcClient.QueueLeaves(ctx, &trillian.QueueLeavesRequest{LogId: c.logID, Leaves: []*trillian.LogLeaf{leaf}})
 	glog.V(2).Infof("%s: AddLogHead <= grpc.QueueLeaves err=%v", c.hubPrefix, err)
 	if err != nil {
 		return c.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %v", err)

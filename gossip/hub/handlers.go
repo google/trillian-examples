@@ -205,17 +205,17 @@ func buildLeaf(req *api.AddSignedBlobRequest, timeNanos uint64) (*trillian.LogLe
 	}, nil
 }
 
-func (c *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobRequest) (*api.AddSignedBlobResponse, int, error) {
+func (h *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobRequest) (*api.AddSignedBlobResponse, int, error) {
 	// Find the source and its public key.
-	cryptoInfo, ok := c.cryptoMap[req.SourceID]
+	cryptoInfo, ok := h.cryptoMap[req.SourceID]
 	if !ok {
-		glog.V(1).Infof("%s: unknown source %q", c.hubPrefix, req.SourceID)
+		glog.V(1).Infof("%s: unknown source %q", h.hubPrefix, req.SourceID)
 		return nil, http.StatusNotFound, fmt.Errorf("unknown source %q", req.SourceID)
 	}
 
 	// Verify the source's signature.
 	if err := tcrypto.Verify(cryptoInfo.pubKey, cryptoInfo.hasher, req.BlobData, req.SourceSignature); err != nil {
-		glog.V(1).Infof("%s: failed to validate signature from %q: %v", c.hubPrefix, req.SourceID, err)
+		glog.V(1).Infof("%s: failed to validate signature from %q: %v", h.hubPrefix, req.SourceID, err)
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to validate signature from %q", req.SourceID)
 	}
 
@@ -223,16 +223,16 @@ func (c *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobReque
 	timeNanos := uint64(time.Now().UnixNano())
 	leaf, err := buildLeaf(req, timeNanos)
 	if err != nil {
-		glog.V(1).Infof("%s: failed to create leaf for %q: %v", c.hubPrefix, req.SourceID, err)
+		glog.V(1).Infof("%s: failed to create leaf for %q: %v", h.hubPrefix, req.SourceID, err)
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to create leaf: %v", err)
 	}
 
 	// Send the leaf on to the Trillian Log server.
-	glog.V(2).Infof("%s: AddLogHead => grpc.QueueLeaves", c.hubPrefix)
-	rsp, err := c.rpcClient.QueueLeaves(ctx, &trillian.QueueLeavesRequest{LogId: c.logID, Leaves: []*trillian.LogLeaf{leaf}})
-	glog.V(2).Infof("%s: AddLogHead <= grpc.QueueLeaves err=%v", c.hubPrefix, err)
+	glog.V(2).Infof("%s: AddLogHead => grpc.QueueLeaves", h.hubPrefix)
+	rsp, err := h.rpcClient.QueueLeaves(ctx, &trillian.QueueLeavesRequest{LogId: h.logID, Leaves: []*trillian.LogLeaf{leaf}})
+	glog.V(2).Infof("%s: AddLogHead <= grpc.QueueLeaves err=%v", h.hubPrefix, err)
 	if err != nil {
-		return nil, c.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %v", err)
+		return nil, h.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %v", err)
 	}
 	if rsp == nil {
 		return nil, http.StatusInternalServerError, errors.New("missing QueueLeaves response")
@@ -253,7 +253,7 @@ func (c *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobReque
 		return nil, http.StatusInternalServerError, fmt.Errorf("extra data (%d bytes) on reconstructing TimestampedEntry", len(rest))
 	}
 
-	signature, err := c.signer.Sign(entryData)
+	signature, err := h.signer.Sign(entryData)
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("failed to sign SGT data: %v", err)
 	}
@@ -286,8 +286,8 @@ func GetLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID in
 	return &root, nil
 }
 
-func (c *hubInfo) getSTH(ctx context.Context) (*api.GetSTHResponse, int, error) {
-	root, err := GetLogRoot(ctx, c.rpcClient, c.logID, c.hubPrefix)
+func (h *hubInfo) getSTH(ctx context.Context) (*api.GetSTHResponse, int, error) {
+	root, err := GetLogRoot(ctx, h.rpcClient, h.logID, h.hubPrefix)
 	if err != nil {
 		return nil, http.StatusInternalServerError, err
 	}
@@ -301,7 +301,7 @@ func (c *hubInfo) getSTH(ctx context.Context) (*api.GetSTHResponse, int, error) 
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("failed to marshal tree head: %v", err)
 	}
-	signature, err := c.signer.Sign(hthData)
+	signature, err := h.signer.Sign(hthData)
 	if err != nil {
 		return nil, http.StatusInternalServerError, fmt.Errorf("failed to sign STH data: %v", err)
 	}
@@ -309,7 +309,7 @@ func (c *hubInfo) getSTH(ctx context.Context) (*api.GetSTHResponse, int, error) 
 	return &api.GetSTHResponse{TreeHeadData: hthData, HubSignature: signature}, http.StatusOK, nil
 }
 
-func (c *hubInfo) getSTHConsistency(ctx context.Context, first, second int64) (*api.GetSTHConsistencyResponse, int, error) {
+func (h *hubInfo) getSTHConsistency(ctx context.Context, first, second int64) (*api.GetSTHConsistencyResponse, int, error) {
 	if first < 0 || second < 0 {
 		return nil, http.StatusBadRequest, fmt.Errorf("first and second params cannot be <0: %d %d", first, second)
 	}
@@ -319,13 +319,13 @@ func (c *hubInfo) getSTHConsistency(ctx context.Context, first, second int64) (*
 
 	var jsonRsp api.GetSTHConsistencyResponse
 	if first != 0 {
-		req := trillian.GetConsistencyProofRequest{LogId: c.logID, FirstTreeSize: first, SecondTreeSize: second}
+		req := trillian.GetConsistencyProofRequest{LogId: h.logID, FirstTreeSize: first, SecondTreeSize: second}
 
-		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) => grpc.GetConsistencyProof %+v", c.hubPrefix, first, second, req)
-		rsp, err := c.rpcClient.GetConsistencyProof(ctx, &req)
-		glog.V(2).Infof("%s: GetSTHConsistency <= grpc.GetConsistencyProof err=%v", c.hubPrefix, err)
+		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) => grpc.GetConsistencyProof %+v", h.hubPrefix, first, second, req)
+		rsp, err := h.rpcClient.GetConsistencyProof(ctx, &req)
+		glog.V(2).Infof("%s: GetSTHConsistency <= grpc.GetConsistencyProof err=%v", h.hubPrefix, err)
 		if err != nil {
-			return nil, c.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
+			return nil, h.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
 		}
 
 		// TODO(drysdale): configure the hub with the Trillian public key for this tree, and check the Trillian signature here.
@@ -349,22 +349,22 @@ func (c *hubInfo) getSTHConsistency(ctx context.Context, first, second int64) (*
 			jsonRsp.Consistency = emptyProof
 		}
 	} else {
-		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) starts from 0 so return empty proof", c.hubPrefix, first, second)
+		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) starts from 0 so return empty proof", h.hubPrefix, first, second)
 		jsonRsp.Consistency = emptyProof
 	}
 	return &jsonRsp, http.StatusOK, nil
 }
 
-func (c *hubInfo) getProofByHash(ctx context.Context, leafHash []byte, treeSize int64) (*api.GetProofByHashResponse, int, error) {
+func (h *hubInfo) getProofByHash(ctx context.Context, leafHash []byte, treeSize int64) (*api.GetProofByHashResponse, int, error) {
 	req := trillian.GetInclusionProofByHashRequest{
-		LogId:           c.logID,
+		LogId:           h.logID,
 		LeafHash:        leafHash,
 		TreeSize:        treeSize,
 		OrderBySequence: true,
 	}
-	rsp, err := c.rpcClient.GetInclusionProofByHash(ctx, &req)
+	rsp, err := h.rpcClient.GetInclusionProofByHash(ctx, &req)
 	if err != nil {
-		return nil, c.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
+		return nil, h.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
 	}
 
 	// TODO(drysdale): configure the hub with the Trillian public key for this tree, and check the Trillian signature here.
@@ -398,7 +398,7 @@ func (c *hubInfo) getProofByHash(ctx context.Context, leafHash []byte, treeSize 
 	return &jsonRsp, http.StatusOK, nil
 }
 
-func (c *hubInfo) getEntries(ctx context.Context, start, end int64) (*api.GetEntriesResponse, int, error) {
+func (h *hubInfo) getEntries(ctx context.Context, start, end int64) (*api.GetEntriesResponse, int, error) {
 	// Make sure the parameters are sane to prevent an unnecessary round trip.
 	if start < 0 || end < 0 {
 		return nil, http.StatusBadRequest, fmt.Errorf("start (%d) and end (%d) parameters must be >= 0", start, end)
@@ -406,7 +406,7 @@ func (c *hubInfo) getEntries(ctx context.Context, start, end int64) (*api.GetEnt
 	if start > end {
 		return nil, http.StatusBadRequest, fmt.Errorf("start (%d) and end (%d) is not a valid range", start, end)
 	}
-	maxRange := c.opts.MaxGetEntries
+	maxRange := h.opts.MaxGetEntries
 	if maxRange == 0 {
 		maxRange = defaultMaxGetEntries
 	}
@@ -419,13 +419,13 @@ func (c *hubInfo) getEntries(ctx context.Context, start, end int64) (*api.GetEnt
 
 	// Now make a request to the backend to get the relevant leaves
 	req := trillian.GetLeavesByRangeRequest{
-		LogId:      c.logID,
+		LogId:      h.logID,
 		StartIndex: start,
 		Count:      count,
 	}
-	rsp, err := c.rpcClient.GetLeavesByRange(ctx, &req)
+	rsp, err := h.rpcClient.GetLeavesByRange(ctx, &req)
 	if err != nil {
-		return nil, c.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %v", err)
+		return nil, h.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %v", err)
 	}
 	// TODO(drysdale): configure the hub with the Trillian public key for this tree, and check the Trillian signature here.
 	var root types.LogRootV1
@@ -449,18 +449,18 @@ func (c *hubInfo) getEntries(ctx context.Context, start, end int64) (*api.GetEnt
 		// Check that the data unmarshals OK before returning it.
 		var entry api.TimestampedEntry
 		if rest, err := tls.Unmarshal(leaf.LeafValue, &entry); err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("%s: Failed to deserialize Merkle leaf from backend: %d", c.hubPrefix, leaf.LeafIndex)
+			return nil, http.StatusInternalServerError, fmt.Errorf("%s: Failed to deserialize Merkle leaf from backend: %d", h.hubPrefix, leaf.LeafIndex)
 		} else if len(rest) > 0 {
-			return nil, http.StatusInternalServerError, fmt.Errorf("%s: Trailing data after Merkle leaf from backend: %d", c.hubPrefix, leaf.LeafIndex)
+			return nil, http.StatusInternalServerError, fmt.Errorf("%s: Trailing data after Merkle leaf from backend: %d", h.hubPrefix, leaf.LeafIndex)
 		}
 		jsonRsp.Entries = append(jsonRsp.Entries, leaf.LeafValue)
 	}
 	return &jsonRsp, http.StatusOK, nil
 }
 
-func (c *hubInfo) getSourceKeys(ctx context.Context) *api.GetSourceKeysResponse {
+func (h *hubInfo) getSourceKeys(ctx context.Context) *api.GetSourceKeysResponse {
 	var jsonRsp api.GetSourceKeysResponse
-	for sourceID, info := range c.cryptoMap {
+	for sourceID, info := range h.cryptoMap {
 		l := api.SourceKey{ID: sourceID, PubKey: info.pubKeyData}
 		jsonRsp.Entries = append(jsonRsp.Entries, &l)
 	}
@@ -489,14 +489,14 @@ func (h *hubInfo) Handlers(prefix string) PathHandlers {
 // The methods below deal with HTTP and JSON encoding/decoding, but the core functionality is handled by
 // the appropriate hubInfo methods.
 
-func addSignedBlob(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func addSignedBlob(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	var req api.AddSignedBlobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		glog.V(1).Infof("%s: Failed to parse request body: %v", c.hubPrefix, err)
+		glog.V(1).Infof("%s: Failed to parse request body: %v", h.hubPrefix, err)
 		return http.StatusBadRequest, fmt.Errorf("failed to parse add-signed-blob body: %v", err)
 	}
 
-	jsonRsp, statusCode, err := c.addSignedBlob(ctx, &req)
+	jsonRsp, statusCode, err := h.addSignedBlob(ctx, &req)
 	if err != nil {
 		return statusCode, err
 	}
@@ -509,12 +509,12 @@ func addSignedBlob(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *ht
 	if _, err = w.Write(jsonData); err != nil {
 		return http.StatusInternalServerError, fmt.Errorf("failed to write add-signed-blob rsp: %s", err)
 	}
-	glog.V(3).Infof("%s: AddSignedBlob <= SGT", c.hubPrefix)
+	glog.V(3).Infof("%s: AddSignedBlob <= SGT", h.hubPrefix)
 	return http.StatusOK, nil
 }
 
-func getSTH(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
-	jsonRsp, statusCode, err := c.getSTH(ctx)
+func getSTH(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	jsonRsp, statusCode, err := h.getSTH(ctx)
 	if err != nil {
 		return statusCode, err
 	}
@@ -530,7 +530,7 @@ func getSTH(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Requ
 	return http.StatusOK, nil
 }
 
-func getSTHConsistency(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getSTHConsistency(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	firstVal := r.FormValue(api.GetSTHConsistencyFirst)
 	if firstVal == "" {
 		return http.StatusBadRequest, errors.New("parameter 'first' is required")
@@ -548,7 +548,7 @@ func getSTHConsistency(ctx context.Context, c *hubInfo, w http.ResponseWriter, r
 		return http.StatusBadRequest, errors.New("parameter 'second' is malformed")
 	}
 
-	jsonRsp, statusCode, err := c.getSTHConsistency(ctx, first, second)
+	jsonRsp, statusCode, err := h.getSTHConsistency(ctx, first, second)
 	if err != nil {
 		return statusCode, err
 	}
@@ -566,7 +566,7 @@ func getSTHConsistency(ctx context.Context, c *hubInfo, w http.ResponseWriter, r
 	return http.StatusOK, nil
 }
 
-func getProofByHash(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getProofByHash(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Accept any non empty hash that decodes from base64 and let the backend validate it further
 	hash := r.FormValue(api.GetProofByHashArg)
 	if len(hash) == 0 {
@@ -581,14 +581,14 @@ func getProofByHash(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *h
 		return http.StatusBadRequest, fmt.Errorf("get-proof-by-hash: missing or invalid tree_size: %v", err)
 	}
 
-	jsonRsp, statusCode, err := c.getProofByHash(ctx, leafHash, treeSize)
+	jsonRsp, statusCode, err := h.getProofByHash(ctx, leafHash, treeSize)
 	if err != nil {
 		return statusCode, err
 	}
 
 	jsonData, err := json.Marshal(&jsonRsp)
 	if err != nil {
-		glog.Warningf("%s: Failed to marshal get-proof-by-hash rsp: %v", c.hubPrefix, jsonRsp)
+		glog.Warningf("%s: Failed to marshal get-proof-by-hash rsp: %v", h.hubPrefix, jsonRsp)
 		return http.StatusInternalServerError, fmt.Errorf("failed to marshal get-proof-by-hash rsp: %v, error: %v", jsonRsp, err)
 	}
 	w.Header().Set(contentTypeHeader, contentTypeJSON)
@@ -598,7 +598,7 @@ func getProofByHash(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *h
 	return http.StatusOK, nil
 }
 
-func getEntries(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getEntries(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	start, err := strconv.ParseInt(r.FormValue(api.GetEntriesStart), 10, 64)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("bad start value on get-entries request: %v", err)
@@ -608,7 +608,7 @@ func getEntries(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.
 		return http.StatusBadRequest, fmt.Errorf("bad end value on get-entries request: %v", err)
 	}
 
-	jsonRsp, statusCode, err := c.getEntries(ctx, start, end)
+	jsonRsp, statusCode, err := h.getEntries(ctx, start, end)
 	if err != nil {
 		return statusCode, err
 	}
@@ -627,8 +627,8 @@ func getEntries(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.
 	return http.StatusOK, nil
 }
 
-func getSourceKeys(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
-	jsonRsp := c.getSourceKeys(ctx)
+func getSourceKeys(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	jsonRsp := h.getSourceKeys(ctx)
 
 	jsonData, err := json.Marshal(jsonRsp)
 	if err != nil {

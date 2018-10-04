@@ -242,7 +242,7 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 		return fmt.Errorf("len(proof12)=%d; want 1", len(proof12))
 	}
 	if err := checkConsistencyProof(sth1, sth2, proof12); err != nil {
-		return fmt.Errorf("got CheckCTConsistencyProof(sth1,sth2,proof12)=%v; want nil", err)
+		return fmt.Errorf("got checkConsistencyProof(sth1,sth2,proof12)=%v; want nil", err)
 	}
 
 	// Stage 6: get a consistency proof from size 0-> size 2, which should be empty.

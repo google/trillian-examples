@@ -168,21 +168,22 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	}
 	fmt.Printf("%s: Got STH(time=%q, size=%d): roothash=%x\n", t.prefix, timeFromNS(sth0.TreeHead.Timestamp), sth0.TreeHead.TreeSize, sth0.TreeHead.RootHash)
 
+	// Record every submission along the way.
+	var signedBlobs []*signedBlob
+	var sgts []*api.SignedGossipTimestamp
+
 	// Stage 2: add a single signed blob, get an SGT.
-	const maxBlobs = 21
-	var signedBlobs [maxBlobs]*signedBlob
-	var sgts [maxBlobs]*api.SignedGossipTimestamp
-	signedBlobs[0], err = t.getSignedBlob()
+	blob, err := t.getSignedBlob()
 	if err != nil {
 		return fmt.Errorf("failed to generate signed test blob: %v", err)
 	}
-	blob := signedBlobs[0]
+	signedBlobs = append(signedBlobs, blob)
 
-	sgts[0], err = t.client().AddSignedBlob(ctx, blob.SourceID, blob.BlobData, blob.SourceSignature)
-	sgt := sgts[0]
+	sgt, err := t.client().AddSignedBlob(ctx, blob.SourceID, blob.BlobData, blob.SourceSignature)
 	if err != nil {
 		return fmt.Errorf("got AddSignedBlob()=(nil,%v); want (_,nil)", err)
 	}
+	sgts = append(sgts, sgt)
 	// Display the SGT.
 	fmt.Printf("%s: Uploaded blob from %s to Hub, got SGT(time=%q)\n", t.prefix, blob.SourceID, timeFromNS(sgt.TimestampedEntry.HubTimestamp))
 
@@ -200,6 +201,7 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	if err != nil {
 		return fmt.Errorf("failed to generate new signature for blob: %v", err)
 	}
+
 	sgt, err = t.client().AddSignedBlob(ctx, blob.SourceID, blob.BlobData, newSignature)
 	if err != nil {
 		return fmt.Errorf("got re-AddSignedBlob()=(nil,%v); want (_,nil)", err)
@@ -209,16 +211,16 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	}
 
 	// Stage 4: add a second blob, wait for tree size = 2
-	signedBlobs[1], err = t.getSignedBlob()
+	blob, err = t.getSignedBlob()
 	if err != nil {
 		return fmt.Errorf("failed to generate signed test blob: %v", err)
 	}
-	blob = signedBlobs[1]
-	sgts[1], err = t.client().AddSignedBlob(ctx, blob.SourceID, blob.BlobData, blob.SourceSignature)
-	sgt = sgts[1]
+	signedBlobs = append(signedBlobs, blob)
+	sgt, err = t.client().AddSignedBlob(ctx, blob.SourceID, blob.BlobData, blob.SourceSignature)
 	if err != nil {
 		return fmt.Errorf("got AddSignedBlob()=(nil,%v); want (_,nil)", err)
 	}
+	sgts = append(sgts, sgt)
 	fmt.Printf("%s: Uploaded blob 2 from %s to Hub, got SGT(time=%q)\n", t.prefix, blob.SourceID, timeFromNS(sgt.TimestampedEntry.HubTimestamp))
 	sth2, err := t.awaitTreeSize(ctx, 2, true, mmd)
 	if err != nil {
@@ -255,18 +257,21 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	}
 
 	// Stage 7: add blobs [2], [3], [4], [5],...[N], for some random N.
-	atLeast := 4
+	const maxBlobs = 21
+	const atLeast = 4
 	n := atLeast + rand.Intn(maxBlobs-1-atLeast)
 	for i := 2; i <= n; i++ {
-		signedBlobs[i], err = t.getSignedBlob()
+		blob, err = t.getSignedBlob()
 		if err != nil {
 			return fmt.Errorf("failed to generate signed test blob %d: %v", i, err)
 		}
-		blob = signedBlobs[i]
-		sgts[i], err = t.client().AddSignedBlob(ctx, blob.SourceID, blob.BlobData, blob.SourceSignature)
+		signedBlobs = append(signedBlobs, blob)
+
+		sgt, err = t.client().AddSignedBlob(ctx, blob.SourceID, blob.BlobData, blob.SourceSignature)
 		if err != nil {
 			return fmt.Errorf("got AddSignedBlob(blob %d)=(nil,%v); want (_,nil)", i, err)
 		}
+		sgts = append(sgts, sgt)
 	}
 	fmt.Printf("%s: Uploaded blob02-blob%02d to Hub, got SGTs\n", t.prefix, n)
 

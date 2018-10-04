@@ -397,7 +397,7 @@ func (t *testInfo) regenerateSignature(blob *signedBlob) ([]byte, error) {
 	return sig, nil
 }
 
-// awaitTreeSize loops until the an STH is retrieved that is the specified size (or larger, if exact is false).
+// awaitTreeSize loops until an STH is retrieved that is the specified size (or larger, if exact is false).
 func (t *testInfo) awaitTreeSize(ctx context.Context, size uint64, exact bool, mmd time.Duration) (*api.SignedHubTreeHead, error) {
 	var sth *api.SignedHubTreeHead
 	deadline := time.Now().Add(mmd)

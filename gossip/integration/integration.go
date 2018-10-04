@@ -88,7 +88,7 @@ func (p RandomPool) Next() *client.HubClient {
 	return p[rand.Intn(len(p))]
 }
 
-// NewRandomPool creates a pool which returns a random client from list of servers.
+// NewRandomPool creates a pool which returns a random client from a list of servers.
 func NewRandomPool(servers string, pubKey *keyspb.PublicKey, prefix string) (ClientPool, error) {
 	opts := jsonclient.Options{PublicKeyDER: pubKey.GetDer()}
 	hc := &http.Client{Transport: DefaultTransport}

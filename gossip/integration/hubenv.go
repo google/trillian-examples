@@ -33,7 +33,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// HubEnv is a test environment that contains a Trillian log server/signer and a Gossip hub personality
+// HubEnv is a test environment that contains a Trillian log server/signer and a Gossip Hub personality
 // connected to it.
 type HubEnv struct {
 	logEnv        *integration.LogEnv

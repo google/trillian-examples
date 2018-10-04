@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	hubCount = flag.Int("hubs", 3, "Number of parallel gossip hubs to test")
+	hubCount = flag.Int("hubs", 3, "Number of parallel Gossip Hubs to test")
 	logCount = flag.Int("logs", 3, "Number of source logs tracked by each hub")
 	mmd      = flag.Duration("mmd", 120*time.Second, "MMD for tested hubs")
 )

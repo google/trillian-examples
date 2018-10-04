@@ -119,7 +119,7 @@ func (t *testInfo) client() *client.HubClient {
 	return t.pool.Next()
 }
 
-// RunIntegrationForHub tests against the hub with configuration cfg, with a set
+// RunIntegrationForHub tests against the Hub with configuration cfg, with a set
 // of comma-separated server addresses given by servers.  The provided srcKeys
 // are used to generate test content as from the sources, and so need to match
 // the public keys in cfg.
@@ -184,7 +184,7 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 		return fmt.Errorf("got AddSignedBlob()=(nil,%v); want (_,nil)", err)
 	}
 	// Display the SGT.
-	fmt.Printf("%s: Uploaded blob from %s to hub, got SGT(time=%q)\n", t.prefix, blob.SourceID, timeFromNS(sgt.TimestampedEntry.HubTimestamp))
+	fmt.Printf("%s: Uploaded blob from %s to Hub, got SGT(time=%q)\n", t.prefix, blob.SourceID, timeFromNS(sgt.TimestampedEntry.HubTimestamp))
 
 	// Keep getting the STH until tree size becomes 1 and check the cert is included.
 	sth1, err := t.awaitTreeSize(ctx, 1, true, mmd)
@@ -219,7 +219,7 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	if err != nil {
 		return fmt.Errorf("got AddSignedBlob()=(nil,%v); want (_,nil)", err)
 	}
-	fmt.Printf("%s: Uploaded blob 2 from %s to hub, got SGT(time=%q)\n", t.prefix, blob.SourceID, timeFromNS(sgt.TimestampedEntry.HubTimestamp))
+	fmt.Printf("%s: Uploaded blob 2 from %s to Hub, got SGT(time=%q)\n", t.prefix, blob.SourceID, timeFromNS(sgt.TimestampedEntry.HubTimestamp))
 	sth2, err := t.awaitTreeSize(ctx, 2, true, mmd)
 	if err != nil {
 		return fmt.Errorf("failed to get STH for size=1: %v", err)
@@ -268,7 +268,7 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 			return fmt.Errorf("got AddSignedBlob(blob %d)=(nil,%v); want (_,nil)", i, err)
 		}
 	}
-	fmt.Printf("%s: Uploaded blob02-blob%02d to hub, got SGTs\n", t.prefix, n)
+	fmt.Printf("%s: Uploaded blob02-blob%02d to Hub, got SGTs\n", t.prefix, n)
 
 	// Stage 8: keep getting the STH until tree size becomes N+1.
 	treeSize := n + 1
@@ -481,18 +481,18 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 
 	var cfgs []*configpb.HubConfig
 	for i := 0; i < hubCount; i++ {
-		// Create a per-hub private key
+		// Create a per-Hub private key
 		hubKey, err := ecdsa.GenerateKey(elliptic.P256(), cryptorand.Reader)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate ECDSA key for hub: %v", err)
+			return nil, nil, fmt.Errorf("failed to generate ECDSA key for Hub: %v", err)
 		}
 		hubKeyDER, err := der.MarshalPrivateKey(hubKey)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to generate private key DER for hub: %v", err)
+			return nil, nil, fmt.Errorf("failed to generate private key DER for Hub: %v", err)
 		}
 		hubKeyProto, err := ptypes.MarshalAny(&keyspb.PrivateKey{Der: hubKeyDER})
 		if err != nil {
-			return nil, nil, fmt.Errorf("fould not marshal hub private key as protobuf Any: %v", err)
+			return nil, nil, fmt.Errorf("fould not marshal Hub private key as protobuf Any: %v", err)
 		}
 		pubKeyDER, err := x509.MarshalPKIXPublicKey(hubKey.Public())
 		if err != nil {

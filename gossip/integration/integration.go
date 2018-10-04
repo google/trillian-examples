@@ -80,8 +80,6 @@ type ClientPool interface {
 // RandomPool holds a collection of HubClient instances.
 type RandomPool []*client.HubClient
 
-var _ ClientPool = &RandomPool{}
-
 // Next picks a random client from the pool.
 func (p RandomPool) Next() *client.HubClient {
 	if len(p) == 0 {

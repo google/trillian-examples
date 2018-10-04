@@ -48,26 +48,28 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 )
 
-// DefaultTransport is a http Transport more suited for use in a test context.
-// In particular it increases the number of reusable connections to the same
-// host. This helps to prevent starvation of ports through TIME_WAIT when
-// testing with a high number of parallel chain submissions.
-var DefaultTransport = &http.Transport{
-	Proxy: http.ProxyFromEnvironment,
-	DialContext: (&net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
-		DualStack: true,
-	}).DialContext,
-	MaxIdleConns:          1000,
-	MaxIdleConnsPerHost:   1000,
-	IdleConnTimeout:       90 * time.Second,
-	TLSHandshakeTimeout:   10 * time.Second,
-	ExpectContinueTimeout: 1 * time.Second,
-}
+var (
+	// DefaultTransport is a http Transport more suited for use in a test context.
+	// In particular it increases the number of reusable connections to the same
+	// host. This helps to prevent starvation of ports through TIME_WAIT when
+	// testing with a high number of parallel chain submissions.
+	DefaultTransport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		MaxIdleConns:          1000,
+		MaxIdleConnsPerHost:   1000,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 
-// Verifier is used to verify Merkle tree calculations.
-var Verifier = merkle.NewLogVerifier(rfc6962.DefaultHasher)
+	// Verifier is used to verify Merkle tree calculations.
+	Verifier = merkle.NewLogVerifier(rfc6962.DefaultHasher)
+)
 
 // ClientPool describes an entity which produces HubClient instances.
 type ClientPool interface {

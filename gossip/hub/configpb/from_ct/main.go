@@ -60,6 +60,7 @@ func main() {
 			Id:            url,
 			PublicKey:     &keyspb.PublicKey{Der: l.Key},
 			HashAlgorithm: sigpb.DigitallySigned_SHA256, // RFC6962 s2.1 mandates SHA-256
+			Kind:          configpb.TrackedSource_RFC6962STH,
 		}
 		fmt.Printf("source {\n")
 		proto.MarshalText(os.Stdout, &tlog)

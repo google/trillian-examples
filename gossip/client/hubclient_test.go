@@ -656,7 +656,7 @@ func TestAcceptableSource(t *testing.T) {
 			desc:   "Single Source Match",
 			needle: ecdsaKey.Public(),
 			haystack: []*api.SourceKey{
-				&api.SourceKey{PubKey: pubKeyDER},
+				{PubKey: pubKeyDER},
 			},
 			want: true,
 		},
@@ -664,8 +664,8 @@ func TestAcceptableSource(t *testing.T) {
 			desc:   "Multiple Source Match",
 			needle: ecdsaKey.Public(),
 			haystack: []*api.SourceKey{
-				&api.SourceKey{PubKey: otherPubKeyDER},
-				&api.SourceKey{PubKey: pubKeyDER},
+				{PubKey: otherPubKeyDER},
+				{PubKey: pubKeyDER},
 			},
 			want: true,
 		},
@@ -673,8 +673,8 @@ func TestAcceptableSource(t *testing.T) {
 			desc:   "Multiple Source No Match",
 			needle: ecdsaKey.Public(),
 			haystack: []*api.SourceKey{
-				&api.SourceKey{PubKey: otherPubKeyDER},
-				&api.SourceKey{PubKey: otherPubKeyDER},
+				{PubKey: otherPubKeyDER},
+				{PubKey: otherPubKeyDER},
 			},
 			want: false,
 		},

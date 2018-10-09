@@ -625,3 +625,66 @@ func TestGetSourceKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestAcceptableSource(t *testing.T) {
+	ecdsaKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("Failed to generate ECDSA key: %v", err)
+	}
+	pubKeyDER, err := x509.MarshalPKIXPublicKey(ecdsaKey.Public())
+	if err != nil {
+		t.Fatalf("Failed to marshal public key to DER: %v", err)
+	}
+	_, otherPubKeyDER := generateKeys(t)
+	tests := []struct {
+		desc     string
+		needle   crypto.PublicKey
+		haystack []*api.SourceKey
+		want     bool
+	}{
+		{
+			desc:   "Empty Sources",
+			needle: ecdsaKey.Public(),
+			want:   false,
+		},
+		{
+			desc:   "Invalid Public Key",
+			needle: interface{}("bogus"),
+			want:   false,
+		},
+		{
+			desc:   "Single Source Match",
+			needle: ecdsaKey.Public(),
+			haystack: []*api.SourceKey{
+				{PubKey: pubKeyDER},
+			},
+			want: true,
+		},
+		{
+			desc:   "Multiple Source Match",
+			needle: ecdsaKey.Public(),
+			haystack: []*api.SourceKey{
+				{PubKey: otherPubKeyDER},
+				{PubKey: pubKeyDER},
+			},
+			want: true,
+		},
+		{
+			desc:   "Multiple Source No Match",
+			needle: ecdsaKey.Public(),
+			haystack: []*api.SourceKey{
+				{PubKey: otherPubKeyDER},
+				{PubKey: otherPubKeyDER},
+			},
+			want: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			got := client.AcceptableSource(test.needle, test.haystack)
+			if got != test.want {
+				t.Errorf("AcceptableSource()=%v, want %v", got, test.want)
+			}
+		})
+	}
+}

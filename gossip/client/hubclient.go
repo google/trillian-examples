@@ -27,6 +27,7 @@ import (
 
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/tls"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian-examples/gossip/api"
 
 	tcrypto "github.com/google/trillian/crypto"
@@ -229,4 +230,19 @@ func (c *HubClient) GetSourceKeys(ctx context.Context) ([]*api.SourceKey, error)
 		return nil, err
 	}
 	return rsp.Entries, nil
+}
+
+// AcceptableSource checks whether a given public key is included in the set of
+// source keys for a hub.
+func AcceptableSource(pubKey crypto.PublicKey, srcKeys []*api.SourceKey) bool {
+	pubDER, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
+		return false
+	}
+	for _, srcKey := range srcKeys {
+		if bytes.Equal(pubDER, srcKey.PubKey) {
+			return true
+		}
+	}
+	return false
 }

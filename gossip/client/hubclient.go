@@ -165,12 +165,14 @@ func (c *HubClient) GetProofByHash(ctx context.Context, hash []byte, treeSize ui
 	return &rsp, nil
 }
 
+// getEntriesRsp retrieves the given range of entries, returning an HTTP status code,
+// HTTP response body and slice of TLS-encoded TimetStampedEntries, or an error.
 func (c *HubClient) getEntriesRsp(ctx context.Context, start, end int64) (int, []byte, [][]byte, error) {
 	if start < 0 {
-		return -1, nil, nil, errors.New("start should be >= 0")
+		return 0, nil, nil, errors.New("start should be >= 0")
 	}
 	if end < start {
-		return -1, nil, nil, errors.New("start should be <= end")
+		return 0, nil, nil, errors.New("start should be <= end")
 	}
 
 	params := map[string]string{
@@ -181,7 +183,7 @@ func (c *HubClient) getEntriesRsp(ctx context.Context, start, end int64) (int, [
 	var rsp api.GetEntriesResponse
 	httpRsp, body, err := c.GetAndParse(ctx, api.PathPrefix+api.GetEntriesPath, params, &rsp)
 	if err != nil {
-		return -1, nil, nil, err
+		return 0, nil, nil, err
 	}
 	return httpRsp.StatusCode, body, rsp.Entries, nil
 }

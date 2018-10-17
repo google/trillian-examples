@@ -69,6 +69,7 @@ func generateKeys(t *testing.T) (*tcrypto.Signer, []byte) {
 }
 
 // signData returns data, signature-over-data as a 2 element slice of base-64 encoded strings.
+// Returned as a slice of interface{} to allow both results to be passed to Formatf().
 func signData(t *testing.T, signer *tcrypto.Signer, data []byte) []interface{} {
 	sig, err := signer.Sign(data)
 	if err != nil {

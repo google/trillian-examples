@@ -18,9 +18,12 @@ package main
 
 import (
 	"encoding/pem"
+	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
@@ -33,6 +36,27 @@ import (
 
 var password = flag.String("password", "", "Password for private key file(s)")
 
+func keyDataFromPEM(keyPEM []byte, password string) ([]byte, error) {
+	rest := keyPEM
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			return nil, errors.New("no private key PEM block found")
+		}
+		if strings.Contains(block.Type, "PRIVATE KEY") {
+			if password != "" {
+				derData, err := x509.DecryptPEMBlock(block, []byte(password))
+				if err != nil {
+					return nil, fmt.Errorf("failed to decrypt: %v", err)
+				}
+				return derData, nil
+			}
+			return block.Bytes, nil
+		}
+	}
+}
+
 func main() {
 	flag.Parse()
 
@@ -42,23 +66,10 @@ func main() {
 			glog.Errorf("%v: Failed to read data: %v", arg, err)
 			continue
 		}
-		block, rest := pem.Decode([]byte(keyPEM))
-		if block == nil {
-			glog.Errorf("%v: Invalid private key PEM", arg)
+		keyDER, err := keyDataFromPEM(keyPEM, *password)
+		if err != nil {
+			glog.Errorf("%v: Invalid PEM file: %v", arg, err)
 			continue
-		}
-		if len(rest) > 0 {
-			glog.Errorf("%v: Extra data found after first PEM block", arg)
-			continue
-		}
-		keyDER := block.Bytes
-		if *password != "" {
-			pwdDer, err := x509.DecryptPEMBlock(block, []byte(*password))
-			if err != nil {
-				glog.Errorf("%v: failed to decrypt: %v", arg, err)
-				continue
-			}
-			keyDER = pwdDer
 		}
 		privProto, err := ptypes.MarshalAny(&keyspb.PrivateKey{Der: keyDER})
 		if err != nil {

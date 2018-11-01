@@ -175,7 +175,10 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(ctx, a.info.opts.Deadline)
 	defer cancel()
 
-	status, err := a.handler(ctx, a.info, w, r)
+	// Store any available chargeable-user info in the context.
+	qctx := a.info.addCharge(ctx, r)
+
+	status, err := a.handler(qctx, a.info, w, r)
 	glog.V(2).Infof("%s: %s <= status=%d", a.info.hubPrefix, a.Name, status)
 	rspsCounter.Inc(label0, label1, strconv.Itoa(status))
 	if err != nil {
@@ -276,39 +279,44 @@ func buildLeaf(req *api.AddSignedBlobRequest, timeNanos uint64) (*trillian.LogLe
 	}, nil
 }
 
-func (h *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobRequest) (*api.AddSignedBlobResponse, int, error) {
+func (h *hubInfo) addSignedBlob(ctx context.Context, apiReq *api.AddSignedBlobRequest) (*api.AddSignedBlobResponse, int, error) {
 	// Find the source and its public key.
-	cryptoInfo, ok := h.cryptoMap[req.SourceID]
+	cryptoInfo, ok := h.cryptoMap[apiReq.SourceID]
 	if !ok {
-		glog.V(1).Infof("%s: unknown source %q", h.hubPrefix, req.SourceID)
-		return nil, http.StatusNotFound, fmt.Errorf("unknown source %q", req.SourceID)
+		glog.V(1).Infof("%s: unknown source %q", h.hubPrefix, apiReq.SourceID)
+		return nil, http.StatusNotFound, fmt.Errorf("unknown source %q", apiReq.SourceID)
 	}
 
 	// Verify the source's signature.
-	if err := tcrypto.Verify(cryptoInfo.pubKey, cryptoInfo.hasher, req.BlobData, req.SourceSignature); err != nil {
-		glog.V(1).Infof("%s: failed to validate signature from %q: %v", h.hubPrefix, req.SourceID, err)
-		return nil, http.StatusBadRequest, fmt.Errorf("failed to validate signature from %q", req.SourceID)
+	if err := tcrypto.Verify(cryptoInfo.pubKey, cryptoInfo.hasher, apiReq.BlobData, apiReq.SourceSignature); err != nil {
+		glog.V(1).Infof("%s: failed to validate signature from %q: %v", h.hubPrefix, apiReq.SourceID, err)
+		return nil, http.StatusBadRequest, fmt.Errorf("failed to validate signature from %q", apiReq.SourceID)
 	}
 
 	// Perform any other checks appropriate for the kind of source.
 	if kc := kindHandlers[cryptoInfo.kind].submissionCheck; kc != nil {
-		if err := kc(req.BlobData, req.SourceSignature); err != nil {
-			glog.V(1).Infof("%s: failed to validate %v-specific data from %q: %v", h.hubPrefix, cryptoInfo.kind, req.SourceID, err)
-			return nil, http.StatusBadRequest, fmt.Errorf("failed to validate data from %q: %v", req.SourceID, err)
+		if err := kc(apiReq.BlobData, apiReq.SourceSignature); err != nil {
+			glog.V(1).Infof("%s: failed to validate %v-specific data from %q: %v", h.hubPrefix, cryptoInfo.kind, apiReq.SourceID, err)
+			return nil, http.StatusBadRequest, fmt.Errorf("failed to validate data from %q: %v", apiReq.SourceID, err)
 		}
 	}
 
 	// Use the current time (in nanos since Unix epoch) and use to build the Trillian leaf.
 	timeNanos := uint64(time.Now().UnixNano())
-	leaf, err := buildLeaf(req, timeNanos)
+	leaf, err := buildLeaf(apiReq, timeNanos)
 	if err != nil {
-		glog.V(1).Infof("%s: failed to create leaf for %q: %v", h.hubPrefix, req.SourceID, err)
+		glog.V(1).Infof("%s: failed to create leaf for %q: %v", h.hubPrefix, apiReq.SourceID, err)
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to create leaf: %v", err)
 	}
 
 	// Send the leaf on to the Trillian Log server.
 	glog.V(2).Infof("%s: AddLogHead => grpc.QueueLeaves", h.hubPrefix)
-	rsp, err := h.rpcClient.QueueLeaves(ctx, &trillian.QueueLeavesRequest{LogId: h.logID, Leaves: []*trillian.LogLeaf{leaf}})
+	req := trillian.QueueLeavesRequest{
+		LogId:    h.logID,
+		Leaves:   []*trillian.LogLeaf{leaf},
+		ChargeTo: chargeTo(ctx),
+	}
+	rsp, err := h.rpcClient.QueueLeaves(ctx, &req)
 	glog.V(2).Infof("%s: AddLogHead <= grpc.QueueLeaves err=%v", h.hubPrefix, err)
 	if err != nil {
 		return nil, h.toHTTPStatus(err), fmt.Errorf("backend QueueLeaves request failed: %v", err)
@@ -343,9 +351,9 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobReque
 	if c := kindHandlers[cryptoInfo.kind].entryIsLater; c != nil {
 		isLater = c
 	}
-	prevEntry := h.getLatestEntry(req.SourceID)
+	prevEntry := h.getLatestEntry(apiReq.SourceID)
 	if prevEntry == nil || isLater(prevEntry, &loggedEntry) {
-		h.setLatestEntry(req.SourceID, &loggedEntry)
+		h.setLatestEntry(apiReq.SourceID, &loggedEntry)
 	}
 
 	return &api.AddSignedBlobResponse{TimestampedEntryData: entryData, HubSignature: signature}, http.StatusOK, nil
@@ -354,7 +362,10 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, req *api.AddSignedBlobReque
 // GetLogRoot retrieves a log root for the given Trillian log.
 func GetLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) (*types.LogRootV1, error) {
 	// Send request to the Log server.
-	req := trillian.GetLatestSignedLogRootRequest{LogId: logID}
+	req := trillian.GetLatestSignedLogRootRequest{
+		LogId:    logID,
+		ChargeTo: chargeTo(ctx),
+	}
 	glog.V(2).Infof("%s: GetLogRoot => grpc.GetLatestSignedLogRoot %+v", prefix, req)
 	rsp, err := client.GetLatestSignedLogRoot(ctx, &req)
 	glog.V(2).Infof("%s: GetLogRoot <= grpc.GetLatestSignedLogRoot err=%v", prefix, err)
@@ -410,7 +421,12 @@ func (h *hubInfo) getSTHConsistency(ctx context.Context, first, second int64) (*
 
 	var jsonRsp api.GetSTHConsistencyResponse
 	if first != 0 {
-		req := trillian.GetConsistencyProofRequest{LogId: h.logID, FirstTreeSize: first, SecondTreeSize: second}
+		req := trillian.GetConsistencyProofRequest{
+			LogId:          h.logID,
+			FirstTreeSize:  first,
+			SecondTreeSize: second,
+			ChargeTo:       chargeTo(ctx),
+		}
 
 		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) => grpc.GetConsistencyProof %+v", h.hubPrefix, first, second, req)
 		rsp, err := h.rpcClient.GetConsistencyProof(ctx, &req)
@@ -452,6 +468,7 @@ func (h *hubInfo) getProofByHash(ctx context.Context, leafHash []byte, treeSize 
 		LeafHash:        leafHash,
 		TreeSize:        treeSize,
 		OrderBySequence: true,
+		ChargeTo:        chargeTo(ctx),
 	}
 	rsp, err := h.rpcClient.GetInclusionProofByHash(ctx, &req)
 	if err != nil {
@@ -513,6 +530,7 @@ func (h *hubInfo) getEntries(ctx context.Context, start, end int64) (*api.GetEnt
 		LogId:      h.logID,
 		StartIndex: start,
 		Count:      count,
+		ChargeTo:   chargeTo(ctx),
 	}
 	rsp, err := h.rpcClient.GetLeavesByRange(ctx, &req)
 	if err != nil {
@@ -578,6 +596,34 @@ func (h *hubInfo) getLatestForSource(ctx context.Context, srcID string) (*api.Ge
 		return nil, http.StatusInternalServerError, fmt.Errorf("failed to serialize latest entry: %v", err)
 	}
 	return &api.GetLatestForSourceResponse{Entry: entryData}, http.StatusOK, nil
+}
+
+type quotaContextType string
+
+// remoteQuotaCtxKey is the key used to attach a Trillian quota user to a context.
+var remoteQuotaCtxKey = quotaContextType("quotaUser")
+
+// addCharge creates a new context that includes user quota charging information
+// if available.
+func (h *hubInfo) addCharge(ctx context.Context, r *http.Request) context.Context {
+	if h.opts.RemoteQuotaUser == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, remoteQuotaCtxKey, h.opts.RemoteQuotaUser(r))
+}
+
+// chargeTo retrieves information about which user quotas should be charged
+// for a request from the context.
+func chargeTo(ctx context.Context) *trillian.ChargeTo {
+	q := ctx.Value(remoteQuotaCtxKey)
+	if q == nil {
+		return nil
+	}
+	qUser, ok := q.(string)
+	if !ok {
+		return nil
+	}
+	return &trillian.ChargeTo{User: []string{qUser}}
 }
 
 // Handlers returns a map from URL paths (with the given prefix) and AppHandler instances

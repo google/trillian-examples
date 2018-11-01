@@ -136,8 +136,8 @@ type PathHandlers map[string]AppHandler
 // AppHandler holds a hubInfo and a handler function that uses it, and is
 // an implementation of the http.Handler interface.
 type AppHandler struct {
+	Name    string
 	info    *hubInfo
-	epPath  string
 	handler func(context.Context, *hubInfo, http.ResponseWriter, *http.Request) (int, error)
 	method  string // http.MethodGet or http.MethodPost
 }
@@ -147,16 +147,16 @@ type AppHandler struct {
 func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	label0 := strconv.FormatInt(a.info.logID, 10)
-	label1 := string(a.epPath)
+	label1 := string(a.Name)
 	reqsCounter.Inc(label0, label1)
 	var status int
 	startTime := time.Now()
 	defer func() {
 		rspLatency.Observe(time.Since(startTime).Seconds(), label0, label1, strconv.Itoa(status))
 	}()
-	glog.V(2).Infof("%s: request %v %q => %s", a.info.hubPrefix, r.Method, r.URL, a.epPath)
+	glog.V(2).Infof("%s: request %v %q => %s", a.info.hubPrefix, r.Method, r.URL, a.Name)
 	if r.Method != a.method {
-		glog.Warningf("%s: %s wrong HTTP method: %v", a.info.hubPrefix, a.epPath, r.Method)
+		glog.Warningf("%s: %s wrong HTTP method: %v", a.info.hubPrefix, a.Name, r.Method)
 		sendHTTPError(w, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed: %s", r.Method))
 		return
 	}
@@ -176,17 +176,17 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	status, err := a.handler(ctx, a.info, w, r)
-	glog.V(2).Infof("%s: %s <= status=%d", a.info.hubPrefix, a.epPath, status)
+	glog.V(2).Infof("%s: %s <= status=%d", a.info.hubPrefix, a.Name, status)
 	rspsCounter.Inc(label0, label1, strconv.Itoa(status))
 	if err != nil {
-		glog.Warningf("%s: %s handler error: %v", a.info.hubPrefix, a.epPath, err)
+		glog.Warningf("%s: %s handler error: %v", a.info.hubPrefix, a.Name, err)
 		sendHTTPError(w, status, err)
 		return
 	}
 
 	// Additional check, for consistency the handler must return an error for non-200 status
 	if status != http.StatusOK {
-		glog.Warningf("%s: %s handler non 200 without error: %d %v", a.info.hubPrefix, a.epPath, status, err)
+		glog.Warningf("%s: %s handler non 200 without error: %d %v", a.info.hubPrefix, a.Name, status, err)
 		sendHTTPError(w, http.StatusInternalServerError, fmt.Errorf("http handler misbehaved, status: %d", status))
 		return
 	}
@@ -590,13 +590,13 @@ func (h *hubInfo) Handlers(prefix string) PathHandlers {
 
 	// Bind the hubInfo instance to give an appHandler instance for each entrypoint.
 	return PathHandlers{
-		prefix + api.PathPrefix + api.AddSignedBlobPath:      AppHandler{info: h, handler: addSignedBlob, epPath: api.AddSignedBlobPath, method: http.MethodPost},
-		prefix + api.PathPrefix + api.GetSTHPath:             AppHandler{info: h, handler: getSTH, epPath: api.GetSTHPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetSTHConsistencyPath:  AppHandler{info: h, handler: getSTHConsistency, epPath: api.GetSTHConsistencyPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetProofByHashPath:     AppHandler{info: h, handler: getProofByHash, epPath: api.GetProofByHashPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetEntriesPath:         AppHandler{info: h, handler: getEntries, epPath: api.GetEntriesPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetSourceKeysPath:      AppHandler{info: h, handler: getSourceKeys, epPath: api.GetSourceKeysPath, method: http.MethodGet},
-		prefix + api.PathPrefix + api.GetLatestForSourcePath: AppHandler{info: h, handler: getLatestForSource, epPath: api.GetLatestForSourcePath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.AddSignedBlobPath:      AppHandler{info: h, handler: addSignedBlob, Name: api.AddSignedBlobPath, method: http.MethodPost},
+		prefix + api.PathPrefix + api.GetSTHPath:             AppHandler{info: h, handler: getSTH, Name: api.GetSTHPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetSTHConsistencyPath:  AppHandler{info: h, handler: getSTHConsistency, Name: api.GetSTHConsistencyPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetProofByHashPath:     AppHandler{info: h, handler: getProofByHash, Name: api.GetProofByHashPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetEntriesPath:         AppHandler{info: h, handler: getEntries, Name: api.GetEntriesPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetSourceKeysPath:      AppHandler{info: h, handler: getSourceKeys, Name: api.GetSourceKeysPath, method: http.MethodGet},
+		prefix + api.PathPrefix + api.GetLatestForSourcePath: AppHandler{info: h, handler: getLatestForSource, Name: api.GetLatestForSourcePath, method: http.MethodGet},
 	}
 }
 

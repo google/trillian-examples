@@ -140,8 +140,8 @@ func TestHandlers(t *testing.T) {
 		handlers := info.hi.Handlers(test)
 		if h, ok := handlers[path]; !ok {
 			t.Errorf("Handlers(%s)[%q]=%+v; want _", test, path, h)
-		} else if h.epPath != "add-signed-blob" {
-			t.Errorf("Handlers(%s)[%q].Name=%q; want 'add-signed-blob'", test, path, h.epPath)
+		} else if h.Name != "add-signed-blob" {
+			t.Errorf("Handlers(%s)[%q].Name=%q; want 'add-signed-blob'", test, path, h.Name)
 		}
 		// Check each entrypoint has a handler
 		if got, want := len(handlers), len(Entrypoints); got != want {
@@ -150,7 +150,7 @@ func TestHandlers(t *testing.T) {
 	outer:
 		for _, ep := range Entrypoints {
 			for _, v := range handlers {
-				if v.epPath == ep {
+				if v.Name == ep {
 					continue outer
 				}
 			}
@@ -204,7 +204,7 @@ func TestServeHTTP(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			handler := AppHandler{info: info, handler: test.handler, epPath: "test", method: http.MethodGet}
+			handler := AppHandler{info: info, handler: test.handler, Name: "test", method: http.MethodGet}
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, test.req)
 			got := w.Result().StatusCode

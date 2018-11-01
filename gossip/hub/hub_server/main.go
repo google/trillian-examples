@@ -32,6 +32,7 @@ import (
 	"github.com/google/trillian/util"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
+	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
 
@@ -50,6 +51,7 @@ var (
 	getSLRInterval  = flag.Duration("get_slr_interval", time.Second*180, "Interval between internal get-slr operations (0 to disable)")
 	hubConfig       = flag.String("hub_config", "", "File holding Hub config in text proto format")
 	maxGetEntries   = flag.Int64("max_get_entries", 0, "Max number of entries we allow in a get-entries request (0=>use default 1000)")
+	quotaRemote     = flag.Bool("quota_remote", true, "Enable requesting of quota for IP address sending incoming requests")
 )
 
 func main() {
@@ -195,6 +197,10 @@ func setupAndRegister(ctx context.Context, mux *http.ServeMux, client trillian.T
 		Deadline:      deadline,
 		MaxGetEntries: maxGetEntries,
 		MetricFactory: prometheus.MetricFactory{},
+	}
+	if *quotaRemote {
+		glog.Info("Enabling quota for requesting IP")
+		opts.RemoteQuotaUser = realip.FromRequest
 	}
 	handlers, err := hub.SetUpInstance(ctx, client, cfg, opts)
 	if err != nil {

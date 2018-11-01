@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -119,6 +120,10 @@ type InstanceOptions struct {
 	// ErrorMapper converts an error from an RPC request to an HTTP status, plus
 	// a boolean to indicate whether the conversion succeeded.
 	ErrorMapper func(error) (int, bool)
+	// RemoteQuotaUser returns a string representing the originating host for the
+	// given request. This string will be used as a User quota key.
+	// If unset, no quota will be requested for remote users.
+	RemoteQuotaUser func(*http.Request) string
 }
 
 // SetUpInstance sets up a hub instance that uses the specified client to communicate

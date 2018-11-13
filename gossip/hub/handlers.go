@@ -630,15 +630,10 @@ func chargeTo(ctx context.Context) *trillian.ChargeTo {
 	return &trillian.ChargeTo{User: []string{qUser}}
 }
 
-// appendCharge adds the specified user to the passed in ChargeTo and and
-// returns the result. If the passed-in ChargeTo is nil, then a new one is
-// created with the passed in user and returned.
+// appendCharge adds the specified user to the passed in ChargeTo and
+// returns a new combined ChargeTo.
 func appendCharge(a *trillian.ChargeTo, user string) *trillian.ChargeTo {
-	if a == nil {
-		a = &trillian.ChargeTo{}
-	}
-	a.User = append(a.User, user)
-	return a
+	return &trillian.ChargeTo{User: append(a.GetUser(), user)}
 }
 
 // Handlers returns a map from URL paths (with the given prefix) and AppHandler instances

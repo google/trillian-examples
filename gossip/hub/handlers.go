@@ -43,9 +43,10 @@ import (
 )
 
 const (
-	contentTypeHeader    = "Content-Type"
-	contentTypeJSON      = "application/json"
-	defaultMaxGetEntries = int64(1000)
+	contentTypeHeader     = "Content-Type"
+	contentTypeJSON       = "application/json"
+	defaultMaxGetEntries  = int64(1000)
+	sourceQuotaUserPrefix = "@source"
 )
 
 var (
@@ -303,7 +304,7 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, apiReq *api.AddSignedBlobRe
 
 	// Charge the operation to a per-source quota bucket, so that sources that sign a lot of things
 	// (e.g. Trillian logs with fast STH generation) can't easily swamp the Hub.
-	charge := appendCharge(chargeTo(ctx), apiReq.SourceID)
+	charge := appendCharge(chargeTo(ctx), fmt.Sprintf("%s %s", sourceQuotaUserPrefix, apiReq.SourceID))
 
 	// Use the current time (in nanos since Unix epoch) and use to build the Trillian leaf.
 	timeNanos := uint64(time.Now().UnixNano())

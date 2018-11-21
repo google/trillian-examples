@@ -301,6 +301,10 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, apiReq *api.AddSignedBlobRe
 		}
 	}
 
+	// Charge the operation to a per-source quota bucket, so that sources that sign a lot of things
+	// (e.g. Trillian logs with fast STH generation) can't easily swamp the Hub.
+	charge := appendCharge(chargeTo(ctx), apiReq.SourceID)
+
 	// Use the current time (in nanos since Unix epoch) and use to build the Trillian leaf.
 	timeNanos := uint64(time.Now().UnixNano())
 	leaf, err := buildLeaf(apiReq, timeNanos)
@@ -314,7 +318,7 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, apiReq *api.AddSignedBlobRe
 	req := trillian.QueueLeavesRequest{
 		LogId:    h.logID,
 		Leaves:   []*trillian.LogLeaf{leaf},
-		ChargeTo: chargeTo(ctx),
+		ChargeTo: charge,
 	}
 	rsp, err := h.rpcClient.QueueLeaves(ctx, &req)
 	glog.V(2).Infof("%s: AddLogHead <= grpc.QueueLeaves err=%v", h.hubPrefix, err)
@@ -624,6 +628,12 @@ func chargeTo(ctx context.Context) *trillian.ChargeTo {
 		return nil
 	}
 	return &trillian.ChargeTo{User: []string{qUser}}
+}
+
+// appendCharge adds the specified user to the passed in ChargeTo and
+// returns a new combined ChargeTo.
+func appendCharge(a *trillian.ChargeTo, user string) *trillian.ChargeTo {
+	return &trillian.ChargeTo{User: append(a.GetUser(), user)}
 }
 
 // Handlers returns a map from URL paths (with the given prefix) and AppHandler instances

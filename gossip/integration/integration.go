@@ -46,6 +46,7 @@ import (
 	"github.com/google/trillian/crypto/sigpb"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/google/trillian/types"
 	"github.com/kylelemons/godebug/pretty"
 
 	ct "github.com/google/certificate-transparency-go"
@@ -302,7 +303,7 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	}
 	fmt.Printf("%s: Proof size 2->%d: %x\n", t.prefix, treeSize, proof2N)
 	if err := checkConsistencyProof(sth2, sthN, proof2N); err != nil {
-		return fmt.Errorf("got CheckCTConsistencyProof(sth2,sthN,proof2N)=%v; want nil", err)
+		return fmt.Errorf("got consistencyProof(sth2,sthN,proof2N)=%v; want nil", err)
 	}
 
 	// Stage 10: get entries [0, N] (start at 1 to skip int-ca.cert)
@@ -424,6 +425,64 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 		fmt.Printf("%s: GetLatestForSource(%s) still matches sth-200-blob\n", t.prefix, sth1Blob.SourceID)
 	}
 
+	if src, privKey := t.pickSourceOfKind(configpb.TrackedSource_TRILLIANSLR); src != nil && privKey != nil {
+		// [Trillian SLR-specific] tests.
+
+		// Stage 15: add a blob signed by a Trillian Log key that isn't an SLR.
+		data := make([]byte, 100)
+		rand.Read(data)
+		nonBlob, err := blobForData(src, privKey, data)
+		if err != nil {
+			return fmt.Errorf("failed to sign blob data: %v", err)
+		}
+		sgt, err = t.client().AddSignedBlob(ctx, nonBlob.SourceID, nonBlob.BlobData, nonBlob.SourceSignature)
+		if err == nil {
+			return fmt.Errorf("got AddSignedBlob(non-SLR-blob)=(%+v,nil); want (nil,error)", sgt)
+		}
+		fmt.Printf("%s: AddSignedBlob(non-SLR-blob)=nil,%v\n", t.prefix, err)
+
+		// Stage 16: add a bigger SLR and check get-latest-for-src shows it.
+		// Use the same client throughout, so best-effort get-latest-for-src works.
+		client := t.client()
+		slr1Blob, err := blobForData(src, privKey, dataForSLR(200, 1000005))
+		if err != nil {
+			return fmt.Errorf("failed to generate SLR test blob: %v", err)
+		}
+		slr1SGT, err := client.AddSignedBlob(ctx, slr1Blob.SourceID, slr1Blob.BlobData, slr1Blob.SourceSignature)
+		if err != nil {
+			return fmt.Errorf("got AddSignedBlob(slr-200-blob)=(nil,%v); want (_,nil)", err)
+		}
+		fmt.Printf("%s: Uploaded slr-200-blob to hub, got SGT\n", t.prefix)
+
+		entry, err := client.GetLatestForSource(ctx, slr1Blob.SourceID)
+		if err != nil {
+			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", slr1Blob.SourceID, err)
+		}
+		if !reflect.DeepEqual(entry, &slr1SGT.TimestampedEntry) {
+			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", slr1Blob.SourceID, entry, slr1SGT)
+		}
+		fmt.Printf("%s: GetLatestForSource(%s) matches slr-200-blob\n", t.prefix, slr1Blob.SourceID)
+
+		// Stage 17: add a smaller SLR and check get-latest-for-src is unaffected.
+		slr2Blob, err := blobForData(src, privKey, dataForSLR(150, 1000002))
+		if err != nil {
+			return fmt.Errorf("failed to generate SLR test blob: %v", err)
+		}
+		if _, err := client.AddSignedBlob(ctx, slr2Blob.SourceID, slr2Blob.BlobData, slr2Blob.SourceSignature); err != nil {
+			return fmt.Errorf("got AddSignedBlob(slr-150-blob)=(nil,%v); want (_,nil)", err)
+		}
+		fmt.Printf("%s: Uploaded slr-150-blob to hub, got SGT\n", t.prefix)
+
+		entry, err = client.GetLatestForSource(ctx, slr2Blob.SourceID)
+		if err != nil {
+			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", slr1Blob.SourceID, err)
+		}
+		if !reflect.DeepEqual(entry, &slr1SGT.TimestampedEntry) {
+			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", slr1Blob.SourceID, entry, slr1SGT)
+		}
+		fmt.Printf("%s: GetLatestForSource(%s) still matches slr-200-blob\n", t.prefix, slr1Blob.SourceID)
+	}
+
 	return nil
 }
 
@@ -467,11 +526,30 @@ func dataForSTH(sz, ts uint64) []byte {
 	return data
 }
 
+func dataForSLR(sz, ts uint64) []byte {
+	lr := types.LogRoot{
+		Version: 1,
+		V1: &types.LogRootV1{
+			TreeSize:       sz,
+			TimestampNanos: ts * 1000 * 1000,
+			RootHash:       make([]byte, sha256.Size),
+		},
+	}
+	rand.Read(lr.V1.RootHash)
+	data, err := tls.Marshal(lr)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create fake Trillian LogRoot: %v", err))
+	}
+	return data
+}
+
 func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.PrivateKey) (*signedBlob, error) {
 	var data []byte
 	switch src.Kind {
 	case configpb.TrackedSource_RFC6962STH:
 		data = dataForSTH(100, 1000000)
+	case configpb.TrackedSource_TRILLIANSLR:
+		data = dataForSLR(100, 1000000)
 	default:
 		data = make([]byte, 100)
 		rand.Read(data)
@@ -577,8 +655,11 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 			return nil, nil, fmt.Errorf("failed to marshal source public key to DER: %v", err)
 		}
 		kind := configpb.TrackedSource_UNKNOWN
-		if i%2 == 0 {
+		switch i % 3 {
+		case 0:
 			kind = configpb.TrackedSource_RFC6962STH
+		case 1:
+			kind = configpb.TrackedSource_TRILLIANSLR
 		}
 		src := configpb.TrackedSource{
 			Name:          fmt.Sprintf("source-%02d", i),

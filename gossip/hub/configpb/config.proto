@@ -66,6 +66,7 @@ message TrackedSource {
   enum Kind {
     UNKNOWN = 0;
     RFC6962STH = 1;
+    TRILLIANSLR = 2;
   }
   Kind kind = 5;
 }

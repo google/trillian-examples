@@ -343,6 +343,20 @@ func TestAddSignedBlob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create fake CT tree head: %v", err)
 	}
+	lr := types.LogRoot{
+		Version: 1,
+		V1: &types.LogRootV1{
+			TreeSize:       100,
+			RootHash:       make([]byte, sha256.Size),
+			TimestampNanos: 1000000000,
+			Revision:       42,
+		},
+	}
+	rand.Read(lr.V1.RootHash)
+	slrData, err := tls.Marshal(lr)
+	if err != nil {
+		t.Fatalf("failed to create fake Trillian log root: %v", err)
+	}
 
 	digest := sha256.Sum256(data)
 	sig, err := testSourceKey.Sign(rand.Reader, digest[:], crypto.SHA256)
@@ -408,6 +422,18 @@ func TestAddSignedBlob(t *testing.T) {
 			body:       fmt.Sprintf(`{"source_id":"https://rfc6962.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, append(data, 0xff))...),
 			wantStatus: http.StatusBadRequest,
 			wantErr:    "1 bytes of trailing data",
+		},
+		{
+			desc:       "not-an-slr",
+			body:       fmt.Sprintf(`{"source_id":"https://trillian-log.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, []byte{0x00})...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "failed to parse as log root",
+		},
+		{
+			desc:       "trailing-slr",
+			body:       fmt.Sprintf(`{"source_id":"https://trillian-log.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, append(slrData, 0xff))...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "1 bytes of trailing data after log root",
 		},
 		{
 			desc:       "backend-failure",

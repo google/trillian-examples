@@ -91,7 +91,8 @@ type kindHandler struct {
 }
 
 var kindHandlers = map[configpb.TrackedSource_Kind]kindHandler{
-	configpb.TrackedSource_RFC6962STH: {submissionCheck: ctSTHChecker, entryIsLater: ctSTHIsLater},
+	configpb.TrackedSource_RFC6962STH:  {submissionCheck: ctSTHChecker, entryIsLater: ctSTHIsLater},
+	configpb.TrackedSource_TRILLIANSLR: {submissionCheck: trillianSLRChecker, entryIsLater: trillianSLRIsLater},
 }
 
 func ctSTHChecker(data, sig []byte) error {
@@ -101,6 +102,19 @@ func ctSTHChecker(data, sig []byte) error {
 		return fmt.Errorf("submission for CT source failed to parse as tree head: %v", err)
 	} else if len(rest) > 0 {
 		return fmt.Errorf("submission for CT source has %d bytes of trailing data after tree head", len(rest))
+	}
+	return nil
+}
+
+func trillianSLRChecker(data, sig []byte) error {
+	// Check that the data has the structure of a Trillian LogRoot
+	var lr types.LogRoot
+	if rest, err := tls.Unmarshal(data, &lr); err != nil {
+		return fmt.Errorf("submission for Trillian LogRoot source failed to parse as log root: %v", err)
+	} else if len(rest) > 0 {
+		return fmt.Errorf("submission for Trillian LogRoot source has %d bytes of trailing data after log root", len(rest))
+	} else if lr.Version != 1 {
+		return fmt.Errorf("submission for Trillian LogRoot source has unknown version %d", lr.Version)
 	}
 	return nil
 }
@@ -123,6 +137,30 @@ func ctSTHIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntry) boo
 		return false
 	}
 	return curTH.Timestamp > prevTH.Timestamp
+}
+
+func trillianSLRIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntry) bool {
+	var prevLR types.LogRoot
+	if _, err := tls.Unmarshal(prev.BlobData, &prevLR); err != nil {
+		return true
+	}
+	if prevLR.Version != 1 {
+		return true
+	}
+	var curLR types.LogRoot
+	if _, err := tls.Unmarshal(current.BlobData, &curLR); err != nil {
+		return false
+	}
+	if curLR.Version != 1 {
+		return false
+	}
+	if curLR.V1.TreeSize > prevLR.V1.TreeSize {
+		return true
+	}
+	if curLR.V1.TreeSize < prevLR.V1.TreeSize {
+		return false
+	}
+	return curLR.V1.TimestampNanos > prevLR.V1.TimestampNanos
 }
 
 // rawEntryIsLater indicates whether the current entry is later than the prev entry,

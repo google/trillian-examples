@@ -593,6 +593,11 @@ func TestGetSourceKeys(t *testing.T) {
 			wantKind: "RFC6962STH",
 		},
 		{
+			desc:     "Valid Trillian SLR Source",
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s","kind":"TRILLIANSLR"}]}`, b64(pubKeyDER)),
+			wantKind: "TRILLIANSLR",
+		},
+		{
 			desc:     "Valid Unknown Source",
 			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s","kind":"bis-STH"}]}`, b64(pubKeyDER)),
 			wantKind: "bis-STH",

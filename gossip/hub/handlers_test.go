@@ -50,10 +50,11 @@ import (
 )
 
 const (
-	testTreeID     = int64(55)
-	testDeadline   = 500 * time.Millisecond
-	testSourceID   = "https://the-log.example.com"
-	testCTSourceID = "https://rfc6962.example.com"
+	testTreeID      = int64(55)
+	testDeadline    = 500 * time.Millisecond
+	testSourceID    = "https://the-log.example.com"
+	testCTSourceID  = "https://rfc6962.example.com"
+	testSLRSourceID = "https://trillian-log.example.com"
 )
 
 var (
@@ -76,6 +77,7 @@ func init() {
 	testSources = []*api.SourceKey{
 		{ID: testSourceID, PubKey: testSourcePubKeyDER, Kind: api.UnknownKind},
 		{ID: testCTSourceID, PubKey: testSourcePubKeyDER, Kind: api.RFC6962STHKind},
+		{ID: testSLRSourceID, PubKey: testSourcePubKeyDER, Kind: api.TrillianSLRKind},
 	}
 }
 
@@ -116,6 +118,12 @@ func setupTest(t *testing.T, signer crypto.Signer) handlerTestInfo {
 			pubKey:     testSourceKey.Public(),
 			hasher:     crypto.SHA256,
 			kind:       configpb.TrackedSource_RFC6962STH,
+		},
+		testSLRSourceID: {
+			pubKeyData: testSourcePubKeyDER,
+			pubKey:     testSourceKey.Public(),
+			hasher:     crypto.SHA256,
+			kind:       configpb.TrackedSource_TRILLIANSLR,
 		},
 	}
 	return handlerTestInfo{

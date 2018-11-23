@@ -219,12 +219,18 @@ const (
 	// the signed blobs (and so only signature verification is possible). Any
 	// unrecognized kind values will be treated as UnknownKind.
 	UnknownKind = "UNKNOWN"
-	// RFC6962STH indicates that the source is expected to only generate
+	// RFC6962STHKind indicates that the source is expected to only generate
 	// submissions that are Signed Tree Heads as described by RFC 6962.
 	// The BlobData for a submission is expected to be the result of
 	// tls.Marshal(ct.TreeHeadSignature), and may be rejected if this is not
 	// the case.
 	RFC6962STHKind = "RFC6962STH"
+	// TrillianSLRKind indicates that the source is expected to generate
+	// submissions that are Signed Log Roots from the Trillian Log API.
+	// The BlobData for a submission is expected to be the result of
+	// tls.Marshal(types.LogRoot), and may be rejected if this is not the
+	// case.
+	TrillianSLRKind = "TRILLIANSLR"
 )
 
 // SourceKey holds key information about a source that is tracked by this hub.

@@ -23,22 +23,27 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/golang/glog"
 	"github.com/google/trillian"
+  "github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 )
 
-type FollowerOpts struct {
+// Opts encapsulates the options that can be used with a Follower.
+type Opts struct {
 	BatchSize uint64
 }
 
+// Follower provides functionality for reading blocks added to Ethereum and then queuing
+// them into a Trillian Log.
 type Follower struct {
 	logID int64
 	gc    *ethclient.Client
 	tc    trillian.TrillianLogClient
 
-	opts FollowerOpts
+	opts Opts
 }
 
-func New(gc *ethclient.Client, tc trillian.TrillianLogClient, logID int64, opts FollowerOpts) *Follower {
+// New creates a new Follower.
+func New(gc *ethclient.Client, tc trillian.TrillianLogClient, logID int64, opts Opts) *Follower {
 	if opts.BatchSize <= 0 {
 		opts.BatchSize = 100
 	}
@@ -50,6 +55,8 @@ func New(gc *ethclient.Client, tc trillian.TrillianLogClient, logID int64, opts 
 	}
 }
 
+// Follow begins operations to copy blocks into the log. This will continue until the provided
+// context expires or is cancelled.
 func (f *Follower) Follow(ctx context.Context) {
 	ticker := time.NewTicker(time.Second)
 	nextBlock := int64(-1)
@@ -67,7 +74,13 @@ nextAttempt:
 			if err != nil {
 				continue
 			}
-			nextBlock = sth.SignedLogRoot.TreeSize
+			// TODO(al): Check signature of root before using it.
+			var logRoot types.LogRootV1
+			if err := logRoot.UnmarshalBinary(sth.SignedLogRoot.LogRoot); err != nil {
+				glog.Warningf("Log root did not unmarshal: %v", err)
+				continue
+			}
+			nextBlock = int64(logRoot.TreeSize)
 			glog.Infof("Got starting STH of:\n%+v", sth)
 		}
 

@@ -5,7 +5,7 @@
 Check out this repo (using Go), and cd to it:
 
 ```bash
-go get -ud github.com/google/trillian-examples/etherslurp
+go get -u -d -t github.com/google/trillian-examples/etherslurp/...
 # the warning "package github.com/google/trillian-examples/etherslurp: no Go files in .../src/github.com/google/trillian-examples/etherslurp" is expected
 # All terminals need to start in this directory
 cd $GOPATH/src/github.com/google/trillian-examples/etherslurp
@@ -70,6 +70,11 @@ make mapper
 ```
 
 Watch as your diskspace gets eaten.
+Once the fun part is over kill the terminal running `make rungeth` by typing `exit` in the geth console.
+Run
+```bash
+make cleangeth
+```
 
 # UI
 If you'd like to inspect the contents of the map, there's a very simple web UI you can use to do so (again, using your saved MAPID):

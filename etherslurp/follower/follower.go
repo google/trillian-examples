@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/golang/glog"
 	"github.com/google/trillian"
-  "github.com/google/trillian/types"
+	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
 )
 

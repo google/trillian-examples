@@ -72,8 +72,6 @@ type Fetcher struct {
 
 	// Current tree head of the Hub this Fetcher sends queries to.
 	hth *api.HubTreeHead
-	// The tree head retrieval backoff state. Used only in Continuous fetch mode.
-	hthBackoff *backoff.Backoff
 
 	// Stops range generator, which causes the Fetcher to terminate gracefully.
 	mu     sync.Mutex
@@ -252,7 +250,7 @@ func (f *Fetcher) updateTreeHead(ctx context.Context) error {
 	targetSize := lastSize + uint64(f.opts.BatchSize)
 	quickDeadline := time.Now().Add(f.opts.QuickInterval)
 
-	return f.hthBackoff.Retry(ctx, func() error {
+	return f.opts.Backoff.Retry(ctx, func() error {
 		sth, err := f.client.GetSTH(ctx)
 		if err != nil {
 			return err
@@ -270,7 +268,7 @@ func (f *Fetcher) updateTreeHead(ctx context.Context) error {
 				return backoff.RetriableErrorf("wait for bigger tree head than %d (last=%d, target=%d)", curSize, lastSize, targetSize)
 			}
 			// Hub has grown fast enough that we immediate scan for more entries.
-			f.hthBackoff.Reset()
+			f.opts.Backoff.Reset()
 		}
 		f.hth = &sth.TreeHead
 		f.opts.EndIndex = int64(curSize)

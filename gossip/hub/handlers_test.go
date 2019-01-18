@@ -294,6 +294,79 @@ func TestCTSTHIsLater(t *testing.T) {
 	}
 }
 
+func TestTrillianSLRIsLater(t *testing.T) {
+	slrData := func(sz, ts uint64) []byte {
+		lr := types.LogRoot{
+			Version: 1,
+			V1: &types.LogRootV1{
+				TreeSize:       sz,
+				TimestampNanos: ts,
+			},
+		}
+		data, _ := tls.Marshal(lr)
+		return data
+	}
+
+	tests := []struct {
+		desc       string
+		prev, curr []byte
+		want       bool
+	}{
+		{
+			desc: "smaller",
+			prev: slrData(100, 10),
+			curr: slrData(90, 10),
+			want: false,
+		},
+		{
+			desc: "bigger",
+			prev: slrData(100, 10),
+			curr: slrData(110, 10),
+			want: true,
+		},
+		{
+			desc: "same-size-newer",
+			prev: slrData(100, 10),
+			curr: slrData(100, 12),
+			want: true,
+		},
+		{
+			desc: "same-size-older",
+			prev: slrData(100, 10),
+			curr: slrData(100, 9),
+			want: false,
+		},
+		{
+			desc: "same-everything",
+			prev: slrData(100, 10),
+			curr: slrData(100, 10),
+			want: false,
+		},
+		{
+			desc: "malformed-prev",
+			prev: []byte{0x01},
+			curr: slrData(100, 10),
+			want: true,
+		},
+		{
+			desc: "malformed-curr",
+			prev: slrData(100, 10),
+			curr: []byte{0x01},
+			want: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			prev := &api.TimestampedEntry{BlobData: test.prev}
+			curr := &api.TimestampedEntry{BlobData: test.curr}
+			got := trillianSLRIsLater(prev, curr)
+			if got != test.want {
+				t.Errorf("ctSTHIsLater(%x, %x)=%v, want %v", test.prev, test.curr, got, test.want)
+			}
+		})
+	}
+}
+
 func makeSLR(t *testing.T, timestamp, treeSize int64, hash []byte) *trillian.SignedLogRoot {
 	t.Helper()
 	root := types.LogRootV1{

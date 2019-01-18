@@ -36,7 +36,7 @@ var (
 	hubConfig   = flag.String("hub_config", "", "File holding Hub configuration")
 	srcPrivKeys = flag.String("src_priv_keys", "", "List of files holding source private keys (comma-separated); must match --hub_config")
 	hubCount    = flag.Int("hubs", 3, "Number of parallel Gossip Hubs to test")
-	logCount    = flag.Int("logs", 3, "Number of source logs tracked by each hub")
+	logCount    = flag.Int("logs", 4, "Number of source logs tracked by each hub")
 	mmd         = flag.Duration("mmd", 120*time.Second, "MMD for tested hubs")
 )
 

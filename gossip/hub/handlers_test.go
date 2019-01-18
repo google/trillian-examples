@@ -41,6 +41,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/api"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
+	tcrypto "github.com/google/trillian/crypto"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
 	"google.golang.org/grpc/codes"
@@ -53,6 +54,7 @@ const (
 	testTreeID      = int64(55)
 	testDeadline    = 500 * time.Millisecond
 	testSourceID    = "https://the-log.example.com"
+	testDigestSrcID = "https://digests-only.example.com"
 	testCTSourceID  = "https://rfc6962.example.com"
 	testSLRSourceID = "https://trillian-log.example.com"
 )
@@ -76,6 +78,7 @@ func init() {
 	}
 	testSources = []*api.SourceKey{
 		{ID: testSourceID, PubKey: testSourcePubKeyDER, Kind: api.UnknownKind},
+		{ID: testDigestSrcID, PubKey: testSourcePubKeyDER, Kind: api.UnknownKind},
 		{ID: testCTSourceID, PubKey: testSourcePubKeyDER, Kind: api.RFC6962STHKind},
 		{ID: testSLRSourceID, PubKey: testSourcePubKeyDER, Kind: api.TrillianSLRKind},
 	}
@@ -112,18 +115,27 @@ func setupTest(t *testing.T, signer crypto.Signer) handlerTestInfo {
 			pubKeyData: testSourcePubKeyDER,
 			pubKey:     testSourceKey.Public(),
 			hasher:     crypto.SHA256,
+			verify:     tcrypto.Verify,
+		},
+		testDigestSrcID: {
+			pubKeyData: testSourcePubKeyDER,
+			pubKey:     testSourceKey.Public(),
+			hasher:     crypto.SHA256,
+			verify:     tcrypto.VerifyDigest,
 		},
 		testCTSourceID: {
 			pubKeyData: testSourcePubKeyDER,
 			pubKey:     testSourceKey.Public(),
 			hasher:     crypto.SHA256,
 			kind:       configpb.TrackedSource_RFC6962STH,
+			verify:     tcrypto.Verify,
 		},
 		testSLRSourceID: {
 			pubKeyData: testSourcePubKeyDER,
 			pubKey:     testSourceKey.Public(),
 			hasher:     crypto.SHA256,
 			kind:       configpb.TrackedSource_TRILLIANSLR,
+			verify:     tcrypto.Verify,
 		},
 	}
 	return handlerTestInfo{
@@ -456,6 +468,26 @@ func TestAddSignedBlob(t *testing.T) {
 	}
 	leafIdentityHash := sha256.Sum256(leafValueData)
 
+	digestReq := api.AddSignedBlobRequest{
+		SourceID:        testDigestSrcID,
+		BlobData:        digest[:],
+		SourceSignature: sig,
+	}
+	digestJSON, err := json.Marshal(digestReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal test data: %v", err)
+	}
+	digestEntry := api.TimestampedEntry{
+		SourceID:        []byte(testDigestSrcID),
+		BlobData:        digest[:],
+		SourceSignature: sig,
+	}
+	digestLeafData, err := tls.Marshal(digestEntry)
+	if err != nil {
+		t.Fatalf("Failed to marshal test data: %v", err)
+	}
+	digestIdentityHash := sha256.Sum256(digestLeafData)
+
 	tests := []struct {
 		desc       string
 		body       string
@@ -601,6 +633,23 @@ func TestAddSignedBlob(t *testing.T) {
 			},
 			wantStatus: http.StatusOK,
 		},
+		{
+			desc: "valid-digest-only",
+			body: string(digestJSON),
+			rpcRsp: &trillian.QueueLeavesResponse{
+				QueuedLeaves: []*trillian.QueuedLogLeaf{
+					{
+						Leaf: &trillian.LogLeaf{
+							LeafValue:        digestLeafData,
+							LeafIndex:        1,
+							LeafIdentityHash: digestIdentityHash[:],
+						},
+						Status: status.New(codes.OK, "OK").Proto(),
+					},
+				},
+			},
+			wantStatus: http.StatusOK,
+		},
 	}
 
 	for _, test := range tests {
@@ -638,7 +687,7 @@ func TestAddSignedBlob(t *testing.T) {
 			if err := json.Unmarshal(gotRsp.Body.Bytes(), &got); err != nil {
 				t.Fatalf("Failed to unmarshal json response: %s", gotRsp.Body.Bytes())
 			}
-			if got, want := got.TimestampedEntryData, leafValueData; !reflect.DeepEqual(got, want) {
+			if got, want := got.TimestampedEntryData, test.rpcRsp.QueuedLeaves[0].Leaf.LeafValue; !reflect.DeepEqual(got, want) {
 				t.Errorf("addSignedBlob().TimestampedEntryData=%x; want %x", got, want)
 			}
 		})

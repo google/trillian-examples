@@ -69,4 +69,5 @@ message TrackedSource {
     TRILLIANSLR = 2;
   }
   Kind kind = 5;
+  bool digest = 6;
 }

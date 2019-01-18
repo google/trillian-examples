@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
+	tcrypto "github.com/google/trillian/crypto"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/crypto/sigpb"
 	"github.com/google/trillian/monitoring"
@@ -154,7 +155,18 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		default:
 			return nil, fmt.Errorf("Failed to determine hash algorithm %d", src.HashAlgorithm)
 		}
-		cryptoMap[src.Id] = sourceCryptoInfo{pubKeyData: src.PublicKey.Der, pubKey: pubKey, hasher: hasher, kind: src.Kind}
+		verify := tcrypto.Verify
+		if src.Digest {
+			verify = tcrypto.VerifyDigest
+		}
+		cryptoMap[src.Id] = sourceCryptoInfo{
+			pubKeyData: src.PublicKey.Der,
+			pubKey:     pubKey,
+			hasher:     hasher,
+			kind:       src.Kind,
+			digest:     src.Digest,
+			verify:     verify,
+		}
 	}
 
 	// Load the private key for this hub.

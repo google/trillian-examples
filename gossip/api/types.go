@@ -30,7 +30,9 @@ const PathPrefix = "/gossip/v0/"
 // Inputs:
 //    source_id: A unique identifier for the public key used to sign the blob.
 //    blob_data: The binary blob
-//    source_signature: The source's signature over blob_data.
+//    source_signature: The source's signature over blob_data.  This may be
+//                      either Sign(Hash(blob_data)) or Sign(blob_data) depending
+//                      on the source.Digest value.
 // Outputs:
 //    timestamped_entry: TLS-encoded TimestampedEntry.
 //    hub_signature: hub's signature gossip_timestamped_entry
@@ -213,7 +215,8 @@ type GetSourceKeysResponse struct {
 	Entries []*SourceKey `json:"entries"`
 }
 
-// Possible values for SourceKey.Kind
+// Possible values for SourceKey.Kind, indicating the structure of signed blob
+// expected to be submitted for this source.
 const (
 	// UnknownKind indicates that no information is known about the source of
 	// the signed blobs (and so only signature verification is possible). Any
@@ -238,6 +241,9 @@ type SourceKey struct {
 	ID     string `json:"id"`
 	PubKey []byte `json:"pub_key"` // DER encoded
 	Kind   string `json:"kind"`
+	// Digest indicates that submissions for this source only contain
+	// the hash digest of the source data, not the source data itself.
+	Digest bool
 }
 
 // Retrieve latest entry for a source.

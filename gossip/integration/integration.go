@@ -160,7 +160,7 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	fmt.Printf("%s: Accepts signed heads from: \n", t.prefix)
 	got := make(map[string][]byte)
 	for _, root := range roots {
-		fmt.Printf("    %s: pubKey %s\n", root.ID, base64.StdEncoding.EncodeToString(root.PubKey))
+		fmt.Printf("    %s: kind:%s digest:%t pubKey %s\n", root.ID, root.Kind, root.Digest, base64.StdEncoding.EncodeToString(root.PubKey))
 		got[root.ID] = root.PubKey
 	}
 	want := make(map[string][]byte)
@@ -563,10 +563,14 @@ func blobForData(src *configpb.TrackedSource, privKey *ecdsa.PrivateKey, data []
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign blob data: %v", err)
 	}
+	blobData := data
+	if src.Digest {
+		blobData = digest[:]
+	}
 
 	return &signedBlob{
 		SourceID:        src.Id,
-		BlobData:        data,
+		BlobData:        blobData,
 		SourceSignature: sig,
 	}, nil
 }
@@ -575,7 +579,18 @@ func (t *testInfo) reSignedBlob(blob *signedBlob) (*signedBlob, error) {
 	for i, src := range t.cfg.Source {
 		if src.Id == blob.SourceID {
 			privKey := t.srcKeys[i]
-			return blobForData(src, privKey, blob.BlobData)
+			newBlob := *blob
+			digest := newBlob.BlobData
+			if !src.Digest {
+				d := sha256.Sum256(newBlob.BlobData)
+				digest = d[:]
+			}
+			sig, err := privKey.Sign(cryptorand.Reader, digest, crypto.SHA256)
+			if err != nil {
+				return nil, fmt.Errorf("failed to sign blob data: %v", err)
+			}
+			newBlob.SourceSignature = sig
+			return &newBlob, nil
 		}
 	}
 	return nil, fmt.Errorf("failed to find private key for %s", blob.SourceID)
@@ -639,8 +654,13 @@ func checkConsistencyProof(sth1, sth2 *api.SignedHubTreeHead, proof [][]byte) er
 // BuildTestConfig builds a test Hub configuration for the specified number
 // of Gossip Hubs, each of which tracks the srcCount sources.  The private
 // keys for the sources are also returned, to allow creation and submission
-// of source-signed data.  The created sources alternate between generators
-// of CT STHs and generators of anonymous signed blobs.
+// of source-signed data.
+//
+// The created sources alternate as follows:
+//  - generators of CT STHs
+//  - generators of Trillian SLRs
+//  - generators of anonymous signed blobs of data
+//  - generators of anonymous signed digests
 func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.PrivateKey, error) {
 	var srcKeys []*ecdsa.PrivateKey
 	var srcs []*configpb.TrackedSource
@@ -655,11 +675,15 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 			return nil, nil, fmt.Errorf("failed to marshal source public key to DER: %v", err)
 		}
 		kind := configpb.TrackedSource_UNKNOWN
-		switch i % 3 {
+		digest := false
+		switch i % 4 {
 		case 0:
 			kind = configpb.TrackedSource_RFC6962STH
 		case 1:
 			kind = configpb.TrackedSource_TRILLIANSLR
+		case 2:
+		case 3:
+			digest = true
 		}
 		src := configpb.TrackedSource{
 			Name:          fmt.Sprintf("source-%02d", i),
@@ -667,6 +691,7 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 			PublicKey:     &keyspb.PublicKey{Der: pubKeyDER},
 			HashAlgorithm: sigpb.DigitallySigned_SHA256,
 			Kind:          kind,
+			Digest:        digest,
 		}
 		srcKeys = append(srcKeys, srcKey)
 		srcs = append(srcs, &src)

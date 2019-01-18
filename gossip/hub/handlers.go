@@ -240,6 +240,8 @@ type sourceCryptoInfo struct {
 	pubKey     crypto.PublicKey
 	hasher     crypto.Hash
 	kind       configpb.TrackedSource_Kind
+	digest     bool
+	verify     func(pub crypto.PublicKey, hasher crypto.Hash, digest, sig []byte) error
 }
 
 // hubInfo holds information about a specific hub instance.
@@ -327,7 +329,7 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, apiReq *api.AddSignedBlobRe
 	}
 
 	// Verify the source's signature.
-	if err := tcrypto.Verify(cryptoInfo.pubKey, cryptoInfo.hasher, apiReq.BlobData, apiReq.SourceSignature); err != nil {
+	if err := cryptoInfo.verify(cryptoInfo.pubKey, cryptoInfo.hasher, apiReq.BlobData, apiReq.SourceSignature); err != nil {
 		glog.V(1).Infof("%s: failed to validate signature from %q: %v", h.hubPrefix, apiReq.SourceID, err)
 		return nil, http.StatusBadRequest, fmt.Errorf("failed to validate signature from %q", apiReq.SourceID)
 	}
@@ -620,7 +622,7 @@ func (h *hubInfo) getSourceKeys(ctx context.Context) *api.GetSourceKeysResponse 
 		case configpb.TrackedSource_TRILLIANSLR:
 			kind = api.TrillianSLRKind
 		}
-		l := api.SourceKey{ID: sourceID, PubKey: info.pubKeyData, Kind: kind}
+		l := api.SourceKey{ID: sourceID, PubKey: info.pubKeyData, Kind: kind, Digest: info.digest}
 		jsonRsp.Entries = append(jsonRsp.Entries, &l)
 	}
 	return &jsonRsp

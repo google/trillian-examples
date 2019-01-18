@@ -60,7 +60,7 @@ type AddSignedBlobResponse struct {
 // RFC 5246 notation:
 //   struct {
 //      opaque source_id<1,65535>;
-//      opaque head_data<1,65535>;
+//      opaque blob_data<1,65535>;
 //      opaque source_signature<0,65535>;
 //      uint64 hub_timestamp;
 //   } TimestampedEntry;

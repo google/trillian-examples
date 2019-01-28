@@ -43,7 +43,7 @@ type Follower struct {
 
 // New creates a new Follower.
 func New(gc *ethclient.Client, tc trillian.TrillianLogClient, logID int64, opts Opts) *Follower {
-	if opts.BatchSize <= 0 {
+	if opts.BatchSize == 0 {
 		opts.BatchSize = 100
 	}
 	return &Follower{

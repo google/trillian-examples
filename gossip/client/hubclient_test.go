@@ -48,7 +48,7 @@ func serveAt(t *testing.T, path string, status int, body string) *httptest.Serve
 		if status != 0 {
 			w.WriteHeader(status)
 		}
-		fmt.Fprintf(w, body)
+		fmt.Fprint(w, body)
 	}))
 }
 

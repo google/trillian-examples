@@ -483,6 +483,64 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 		fmt.Printf("%s: GetLatestForSource(%s) still matches slr-200-blob\n", t.prefix, slr1Blob.SourceID)
 	}
 
+	if src, privKey := t.pickSourceOfKind(configpb.TrackedSource_TRILLIANSMR); src != nil && privKey != nil {
+		// [Trillian SMR-specific] tests.
+
+		// Stage 15: add a blob signed by a Trillian Map key that isn't an SMR.
+		data := make([]byte, 100)
+		rand.Read(data)
+		nonBlob, err := blobForData(src, privKey, data)
+		if err != nil {
+			return fmt.Errorf("failed to sign blob data: %v", err)
+		}
+		sgt, err = t.client().AddSignedBlob(ctx, nonBlob.SourceID, nonBlob.BlobData, nonBlob.SourceSignature)
+		if err == nil {
+			return fmt.Errorf("got AddSignedBlob(non-SMR-blob)=(%+v,nil); want (nil,error)", sgt)
+		}
+		fmt.Printf("%s: AddSignedBlob(non-SMR-blob)=nil,%v\n", t.prefix, err)
+
+		// Stage 16: add a bigger SMR and check get-latest-for-src shows it.
+		// Use the same client throughout, so best-effort get-latest-for-src works.
+		client := t.client()
+		smr1Blob, err := blobForData(src, privKey, dataForSMR(200, 1000005))
+		if err != nil {
+			return fmt.Errorf("failed to generate SMR test blob: %v", err)
+		}
+		smr1SGT, err := client.AddSignedBlob(ctx, smr1Blob.SourceID, smr1Blob.BlobData, smr1Blob.SourceSignature)
+		if err != nil {
+			return fmt.Errorf("got AddSignedBlob(smr-200-blob)=(nil,%v); want (_,nil)", err)
+		}
+		fmt.Printf("%s: Uploaded smr-200-blob to hub, got SGT\n", t.prefix)
+
+		entry, err := client.GetLatestForSource(ctx, smr1Blob.SourceID)
+		if err != nil {
+			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", smr1Blob.SourceID, err)
+		}
+		if !reflect.DeepEqual(entry, &smr1SGT.TimestampedEntry) {
+			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", smr1Blob.SourceID, entry, smr1SGT)
+		}
+		fmt.Printf("%s: GetLatestForSource(%s) matches smr-200-blob\n", t.prefix, smr1Blob.SourceID)
+
+		// Stage 17: add a smaller SMR and check get-latest-for-src is unaffected.
+		smr2Blob, err := blobForData(src, privKey, dataForSMR(150, 1000002))
+		if err != nil {
+			return fmt.Errorf("failed to generate SMR test blob: %v", err)
+		}
+		if _, err := client.AddSignedBlob(ctx, smr2Blob.SourceID, smr2Blob.BlobData, smr2Blob.SourceSignature); err != nil {
+			return fmt.Errorf("got AddSignedBlob(smr-150-blob)=(nil,%v); want (_,nil)", err)
+		}
+		fmt.Printf("%s: Uploaded smr-150-blob to hub, got SGT\n", t.prefix)
+
+		entry, err = client.GetLatestForSource(ctx, smr2Blob.SourceID)
+		if err != nil {
+			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", smr1Blob.SourceID, err)
+		}
+		if !reflect.DeepEqual(entry, &smr1SGT.TimestampedEntry) {
+			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", smr1Blob.SourceID, entry, smr1SGT)
+		}
+		fmt.Printf("%s: GetLatestForSource(%s) still matches smr-200-blob\n", t.prefix, smr1Blob.SourceID)
+	}
+
 	return nil
 }
 
@@ -543,6 +601,23 @@ func dataForSLR(sz, ts uint64) []byte {
 	return data
 }
 
+func dataForSMR(rev, ts uint64) []byte {
+	mr := types.MapRoot{
+		Version: 1,
+		V1: &types.MapRootV1{
+			Revision:       rev,
+			TimestampNanos: ts * 1000 * 1000,
+			RootHash:       make([]byte, sha256.Size),
+		},
+	}
+	rand.Read(mr.V1.RootHash)
+	data, err := tls.Marshal(mr)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create fake Trillian MapRoot: %v", err))
+	}
+	return data
+}
+
 func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.PrivateKey) (*signedBlob, error) {
 	var data []byte
 	switch src.Kind {
@@ -550,6 +625,8 @@ func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.Pri
 		data = dataForSTH(100, 1000000)
 	case configpb.TrackedSource_TRILLIANSLR:
 		data = dataForSLR(100, 1000000)
+	case configpb.TrackedSource_TRILLIANSMR:
+		data = dataForSMR(100, 1000000)
 	default:
 		data = make([]byte, 100)
 		rand.Read(data)
@@ -655,11 +732,13 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 			return nil, nil, fmt.Errorf("failed to marshal source public key to DER: %v", err)
 		}
 		kind := configpb.TrackedSource_UNKNOWN
-		switch i % 3 {
+		switch i % 4 {
 		case 0:
 			kind = configpb.TrackedSource_RFC6962STH
 		case 1:
 			kind = configpb.TrackedSource_TRILLIANSLR
+		case 2:
+			kind = configpb.TrackedSource_TRILLIANSMR
 		}
 		src := configpb.TrackedSource{
 			Name:          fmt.Sprintf("source-%02d", i),

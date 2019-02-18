@@ -391,6 +391,20 @@ func TestAddSignedBlob(t *testing.T) {
 	}
 	leafIdentityHash := sha256.Sum256(leafValueData)
 
+	mr := types.MapRoot{
+		Version: 1,
+		V1: &types.MapRootV1{
+			RootHash:       make([]byte, sha256.Size),
+			TimestampNanos: 1000000000,
+			Revision:       42,
+		},
+	}
+	rand.Read(mr.V1.RootHash)
+	smrData, err := tls.Marshal(mr)
+	if err != nil {
+		t.Fatalf("failed to create fake Trillian map root: %v", err)
+	}
+
 	tests := []struct {
 		desc       string
 		body       string
@@ -442,6 +456,18 @@ func TestAddSignedBlob(t *testing.T) {
 			body:       fmt.Sprintf(`{"source_id":"https://trillian-log.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, append(slrData, 0xff))...),
 			wantStatus: http.StatusBadRequest,
 			wantErr:    "1 bytes of trailing data after log root",
+		},
+		{
+			desc:       "not-an-smr",
+			body:       fmt.Sprintf(`{"source_id":"https://trillian-map.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, []byte{0x00})...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "failed to parse as map root",
+		},
+		{
+			desc:       "trailing-smr",
+			body:       fmt.Sprintf(`{"source_id":"https://trillian-map.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, append(smrData, 0xff))...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "1 bytes of trailing data after map roo",
 		},
 		{
 			desc:       "backend-failure",

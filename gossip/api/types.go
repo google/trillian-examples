@@ -231,6 +231,12 @@ const (
 	// tls.Marshal(types.LogRoot), and may be rejected if this is not the
 	// case.
 	TrillianSLRKind = "TRILLIANSLR"
+	// TrillianSMRKind indicates that the source is expected to generate
+	// submissions that are Signed Map Roots from the Trillian Map API.
+	// The BlobData for a submission is expected to be the result of
+	// tls.Marshal(types.MapRoot), and may be rejected if this is not the
+	// case.
+	TrillianSMRKind = "TRILLIANSMR"
 )
 
 // SourceKey holds key information about a source that is tracked by this hub.

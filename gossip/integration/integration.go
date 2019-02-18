@@ -367,180 +367,83 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	}
 	fmt.Printf("%s: GetProofByHash(wrong,%d)=(nil,%v)\n", t.prefix, sthN.TreeHead.TreeSize, err)
 
-	if src, privKey := t.pickSourceOfKind(configpb.TrackedSource_RFC6962STH); src != nil && privKey != nil {
-		// [CT-specific] tests.
-
-		// Stage 15: add a blob signed by a CT Log key that isn't an STH.
-		data := make([]byte, 100)
-		rand.Read(data)
-		nonBlob, err := blobForData(src, privKey, data)
-		if err != nil {
-			return fmt.Errorf("failed to sign blob data: %v", err)
-		}
-		sgt, err = t.client().AddSignedBlob(ctx, nonBlob.SourceID, nonBlob.BlobData, nonBlob.SourceSignature)
-		if err == nil {
-			return fmt.Errorf("got AddSignedBlob(non-STH-blob)=(%+v,nil); want (nil,error)", sgt)
-		}
-		fmt.Printf("%s: AddSignedBlob(non-STH-blob)=nil,%v\n", t.prefix, err)
-
-		// Stage 16: add a bigger STH and check get-latest-for-src shows it.
-		// Use the same client throughout, so best-effort get-latest-for-src works.
-		client := t.client()
-		sth1Blob, err := blobForData(src, privKey, dataForSTH(200, 1000005))
-		if err != nil {
-			return fmt.Errorf("failed to generate STH test blob: %v", err)
-		}
-		sth1SGT, err := client.AddSignedBlob(ctx, sth1Blob.SourceID, sth1Blob.BlobData, sth1Blob.SourceSignature)
-		if err != nil {
-			return fmt.Errorf("got AddSignedBlob(sth-200-blob)=(nil,%v); want (_,nil)", err)
-		}
-		fmt.Printf("%s: Uploaded sth-200-blob to hub, got SGT\n", t.prefix)
-
-		entry, err := client.GetLatestForSource(ctx, sth1Blob.SourceID)
-		if err != nil {
-			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", sth1Blob.SourceID, err)
-		}
-		if !reflect.DeepEqual(entry, &sth1SGT.TimestampedEntry) {
-			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", sth1Blob.SourceID, entry, sth1SGT)
-		}
-		fmt.Printf("%s: GetLatestForSource(%s) matches sth-200-blob\n", t.prefix, sth1Blob.SourceID)
-
-		// Stage 17: add a smaller STH and check get-latest-for-src is unaffected.
-		sth2Blob, err := blobForData(src, privKey, dataForSTH(150, 1000002))
-		if err != nil {
-			return fmt.Errorf("failed to generate STH test blob: %v", err)
-		}
-		if _, err := client.AddSignedBlob(ctx, sth2Blob.SourceID, sth2Blob.BlobData, sth2Blob.SourceSignature); err != nil {
-			return fmt.Errorf("got AddSignedBlob(sth-150-blob)=(nil,%v); want (_,nil)", err)
-		}
-		fmt.Printf("%s: Uploaded sth-150-blob to hub, got SGT\n", t.prefix)
-
-		entry, err = client.GetLatestForSource(ctx, sth2Blob.SourceID)
-		if err != nil {
-			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", sth1Blob.SourceID, err)
-		}
-		if !reflect.DeepEqual(entry, &sth1SGT.TimestampedEntry) {
-			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", sth1Blob.SourceID, entry, sth1SGT)
-		}
-		fmt.Printf("%s: GetLatestForSource(%s) still matches sth-200-blob\n", t.prefix, sth1Blob.SourceID)
+	// [CT-specific] tests.
+	if err := t.checkStructuredBlobs(ctx, configpb.TrackedSource_RFC6962STH, dataForSTH); err != nil {
+		return err
 	}
 
-	if src, privKey := t.pickSourceOfKind(configpb.TrackedSource_TRILLIANSLR); src != nil && privKey != nil {
-		// [Trillian SLR-specific] tests.
-
-		// Stage 15: add a blob signed by a Trillian Log key that isn't an SLR.
-		data := make([]byte, 100)
-		rand.Read(data)
-		nonBlob, err := blobForData(src, privKey, data)
-		if err != nil {
-			return fmt.Errorf("failed to sign blob data: %v", err)
-		}
-		sgt, err = t.client().AddSignedBlob(ctx, nonBlob.SourceID, nonBlob.BlobData, nonBlob.SourceSignature)
-		if err == nil {
-			return fmt.Errorf("got AddSignedBlob(non-SLR-blob)=(%+v,nil); want (nil,error)", sgt)
-		}
-		fmt.Printf("%s: AddSignedBlob(non-SLR-blob)=nil,%v\n", t.prefix, err)
-
-		// Stage 16: add a bigger SLR and check get-latest-for-src shows it.
-		// Use the same client throughout, so best-effort get-latest-for-src works.
-		client := t.client()
-		slr1Blob, err := blobForData(src, privKey, dataForSLR(200, 1000005))
-		if err != nil {
-			return fmt.Errorf("failed to generate SLR test blob: %v", err)
-		}
-		slr1SGT, err := client.AddSignedBlob(ctx, slr1Blob.SourceID, slr1Blob.BlobData, slr1Blob.SourceSignature)
-		if err != nil {
-			return fmt.Errorf("got AddSignedBlob(slr-200-blob)=(nil,%v); want (_,nil)", err)
-		}
-		fmt.Printf("%s: Uploaded slr-200-blob to hub, got SGT\n", t.prefix)
-
-		entry, err := client.GetLatestForSource(ctx, slr1Blob.SourceID)
-		if err != nil {
-			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", slr1Blob.SourceID, err)
-		}
-		if !reflect.DeepEqual(entry, &slr1SGT.TimestampedEntry) {
-			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", slr1Blob.SourceID, entry, slr1SGT)
-		}
-		fmt.Printf("%s: GetLatestForSource(%s) matches slr-200-blob\n", t.prefix, slr1Blob.SourceID)
-
-		// Stage 17: add a smaller SLR and check get-latest-for-src is unaffected.
-		slr2Blob, err := blobForData(src, privKey, dataForSLR(150, 1000002))
-		if err != nil {
-			return fmt.Errorf("failed to generate SLR test blob: %v", err)
-		}
-		if _, err := client.AddSignedBlob(ctx, slr2Blob.SourceID, slr2Blob.BlobData, slr2Blob.SourceSignature); err != nil {
-			return fmt.Errorf("got AddSignedBlob(slr-150-blob)=(nil,%v); want (_,nil)", err)
-		}
-		fmt.Printf("%s: Uploaded slr-150-blob to hub, got SGT\n", t.prefix)
-
-		entry, err = client.GetLatestForSource(ctx, slr2Blob.SourceID)
-		if err != nil {
-			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", slr1Blob.SourceID, err)
-		}
-		if !reflect.DeepEqual(entry, &slr1SGT.TimestampedEntry) {
-			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", slr1Blob.SourceID, entry, slr1SGT)
-		}
-		fmt.Printf("%s: GetLatestForSource(%s) still matches slr-200-blob\n", t.prefix, slr1Blob.SourceID)
+	// [Trillian SLR-specific] tests.
+	if err := t.checkStructuredBlobs(ctx, configpb.TrackedSource_TRILLIANSLR, dataForSLR); err != nil {
+		return err
 	}
 
-	if src, privKey := t.pickSourceOfKind(configpb.TrackedSource_TRILLIANSMR); src != nil && privKey != nil {
-		// [Trillian SMR-specific] tests.
-
-		// Stage 15: add a blob signed by a Trillian Map key that isn't an SMR.
-		data := make([]byte, 100)
-		rand.Read(data)
-		nonBlob, err := blobForData(src, privKey, data)
-		if err != nil {
-			return fmt.Errorf("failed to sign blob data: %v", err)
-		}
-		sgt, err = t.client().AddSignedBlob(ctx, nonBlob.SourceID, nonBlob.BlobData, nonBlob.SourceSignature)
-		if err == nil {
-			return fmt.Errorf("got AddSignedBlob(non-SMR-blob)=(%+v,nil); want (nil,error)", sgt)
-		}
-		fmt.Printf("%s: AddSignedBlob(non-SMR-blob)=nil,%v\n", t.prefix, err)
-
-		// Stage 16: add a bigger SMR and check get-latest-for-src shows it.
-		// Use the same client throughout, so best-effort get-latest-for-src works.
-		client := t.client()
-		smr1Blob, err := blobForData(src, privKey, dataForSMR(200, 1000005))
-		if err != nil {
-			return fmt.Errorf("failed to generate SMR test blob: %v", err)
-		}
-		smr1SGT, err := client.AddSignedBlob(ctx, smr1Blob.SourceID, smr1Blob.BlobData, smr1Blob.SourceSignature)
-		if err != nil {
-			return fmt.Errorf("got AddSignedBlob(smr-200-blob)=(nil,%v); want (_,nil)", err)
-		}
-		fmt.Printf("%s: Uploaded smr-200-blob to hub, got SGT\n", t.prefix)
-
-		entry, err := client.GetLatestForSource(ctx, smr1Blob.SourceID)
-		if err != nil {
-			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", smr1Blob.SourceID, err)
-		}
-		if !reflect.DeepEqual(entry, &smr1SGT.TimestampedEntry) {
-			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", smr1Blob.SourceID, entry, smr1SGT)
-		}
-		fmt.Printf("%s: GetLatestForSource(%s) matches smr-200-blob\n", t.prefix, smr1Blob.SourceID)
-
-		// Stage 17: add a smaller SMR and check get-latest-for-src is unaffected.
-		smr2Blob, err := blobForData(src, privKey, dataForSMR(150, 1000002))
-		if err != nil {
-			return fmt.Errorf("failed to generate SMR test blob: %v", err)
-		}
-		if _, err := client.AddSignedBlob(ctx, smr2Blob.SourceID, smr2Blob.BlobData, smr2Blob.SourceSignature); err != nil {
-			return fmt.Errorf("got AddSignedBlob(smr-150-blob)=(nil,%v); want (_,nil)", err)
-		}
-		fmt.Printf("%s: Uploaded smr-150-blob to hub, got SGT\n", t.prefix)
-
-		entry, err = client.GetLatestForSource(ctx, smr2Blob.SourceID)
-		if err != nil {
-			return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", smr1Blob.SourceID, err)
-		}
-		if !reflect.DeepEqual(entry, &smr1SGT.TimestampedEntry) {
-			return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", smr1Blob.SourceID, entry, smr1SGT)
-		}
-		fmt.Printf("%s: GetLatestForSource(%s) still matches smr-200-blob\n", t.prefix, smr1Blob.SourceID)
+	// [Trillian SMR-specific] tests.
+	if err := t.checkStructuredBlobs(ctx, configpb.TrackedSource_TRILLIANSMR, dataForSMR); err != nil {
+		return err
 	}
 
+	return nil
+}
+
+func (t *testInfo) checkStructuredBlobs(ctx context.Context, kind configpb.TrackedSource_Kind, blobGenerate func(a, b uint64) []byte) error {
+	src, privKey := t.pickSourceOfKind(kind)
+	if src == nil || privKey == nil {
+		return nil
+	}
+
+	// Fail to add a blob that has no structure
+	data := make([]byte, 100)
+	rand.Read(data)
+	nonBlob, err := blobForData(src, privKey, data)
+	if err != nil {
+		return fmt.Errorf("failed to sign blob data: %v", err)
+	}
+	sgt, err := t.client().AddSignedBlob(ctx, nonBlob.SourceID, nonBlob.BlobData, nonBlob.SourceSignature)
+	if err == nil {
+		return fmt.Errorf("got AddSignedBlob(non-structured-blob)=(%+v,nil); want (nil,error)", sgt)
+	}
+	fmt.Printf("%s: AddSignedBlob(non-structured-blob)=nil,%v\n", t.prefix, err)
+
+	// Add a blob with structure.
+	// Use the same client throughout, so best-effort get-latest-for-src works.
+	client := t.client()
+	blob1, err := blobForData(src, privKey, blobGenerate(200, 1000005))
+	if err != nil {
+		return fmt.Errorf("failed to generate structured test blob: %v", err)
+	}
+	smr1SGT, err := client.AddSignedBlob(ctx, blob1.SourceID, blob1.BlobData, blob1.SourceSignature)
+	if err != nil {
+		return fmt.Errorf("got AddSignedBlob(%s-200-blob)=(nil,%v); want (_,nil)", kind, err)
+	}
+	fmt.Printf("%s: Uploaded %s-200-blob to hub, got SGT\n", t.prefix, kind)
+
+	entry, err := client.GetLatestForSource(ctx, blob1.SourceID)
+	if err != nil {
+		return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", blob1.SourceID, err)
+	}
+	if !reflect.DeepEqual(entry, &smr1SGT.TimestampedEntry) {
+		return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", blob1.SourceID, entry, smr1SGT)
+	}
+	fmt.Printf("%s: GetLatestForSource(%s) matches %s-200-blob\n", t.prefix, blob1.SourceID, kind)
+
+	// Add a blob with structure that counts as 'earlier'.
+	smr2Blob, err := blobForData(src, privKey, blobGenerate(150, 1000002))
+	if err != nil {
+		return fmt.Errorf("failed to generate SMR test blob: %v", err)
+	}
+	if _, err := client.AddSignedBlob(ctx, smr2Blob.SourceID, smr2Blob.BlobData, smr2Blob.SourceSignature); err != nil {
+		return fmt.Errorf("got AddSignedBlob(smr-150-blob)=(nil,%v); want (_,nil)", err)
+	}
+	fmt.Printf("%s: Uploaded %s-150-blob to hub, got SGT\n", t.prefix, kind)
+
+	entry, err = client.GetLatestForSource(ctx, smr2Blob.SourceID)
+	if err != nil {
+		return fmt.Errorf("got GetLatestForSource(%s)=(nil,%v); want (_,nil)", blob1.SourceID, err)
+	}
+	if !reflect.DeepEqual(entry, &smr1SGT.TimestampedEntry) {
+		return fmt.Errorf("got GetLatestForSource(%s)=%+v; want %+v", blob1.SourceID, entry, smr1SGT)
+	}
+	fmt.Printf("%s: GetLatestForSource(%s) still matches %s-200-blob\n", t.prefix, blob1.SourceID, kind)
 	return nil
 }
 

@@ -584,22 +584,27 @@ func TestGetSourceKeys(t *testing.T) {
 	}{
 		{
 			desc:     "Valid",
-			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s"}]}`, b64(pubKeyDER)),
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s"}]}`, b64(pubKeyDER)),
 			wantKind: "",
 		},
 		{
 			desc:     "Valid CT Source",
-			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s","kind":"RFC6962STH"}]}`, b64(pubKeyDER)),
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s","kind":"RFC6962STH"}]}`, b64(pubKeyDER)),
 			wantKind: "RFC6962STH",
 		},
 		{
 			desc:     "Valid Trillian SLR Source",
-			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s","kind":"TRILLIANSLR"}]}`, b64(pubKeyDER)),
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s","kind":"TRILLIANSLR"}]}`, b64(pubKeyDER)),
 			wantKind: "TRILLIANSLR",
 		},
 		{
+			desc:     "Valid Trillian SMR Source",
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s","kind":"TRILLIANSMR"}]}`, b64(pubKeyDER)),
+			wantKind: "TRILLIANSMR",
+		},
+		{
 			desc:     "Valid Unknown Source",
-			body:     fmt.Sprintf(`{"entries":[{"id":"https://a-log.com","pub_key":"%s","kind":"bis-STH"}]}`, b64(pubKeyDER)),
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s","kind":"bis-STH"}]}`, b64(pubKeyDER)),
 			wantKind: "bis-STH",
 		},
 		{
@@ -636,7 +641,7 @@ func TestGetSourceKeys(t *testing.T) {
 			if len(test.wantErr) != 0 {
 				t.Errorf("GetSourceKeys()=%v,nil; want nil, err containing %q", got, test.wantErr)
 			}
-			want := []*api.SourceKey{{ID: "https://a-log.com", PubKey: pubKeyDER, Kind: test.wantKind}}
+			want := []*api.SourceKey{{ID: "https://source.example.com", PubKey: pubKeyDER, Kind: test.wantKind}}
 			if !reflect.DeepEqual(got, want) {
 				t.Errorf("GetSourceKeys()=%+v; want %+v", got, want)
 			}

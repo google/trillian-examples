@@ -1,18 +1,11 @@
+os: linux
+dist: xenial
 language: go
+go: "1.10.x"
+go_import_path: github.com/google/trillian-examples
 
-addons:
-  apt:
-    sources:
-      - mysql-5.7-trusty
-    packages:
-      - mysql-server
-      - mysql-client
-
-go:
-  - "1.10.x"
-
-os:
-  - linux
+services:
+  - mysql
 
 env:
   - WITH_COVERAGE=true
@@ -20,15 +13,6 @@ env:
 
 matrix:
   fast_finish: true
-
-
-go_import_path: github.com/google/trillian-examples
-
-before_install:
-  - sudo mysql -e "use mysql; update user set authentication_string=PASSWORD('') where User='root'; update user set plugin='mysql_native_password';FLUSH PRIVILEGES;"
-  - sudo mysql_upgrade
-  - sudo service mysql stop
-  - sudo service mysql start
 
 install:
   - mkdir ../protoc

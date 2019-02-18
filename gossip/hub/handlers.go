@@ -93,6 +93,7 @@ type kindHandler struct {
 var kindHandlers = map[configpb.TrackedSource_Kind]kindHandler{
 	configpb.TrackedSource_RFC6962STH:  {submissionCheck: ctSTHChecker, entryIsLater: ctSTHIsLater},
 	configpb.TrackedSource_TRILLIANSLR: {submissionCheck: trillianSLRChecker, entryIsLater: trillianSLRIsLater},
+	configpb.TrackedSource_TRILLIANSMR: {submissionCheck: trillianSMRChecker, entryIsLater: trillianSMRIsLater},
 }
 
 func ctSTHChecker(data, sig []byte) error {
@@ -115,6 +116,19 @@ func trillianSLRChecker(data, sig []byte) error {
 		return fmt.Errorf("submission for Trillian LogRoot source has %d bytes of trailing data after log root", len(rest))
 	} else if lr.Version != 1 {
 		return fmt.Errorf("submission for Trillian LogRoot source has unknown version %d", lr.Version)
+	}
+	return nil
+}
+
+func trillianSMRChecker(data, sig []byte) error {
+	// Check that the data has the structure of a Trillian MapRoot
+	var mr types.MapRoot
+	if rest, err := tls.Unmarshal(data, &mr); err != nil {
+		return fmt.Errorf("submission for Trillian MapRoot source failed to parse as map root: %v", err)
+	} else if len(rest) > 0 {
+		return fmt.Errorf("submission for Trillian MapRoot source has %d bytes of trailing data after map root", len(rest))
+	} else if mr.Version != 1 {
+		return fmt.Errorf("submission for Trillian MapRoot source has unknown version %d", mr.Version)
 	}
 	return nil
 }
@@ -161,6 +175,30 @@ func trillianSLRIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntr
 		return false
 	}
 	return curLR.V1.TimestampNanos > prevLR.V1.TimestampNanos
+}
+
+func trillianSMRIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntry) bool {
+	var prevMR types.MapRoot
+	if _, err := tls.Unmarshal(prev.BlobData, &prevMR); err != nil {
+		return true
+	}
+	if prevMR.Version != 1 {
+		return true
+	}
+	var curMR types.MapRoot
+	if _, err := tls.Unmarshal(current.BlobData, &curMR); err != nil {
+		return false
+	}
+	if curMR.Version != 1 {
+		return false
+	}
+	if curMR.V1.Revision > prevMR.V1.Revision {
+		return true
+	}
+	if curMR.V1.Revision < prevMR.V1.Revision {
+		return false
+	}
+	return curMR.V1.TimestampNanos > prevMR.V1.TimestampNanos
 }
 
 // rawEntryIsLater indicates whether the current entry is later than the prev entry,

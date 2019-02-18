@@ -84,7 +84,8 @@ var Entrypoints = []string{api.AddSignedBlobPath, api.GetSTHPath, api.GetSTHCons
 // kinds of sources.
 type kindHandler struct {
 	// submissionCheck performs a check on submitted data to see if it should be admitted.
-	submissionCheck func(data, sig []byte) error
+	// The signature over the data has been verified before this function is called.
+	submissionCheck func(data []byte) error
 	// entryIsLater indicates whether one entry for this kind of source is considered
 	// to be 'later' than another.
 	entryIsLater func(prev *api.TimestampedEntry, current *api.TimestampedEntry) bool
@@ -96,7 +97,7 @@ var kindHandlers = map[configpb.TrackedSource_Kind]kindHandler{
 	configpb.TrackedSource_TRILLIANSMR: {submissionCheck: trillianSMRChecker, entryIsLater: trillianSMRIsLater},
 }
 
-func ctSTHChecker(data, sig []byte) error {
+func ctSTHChecker(data []byte) error {
 	// Check that the data has the structure of a CT tree head.
 	var th ct.TreeHeadSignature
 	if rest, err := tls.Unmarshal(data, &th); err != nil {
@@ -107,7 +108,7 @@ func ctSTHChecker(data, sig []byte) error {
 	return nil
 }
 
-func trillianSLRChecker(data, sig []byte) error {
+func trillianSLRChecker(data []byte) error {
 	// Check that the data has the structure of a Trillian LogRoot
 	var lr types.LogRoot
 	if rest, err := tls.Unmarshal(data, &lr); err != nil {
@@ -120,7 +121,7 @@ func trillianSLRChecker(data, sig []byte) error {
 	return nil
 }
 
-func trillianSMRChecker(data, sig []byte) error {
+func trillianSMRChecker(data []byte) error {
 	// Check that the data has the structure of a Trillian MapRoot
 	var mr types.MapRoot
 	if rest, err := tls.Unmarshal(data, &mr); err != nil {
@@ -372,7 +373,7 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, apiReq *api.AddSignedBlobRe
 
 	// Perform any other checks appropriate for the kind of source.
 	if kc := kindHandlers[cryptoInfo.kind].submissionCheck; kc != nil {
-		if err := kc(apiReq.BlobData, apiReq.SourceSignature); err != nil {
+		if err := kc(apiReq.BlobData); err != nil {
 			glog.V(1).Infof("%s: failed to validate %v-specific data from %q: %v", h.hubPrefix, cryptoInfo.kind, apiReq.SourceID, err)
 			return nil, http.StatusBadRequest, fmt.Errorf("failed to validate data from %q: %v", apiReq.SourceID, err)
 		}

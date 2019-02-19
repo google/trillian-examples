@@ -19,6 +19,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -116,6 +117,81 @@ func TestAddCTSTH(t *testing.T) {
 			}
 			if got == nil {
 				t.Errorf("AddCTSTH()=nil; want non-nil")
+			}
+		})
+	}
+}
+
+func TestSTHFromEntry(t *testing.T) {
+	th := ct.TreeHeadSignature{
+		Version:       ct.V1,
+		SignatureType: ct.TreeHashSignatureType,
+		TreeSize:      100,
+		Timestamp:     0x1000000,
+	}
+	rand.Read(th.SHA256RootHash[:])
+	thData, err := tls.Marshal(th)
+	if err != nil {
+		t.Fatalf("Failed to create test data: %v", err)
+	}
+	th.SignatureType++ // invalid value
+	wrongTypeData, err := tls.Marshal(th)
+	if err != nil {
+		t.Fatalf("Failed to create test data with incorrect type: %v", err)
+	}
+
+	tests := []struct {
+		desc    string
+		entry   *api.TimestampedEntry
+		want    *ct.SignedTreeHead
+		wantErr string
+	}{
+		{
+			desc:    "nil entry",
+			wantErr: "no entry",
+		},
+		{
+			desc:    "parse-fail",
+			entry:   &api.TimestampedEntry{BlobData: []byte{0x01}},
+			wantErr: "failed to parse",
+		},
+		{
+			desc:  "ok",
+			entry: &api.TimestampedEntry{BlobData: thData},
+			want: &ct.SignedTreeHead{
+				Version:        th.Version,
+				TreeSize:       th.TreeSize,
+				Timestamp:      th.Timestamp,
+				SHA256RootHash: th.SHA256RootHash,
+			},
+		},
+		{
+			desc:    "trailing-data",
+			entry:   &api.TimestampedEntry{BlobData: append(thData, 0x01)},
+			wantErr: "trailing data",
+		},
+		{
+			desc:    "wrong-enum",
+			entry:   &api.TimestampedEntry{BlobData: wrongTypeData},
+			wantErr: "unexpected signature type",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.desc, func(t *testing.T) {
+			got, gotErr := client.STHFromEntry(test.entry)
+			if gotErr != nil {
+				if len(test.wantErr) == 0 {
+					t.Errorf("STHFromEntry(%+v)=nil,%v; want _,nil", test.entry, gotErr)
+				} else if !strings.Contains(gotErr.Error(), test.wantErr) {
+					t.Errorf("STHFromEntry(%+v)=nil,%v; want _,err containing %q", test.entry, gotErr, test.wantErr)
+				}
+				return
+			}
+			if len(test.wantErr) != 0 {
+				t.Errorf("STHFromEntry(%+v)=%+v,nil; want nil,err containing %q", test.entry, got, test.wantErr)
+			}
+			if !reflect.DeepEqual(got, test.want) {
+				t.Errorf("STHFromEntry(%+v)=%+v; want %+v", test.entry, got, test.want)
 			}
 		})
 	}

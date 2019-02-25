@@ -286,12 +286,13 @@ type hubInfo struct {
 	// Instance-wide options
 	opts InstanceOptions
 
-	hubPrefix string
-	logID     int64
-	urlPrefix string
-	rpcClient trillian.TrillianLogClient
-	signer    *tcrypto.Signer
-	cryptoMap map[string]sourceCryptoInfo
+	hubPrefix   string
+	logID       int64
+	trillianKey crypto.PublicKey
+	urlPrefix   string
+	rpcClient   trillian.TrillianLogClient
+	signer      *tcrypto.Signer
+	cryptoMap   map[string]sourceCryptoInfo
 	// latestEntry keeps a (local) record of the 'latest' entry for a source.
 	// The definition of 'latest' varies according to what kind the source is.
 	latestMu    sync.RWMutex
@@ -299,13 +300,14 @@ type hubInfo struct {
 }
 
 // newHubInfo creates a new instance of hubInfo.
-func newHubInfo(logID int64, prefix string, rpcClient trillian.TrillianLogClient, signer crypto.Signer, cryptoMap map[string]sourceCryptoInfo, opts InstanceOptions) *hubInfo {
+func newHubInfo(logID int64, prefix string, rpcClient trillian.TrillianLogClient, trillianKey crypto.PublicKey, signer crypto.Signer, cryptoMap map[string]sourceCryptoInfo, opts InstanceOptions) *hubInfo {
 	info := &hubInfo{
 		opts:        opts,
 		hubPrefix:   fmt.Sprintf("%s{%d}", prefix, logID),
 		logID:       logID,
 		urlPrefix:   prefix,
 		rpcClient:   rpcClient,
+		trillianKey: trillianKey,
 		signer:      tcrypto.NewSigner(logID, signer, crypto.SHA256),
 		cryptoMap:   cryptoMap,
 		latestEntry: make(map[string]*api.TimestampedEntry),
@@ -442,7 +444,7 @@ func (h *hubInfo) addSignedBlob(ctx context.Context, apiReq *api.AddSignedBlobRe
 }
 
 // GetLogRoot retrieves a log root for the given Trillian log.
-func GetLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID int64, prefix string) (*types.LogRootV1, error) {
+func GetLogRoot(ctx context.Context, client trillian.TrillianLogClient, trillianKey crypto.PublicKey, logID int64, prefix string) (*types.LogRootV1, error) {
 	// Send request to the Log server.
 	req := trillian.GetLatestSignedLogRootRequest{
 		LogId:    logID,
@@ -456,22 +458,31 @@ func GetLogRoot(ctx context.Context, client trillian.TrillianLogClient, logID in
 	}
 
 	// Check over the response.
-	slr := rsp.SignedLogRoot
+	return extractLogRoot(rsp.SignedLogRoot, trillianKey)
+}
+
+func extractLogRoot(slr *trillian.SignedLogRoot, trillianKey crypto.PublicKey) (*types.LogRootV1, error) {
 	if slr == nil {
 		return nil, errors.New("no log root returned")
 	}
-	// TODO(drysdale): configure the hub with the Trillian public key for this tree, and check the Trillian signature here.
+	if trillianKey != nil {
+		if err := tcrypto.Verify(trillianKey, crypto.SHA256, slr.LogRoot, slr.LogRootSignature); err != nil {
+			return nil, fmt.Errorf("failed to verify Trillian signature: %v", err)
+		}
+	}
 	var root types.LogRootV1
 	if err := root.UnmarshalBinary(slr.LogRoot); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal log root: %v", err)
 	}
-
-	glog.V(3).Infof("%s: GetLogRoot <= root=%+v", prefix, root)
 	return &root, nil
 }
 
+func (h *hubInfo) extractLogRoot(slr *trillian.SignedLogRoot) (*types.LogRootV1, error) {
+	return extractLogRoot(slr, h.trillianKey)
+}
+
 func (h *hubInfo) getSTH(ctx context.Context) (*api.GetSTHResponse, int, error) {
-	root, err := GetLogRoot(ctx, h.rpcClient, h.logID, h.hubPrefix)
+	root, err := GetLogRoot(ctx, h.rpcClient, h.trillianKey, h.logID, h.hubPrefix)
 	if err != nil {
 		return nil, http.StatusInternalServerError, err
 	}
@@ -517,10 +528,9 @@ func (h *hubInfo) getSTHConsistency(ctx context.Context, first, second int64) (*
 			return nil, h.toHTTPStatus(err), fmt.Errorf("backend GetConsistencyProof request failed: %v", err)
 		}
 
-		// TODO(drysdale): configure the hub with the Trillian public key for this tree, and check the Trillian signature here.
-		var root types.LogRootV1
-		if err := root.UnmarshalBinary(rsp.SignedLogRoot.LogRoot); err != nil {
-			return nil, http.StatusInternalServerError, fmt.Errorf("failed to unmarshal log root: %v", err)
+		root, err := h.extractLogRoot(rsp.SignedLogRoot)
+		if err != nil {
+			return nil, http.StatusInternalServerError, err
 		}
 
 		// We can get here with a tree size too small to satisfy the proof.
@@ -557,10 +567,9 @@ func (h *hubInfo) getProofByHash(ctx context.Context, leafHash []byte, treeSize 
 		return nil, h.toHTTPStatus(err), fmt.Errorf("backend GetInclusionProofByHash request failed: %v", err)
 	}
 
-	// TODO(drysdale): configure the hub with the Trillian public key for this tree, and check the Trillian signature here.
-	var root types.LogRootV1
-	if err := root.UnmarshalBinary(rsp.SignedLogRoot.LogRoot); err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("failed to unmarshal log root: %v", err)
+	root, err := h.extractLogRoot(rsp.SignedLogRoot)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
 	}
 
 	// We could fail to get the proof because the tree size that the server has is not large enough.
@@ -618,10 +627,9 @@ func (h *hubInfo) getEntries(ctx context.Context, start, end int64) (*api.GetEnt
 	if err != nil {
 		return nil, h.toHTTPStatus(err), fmt.Errorf("backend GetLeavesByRange request failed: %v", err)
 	}
-	// TODO(drysdale): configure the hub with the Trillian public key for this tree, and check the Trillian signature here.
-	var root types.LogRootV1
-	if err := root.UnmarshalBinary(rsp.SignedLogRoot.LogRoot); err != nil {
-		return nil, http.StatusInternalServerError, fmt.Errorf("failed to unmarshal log root: %v", err)
+	root, err := h.extractLogRoot(rsp.SignedLogRoot)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
 	}
 	if int64(root.TreeSize) <= start {
 		// If the returned tree is too small to contain any leaves return the 4xx explicitly here.

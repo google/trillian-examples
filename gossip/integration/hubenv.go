@@ -45,7 +45,8 @@ type HubEnv struct {
 
 // NewHubEnv creates a fresh DB, Trillian log server/signer, and Hub personality.
 // testID should be unique to each unittest package so as to allow parallel tests.
-// The passed-in cfgs will be modified to include the created logIDs.
+// The passed-in cfgs will be modified to include the created logIDs and Trillian
+// public keys.
 func NewHubEnv(ctx context.Context, cfgs []*configpb.HubConfig, numSequencers int, testID string) (*HubEnv, error) {
 	// Start log server and signer.
 	logEnv, err := integration.NewLogEnv(ctx, numSequencers, testID)
@@ -61,6 +62,7 @@ func NewHubEnv(ctx context.Context, cfgs []*configpb.HubConfig, numSequencers in
 			return nil, fmt.Errorf("failed to provision log %d: %v", cfg.LogId, err)
 		}
 		cfg.LogId = tree.TreeId
+		cfg.TrillianKey = tree.PublicKey
 	}
 
 	// Start the Gossip Hub personality.

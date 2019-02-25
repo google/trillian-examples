@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	ctfeutil "github.com/google/certificate-transparency-go/trillian/util"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/hub"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
@@ -35,6 +35,8 @@ import (
 	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
+
+	ctfeutil "github.com/google/certificate-transparency-go/trillian/util"
 
 	// Register PEMKeyFile, PrivateKey and PKCS11Config ProtoHandlers
 	_ "github.com/google/trillian/crypto/keys/der/proto"
@@ -157,10 +159,14 @@ func main() {
 		for _, c := range cfg.HubConfig {
 			ticker := time.NewTicker(*getSLRInterval)
 			go func(c *configpb.HubConfig) {
+				trillianKey, err := x509.ParsePKIXPublicKey(c.TrillianKey.GetDer())
+				if err != nil {
+					glog.Warningf("No Trillian public key for log %v (%d)", c.Prefix, c.LogId)
+				}
 				glog.Infof("start internal get-slr operations on log %v (%d)", c.Prefix, c.LogId)
 				for t := range ticker.C {
 					glog.V(1).Infof("tick at %v: force internal get-slr for log %v (%d)", t, c.Prefix, c.LogId)
-					if _, err := hub.GetLogRoot(ctx, clientMap[c.BackendName], c.LogId, c.Prefix); err != nil {
+					if _, err := hub.GetLogRoot(ctx, clientMap[c.BackendName], trillianKey, c.LogId, c.Prefix); err != nil {
 						glog.Warningf("failed to retrieve log root for log %v (%d): %v", c.Prefix, c.LogId, err)
 					}
 				}

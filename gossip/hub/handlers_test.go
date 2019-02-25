@@ -137,7 +137,7 @@ func setupTest(t *testing.T, signer crypto.Signer) handlerTestInfo {
 	return handlerTestInfo{
 		mockCtrl: mockCtrl,
 		client:   client,
-		hi:       newHubInfo(testTreeID, "testhub", client, signer, cryptoMap, iOpts),
+		hi:       newHubInfo(testTreeID, "testhub", client, nil, signer, cryptoMap, iOpts),
 	}
 }
 

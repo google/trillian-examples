@@ -13,6 +13,8 @@ linters-settings:
     packages:
       - golang.org/x/net/context
       - github.com/gogo/protobuf/proto
+      - encoding/asn1
+      - crypto/x509
 
 linters:
   disable-all: true

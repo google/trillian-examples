@@ -17,7 +17,6 @@ package integration_test
 import (
 	"context"
 	"crypto/ecdsa"
-	"crypto/x509"
 	"encoding/pem"
 	"flag"
 	"fmt"
@@ -26,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian-examples/gossip/hub"
 	"github.com/google/trillian-examples/gossip/integration"
 	"github.com/google/trillian/storage/testdb"

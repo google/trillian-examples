@@ -17,7 +17,6 @@ package hub
 import (
 	"context"
 	"crypto"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -26,6 +25,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
 	"github.com/google/trillian/crypto/keys"

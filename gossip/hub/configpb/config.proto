@@ -54,6 +54,9 @@ message HubConfig {
   // backend_name (if set) indicates which backend serves this hub.  When enclosed in
   // a HubMultiConfig the name must be one of the keys for the hub_backends map.
   string backend_name = 6;
+  // The Trillian key holds the public key that is used to check the signatures emitted
+  // by the Trillian backend for log_id.
+  keyspb.PublicKey trillian_key = 7;
 }
 
 // TrackedSource describes a source that this gossip hub will accept signed blobs from.

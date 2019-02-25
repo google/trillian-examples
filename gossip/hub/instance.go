@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/certificate-transparency-go/x509"
@@ -167,8 +168,13 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		return nil, fmt.Errorf("failed to load private key: %v", err)
 	}
 
+	trillianKey, err := x509.ParsePKIXPublicKey(cfg.TrillianKey.GetDer())
+	if err != nil {
+		glog.Warningf("No Trillian public key for log %v (%d)", cfg.Prefix, cfg.LogId)
+	}
+
 	// Create and register the handlers using the RPC client we just set up.
-	hubInfo := newHubInfo(cfg.LogId, cfg.Prefix, client, signer, cryptoMap, opts)
+	hubInfo := newHubInfo(cfg.LogId, cfg.Prefix, client, trillianKey, signer, cryptoMap, opts)
 
 	handlers := hubInfo.Handlers(cfg.Prefix)
 	return &handlers, nil

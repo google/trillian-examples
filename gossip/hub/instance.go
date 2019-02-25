@@ -15,6 +15,7 @@
 package hub
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/x509"
@@ -29,6 +30,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
 	"github.com/google/trillian/crypto/keys"
+	"github.com/google/trillian/crypto/keys/der"
 	"github.com/google/trillian/crypto/sigpb"
 	"github.com/google/trillian/monitoring"
 )
@@ -137,11 +139,28 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		return nil, errors.New("need to specify PrivateKey")
 	}
 
+	// Load the private key for this hub.
+	var keyProto ptypes.DynamicAny
+	if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
+	}
+	signer, err := keys.NewSigner(ctx, keyProto.Message)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load private key: %v", err)
+	}
+	hubPubKeyData, err := der.MarshalPublicKey(signer.Public())
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal hub's public key: %v", err)
+	}
+
 	// Load the trusted source public keys.
 	cryptoMap := make(map[string]sourceCryptoInfo)
 	for _, src := range cfg.Source {
 		if _, ok := cryptoMap[src.Id]; ok {
 			return nil, fmt.Errorf("Duplicate source log entry %s for ID %s", src.Name, src.Id)
+		}
+		if bytes.Equal(src.PublicKey.Der, hubPubKeyData) {
+			return nil, fmt.Errorf("Source ID %s has our own public key; cowardly refusing to vanish in a puff of recursion", src.Id)
 		}
 		pubKey, err := x509.ParsePKIXPublicKey(src.PublicKey.Der)
 		if err != nil {
@@ -154,17 +173,8 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		default:
 			return nil, fmt.Errorf("Failed to determine hash algorithm %d", src.HashAlgorithm)
 		}
-		cryptoMap[src.Id] = sourceCryptoInfo{pubKeyData: src.PublicKey.Der, pubKey: pubKey, hasher: hasher, kind: src.Kind}
-	}
 
-	// Load the private key for this hub.
-	var keyProto ptypes.DynamicAny
-	if err := ptypes.UnmarshalAny(cfg.PrivateKey, &keyProto); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal cfg.PrivateKey: %v", err)
-	}
-	signer, err := keys.NewSigner(ctx, keyProto.Message)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load private key: %v", err)
+		cryptoMap[src.Id] = sourceCryptoInfo{pubKeyData: src.PublicKey.Der, pubKey: pubKey, hasher: hasher, kind: src.Kind}
 	}
 
 	// Create and register the handlers using the RPC client we just set up.

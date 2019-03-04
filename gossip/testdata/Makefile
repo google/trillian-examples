@@ -1,11 +1,12 @@
 all: pubkeys
 
 # The following private keys are never regenerated.
-SERVER_PRIVKEYS=chrome-ct-hub.privkey.pem test-ct-hub.privkey.pem
+SERVER_PRIVKEYS=chrome-ct-hub.privkey.pem test-ct-hub.privkey.pem instance-test.privkey.pem
 
 # Corresponding passwords:
 HUB_CHROME_CT_PWD=pan-galactic-gargle-blaster
 HUB_TEST_CT_PWD=arcturan-mega-gin
+INSTANCE_TEST_PWD=milliways
 
 # Server public keys are derived from the corresponding private keys.
 SERVER_PUBKEYS=$(subst .privkey,.pubkey,$(SERVER_PRIVKEYS))
@@ -16,6 +17,8 @@ chrome-ct-hub.pubkey.pem: chrome-ct-hub.privkey.pem
 	openssl ec -in $< -pubout -out $@ -passin pass:$(HUB_CHROME_CT_PWD)
 test-ct-hub.pubkey.pem: test-ct-hub.privkey.pem
 	openssl ec -in $< -pubout -out $@ -passin pass:$(HUB_TEST_CT_PWD)
+instance-test.pubkey.pem: instance-test.privkey.pem
+	openssl ec -in $< -pubout -out $@ -passin pass:$(INSTANCE_TEST_PWD)
 
 # The newkey target creates a fresh private key; should never be needed.
 newkey: fresh.privkey.pem

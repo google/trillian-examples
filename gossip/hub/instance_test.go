@@ -26,9 +26,12 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
+	"github.com/google/trillian/crypto/keys/der"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/crypto/sigpb"
 	"github.com/google/trillian/monitoring"
+
+	tpem "github.com/google/trillian/crypto/keys/pem"
 
 	_ "github.com/google/trillian/crypto/keys/pem/proto" // Register PEMKeyFile ProtoHandler
 )
@@ -224,6 +227,14 @@ func TestSetUpInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not marshal private key proto: %v", err)
 	}
+	hubPubKey, err := tpem.ReadPublicKeyFile("../testdata/instance-test.pubkey.pem")
+	if err != nil {
+		t.Fatalf("Could not load test hub's public key file: %v", err)
+	}
+	hubPubKeyData, err := der.MarshalPublicKey(hubPubKey)
+	if err != nil {
+		t.Fatalf("Could not marshal test hub's public key file: %v", err)
+	}
 	missingPrivKey, err := ptypes.MarshalAny(&keyspb.PEMKeyFile{Path: "../testdata/bogus.privkey.pem", Password: "dirk"})
 	if err != nil {
 		t.Fatalf("Could not marshal private key proto: %v", err)
@@ -258,6 +269,23 @@ func TestSetUpInstance(t *testing.T) {
 				},
 				PrivateKey: privKey,
 			},
+		},
+		{
+			desc: "recursive",
+			cfg: configpb.HubConfig{
+				LogId:  1,
+				Prefix: "hub",
+				Source: []*configpb.TrackedSource{
+					{
+						Name:          "fred",
+						Id:            "http://example.com/fred",
+						HashAlgorithm: sigpb.DigitallySigned_SHA256,
+						PublicKey:     &keyspb.PublicKey{Der: hubPubKeyData},
+					},
+				},
+				PrivateKey: privKey,
+			},
+			wantErr: "puff of recursion",
 		},
 		{
 			desc: "no-source-logs",

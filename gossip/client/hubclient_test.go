@@ -603,6 +603,11 @@ func TestGetSourceKeys(t *testing.T) {
 			wantKind: "TRILLIANSMR",
 		},
 		{
+			desc:     "Valid Gossip Hub Source",
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s","kind":"GOSSIPHUB"}]}`, b64(pubKeyDER)),
+			wantKind: "GOSSIPHUB",
+		},
+		{
 			desc:     "Valid Unknown Source",
 			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s","kind":"bis-STH"}]}`, b64(pubKeyDER)),
 			wantKind: "bis-STH",

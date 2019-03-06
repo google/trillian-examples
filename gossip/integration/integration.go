@@ -382,6 +382,11 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 		return err
 	}
 
+	// [Gossip HubTreeHead-specific] tests.
+	if err := t.checkStructuredBlobs(ctx, configpb.TrackedSource_GOSSIPHUB, dataForHTH); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -521,6 +526,20 @@ func dataForSMR(rev, ts uint64) []byte {
 	return data
 }
 
+func dataForHTH(sz, ts uint64) []byte {
+	hth := api.HubTreeHead{
+		TreeSize:  sz,
+		Timestamp: ts * 1000 * 1000,
+		RootHash:  make([]byte, sha256.Size),
+	}
+	rand.Read(hth.RootHash)
+	data, err := tls.Marshal(hth)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create fake Gossip HubTreeHead: %v", err))
+	}
+	return data
+}
+
 func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.PrivateKey) (*signedBlob, error) {
 	var data []byte
 	switch src.Kind {
@@ -530,6 +549,8 @@ func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.Pri
 		data = dataForSLR(100, 1000000)
 	case configpb.TrackedSource_TRILLIANSMR:
 		data = dataForSMR(100, 1000000)
+	case configpb.TrackedSource_GOSSIPHUB:
+		data = dataForHTH(100, 1000000)
 	default:
 		data = make([]byte, 100)
 		rand.Read(data)
@@ -635,13 +656,15 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 			return nil, nil, fmt.Errorf("failed to marshal source public key to DER: %v", err)
 		}
 		kind := configpb.TrackedSource_UNKNOWN
-		switch i % 4 {
+		switch i % 5 {
 		case 0:
 			kind = configpb.TrackedSource_RFC6962STH
 		case 1:
 			kind = configpb.TrackedSource_TRILLIANSLR
 		case 2:
 			kind = configpb.TrackedSource_TRILLIANSMR
+		case 3:
+			kind = configpb.TrackedSource_GOSSIPHUB
 		}
 		src := configpb.TrackedSource{
 			Name:          fmt.Sprintf("source-%02d", i),

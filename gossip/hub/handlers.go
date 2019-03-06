@@ -95,6 +95,7 @@ var kindHandlers = map[configpb.TrackedSource_Kind]kindHandler{
 	configpb.TrackedSource_RFC6962STH:  {submissionCheck: ctSTHChecker, entryIsLater: ctSTHIsLater},
 	configpb.TrackedSource_TRILLIANSLR: {submissionCheck: trillianSLRChecker, entryIsLater: trillianSLRIsLater},
 	configpb.TrackedSource_TRILLIANSMR: {submissionCheck: trillianSMRChecker, entryIsLater: trillianSMRIsLater},
+	configpb.TrackedSource_GOSSIPHUB:   {submissionCheck: gossipHubHeadChecker, entryIsLater: gossipHubHeadIsLater},
 }
 
 func ctSTHChecker(data []byte) error {
@@ -130,6 +131,17 @@ func trillianSMRChecker(data []byte) error {
 		return fmt.Errorf("submission for Trillian MapRoot source has %d bytes of trailing data after map root", len(rest))
 	} else if mr.Version != 1 {
 		return fmt.Errorf("submission for Trillian MapRoot source has unknown version %d", mr.Version)
+	}
+	return nil
+}
+
+func gossipHubHeadChecker(data []byte) error {
+	// Check that the data has the structure of a Gossip HubTreeHead
+	var hth api.HubTreeHead
+	if rest, err := tls.Unmarshal(data, &hth); err != nil {
+		return fmt.Errorf("submission for Gossip HubTreeHead source failed to parse as tree head: %v", err)
+	} else if len(rest) > 0 {
+		return fmt.Errorf("submission for Gossip HubTreeHead source has %d bytes of trailing data after tree head", len(rest))
 	}
 	return nil
 }
@@ -200,6 +212,24 @@ func trillianSMRIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntr
 		return false
 	}
 	return curMR.V1.TimestampNanos > prevMR.V1.TimestampNanos
+}
+
+func gossipHubHeadIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntry) bool {
+	var prevHTH api.HubTreeHead
+	if _, err := tls.Unmarshal(prev.BlobData, &prevHTH); err != nil {
+		return true
+	}
+	var curHTH api.HubTreeHead
+	if _, err := tls.Unmarshal(current.BlobData, &curHTH); err != nil {
+		return false
+	}
+	if curHTH.TreeSize > prevHTH.TreeSize {
+		return true
+	}
+	if curHTH.TreeSize < prevHTH.TreeSize {
+		return false
+	}
+	return curHTH.Timestamp > prevHTH.Timestamp
 }
 
 // rawEntryIsLater indicates whether the current entry is later than the prev entry,

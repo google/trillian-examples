@@ -413,6 +413,17 @@ func TestAddSignedBlob(t *testing.T) {
 		t.Fatalf("failed to create fake Trillian map root: %v", err)
 	}
 
+	hth := api.HubTreeHead{
+		TreeSize:  42,
+		Timestamp: 1000000000,
+		RootHash:  make([]byte, sha256.Size),
+	}
+	rand.Read(hth.RootHash)
+	hthData, err := tls.Marshal(hth)
+	if err != nil {
+		t.Fatalf("failed to create fake Gossip hub tree head: %v", err)
+	}
+
 	tests := []struct {
 		desc       string
 		body       string
@@ -475,7 +486,19 @@ func TestAddSignedBlob(t *testing.T) {
 			desc:       "trailing-smr",
 			body:       fmt.Sprintf(`{"source_id":"https://trillian-map.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, append(smrData, 0xff))...),
 			wantStatus: http.StatusBadRequest,
-			wantErr:    "1 bytes of trailing data after map roo",
+			wantErr:    "1 bytes of trailing data after map root",
+		},
+		{
+			desc:       "not-an-hth",
+			body:       fmt.Sprintf(`{"source_id":"https://gossip-hub.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, []byte{0x00})...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "failed to parse as tree head",
+		},
+		{
+			desc:       "trailing-hth",
+			body:       fmt.Sprintf(`{"source_id":"https://gossip-hub.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, append(hthData, 0xff))...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "1 bytes of trailing data after tree head",
 		},
 		{
 			desc:       "backend-failure",

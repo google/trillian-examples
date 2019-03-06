@@ -153,15 +153,15 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 	}
 
 	// Stage 0: get accepted source keys, which should match the private keys we have to play with.
-	roots, err := t.client().GetSourceKeys(ctx)
+	srcs, err := t.client().GetSourceKeys(ctx)
 	if err != nil {
 		return fmt.Errorf("got GetSourceKeys()=(nil,%v); want (_,nil)", err)
 	}
 	fmt.Printf("%s: Accepts signed heads from: \n", t.prefix)
 	got := make(map[string][]byte)
-	for _, root := range roots {
-		fmt.Printf("    %s: pubKey %s\n", root.ID, base64.StdEncoding.EncodeToString(root.PubKey))
-		got[root.ID] = root.PubKey
+	for _, src := range srcs {
+		fmt.Printf("    %s: kind %s pubKey %s\n", src.ID, src.Kind, base64.StdEncoding.EncodeToString(src.PubKey))
+		got[src.ID] = src.PubKey
 	}
 	want := make(map[string][]byte)
 	for _, src := range t.cfg.Source {

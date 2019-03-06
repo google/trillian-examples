@@ -36,14 +36,14 @@ var (
 	hubConfig   = flag.String("hub_config", "", "File holding Hub configuration")
 	srcPrivKeys = flag.String("src_priv_keys", "", "List of files holding source private keys (comma-separated); must match --hub_config")
 	hubCount    = flag.Int("hubs", 4, "Number of parallel Gossip Hubs to test")
-	logCount    = flag.Int("logs", 3, "Number of source logs tracked by each hub")
+	srcCount    = flag.Int("srcs", 3, "Number of sources tracked by each hub")
 	mmd         = flag.Duration("mmd", 120*time.Second, "MMD for tested hubs")
 )
 
 func TestInProcessGossipIntegration(t *testing.T) {
 	testdb.SkipIfNoMySQL(t)
 	ctx := context.Background()
-	cfgs, logKeys, err := integration.BuildTestConfig(*hubCount, *logCount)
+	cfgs, srcKeys, err := integration.BuildTestConfig(*hubCount, *srcCount)
 	if err != nil {
 		t.Fatalf("Failed to build test config: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestInProcessGossipIntegration(t *testing.T) {
 			cfg := cfg // capture config
 			t.Run(cfg.Prefix, func(t *testing.T) {
 				t.Parallel()
-				if err := integration.RunIntegrationForHub(ctx, cfg, env.HubAddr, *mmd, logKeys); err != nil {
+				if err := integration.RunIntegrationForHub(ctx, cfg, env.HubAddr, *mmd, srcKeys); err != nil {
 					t.Errorf("%s: failed: %v", cfg.Prefix, err)
 				}
 			})
@@ -86,20 +86,20 @@ func TestLiveGossipIntegration(t *testing.T) {
 		t.Fatalf("Failed to read Hub config file: %v", err)
 	}
 
-	var logKeys []*ecdsa.PrivateKey
+	var srcKeys []*ecdsa.PrivateKey
 	for _, filename := range strings.Split(*srcPrivKeys, ",") {
-		logKey, err := privateKeyFromPEM(filename)
+		srcKey, err := privateKeyFromPEM(filename)
 		if err != nil {
 			t.Fatalf("Failed to read private key %q: %v", filename, err)
 		}
-		logKeys = append(logKeys, logKey)
+		srcKeys = append(srcKeys, srcKey)
 	}
 
 	for _, cfg := range multiCfg.HubConfig {
 		cfg := cfg // capture config
 		t.Run(cfg.Prefix, func(t *testing.T) {
 			t.Parallel()
-			if err := integration.RunIntegrationForHub(ctx, cfg, *hubServers, *mmd, logKeys); err != nil {
+			if err := integration.RunIntegrationForHub(ctx, cfg, *hubServers, *mmd, srcKeys); err != nil {
 				t.Errorf("%s: failed: %v", cfg.Prefix, err)
 			}
 		})

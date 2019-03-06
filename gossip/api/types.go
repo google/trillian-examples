@@ -237,6 +237,12 @@ const (
 	// tls.Marshal(types.MapRoot), and may be rejected if this is not the
 	// case.
 	TrillianSMRKind = "TRILLIANSMR"
+	// GossipHubKind indicates that the source is expected to generate
+	// submission that are Hub Tree Heads from this API.
+	// The BlobData for a submission is expected to be the result of
+	// tls.Marshal(HubTreeHead), and may be rejected if this is not the
+	// case.
+	GossipHubKind = "GOSSIPHUB"
 )
 
 // SourceKey holds key information about a source that is tracked by this hub.

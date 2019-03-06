@@ -71,6 +71,7 @@ message TrackedSource {
     RFC6962STH = 1;
     TRILLIANSLR = 2;
     TRILLIANSMR = 3;
+    GOSSIPHUB = 4;
   }
   Kind kind = 5;
 }

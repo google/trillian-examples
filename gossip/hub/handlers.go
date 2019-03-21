@@ -805,7 +805,7 @@ func addSignedBlob(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *ht
 	return http.StatusOK, nil
 }
 
-func getSTH(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getSTH(ctx context.Context, h *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
 	jsonRsp, statusCode, err := h.getSTH(ctx)
 	if err != nil {
 		return statusCode, err
@@ -919,7 +919,7 @@ func getEntries(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.
 	return http.StatusOK, nil
 }
 
-func getSourceKeys(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getSourceKeys(ctx context.Context, h *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
 	jsonRsp := h.getSourceKeys(ctx)
 
 	jsonData, err := json.Marshal(jsonRsp)

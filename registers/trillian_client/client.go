@@ -56,7 +56,7 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 	var root types.LogRootV1
 	// TODO(Martin2112): Verify root signature.
 	if err := root.UnmarshalBinary(lr.SignedLogRoot.LogRoot); err != nil {
-		return fmt.Errorf("Root failed to unmarshal: %v", err)
+		return fmt.Errorf("root failed to unmarshal: %v", err)
 	}
 
 	ts := root.TreeSize
@@ -64,7 +64,7 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 		g := &trillian.GetLeavesByRangeRequest{LogId: logID, StartIndex: int64(n), Count: chunk}
 		r, err := t.tc.GetLeavesByRange(ctx, g)
 		if err != nil {
-			return fmt.Errorf("Can't get leaf %d: %v", n, err)
+			return fmt.Errorf("can't get leaf %d: %v", n, err)
 		}
 
 		// Deal with server skew, if tree size has reduced.
@@ -75,15 +75,15 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 		}
 
 		if n < ts && len(r.Leaves) == 0 {
-			return fmt.Errorf("No progress at leaf %d", n)
+			return fmt.Errorf("no progress at leaf %d", n)
 		}
 
 		for m := 0; m < len(r.Leaves) && n < ts; n++ {
 			if r.Leaves[m] == nil {
-				return fmt.Errorf("Can't get leaf %d (no error)", n)
+				return fmt.Errorf("can't get leaf %d (no error)", n)
 			}
 			if uint64(r.Leaves[m].LeafIndex) != n {
-				return fmt.Errorf("Got index %d expected %d", r.Leaves[n].LeafIndex, n)
+				return fmt.Errorf("got index %d expected %d", r.Leaves[n].LeafIndex, n)
 			}
 			err := s.Leaf(r.Leaves[m])
 			if err != nil {

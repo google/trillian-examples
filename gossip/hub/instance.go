@@ -158,21 +158,21 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 	cryptoMap := make(map[string]sourceCryptoInfo)
 	for _, src := range cfg.Source {
 		if _, ok := cryptoMap[src.Id]; ok {
-			return nil, fmt.Errorf("Duplicate source log entry %s for ID %s", src.Name, src.Id)
+			return nil, fmt.Errorf("duplicate source log entry %s for ID %s", src.Name, src.Id)
 		}
 		if bytes.Equal(src.PublicKey.Der, hubPubKeyData) {
-			return nil, fmt.Errorf("Source ID %s has our own public key; cowardly refusing to vanish in a puff of recursion", src.Id)
+			return nil, fmt.Errorf("source ID %s has our own public key; cowardly refusing to vanish in a puff of recursion", src.Id)
 		}
 		pubKey, err := x509.ParsePKIXPublicKey(src.PublicKey.Der)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to parse public key for %s <%s>: %v", src.Name, src.Id, err)
+			return nil, fmt.Errorf("failed to parse public key for %s <%s>: %v", src.Name, src.Id, err)
 		}
 		var hasher crypto.Hash
 		switch src.HashAlgorithm {
 		case sigpb.DigitallySigned_SHA256:
 			hasher = crypto.SHA256
 		default:
-			return nil, fmt.Errorf("Failed to determine hash algorithm %d", src.HashAlgorithm)
+			return nil, fmt.Errorf("failed to determine hash algorithm %d", src.HashAlgorithm)
 		}
 
 		cryptoMap[src.Id] = sourceCryptoInfo{pubKeyData: src.PublicKey.Der, pubKey: pubKey, hasher: hasher, kind: src.Kind}

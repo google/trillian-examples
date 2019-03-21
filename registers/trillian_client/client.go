@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/google/trillian"
+	"github.com/google/trillian/types"
 	"google.golang.org/grpc"
 )
 
@@ -52,9 +53,15 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 		log.Fatalf("Can't get log root: %v", err)
 	}
 
-	ts := lr.SignedLogRoot.TreeSize
-	for n := int64(0); n < ts; {
-		g := &trillian.GetLeavesByRangeRequest{LogId: logID, StartIndex: n, Count: chunk}
+	var root types.LogRootV1
+	// TODO(Martin2112): Verify root signature.
+	if err := root.UnmarshalBinary(lr.SignedLogRoot.LogRoot); err != nil {
+		return fmt.Errorf("Root failed to unmarshal: %v", err)
+	}
+
+	ts := root.TreeSize
+	for n := uint64(0); n < ts; {
+		g := &trillian.GetLeavesByRangeRequest{LogId: logID, StartIndex: int64(n), Count: chunk}
 		r, err := t.tc.GetLeavesByRange(ctx, g)
 		if err != nil {
 			return fmt.Errorf("Can't get leaf %d: %v", n, err)
@@ -62,7 +69,7 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 
 		// Deal with server skew, if tree size has reduced.
 		// Don't allow increases so this terminates eventually.
-		rts := r.SignedLogRoot.TreeSize
+		rts := root.TreeSize
 		if rts < ts {
 			ts = rts
 		}
@@ -75,7 +82,7 @@ func (t *trillianClient) Scan(logID int64, s LogScanner) error {
 			if r.Leaves[m] == nil {
 				return fmt.Errorf("Can't get leaf %d (no error)", n)
 			}
-			if r.Leaves[m].LeafIndex != n {
+			if uint64(r.Leaves[m].LeafIndex) != n {
 				return fmt.Errorf("Got index %d expected %d", r.Leaves[n].LeafIndex, n)
 			}
 			err := s.Leaf(r.Leaves[m])

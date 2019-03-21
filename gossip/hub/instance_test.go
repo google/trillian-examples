@@ -361,7 +361,7 @@ func TestSetUpInstance(t *testing.T) {
 				},
 				PrivateKey: privKey,
 			},
-			wantErr: "Failed to determine hash algorithm",
+			wantErr: "failed to determine hash algorithm",
 		},
 	}
 

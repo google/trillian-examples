@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/google/trillian/types"
-
 	"github.com/google/trillian"
+	"github.com/google/trillian/types"
 	"google.golang.org/grpc"
 )
 

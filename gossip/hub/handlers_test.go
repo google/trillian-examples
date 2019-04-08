@@ -324,10 +324,6 @@ func makeSLR(t *testing.T, timestamp, treeSize int64, hash []byte) *trillian.Sig
 	}
 	return &trillian.SignedLogRoot{
 		LogRoot: rootData,
-		// Deprecated fields filled in too:
-		TimestampNanos: timestamp,
-		TreeSize:       treeSize,
-		RootHash:       hash,
 	}
 }
 

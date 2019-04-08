@@ -151,15 +151,15 @@ gossip_provision_cfg() {
 # Assumes the following variables are set, in addition to those needed by logStopTest:
 #  - HUB_SERVER_PIDS  : bash array of Gossip Hub server pids
 gossip_stop_test() {
+  local pids
   if [[ "${PROMETHEUS_PID}" != "" ]]; then
-    kill_pid ${PROMETHEUS_PID}
+    pids+=" ${PROMETHEUS_PID}"
   fi
   if [[ "${ETCDISCOVER_PID}" != "" ]]; then
-    kill_pid ${ETCDISCOVER_PID}
+    pids+=" ${ETCDISCOVER_PID}"
   fi
-  for pid in "${HUB_SERVER_PIDS[@]}"; do
-    echo "Stopping Gossip Hub server (pid ${pid})"
-    kill_pid ${pid}
-  done
+  echo "Stopping Gossip Hub server (pids ${HUB_SERVER_PIDS[@]})"
+  pids+=" ${HUB_SERVER_PIDS[@]}"
+  kill_pid ${pids}
   log_stop_test
 }

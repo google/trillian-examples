@@ -43,6 +43,7 @@ import (
 	"github.com/google/trillian-examples/gossip/hub/configpb"
 	"github.com/google/trillian/monitoring"
 	"github.com/google/trillian/types"
+	"golang.org/x/crypto/ed25519"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -50,19 +51,22 @@ import (
 )
 
 const (
-	testTreeID      = int64(55)
-	testDeadline    = 500 * time.Millisecond
-	testSourceID    = "https://the-log.example.com"
-	testCTSourceID  = "https://rfc6962.example.com"
-	testSLRSourceID = "https://trillian-log.example.com"
-	testSMRSourceID = "https://trillian-map.example.com"
-	testHubSourceID = "https://gossip-hub.example.com"
+	testTreeID          = int64(55)
+	testDeadline        = 500 * time.Millisecond
+	testSourceID        = "https://the-log.example.com"
+	testEd25519SourceID = "https://ed25519.example.com"
+	testCTSourceID      = "https://rfc6962.example.com"
+	testSLRSourceID     = "https://trillian-log.example.com"
+	testSMRSourceID     = "https://trillian-map.example.com"
+	testHubSourceID     = "https://gossip-hub.example.com"
 )
 
 var (
-	testSourceKey       *ecdsa.PrivateKey
-	testSourcePubKeyDER []byte
-	testSources         []*api.SourceKey
+	testSourceKey        *ecdsa.PrivateKey
+	testSourcePubKeyDER  []byte
+	testEd25519Key       ed25519.PrivateKey
+	testEd25519PubKeyDER []byte
+	testSources          []*api.SourceKey
 )
 
 func init() {
@@ -76,8 +80,19 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to marshal public key to DER: %v", err))
 	}
+	// Make an Ed25519 key pair too.
+	_, testEd25519Key, err = ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to generate Ed25519 key: %v", err))
+	}
+	testEd25519PubKeyDER, err = x509.MarshalPKIXPublicKey(testEd25519Key.Public())
+	if err != nil {
+		panic(fmt.Sprintf("Failed to marshal Ed25519 public key to DER: %v", err))
+	}
+
 	testSources = []*api.SourceKey{
 		{ID: testSourceID, PubKey: testSourcePubKeyDER, Kind: api.UnknownKind},
+		{ID: testEd25519SourceID, PubKey: testEd25519PubKeyDER, Kind: api.UnknownKind},
 		{ID: testCTSourceID, PubKey: testSourcePubKeyDER, Kind: api.RFC6962STHKind},
 		{ID: testSLRSourceID, PubKey: testSourcePubKeyDER, Kind: api.TrillianSLRKind},
 		{ID: testSMRSourceID, PubKey: testSourcePubKeyDER, Kind: api.TrillianSMRKind},
@@ -116,6 +131,10 @@ func setupTest(t *testing.T, signer crypto.Signer) handlerTestInfo {
 			pubKeyData: testSourcePubKeyDER,
 			pubKey:     testSourceKey.Public(),
 			hasher:     crypto.SHA256,
+		},
+		testEd25519SourceID: {
+			pubKeyData: testEd25519PubKeyDER,
+			pubKey:     testEd25519Key.Public(),
 		},
 		testCTSourceID: {
 			pubKeyData: testSourcePubKeyDER,
@@ -341,6 +360,15 @@ func signData(t *testing.T, data []byte) []interface{} {
 	return []interface{}{base64.StdEncoding.EncodeToString(data), base64.StdEncoding.EncodeToString(sig)}
 }
 
+// signDataEd25519 returns data, signature-over-data as a 2 element slice of base-64 encoded strings.
+func signDataEd25519(t *testing.T, data []byte) []interface{} {
+	sig, err := testEd25519Key.Sign(rand.Reader, data, crypto.Hash(0))
+	if err != nil {
+		t.Fatalf("Failed to sign data: %v", err)
+	}
+	return []interface{}{base64.StdEncoding.EncodeToString(data), base64.StdEncoding.EncodeToString(sig)}
+}
+
 func TestAddSignedBlob(t *testing.T) {
 	ctx := context.Background()
 
@@ -382,7 +410,7 @@ func TestAddSignedBlob(t *testing.T) {
 	}
 	logHeadJSON, err := json.Marshal(logHead)
 	if err != nil {
-		t.Fatalf("Failed to marshal test data: %v", err)
+		t.Fatalf("Failed to JSON marshal test data: %v", err)
 	}
 	entry := api.TimestampedEntry{
 		SourceID:        []byte(testSourceID),
@@ -391,9 +419,34 @@ func TestAddSignedBlob(t *testing.T) {
 	}
 	leafValueData, err := tls.Marshal(entry)
 	if err != nil {
-		t.Fatalf("Failed to marshal test data: %v", err)
+		t.Fatalf("Failed to TLS marshal test data: %v", err)
 	}
 	leafIdentityHash := sha256.Sum256(leafValueData)
+
+	// Build another leaf signed with an Ed25519 key.
+	sig25519, err := testEd25519Key.Sign(rand.Reader, data, crypto.Hash(0))
+	if err != nil {
+		t.Fatalf("Failed to sign ed25519 test data: %v", err)
+	}
+	blob25519 := api.AddSignedBlobRequest{
+		SourceID:        testEd25519SourceID,
+		BlobData:        data,
+		SourceSignature: sig25519,
+	}
+	ed25519JSON, err := json.Marshal(blob25519)
+	if err != nil {
+		t.Fatalf("Failed to JSON marshal ed25519 test data: %v", err)
+	}
+	entry25519 := api.TimestampedEntry{
+		SourceID:        []byte(testEd25519SourceID),
+		BlobData:        data,
+		SourceSignature: sig25519,
+	}
+	leaf25519Data, err := tls.Marshal(entry25519)
+	if err != nil {
+		t.Fatalf("Failed to TLS marshal ed25519 test data: %v", err)
+	}
+	leaf25519IDHash := sha256.Sum256(leaf25519Data)
 
 	mr := types.MapRoot{
 		Version: 1,
@@ -429,6 +482,7 @@ func TestAddSignedBlob(t *testing.T) {
 		signer     crypto.Signer
 		wantStatus int
 		wantErr    string
+		wantValue  []byte
 	}{
 		{
 			desc:       "malformed-request",
@@ -588,6 +642,25 @@ func TestAddSignedBlob(t *testing.T) {
 				},
 			},
 			wantStatus: http.StatusOK,
+			wantValue:  leafValueData,
+		},
+		{
+			desc: "valid-ed25519",
+			body: string(ed25519JSON),
+			rpcRsp: &trillian.QueueLeavesResponse{
+				QueuedLeaves: []*trillian.QueuedLogLeaf{
+					{
+						Leaf: &trillian.LogLeaf{
+							LeafValue:        leaf25519Data,
+							LeafIndex:        1,
+							LeafIdentityHash: leaf25519IDHash[:],
+						},
+						Status: status.New(codes.OK, "OK").Proto(),
+					},
+				},
+			},
+			wantStatus: http.StatusOK,
+			wantValue:  leaf25519Data,
 		},
 	}
 
@@ -626,8 +699,8 @@ func TestAddSignedBlob(t *testing.T) {
 			if err := json.Unmarshal(gotRsp.Body.Bytes(), &got); err != nil {
 				t.Fatalf("Failed to unmarshal json response: %s", gotRsp.Body.Bytes())
 			}
-			if got, want := got.TimestampedEntryData, leafValueData; !reflect.DeepEqual(got, want) {
-				t.Errorf("addSignedBlob().TimestampedEntryData=%x; want %x", got, want)
+			if got := got.TimestampedEntryData; !reflect.DeepEqual(got, test.wantValue) {
+				t.Errorf("addSignedBlob().TimestampedEntryData=%x; want %x", got, test.wantValue)
 			}
 		})
 	}

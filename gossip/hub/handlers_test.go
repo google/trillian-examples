@@ -59,6 +59,7 @@ const (
 	testSLRSourceID     = "https://trillian-log.example.com"
 	testSMRSourceID     = "https://trillian-map.example.com"
 	testHubSourceID     = "https://gossip-hub.example.com"
+	testNotarySourceID  = "https://go-notary.example.com"
 )
 
 var (
@@ -97,6 +98,7 @@ func init() {
 		{ID: testSLRSourceID, PubKey: testSourcePubKeyDER, Kind: api.TrillianSLRKind},
 		{ID: testSMRSourceID, PubKey: testSourcePubKeyDER, Kind: api.TrillianSMRKind},
 		{ID: testHubSourceID, PubKey: testSourcePubKeyDER, Kind: api.GossipHubKind},
+		{ID: testNotarySourceID, PubKey: testEd25519PubKeyDER, Kind: api.GoNotaryKind},
 	}
 }
 
@@ -159,6 +161,12 @@ func setupTest(t *testing.T, signer crypto.Signer) handlerTestInfo {
 			pubKey:     testSourceKey.Public(),
 			hasher:     crypto.SHA256,
 			kind:       configpb.TrackedSource_GOSSIPHUB,
+		},
+		testNotarySourceID: {
+			pubKeyData: testEd25519PubKeyDER,
+			pubKey:     testEd25519Key.Public(),
+			hasher:     crypto.SHA256,
+			kind:       configpb.TrackedSource_GONOTARY,
 		},
 	}
 	return handlerTestInfo{

@@ -377,6 +377,75 @@ func signDataEd25519(t *testing.T, data []byte) []interface{} {
 	return []interface{}{base64.StdEncoding.EncodeToString(data), base64.StdEncoding.EncodeToString(sig)}
 }
 
+func TestParseSumDBNote(t *testing.T) {
+	tests := []struct {
+		in       string
+		wantSize int64
+		wantHash []byte
+		wantErr  string
+	}{
+		{
+			in:       "go.sum database tree\n11023\nAQI=\n",
+			wantSize: 11023,
+			wantHash: []byte{0x01, 0x02},
+		},
+		{
+			in:      "go.sum database tree\n11023",
+			wantErr: "unexpected line count (2)",
+		},
+		{
+			in:      "go.sum database tree\n11023\nAQI=\nextra data",
+			wantErr: "unexpected partial final line",
+		},
+		{
+			in:      "go.sum database tree\n11023\nAQI=\nextra data\n",
+			wantErr: "unexpected line count (5)",
+		},
+		{
+			in:      "go.sum database tree\n11023\nAQI=",
+			wantErr: "unexpected line count (3)",
+		},
+		{
+			in:      "gone.sum database tree\n11023\nAQI=\n",
+			wantErr: "unexpected prologue",
+		},
+		{
+			in:      "go.sum database tree\nx11023\nAQI=\n",
+			wantErr: "failed to parse tree size",
+		},
+		{
+			in:      "go.sum database tree\n11x023\nAQI=\n",
+			wantErr: "failed to parse tree size",
+		},
+		{
+			in:      "go.sum database tree\n11023x\nAQI=\n",
+			wantErr: "failed to parse tree size",
+		},
+		{
+			in:      "go.sum database tree\n11023\nxAQI=\n",
+			wantErr: "failed to parse tree hash",
+		},
+	}
+	for _, test := range tests {
+		gotSize, gotHash, gotErr := parseSumDBNote(test.in)
+		if gotErr != nil {
+			if len(test.wantErr) == 0 {
+				t.Errorf("parseSumDBNote(%q)=_,_,%v; want _,_,nil", test.in, gotErr)
+			} else if !strings.Contains(gotErr.Error(), test.wantErr) {
+				t.Errorf("parseSumDBNote(%q)=_,_,%v; want _,_,err containing %q", test.in, gotErr, test.wantErr)
+			}
+			continue
+		}
+		if len(test.wantErr) > 0 {
+			t.Errorf("parseSumDBNote(%q)=%d,%x,nil; want _,_,err containing %q", test.in, gotSize, gotHash, test.wantErr)
+			continue
+		}
+		if gotSize != test.wantSize || !bytes.Equal(gotHash, test.wantHash) {
+			t.Errorf("parseSumDBNote(%q)=%d,%x; want %d,%x", test.in, gotSize, gotHash, test.wantSize, test.wantHash)
+		}
+	}
+}
+
 func TestAddSignedBlob(t *testing.T) {
 	ctx := context.Background()
 
@@ -432,13 +501,14 @@ func TestAddSignedBlob(t *testing.T) {
 	leafIdentityHash := sha256.Sum256(leafValueData)
 
 	// Build another leaf signed with an Ed25519 key.
-	sig25519, err := testEd25519Key.Sign(rand.Reader, data, crypto.Hash(0))
+	noteData := []byte("go.sum database tree\n11023\nhV/9BNnWkZrWdyu+JMxcGiDmtU46bbZ+2xzQoFWSsFU=\n")
+	sig25519, err := testEd25519Key.Sign(rand.Reader, noteData, crypto.Hash(0))
 	if err != nil {
 		t.Fatalf("Failed to sign ed25519 test data: %v", err)
 	}
 	blob25519 := api.AddSignedBlobRequest{
 		SourceID:        testEd25519SourceID,
-		BlobData:        data,
+		BlobData:        noteData,
 		SourceSignature: sig25519,
 	}
 	ed25519JSON, err := json.Marshal(blob25519)
@@ -447,7 +517,7 @@ func TestAddSignedBlob(t *testing.T) {
 	}
 	entry25519 := api.TimestampedEntry{
 		SourceID:        []byte(testEd25519SourceID),
-		BlobData:        data,
+		BlobData:        noteData,
 		SourceSignature: sig25519,
 	}
 	leaf25519Data, err := tls.Marshal(entry25519)
@@ -557,6 +627,12 @@ func TestAddSignedBlob(t *testing.T) {
 			body:       fmt.Sprintf(`{"source_id":"https://gossip-hub.example.com","blob_data":"%s","src_signature":"%s"}`, signData(t, append(hthData, 0xff))...),
 			wantStatus: http.StatusBadRequest,
 			wantErr:    "1 bytes of trailing data after tree head",
+		},
+		{
+			desc:       "not-a-signed-note",
+			body:       fmt.Sprintf(`{"source_id":"https://go-notary.example.com","blob_data":"%s","src_signature":"%s"}`, signDataEd25519(t, []byte("bogus"))...),
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "unexpected line count",
 		},
 		{
 			desc:       "backend-failure",

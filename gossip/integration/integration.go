@@ -386,6 +386,11 @@ func RunIntegrationForHub(ctx context.Context, cfg *configpb.HubConfig, servers 
 		return err
 	}
 
+	// [Go Notary signed-note-specific] tests.
+	if err := t.checkStructuredBlobs(ctx, configpb.TrackedSource_GONOTARY, dataForSignedNote); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -539,6 +544,12 @@ func dataForHTH(sz, ts uint64) []byte {
 	return data
 }
 
+func dataForSignedNote(sz, _ uint64) []byte {
+	hash := make([]byte, sha256.Size)
+	rand.Read(hash)
+	return []byte(fmt.Sprintf("go.sum database tree\n%d\n%s\n", sz, base64.StdEncoding.EncodeToString(hash)))
+}
+
 func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.PrivateKey) (*signedBlob, error) {
 	var data []byte
 	switch src.Kind {
@@ -550,6 +561,8 @@ func (t *testInfo) blobForSource(src *configpb.TrackedSource, privKey *ecdsa.Pri
 		data = dataForSMR(100, 1000000)
 	case configpb.TrackedSource_GOSSIPHUB:
 		data = dataForHTH(100, 1000000)
+	case configpb.TrackedSource_GONOTARY:
+		data = dataForSignedNote(100, 0)
 	default:
 		data = make([]byte, 100)
 		rand.Read(data)
@@ -655,7 +668,7 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 			return nil, nil, fmt.Errorf("failed to marshal source public key to DER: %v", err)
 		}
 		kind := configpb.TrackedSource_UNKNOWN
-		switch i % 5 {
+		switch i % 6 {
 		case 0:
 			kind = configpb.TrackedSource_RFC6962STH
 		case 1:
@@ -664,6 +677,8 @@ func BuildTestConfig(hubCount, srcCount int) ([]*configpb.HubConfig, []*ecdsa.Pr
 			kind = configpb.TrackedSource_TRILLIANSMR
 		case 3:
 			kind = configpb.TrackedSource_GOSSIPHUB
+		case 4:
+			kind = configpb.TrackedSource_GONOTARY
 		}
 		src := configpb.TrackedSource{
 			Name:          fmt.Sprintf("source-%02d", i),

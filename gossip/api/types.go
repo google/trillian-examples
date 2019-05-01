@@ -235,11 +235,15 @@ const (
 	// case.
 	TrillianSMRKind = "TRILLIANSMR"
 	// GossipHubKind indicates that the source is expected to generate
-	// submission that are Hub Tree Heads from this API.
+	// submissions that are Hub Tree Heads from this API.
 	// The BlobData for a submission is expected to be the result of
 	// tls.Marshal(HubTreeHead), and may be rejected if this is not the
 	// case.
 	GossipHubKind = "GOSSIPHUB"
+	// GoNotaryKind indicates that the source is expected to generate
+	// submissions that are signed notes as described at:
+	//   golang.org/x/exp/sumdb/internal/note
+	GoNotaryKind = "GONOTARY"
 )
 
 // SourceKey holds key information about a source that is tracked by this hub.

@@ -608,6 +608,11 @@ func TestGetSourceKeys(t *testing.T) {
 			wantKind: "GOSSIPHUB",
 		},
 		{
+			desc:     "Valid Signed Note Source",
+			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s","kind":"GONOTARY"}]}`, b64(pubKeyDER)),
+			wantKind: "GONOTARY",
+		},
+		{
 			desc:     "Valid Unknown Source",
 			body:     fmt.Sprintf(`{"entries":[{"id":"https://source.example.com","pub_key":"%s","kind":"bis-STH"}]}`, b64(pubKeyDER)),
 			wantKind: "bis-STH",

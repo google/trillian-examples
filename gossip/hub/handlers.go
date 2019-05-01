@@ -700,6 +700,8 @@ func (h *hubInfo) getSourceKeys(ctx context.Context) *api.GetSourceKeysResponse 
 			kind = api.TrillianSMRKind
 		case configpb.TrackedSource_GOSSIPHUB:
 			kind = api.GossipHubKind
+		case configpb.TrackedSource_GONOTARY:
+			kind = api.GoNotaryKind
 		}
 		l := api.SourceKey{ID: sourceID, PubKey: info.pubKeyData, Kind: kind}
 		jsonRsp.Entries = append(jsonRsp.Entries, &l)

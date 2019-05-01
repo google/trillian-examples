@@ -96,6 +96,7 @@ var kindHandlers = map[configpb.TrackedSource_Kind]kindHandler{
 	configpb.TrackedSource_TRILLIANSLR: {submissionCheck: trillianSLRChecker, entryIsLater: trillianSLRIsLater},
 	configpb.TrackedSource_TRILLIANSMR: {submissionCheck: trillianSMRChecker, entryIsLater: trillianSMRIsLater},
 	configpb.TrackedSource_GOSSIPHUB:   {submissionCheck: gossipHubHeadChecker, entryIsLater: gossipHubHeadIsLater},
+	configpb.TrackedSource_GONOTARY:    {submissionCheck: goSignedNoteChecker, entryIsLater: goSignedNoteIsLater},
 }
 
 func ctSTHChecker(data []byte) error {
@@ -144,6 +145,42 @@ func gossipHubHeadChecker(data []byte) error {
 		return fmt.Errorf("submission for Gossip HubTreeHead source has %d bytes of trailing data after tree head", len(rest))
 	}
 	return nil
+}
+
+// Code is adapted from golang.org/x/exp/sumdb/internal/note
+// and copied here to avoid a dependency on an experimental repo.
+// TODO(daviddrysdale): use official repo once stable
+func parseSumDBNote(note string) (int64, []byte, error) {
+	// Check that the data looks like a signed note contents for a sumdb, namely
+	// three lines, each ending in a newline (U+000A):
+	//
+	//	go.sum database tree
+	//	N
+	//	Hash
+	lines := strings.Split(note, "\n")
+	if len(lines) != 4 {
+		return 0, nil, fmt.Errorf("unexpected line count (%d)", len(lines))
+	}
+	if len(lines[3]) != 0 {
+		return 0, nil, fmt.Errorf("unexpected partial final line %q)", lines[3])
+	}
+	if lines[0] != "go.sum database tree" {
+		return 0, nil, fmt.Errorf("unexpected prologue %q", lines[0])
+	}
+	size, err := strconv.ParseInt(lines[1], 10, 64)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to parse tree size %q: %v", lines[1], err)
+	}
+	hash, err := base64.StdEncoding.DecodeString(lines[2])
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to parse tree hash %q: %v", lines[2], err)
+	}
+	return size, hash, nil
+}
+
+func goSignedNoteChecker(data []byte) error {
+	_, _, err := parseSumDBNote(string(data))
+	return err
 }
 
 // ctSTHIsLater indicates whether the current entry is later than the prev entry,
@@ -230,6 +267,18 @@ func gossipHubHeadIsLater(prev *api.TimestampedEntry, current *api.TimestampedEn
 		return false
 	}
 	return curHTH.Timestamp > prevHTH.Timestamp
+}
+
+func goSignedNoteIsLater(prev *api.TimestampedEntry, current *api.TimestampedEntry) bool {
+	prevSize, _, err := parseSumDBNote(string(prev.BlobData))
+	if err != nil {
+		return true
+	}
+	curSize, _, err := parseSumDBNote(string(current.BlobData))
+	if err != nil {
+		return false
+	}
+	return curSize > prevSize
 }
 
 // rawEntryIsLater indicates whether the current entry is later than the prev entry,

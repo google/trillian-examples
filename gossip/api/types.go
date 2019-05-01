@@ -107,8 +107,6 @@ type GetSTHResponse struct {
 //     uint64 timestamp;
 //     opaque root_hash<1,65535>;
 //   } HubTreeHead;
-// TODO(drysdale): shift this to being a versioned structure to allow for
-// future expansion (cf. github.com/google/trillian/types.LogRoot).
 type HubTreeHead struct {
 	TreeSize  uint64
 	Timestamp uint64 // in nanoseconds since UNIX epoch
@@ -177,7 +175,6 @@ type GetProofByHashResponse struct {
 //    end:  0-based index of last entry to retrieve, in decimal.
 // Outputs:
 //    entries:  An array of objects, each of which is a TLS-encoded TimestampedEntry structure.
-// TODO(drysdale): make this paginated
 
 // GetEntriesPath is the final path component for this entrypoint.
 const GetEntriesPath = "get-entries"

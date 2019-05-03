@@ -112,9 +112,6 @@ func privateKeyFromPEM(filename string) (*ecdsa.PrivateKey, error) {
 		return nil, fmt.Errorf("failed to read private key file: %v", err)
 	}
 	block, _ := pem.Decode(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode PEM file: %v", err)
-	}
 	privKey, err := x509.ParseECPrivateKey(block.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse ECDSA key: %v", err)

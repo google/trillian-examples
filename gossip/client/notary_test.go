@@ -41,10 +41,17 @@ var (
 	testSignature     = "x08go/ZJkuBS9UG/SffcvIAQxVBtiFupLLr8pAcElZInNIuGUgYN1FFYC2pZSNXgKvqfqdngotpRZb6KE6RyyBwJnAM="
 	testSignatureLine = "— PeterNeumann " + testSignature
 	testNote          = testMessage + "\n" + testSignatureLine + "\n"
+
+	// From https://github.com/golang/go/blob/3cf1d770809453fed8754cf3ddf4028cdd7716fe/src/cmd/go/internal/modfetch/key.go
+	sumGolangOrgPubKeyRaw = "Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8"
+	// From sum.golang.org:
+	sumGolangOrgLatest    = "go.sum database tree\n13485\n/ZWur4obeiqK+ASdnPK+/Rmz6LPQMUeSmHh0+UkL54Y=\n"
+	sumGolangOrgLatestSig = "Az3grnQReYTvpCrRxT+w50vixbqBlB/aPS8bL8f8KW4HHP+UjLSXOJgCh4f54n8hO6lrESglzyRXMXnhaWzaeY3zqw8="
 )
 
 func TestKeyData(t *testing.T) {
 	checkKeysSignature(t, testPrivKeyRaw, testPubKeyRaw, testMessage, testSignature)
+	checkKeysSignature(t, "", sumGolangOrgPubKeyRaw, sumGolangOrgLatest, sumGolangOrgLatestSig)
 }
 
 func checkKeysSignature(t *testing.T, b64PrivKey, b64PubKey, msg, b64Sig string) {

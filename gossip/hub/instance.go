@@ -171,6 +171,9 @@ func SetUpInstance(ctx context.Context, client trillian.TrillianLogClient, cfg *
 		switch src.HashAlgorithm {
 		case sigpb.DigitallySigned_SHA256:
 			hasher = crypto.SHA256
+		case sigpb.DigitallySigned_NONE:
+			// Some signature algorithms (e.g. Ed25519) do not hash before signing.
+			glog.Warningf("no hash algorithm specified for pubKey of type %T", pubKey)
 		default:
 			return nil, fmt.Errorf("failed to determine hash algorithm %d", src.HashAlgorithm)
 		}

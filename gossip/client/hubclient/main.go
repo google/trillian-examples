@@ -51,6 +51,7 @@ var (
 	getFirst        = flag.Int64("first", -1, "First entry to get")
 	getLast         = flag.Int64("last", -1, "Last entry to get")
 	expectCT        = flag.Bool("expect_ct", true, "Whether to expect hub entries to be RFC6962 STHs")
+	expectNote      = flag.Bool("expect_note", false, "Whether to expect hub entries to be signed notes")
 	treeSize        = flag.Int64("size", -1, "Tree size to query at")
 	treeHash        = flag.String("tree_hash", "", "Tree hash to check against (as hex string or base64)")
 	prevSize        = flag.Int64("prev_size", -1, "Previous tree size to get consistency against")
@@ -110,7 +111,7 @@ func main() {
 		if *getLast == -1 {
 			*getLast = *getFirst
 		}
-		getEntries(ctx, client, *getFirst, *getLast, *expectCT)
+		getEntries(ctx, client, *getFirst, *getLast, *expectCT, *expectNote)
 	case "inclusion":
 		if len(*leafHash) == 0 {
 			glog.Exit("No -leaf_hash option supplied")
@@ -158,7 +159,7 @@ func main() {
 		if len(*source) == 0 {
 			glog.Exitf("No -source option supplied")
 		}
-		getLatest(ctx, client, *source, *expectCT)
+		getLatest(ctx, client, *source, *expectCT, *expectNote)
 	default:
 		dieWithUsage(fmt.Sprintf("Unknown command '%s'", cmd))
 	}
@@ -195,19 +196,22 @@ func getSources(ctx context.Context, client *client.HubClient) {
 	}
 }
 
-func getEntries(ctx context.Context, client *client.HubClient, first, last int64, expectCT bool) {
+func getEntries(ctx context.Context, client *client.HubClient, first, last int64, expectCT, expectNote bool) {
 	entries, err := client.GetEntries(ctx, first, last)
 	exitOnError(err)
 
 	for i, entry := range entries {
-		showEntry(entry, first+int64(i), expectCT)
+		showEntry(entry, first+int64(i), expectCT, expectNote)
 	}
 }
 
-func showEntry(entry *api.TimestampedEntry, idx int64, expectCT bool) {
+func showEntry(entry *api.TimestampedEntry, idx int64, expectCT, expectNote bool) {
 	when := hubTimestampToTime(entry.HubTimestamp)
 	fmt.Printf("Index: %d Timestamp: %d (%v) Source: %q\n", idx, entry.HubTimestamp, when, entry.SourceID)
 	fmt.Printf("  Data: %x\n", entry.BlobData)
+	if expectNote {
+		fmt.Printf("  Data as string:\n%s", string(entry.BlobData))
+	}
 	fmt.Printf("  Sig: %x\n", entry.SourceSignature)
 	data, err := cttls.Marshal(*entry)
 	if err != nil {
@@ -304,13 +308,13 @@ func findTimestamp(ctx context.Context, client *client.HubClient, target int64, 
 		return
 	}
 	fmt.Printf("First entry with timestamp>=%d (%v) found at index %d\n", target, when, idx)
-	getEntries(ctx, client, int64(idx), int64(idx), expectCT)
+	getEntries(ctx, client, int64(idx), int64(idx), expectCT, false)
 }
 
-func getLatest(ctx context.Context, client *client.HubClient, source string, expectCT bool) {
+func getLatest(ctx context.Context, client *client.HubClient, source string, expectCT, expectNote bool) {
 	entry, err := client.GetLatestForSource(ctx, source)
 	exitOnError(err)
-	showEntry(entry, -1, expectCT) // no index available
+	showEntry(entry, -1, expectCT, expectNote) // no index available
 }
 
 func exitOnError(err error) {

@@ -18,7 +18,9 @@ var (
 func getRecord(tmc trillian.TrillianMapClient, k string) {
 	fmt.Printf("%s\n", k)
 	resp := records.GetValue(tmc, *mapID, records.RecordHash(k))
-	fmt.Printf("%v\n", *resp)
+	if resp != nil {
+		fmt.Printf("%v\n", *resp)
+	}
 }
 
 func main() {

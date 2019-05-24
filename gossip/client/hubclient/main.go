@@ -222,11 +222,7 @@ func showEntry(entry *api.TimestampedEntry, idx int64, expectCT, expectNote bool
 	if err != nil {
 		glog.Exitf("failed to create hasher: %v", err)
 	}
-	merkleHash, err := hasher.HashLeaf(data)
-	if err != nil {
-		glog.Errorf("failed to hash leaf: %v", err)
-		return
-	}
+	merkleHash := hasher.HashLeaf(data)
 	fmt.Printf("  MerkleLeafHash: %x\n", merkleHash)
 
 	if !expectCT {

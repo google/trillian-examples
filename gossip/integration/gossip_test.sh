@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-. "${GOPATH}"/src/github.com/google/trillian/integration/functions.sh
+. $(go list -f '{{.Dir}}' github.com/google/trillian)/integration/functions.sh
 INTEGRATION_DIR="$( cd "$( dirname "$0" )" && pwd )"
 . "${INTEGRATION_DIR}"/gossip_functions.sh
 

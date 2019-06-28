@@ -1,15 +1,22 @@
 os: linux
 dist: xenial
 language: go
-go: "1.10.x"
+go: "1.11.x"
 go_import_path: github.com/google/trillian-examples
 
 services:
   - mysql
 
+cache:
+  directories:
+    - "$HOME/gopath/pkg/mod"
+
 env:
-  - WITH_COVERAGE=true
-  - GOFLAGS='-race'
+  global:
+    - GO111MODULE=on
+  matrix:
+    - WITH_COVERAGE=true
+    - GOFLAGS='-race'
 
 matrix:
   fast_finish: true
@@ -25,14 +32,15 @@ install:
   - export PATH="$(pwd)/../protoc/bin:$PATH"
   # googleapis is not Go code, but it's required for .pb.go regeneration because of API dependencies.
   - git clone --depth=1 https://github.com/googleapis/googleapis.git "$GOPATH/src/github.com/googleapis/googleapis"
-  - go get ${GOFLAGS} -d -t ./...
   - curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.13.2
   - go get github.com/golang/protobuf/proto
   - go get github.com/golang/protobuf/protoc-gen-go
-  - go get -d -t github.com/google/trillian/...
 
 before_script:
-  - ${GOPATH}/src/github.com/google/trillian/scripts/resetdb.sh --force
+  - |
+    RESETDB="$(go list -f '{{.Dir}}' github.com/google/trillian)/scripts/resetdb.sh"
+    chmod +x $RESETDB
+    $RESETDB --force
 
 script:
   - set -e

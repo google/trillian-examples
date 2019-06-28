@@ -14,4 +14,4 @@
 
 package configpb
 
-//go:generate protoc -I=. -I=$GOPATH/src --go_out=:. config.proto
+//go:generate sh -c "protoc -I=. -I$(go list -f '{{ .Dir }}' github.com/google/trillian)  --go_out=:. config.proto"

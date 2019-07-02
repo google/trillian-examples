@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
 	"github.com/google/trillian/crypto/keys/der"

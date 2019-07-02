@@ -113,7 +113,9 @@ func TestConfigFromSingleFile(t *testing.T) {
 					t.Fatalf("Failed to create temp file: %v", err)
 				}
 				defer wipeFile(t, tempFile)
-				tempFile.WriteString(test.contents)
+				if _, err := tempFile.WriteString(test.contents); err != nil {
+					t.Fatalf("WriteString()= _,%v", err)
+				}
 				filename = tempFile.Name()
 			}
 
@@ -201,7 +203,9 @@ hub_backends: <
 					t.Fatalf("Failed to create temp file: %v", err)
 				}
 				defer wipeFile(t, tempFile)
-				tempFile.WriteString(test.contents)
+				if _, err := tempFile.WriteString(test.contents); err != nil {
+					t.Fatalf("WriteString()= _,%v", err)
+				}
 				filename = tempFile.Name()
 			}
 			got, gotErr := ConfigFromMultiFile(filename)

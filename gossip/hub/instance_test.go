@@ -19,11 +19,11 @@ import (
 	"encoding/pem"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
 	"github.com/google/trillian/crypto/keys/der"
@@ -56,7 +56,7 @@ func TestConfigFromSingleFile(t *testing.T) {
 	tests := []struct {
 		desc, contents string
 		missingFile    bool
-		want           configpb.HubMultiConfig
+		want           *configpb.HubMultiConfig
 		wantErr        string
 	}{
 		{
@@ -70,7 +70,7 @@ func TestConfigFromSingleFile(t *testing.T) {
 		hash_algorithm: SHA256
 	}
 }`,
-			want: configpb.HubMultiConfig{
+			want: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"default": "backend:6962"},
 				HubConfig: []*configpb.HubConfig{
 					{
@@ -128,7 +128,7 @@ func TestConfigFromSingleFile(t *testing.T) {
 				}
 				return
 			}
-			if !reflect.DeepEqual(got, &test.want) {
+			if !proto.Equal(got, test.want) {
 				t.Errorf("ConfigFromSingleFile()=%+v; want %+v", got, test.want)
 			}
 		})
@@ -139,7 +139,7 @@ func TestConfigFromMultiFile(t *testing.T) {
 	tests := []struct {
 		desc, contents string
 		missingFile    bool
-		want           configpb.HubMultiConfig
+		want           *configpb.HubMultiConfig
 		wantErr        string
 	}{
 		{
@@ -160,7 +160,7 @@ hub_backends: <
   value: "backend:6962"
 >
 `,
-			want: configpb.HubMultiConfig{
+			want: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"backend1": "backend:6962"},
 				HubConfig: []*configpb.HubConfig{
 					{
@@ -217,7 +217,7 @@ hub_backends: <
 				}
 				return
 			}
-			if !reflect.DeepEqual(got, &test.want) {
+			if !proto.Equal(got, test.want) {
 				t.Errorf("ConfigFromMultiFile()=%+v; want %+v", got, test.want)
 			}
 		})
@@ -255,12 +255,12 @@ func TestSetUpInstance(t *testing.T) {
 
 	var tests = []struct {
 		desc    string
-		cfg     configpb.HubConfig
+		cfg     *configpb.HubConfig
 		wantErr string
 	}{
 		{
 			desc: "valid",
-			cfg: configpb.HubConfig{
+			cfg: &configpb.HubConfig{
 				LogId:  1,
 				Prefix: "hub",
 				Source: []*configpb.TrackedSource{
@@ -276,7 +276,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "recursive",
-			cfg: configpb.HubConfig{
+			cfg: &configpb.HubConfig{
 				LogId:  1,
 				Prefix: "hub",
 				Source: []*configpb.TrackedSource{
@@ -293,7 +293,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "no-source-logs",
-			cfg: configpb.HubConfig{
+			cfg: &configpb.HubConfig{
 				LogId:      1,
 				Prefix:     "hub",
 				PrivateKey: privKey,
@@ -302,7 +302,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "no-priv-key",
-			cfg: configpb.HubConfig{
+			cfg: &configpb.HubConfig{
 				LogId:  1,
 				Prefix: "hub",
 				Source: []*configpb.TrackedSource{
@@ -318,7 +318,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "missing-privkey",
-			cfg: configpb.HubConfig{
+			cfg: &configpb.HubConfig{
 				LogId:  1,
 				Prefix: "hub",
 				Source: []*configpb.TrackedSource{
@@ -335,7 +335,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "privkey-wrong-password",
-			cfg: configpb.HubConfig{
+			cfg: &configpb.HubConfig{
 				LogId:  1,
 				Prefix: "hub",
 				Source: []*configpb.TrackedSource{
@@ -352,7 +352,7 @@ func TestSetUpInstance(t *testing.T) {
 		},
 		{
 			desc: "unknown-hash-algorithm",
-			cfg: configpb.HubConfig{
+			cfg: &configpb.HubConfig{
 				LogId:  1,
 				Prefix: "hub",
 				Source: []*configpb.TrackedSource{
@@ -372,7 +372,7 @@ func TestSetUpInstance(t *testing.T) {
 	opts := InstanceOptions{Deadline: time.Second, MaxGetEntries: 100, MetricFactory: monitoring.InertMetricFactory{}}
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			if _, err := SetUpInstance(ctx, nil, &test.cfg, opts); err != nil {
+			if _, err := SetUpInstance(ctx, nil, test.cfg, opts); err != nil {
 				if test.wantErr == "" {
 					t.Errorf("SetUpInstance()=_,%v; want _,nil", err)
 				} else if !strings.Contains(err.Error(), test.wantErr) {
@@ -390,12 +390,12 @@ func TestSetUpInstance(t *testing.T) {
 func TestValidateHubMultiConfig(t *testing.T) {
 	var tests = []struct {
 		desc    string
-		cfg     configpb.HubMultiConfig
+		cfg     *configpb.HubMultiConfig
 		wantErr string
 	}{
 		{
 			desc: "missing-backend-reference",
-			cfg: configpb.HubMultiConfig{
+			cfg: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"log1": "testspec"},
 				HubConfig: []*configpb.HubConfig{
 					{Prefix: "prefix"},
@@ -405,7 +405,7 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		},
 		{
 			desc: "undefined-backend-reference",
-			cfg: configpb.HubMultiConfig{
+			cfg: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"log1": "testspec"},
 				HubConfig: []*configpb.HubConfig{
 					{BackendName: "log2", Prefix: "prefix"},
@@ -415,7 +415,7 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		},
 		{
 			desc: "empty-log-prefix",
-			cfg: configpb.HubMultiConfig{
+			cfg: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"log1": "testspec1", "log2": "testspec2", "log3": "testspec3"},
 				HubConfig: []*configpb.HubConfig{
 					{BackendName: "log1", Prefix: "prefix1"},
@@ -427,7 +427,7 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		},
 		{
 			desc: "dup-log-prefix",
-			cfg: configpb.HubMultiConfig{
+			cfg: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"log1": "testspec"},
 				HubConfig: []*configpb.HubConfig{
 					{BackendName: "log1", Prefix: "prefix1", LogId: 1},
@@ -439,7 +439,7 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		},
 		{
 			desc: "dup-log-ids-on-same-backend",
-			cfg: configpb.HubMultiConfig{
+			cfg: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"log1": "testspec"},
 				HubConfig: []*configpb.HubConfig{
 					{BackendName: "log1", Prefix: "prefix1", LogId: 1},
@@ -451,7 +451,7 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		},
 		{
 			desc: "valid-config",
-			cfg: configpb.HubMultiConfig{
+			cfg: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"log1": "testspec1", "log2": "testspec2", "log3": "testspec3"},
 				HubConfig: []*configpb.HubConfig{
 					{BackendName: "log1", Prefix: "prefix1", LogId: 1},
@@ -462,7 +462,7 @@ func TestValidateHubMultiConfig(t *testing.T) {
 		},
 		{
 			desc: "valid config dup ids on different backends",
-			cfg: configpb.HubMultiConfig{
+			cfg: &configpb.HubMultiConfig{
 				HubBackends: map[string]string{"log1": "testspec1", "log2": "testspec2", "log3": "testspec3"},
 				HubConfig: []*configpb.HubConfig{
 					{BackendName: "log1", Prefix: "prefix1", LogId: 999},
@@ -475,7 +475,7 @@ func TestValidateHubMultiConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			err := ValidateHubMultiConfig(&test.cfg)
+			err := ValidateHubMultiConfig(test.cfg)
 			if len(test.wantErr) == 0 && err != nil {
 				t.Fatalf("ValidateHubMultiConfig()=%v, want: nil", err)
 			}

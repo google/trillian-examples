@@ -215,7 +215,7 @@ func TestServeHTTP(t *testing.T) {
 	tests := []struct {
 		desc    string
 		req     *http.Request
-		handler func(context.Context, *hubInfo, http.ResponseWriter, *http.Request) (int, error)
+		handler func(*hubInfo, http.ResponseWriter, *http.Request) (int, error)
 		want    int
 	}{
 		{
@@ -231,7 +231,7 @@ func TestServeHTTP(t *testing.T) {
 		{
 			desc: "Handler Error",
 			req:  httptest.NewRequest("GET", "http://example.com/test", nil),
-			handler: func(_ context.Context, _ *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
+			handler: func(_ *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
 				return http.StatusTeapot, errors.New("test")
 			},
 			want: http.StatusTeapot,
@@ -239,7 +239,7 @@ func TestServeHTTP(t *testing.T) {
 		{
 			desc: "Handler Errorless non-200",
 			req:  httptest.NewRequest("GET", "http://example.com/test", nil),
-			handler: func(_ context.Context, _ *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
+			handler: func(_ *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
 				return http.StatusTeapot, nil
 			},
 			want: http.StatusInternalServerError,
@@ -247,7 +247,7 @@ func TestServeHTTP(t *testing.T) {
 		{
 			desc: "Handler OK",
 			req:  httptest.NewRequest("GET", "http://example.com/test", nil),
-			handler: func(_ context.Context, _ *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
+			handler: func(_ *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
 				return http.StatusOK, nil
 			},
 			want: http.StatusOK,
@@ -762,7 +762,7 @@ func TestAddSignedBlob(t *testing.T) {
 			}
 
 			gotRsp := httptest.NewRecorder()
-			gotStatus, gotErr := addSignedBlob(ctx, info.hi, gotRsp, req)
+			gotStatus, gotErr := addSignedBlob(info.hi, gotRsp, req)
 
 			if gotStatus != test.wantStatus {
 				t.Errorf("addSignedBlob()=%d,_; want %d,_", gotStatus, test.wantStatus)
@@ -847,7 +847,7 @@ func TestGetSTH(t *testing.T) {
 			info.client.EXPECT().GetLatestSignedLogRoot(ctx, rpcReq).Return(test.rpcRsp, test.rpcErr)
 
 			gotRsp := httptest.NewRecorder()
-			gotStatus, gotErr := getSTH(ctx, info.hi, gotRsp, req)
+			gotStatus, gotErr := getSTH(info.hi, gotRsp, req)
 
 			if gotStatus != test.wantStatus {
 				t.Errorf("getSTH()=%d,_; want %d,_", gotStatus, test.wantStatus)
@@ -1035,7 +1035,7 @@ func TestGetSTHConsistency(t *testing.T) {
 			}
 
 			gotRsp := httptest.NewRecorder()
-			gotStatus, gotErr := getSTHConsistency(ctx, info.hi, gotRsp, req)
+			gotStatus, gotErr := getSTHConsistency(info.hi, gotRsp, req)
 
 			if gotStatus != test.wantStatus {
 				t.Errorf("getSTHConsistency(%d,%d)=%d,_; want %d,_", test.first, test.second, gotStatus, test.wantStatus)
@@ -1232,7 +1232,7 @@ func TestGetProofByHash(t *testing.T) {
 			}
 
 			gotRsp := httptest.NewRecorder()
-			gotStatus, gotErr := getProofByHash(ctx, info.hi, gotRsp, req)
+			gotStatus, gotErr := getProofByHash(info.hi, gotRsp, req)
 
 			if gotStatus != test.wantStatus {
 				t.Errorf("getProofByHash(%x,%d)=%d,_; want %d,_", test.hash, test.treeSize, gotStatus, test.wantStatus)
@@ -1467,7 +1467,7 @@ func TestGetEntries(t *testing.T) {
 			}
 
 			gotRsp := httptest.NewRecorder()
-			gotStatus, gotErr := getEntries(ctx, info.hi, gotRsp, req)
+			gotStatus, gotErr := getEntries(info.hi, gotRsp, req)
 
 			if gotStatus != test.wantStatus {
 				t.Errorf("getEntries(%d,+%d)=%d,_; want %d,_", test.start, test.count, gotStatus, test.wantStatus)
@@ -1496,7 +1496,6 @@ func TestGetEntries(t *testing.T) {
 }
 
 func TestGetSourceKeys(t *testing.T) {
-	ctx := context.Background()
 	req, err := http.NewRequest("GET", "http://example.com/gossip/v0/get-source-keys", nil)
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
@@ -1505,7 +1504,7 @@ func TestGetSourceKeys(t *testing.T) {
 	defer info.mockCtrl.Finish()
 
 	gotRsp := httptest.NewRecorder()
-	gotStatus, gotErr := getSourceKeys(ctx, info.hi, gotRsp, req)
+	gotStatus, gotErr := getSourceKeys(info.hi, gotRsp, req)
 	if wantStatus := http.StatusOK; gotStatus != wantStatus {
 		t.Errorf("getSourceKeys()=%d,_; want %d,_", gotStatus, wantStatus)
 	}
@@ -1538,7 +1537,6 @@ func sourceSet(t *testing.T, srcs []*api.SourceKey) map[string]bool {
 }
 
 func TestGetLatestForSource(t *testing.T) {
-	ctx := context.Background()
 	tests := []struct {
 		desc       string
 		uri        string
@@ -1588,7 +1586,7 @@ func TestGetLatestForSource(t *testing.T) {
 			info.hi.setLatestEntry(testSourceID, test.entry)
 
 			gotRsp := httptest.NewRecorder()
-			gotStatus, gotErr := getLatestForSource(ctx, info.hi, gotRsp, req)
+			gotStatus, gotErr := getLatestForSource(info.hi, gotRsp, req)
 
 			if gotStatus != test.wantStatus {
 				t.Errorf("getLatestForSource()=%d,_; want %d,_", gotStatus, test.wantStatus)

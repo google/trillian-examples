@@ -295,7 +295,7 @@ type PathHandlers map[string]AppHandler
 type AppHandler struct {
 	Name    string
 	info    *hubInfo
-	handler func(context.Context, *hubInfo, http.ResponseWriter, *http.Request) (int, error)
+	handler func(*hubInfo, http.ResponseWriter, *http.Request) (int, error)
 	method  string // http.MethodGet or http.MethodPost
 }
 
@@ -334,8 +334,9 @@ func (a AppHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Store any available chargeable-user info in the context.
 	qctx := a.info.addCharge(ctx, r)
+	r = r.WithContext(qctx)
 
-	status, err := a.handler(qctx, a.info, w, r)
+	status, err := a.handler(a.info, w, r)
 	glog.V(2).Infof("%s: %s <= status=%d", a.info.hubPrefix, a.Name, status)
 	rspsCounter.Inc(label0, label1, strconv.Itoa(status))
 	if err != nil {
@@ -832,14 +833,14 @@ func (h *hubInfo) Handlers(prefix string) PathHandlers {
 // The methods below deal with HTTP and JSON encoding/decoding, but the core functionality is handled by
 // the appropriate hubInfo methods.
 
-func addSignedBlob(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func addSignedBlob(h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	var req api.AddSignedBlobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		glog.V(1).Infof("%s: Failed to parse request body: %v", h.hubPrefix, err)
 		return http.StatusBadRequest, fmt.Errorf("failed to parse add-signed-blob body: %v", err)
 	}
 
-	jsonRsp, statusCode, err := h.addSignedBlob(ctx, &req)
+	jsonRsp, statusCode, err := h.addSignedBlob(r.Context(), &req)
 	if err != nil {
 		return statusCode, err
 	}
@@ -856,8 +857,8 @@ func addSignedBlob(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *ht
 	return http.StatusOK, nil
 }
 
-func getSTH(ctx context.Context, h *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
-	jsonRsp, statusCode, err := h.getSTH(ctx)
+func getSTH(h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	jsonRsp, statusCode, err := h.getSTH(r.Context())
 	if err != nil {
 		return statusCode, err
 	}
@@ -873,7 +874,7 @@ func getSTH(ctx context.Context, h *hubInfo, w http.ResponseWriter, _ *http.Requ
 	return http.StatusOK, nil
 }
 
-func getSTHConsistency(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getSTHConsistency(h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	firstVal := r.FormValue(api.GetSTHConsistencyFirst)
 	if firstVal == "" {
 		return http.StatusBadRequest, errors.New("parameter 'first' is required")
@@ -891,7 +892,7 @@ func getSTHConsistency(ctx context.Context, h *hubInfo, w http.ResponseWriter, r
 		return http.StatusBadRequest, errors.New("parameter 'second' is malformed")
 	}
 
-	jsonRsp, statusCode, err := h.getSTHConsistency(ctx, first, second)
+	jsonRsp, statusCode, err := h.getSTHConsistency(r.Context(), first, second)
 	if err != nil {
 		return statusCode, err
 	}
@@ -909,7 +910,7 @@ func getSTHConsistency(ctx context.Context, h *hubInfo, w http.ResponseWriter, r
 	return http.StatusOK, nil
 }
 
-func getProofByHash(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getProofByHash(h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	// Accept any non empty hash that decodes from base64 and let the backend validate it further
 	hash := r.FormValue(api.GetProofByHashArg)
 	if len(hash) == 0 {
@@ -924,7 +925,7 @@ func getProofByHash(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *h
 		return http.StatusBadRequest, fmt.Errorf("get-proof-by-hash: missing or invalid tree_size: %v", err)
 	}
 
-	jsonRsp, statusCode, err := h.getProofByHash(ctx, leafHash, treeSize)
+	jsonRsp, statusCode, err := h.getProofByHash(r.Context(), leafHash, treeSize)
 	if err != nil {
 		return statusCode, err
 	}
@@ -941,7 +942,7 @@ func getProofByHash(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *h
 	return http.StatusOK, nil
 }
 
-func getEntries(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getEntries(h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	start, err := strconv.ParseInt(r.FormValue(api.GetEntriesStart), 10, 64)
 	if err != nil {
 		return http.StatusBadRequest, fmt.Errorf("bad start value on get-entries request: %v", err)
@@ -951,7 +952,7 @@ func getEntries(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.
 		return http.StatusBadRequest, fmt.Errorf("bad end value on get-entries request: %v", err)
 	}
 
-	jsonRsp, statusCode, err := h.getEntries(ctx, start, end)
+	jsonRsp, statusCode, err := h.getEntries(r.Context(), start, end)
 	if err != nil {
 		return statusCode, err
 	}
@@ -970,8 +971,8 @@ func getEntries(ctx context.Context, h *hubInfo, w http.ResponseWriter, r *http.
 	return http.StatusOK, nil
 }
 
-func getSourceKeys(ctx context.Context, h *hubInfo, w http.ResponseWriter, _ *http.Request) (int, error) {
-	jsonRsp := h.getSourceKeys(ctx)
+func getSourceKeys(h *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+	jsonRsp := h.getSourceKeys(r.Context())
 
 	jsonData, err := json.Marshal(jsonRsp)
 	if err != nil {
@@ -984,10 +985,10 @@ func getSourceKeys(ctx context.Context, h *hubInfo, w http.ResponseWriter, _ *ht
 	return http.StatusOK, nil
 }
 
-func getLatestForSource(ctx context.Context, c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
+func getLatestForSource(c *hubInfo, w http.ResponseWriter, r *http.Request) (int, error) {
 	srcID := r.FormValue(api.GetLatestForSourceID)
 
-	jsonRsp, statusCode, err := c.getLatestForSource(ctx, srcID)
+	jsonRsp, statusCode, err := c.getLatestForSource(r.Context(), srcID)
 	if err != nil {
 		return statusCode, err
 	}

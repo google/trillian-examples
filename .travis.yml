@@ -20,6 +20,11 @@ env:
 jobs:
   fast_finish: true
   include:
+    - name: go mod tidy
+      before_install: skip
+      install: skip
+      before_script: go mod tidy -v
+      script: git diff --exit-code -- go.mod go.sum
     - name: tests with coverage report
       env:
         - WITH_COVERAGE=true

@@ -16,12 +16,18 @@ env:
   global:
     - GO111MODULE=on
       GOPROXY=https://proxy.golang.org
-  matrix:
-    - WITH_COVERAGE=true
-    - GOFLAGS='-race'
 
-matrix:
+jobs:
   fast_finish: true
+  include:
+    - name: tests with coverage report
+      env:
+        - WITH_COVERAGE=true
+      after_success:
+        - bash <(curl -s https://codecov.io/bash)
+    - name: tests with race detection
+      env:
+        - GOFLAGS='-race'
 
 install:
   - mkdir ../protoc
@@ -60,5 +66,3 @@ script:
   - ./gossip/integration/gossip_test.sh
   - set +e
 
-after_success:
-  - bash <(curl -s https://codecov.io/bash)

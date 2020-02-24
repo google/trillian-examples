@@ -44,7 +44,7 @@ import (
 
 var (
 	skipHTTPSVerify = flag.Bool("skip_https_verify", false, "Skip verification of HTTPS transport connection")
-	hubURI          = flag.String("hub_uri", "https://ct-gossip.sandbox.google.com/gamut", "Hub base URI")
+	hubURI          = flag.String("hub_uri", "", "Hub base URI")
 	pubKey          = flag.String("pub_key", "", "Name of file containing hub's public key")
 	timestamp       = flag.Int64("timestamp", 0, "Timestamp to use for inclusion checking (in nanosecs since Unix epoch)")
 	source          = flag.String("source", "", "Source log to look for")

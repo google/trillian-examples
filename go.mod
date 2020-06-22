@@ -1,6 +1,6 @@
 module github.com/google/trillian-examples
 
-go 1.12
+go 1.13
 
 require (
 	cloud.google.com/go v0.50.0 // indirect

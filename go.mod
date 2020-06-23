@@ -25,10 +25,9 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/mock v1.4.3
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.2
 	github.com/golangci/golangci-lint v1.23.1 // indirect
 	github.com/google/certificate-transparency-go v1.1.0
-	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/monologue v0.0.0-20200117164337-ad3ddc05419e // indirect
 	github.com/google/trillian v1.3.3
 	github.com/gorilla/websocket v1.4.1 // indirect
@@ -39,7 +38,6 @@ require (
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jhump/protoreflect v1.6.0 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
-	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/letsencrypt/pkcs11key v4.0.0+incompatible // indirect
@@ -53,8 +51,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.3.0
-	github.com/prometheus/common v0.9.1 // indirect
+	github.com/prometheus/client_golang v1.7.0
 	github.com/rs/cors v1.7.0
 	github.com/russross/blackfriday v2.0.0+incompatible // indirect
 	github.com/securego/gosec v0.0.0-20200121091311-459e2d3e91bd // indirect
@@ -71,7 +68,6 @@ require (
 	golang.org/x/exp v0.0.0-20200119233911-0405dc783f0a // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
-	golang.org/x/sys v0.0.0-20200121082415-34d275377bf9 // indirect
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 	golang.org/x/tools v0.0.0-20200121042740-dbc83e6dc05e // indirect
 	google.golang.org/api v0.15.0 // indirect

@@ -53,6 +53,6 @@ func main() {
 		glog.Exitf("Failed to dial Trillian Map: %v", err)
 	}
 
-	m := mapper.New(trillian.NewTrillianLogClient(tlc), *logID, trillian.NewTrillianMapClient(tmc), *mapID)
+	m := mapper.New(trillian.NewTrillianLogClient(tlc), *logID, trillian.NewTrillianMapWriteClient(tmc), *mapID)
 	m.Map(ctx, *from)
 }

@@ -21,7 +21,7 @@ require (
 	github.com/google/certificate-transparency-go v1.1.0
 	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/monologue v0.0.0-20200117164337-ad3ddc05419e // indirect
-	github.com/google/trillian v1.3.5
+	github.com/google/trillian v1.3.9
 	github.com/huandu/xstrings v1.3.0 // indirect
 	github.com/jhump/protoreflect v1.6.0 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect

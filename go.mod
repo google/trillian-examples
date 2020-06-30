@@ -3,7 +3,6 @@ module github.com/google/trillian-examples
 go 1.13
 
 require (
-	github.com/VictoriaMetrics/fastcache v1.5.5 // indirect
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/benlaurie/gds-registers v0.0.0-20180214133647-6355673a9585
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
@@ -11,7 +10,7 @@ require (
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/elastic/gosigar v0.10.5 // indirect
 	github.com/emicklei/proto v1.9.0 // indirect
-	github.com/ethereum/go-ethereum v1.9.10
+	github.com/ethereum/go-ethereum v1.9.15
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/gobuffalo/flect v0.2.0 // indirect
@@ -24,7 +23,6 @@ require (
 	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/monologue v0.0.0-20200117164337-ad3ddc05419e // indirect
 	github.com/google/trillian v1.3.5
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/huandu/xstrings v1.3.0 // indirect
 	github.com/jhump/protoreflect v1.6.0 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
@@ -45,9 +43,7 @@ require (
 	github.com/urfave/cli v1.22.2 // indirect
 	go.etcd.io/etcd v3.3.18+incompatible // indirect
 	go.uber.org/atomic v1.5.1 // indirect
-	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad
-	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
-	golang.org/x/sys v0.0.0-20200121082415-34d275377bf9 // indirect
+	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 	golang.org/x/tools v0.0.0-20200121042740-dbc83e6dc05e // indirect
 	google.golang.org/genproto v0.0.0-20200117163144-32f20d992d24 // indirect
 	google.golang.org/grpc v1.25.1

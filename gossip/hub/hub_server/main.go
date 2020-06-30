@@ -19,7 +19,6 @@ import (
 	"context"
 	"flag"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,8 +33,6 @@ import (
 	"github.com/rs/cors"
 	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
-
-	ctfeutil "github.com/google/certificate-transparency-go/trillian/util"
 
 	// Register PEMKeyFile, PrivateKey and PKCS11Config ProtoHandlers
 	_ "github.com/google/trillian/crypto/keys/der/proto"
@@ -87,17 +84,8 @@ func main() {
 		metricsAt = *httpEndpoint
 	}
 
-	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
-	if strings.Contains(*rpcBackend, ",") {
-		glog.Infof("Using FixedBackendResolver")
-		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
-		res := ctfeutil.FixedBackendResolver{}
-		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(res))) // nolint: megacheck
-	} else {
-		glog.Infof("Using regular DNS resolver")
-	}
-
 	// Dial all our Trillian Log backends.
+	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
 	clientMap := make(map[string]trillian.TrillianLogClient)
 	for beName, beSpec := range cfg.HubBackends {
 		glog.Infof("Dialling backend %q at %v", beName, beSpec)

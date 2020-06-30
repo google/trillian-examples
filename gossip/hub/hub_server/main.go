@@ -19,7 +19,6 @@ import (
 	"context"
 	"flag"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -34,8 +33,6 @@ import (
 	"github.com/rs/cors"
 	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/resolver"
-	"google.golang.org/grpc/resolver/manual"
 
 	// Register PEMKeyFile, PrivateKey and PKCS11Config ProtoHandlers
 	_ "github.com/google/trillian/crypto/keys/der/proto"
@@ -87,25 +84,8 @@ func main() {
 		metricsAt = *httpEndpoint
 	}
 
-	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
-	if strings.Contains(*rpcBackend, ",") {
-		// This should probably not be used in production. Either use etcd or a gRPC
-		// load balancer.
-		glog.Warning("Multiple RPC backends from flags not recommended for production. Should probably be using etcd or a gRPC load balancer / proxy.")
-		res, cleanup := manual.GenerateAndRegisterManualResolver()
-		defer cleanup()
-		backends := strings.Split(*rpcBackend, ",")
-		addrs := make([]resolver.Address, 0, len(backends))
-		for _, backend := range backends {
-			addrs = append(addrs, resolver.Address{Addr: backend, Type: resolver.Backend})
-		}
-		res.InitialState(resolver.State{Addresses: addrs})
-		resolver.SetDefaultScheme(res.Scheme())
-	} else {
-		glog.Infof("Using regular DNS resolver")
-	}
-
 	// Dial all our Trillian Log backends.
+	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
 	clientMap := make(map[string]trillian.TrillianLogClient)
 	for beName, beSpec := range cfg.HubBackends {
 		glog.Infof("Dialling backend %q at %v", beName, beSpec)

@@ -34,7 +34,6 @@ import (
 	"github.com/rs/cors"
 	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer/roundrobin"
 
 	ctfeutil "github.com/google/certificate-transparency-go/trillian/util"
 
@@ -96,7 +95,6 @@ func main() {
 		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(res))) // nolint: megacheck
 	} else {
 		glog.Infof("Using regular DNS resolver")
-		dialOpts = append(dialOpts, grpc.WithBalancerName(roundrobin.Name))
 	}
 
 	// Dial all our Trillian Log backends.

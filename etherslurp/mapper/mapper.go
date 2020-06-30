@@ -37,14 +37,14 @@ var oneEtherRatio = big.NewFloat(float64(1) / float64(oneEther))
 type Mapper struct {
 	logID, mapID int64
 	tlog         trillian.TrillianLogClient
-	tmap         trillian.TrillianMapClient
+	tmap         trillian.TrillianMapWriteClient
 
 	unsortedBlocks chan *types.Block
 	sortedBlocks   chan *types.Block
 }
 
 // New creates a new Mapper.
-func New(tl trillian.TrillianLogClient, logID int64, tm trillian.TrillianMapClient, mapID int64) *Mapper {
+func New(tl trillian.TrillianLogClient, logID int64, tm trillian.TrillianMapWriteClient, mapID int64) *Mapper {
 	return &Mapper{
 		logID: logID,
 		mapID: mapID,
@@ -238,59 +238,61 @@ func (m *Mapper) mapTransactionsFrom(ctx context.Context, b *types.Block) error 
 		return nil
 	}
 
-	getRequest := &trillian.GetMapLeavesRequest{
-		MapId: m.mapID,
+	getRequest := &trillian.GetMapLeavesByRevisionRequest{
+		MapId:    m.mapID,
+		Revision: b.Number().Int64(),
 	}
 	for k := range deltas {
 		getRequest.Index = append(getRequest.Index, []byte(k))
 	}
 
 	glog.V(1).Info("Get map leaves...")
-	get, err := m.tmap.GetLeaves(ctx, getRequest)
+	get, err := m.tmap.GetLeavesByRevision(ctx, getRequest)
 	if err != nil {
 		return fmt.Errorf("failed to get current balances: %v", err)
 	}
-	glog.V(1).Infof("Got %d map leaves.", len(get.MapLeafInclusion))
+	glog.V(1).Infof("Got %d map leaves.", len(get.Leaves))
 
-	if ld, ll := len(deltas), len(get.MapLeafInclusion); ld != ll {
+	if ld, ll := len(deltas), len(get.Leaves); ld != ll {
 		glog.Exitf("Got %d leaves, expected %d", ll, ld)
 	}
 
-	setRequest := &trillian.SetMapLeavesRequest{
-		MapId:  m.mapID,
-		Leaves: make([]*trillian.MapLeaf, 0),
+	writeRequest := &trillian.WriteMapLeavesRequest{
+		MapId:          m.mapID,
+		ExpectRevision: b.Number().Int64() + 1,
+		Leaves:         make([]*trillian.MapLeaf, 0),
 	}
 
-	for _, l := range get.MapLeafInclusion {
+	for _, l := range get.Leaves {
 		bal := big.NewInt(0)
-		if len(l.Leaf.LeafValue) > 0 {
+		if len(l.LeafValue) > 0 {
 			var ok bool
-			bal, ok = bal.SetString(string(l.Leaf.LeafValue), 10)
+			bal, ok = bal.SetString(string(l.LeafValue), 10)
 			if !ok {
-				glog.Warningf("Leaf value for %x... (%s) is corrupt, resetting to zero balance", l.Leaf.Index[:5], string(l.Leaf.LeafValue))
+				glog.Warningf("Leaf value for %x... (%s) is corrupt, resetting to zero balance", l.Index[:5], string(l.LeafValue))
 				bal = big.NewInt(0)
 			}
 		}
-		k := string(l.Leaf.Index)
+		k := string(l.Index)
 		d, ok := deltas[k]
 		if !ok {
-			glog.Warningf("No delta for leaf index %x", l.Leaf.Index)
+			glog.Warningf("No delta for leaf index %x", l.Index)
 			continue
 		}
 		delete(deltas, k)
-		glog.V(1).Infof("index %x... had: %s", l.Leaf.Index[:5], ethBalance(bal))
+		glog.V(1).Infof("index %x... had: %s", l.Index[:5], ethBalance(bal))
 		bal.Add(bal, d)
-		l.Leaf.LeafValue = []byte(bal.String())
-		setRequest.Leaves = append(setRequest.Leaves, l.Leaf)
-		glog.Infof("index %x... now has: %s", l.Leaf.Index[:5], ethBalance(bal))
+		l.LeafValue = []byte(bal.String())
+		writeRequest.Leaves = append(writeRequest.Leaves, l)
+		glog.Infof("index %x... now has: %s", l.Index[:5], ethBalance(bal))
 	}
 
 	if len(deltas) != 0 {
 		glog.Exitf("Arg, didn't use all deltas, still have:\n%+v", deltas)
 	}
 
-	glog.V(1).Infof("Setting %d map leaves.", len(setRequest.Leaves))
-	_, err = m.tmap.SetLeaves(ctx, setRequest)
+	glog.V(1).Infof("Setting %d map leaves.", len(writeRequest.Leaves))
+	_, err = m.tmap.WriteLeaves(ctx, writeRequest)
 	if err != nil {
 		return fmt.Errorf("failed to update balances: %v", err)
 	}

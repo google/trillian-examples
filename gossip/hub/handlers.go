@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/api"
@@ -530,7 +531,7 @@ func GetLogRoot(ctx context.Context, client trillian.TrillianLogClient, trillian
 		LogId:    logID,
 		ChargeTo: chargeTo(ctx),
 	}
-	glog.V(2).Infof("%s: GetLogRoot => grpc.GetLatestSignedLogRoot %+v", prefix, req)
+	glog.V(2).Infof("%s: GetLogRoot => grpc.GetLatestSignedLogRoot %s", prefix, proto.MarshalTextString(&req))
 	rsp, err := client.GetLatestSignedLogRoot(ctx, &req)
 	glog.V(2).Infof("%s: GetLogRoot <= grpc.GetLatestSignedLogRoot err=%v", prefix, err)
 	if err != nil {
@@ -601,7 +602,7 @@ func (h *hubInfo) getSTHConsistency(ctx context.Context, first, second int64) (*
 			ChargeTo:       chargeTo(ctx),
 		}
 
-		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) => grpc.GetConsistencyProof %+v", h.hubPrefix, first, second, req)
+		glog.V(2).Infof("%s: GetSTHConsistency(%d, %d) => grpc.GetConsistencyProof %s", h.hubPrefix, first, second, proto.MarshalTextString(&req))
 		rsp, err := h.rpcClient.GetConsistencyProof(ctx, &req)
 		glog.V(2).Infof("%s: GetSTHConsistency <= grpc.GetConsistencyProof err=%v", h.hubPrefix, err)
 		if err != nil {

@@ -3,7 +3,6 @@ module github.com/google/trillian-examples
 go 1.13
 
 require (
-	cloud.google.com/go v0.50.0 // indirect
 	github.com/VictoriaMetrics/fastcache v1.5.5 // indirect
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/benlaurie/gds-registers v0.0.0-20180214133647-6355673a9585
@@ -12,10 +11,8 @@ require (
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/elastic/gosigar v0.10.5 // indirect
 	github.com/emicklei/proto v1.9.0 // indirect
-	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/ethereum/go-ethereum v1.9.10
 	github.com/fatih/color v1.9.0 // indirect
-	github.com/gliderlabs/ssh v0.1.4 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/gobuffalo/flect v0.2.0 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -25,7 +22,6 @@ require (
 	github.com/golangci/golangci-lint v1.23.1 // indirect
 	github.com/google/certificate-transparency-go v1.1.0
 	github.com/google/go-cmp v0.4.0 // indirect
-	github.com/google/licenseclassifier v0.0.0-20190501212618-47b603fe1b8c // indirect
 	github.com/google/monologue v0.0.0-20200117164337-ad3ddc05419e // indirect
 	github.com/google/trillian v1.3.5
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
@@ -34,13 +30,9 @@ require (
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kylelemons/godebug v1.1.0
-	github.com/letsencrypt/pkcs11key v4.0.0+incompatible // indirect
-	github.com/lib/pq v1.3.0 // indirect
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mwitkow/go-proto-validators v0.3.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
-	github.com/otiai10/copy v1.0.1 // indirect
-	github.com/otiai10/curr v0.0.0-20190513014714-f5a3d24e5776 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.3.0
 	github.com/prometheus/common v0.9.1 // indirect
@@ -51,20 +43,13 @@ require (
 	github.com/spf13/viper v1.6.2 // indirect
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/urfave/cli v1.22.2 // indirect
-	github.com/xanzy/ssh-agent v0.2.1 // indirect
 	go.etcd.io/etcd v3.3.18+incompatible // indirect
 	go.uber.org/atomic v1.5.1 // indirect
 	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad
-	golang.org/x/exp v0.0.0-20200119233911-0405dc783f0a // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
 	golang.org/x/sys v0.0.0-20200121082415-34d275377bf9 // indirect
 	golang.org/x/tools v0.0.0-20200121042740-dbc83e6dc05e // indirect
-	google.golang.org/api v0.15.0 // indirect
 	google.golang.org/genproto v0.0.0-20200117163144-32f20d992d24 // indirect
 	google.golang.org/grpc v1.25.1
 	gopkg.in/ini.v1 v1.51.1 // indirect
-	gopkg.in/src-d/go-billy.v4 v4.3.0 // indirect
-	gopkg.in/src-d/go-git-fixtures.v3 v3.5.0 // indirect
-	gopkg.in/src-d/go-git.v4 v4.11.0 // indirect
 )

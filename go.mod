@@ -8,7 +8,6 @@ require (
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/coreos/etcd v3.3.18+incompatible // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
-	github.com/elastic/gosigar v0.10.5 // indirect
 	github.com/emicklei/proto v1.9.0 // indirect
 	github.com/ethereum/go-ethereum v1.9.15
 	github.com/fatih/color v1.9.0 // indirect

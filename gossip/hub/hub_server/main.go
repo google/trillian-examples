@@ -34,8 +34,8 @@ import (
 	"github.com/rs/cors"
 	"github.com/tomasen/realip"
 	"google.golang.org/grpc"
-
-	ctfeutil "github.com/google/certificate-transparency-go/trillian/util"
+	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/resolver/manual"
 
 	// Register PEMKeyFile, PrivateKey and PKCS11Config ProtoHandlers
 	_ "github.com/google/trillian/crypto/keys/der/proto"
@@ -89,10 +89,18 @@ func main() {
 
 	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
 	if strings.Contains(*rpcBackend, ",") {
-		glog.Infof("Using FixedBackendResolver")
-		// Use a fixed endpoint resolution that just returns the addresses configured on the command line.
-		res := ctfeutil.FixedBackendResolver{}
-		dialOpts = append(dialOpts, grpc.WithBalancer(grpc.RoundRobin(res))) // nolint: megacheck
+		// This should probably not be used in production. Either use etcd or a gRPC
+		// load balancer. 
+		glog.Warning("Multiple RPC backends from flags not recommended for production. Should probably be using etcd or a gRPC load balancer / proxy.")
+		res, cleanup := manual.GenerateAndRegisterManualResolver()
+		defer cleanup()
+		backends := strings.Split(*rpcBackend, ",")
+		addrs := make([]resolver.Address, 0, len(backends))
+		for _, backend := range backends {
+			addrs = append(addrs, resolver.Address{Addr: backend, Type: resolver.Backend})
+		}
+		res.InitialState(resolver.State{Addresses: addrs})
+		resolver.SetDefaultScheme(res.Scheme())
 	} else {
 		glog.Infof("Using regular DNS resolver")
 	}

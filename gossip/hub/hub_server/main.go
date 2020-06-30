@@ -90,7 +90,7 @@ func main() {
 	dialOpts := []grpc.DialOption{grpc.WithInsecure()}
 	if strings.Contains(*rpcBackend, ",") {
 		// This should probably not be used in production. Either use etcd or a gRPC
-		// load balancer. 
+		// load balancer.
 		glog.Warning("Multiple RPC backends from flags not recommended for production. Should probably be using etcd or a gRPC load balancer / proxy.")
 		res, cleanup := manual.GenerateAndRegisterManualResolver()
 		defer cleanup()

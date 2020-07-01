@@ -35,10 +35,10 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
 	"github.com/google/certificate-transparency-go/x509"
-        "github.com/golang/protobuf/proto"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/gossip/api"
 	"github.com/google/trillian-examples/gossip/hub/configpb"
@@ -1032,7 +1032,7 @@ func TestGetSTHConsistency(t *testing.T) {
 			defer info.mockCtrl.Finish()
 			if test.rpcRsp != nil || test.rpcErr != nil {
 				rpcReq := &trillian.GetConsistencyProofRequest{LogId: testTreeID, FirstTreeSize: test.first, SecondTreeSize: test.second}
-					info.client.EXPECT().GetConsistencyProof(ctx, &rpcMsg{msg: rpcReq}).Return(test.rpcRsp, test.rpcErr)
+				info.client.EXPECT().GetConsistencyProof(ctx, &rpcMsg{msg: rpcReq}).Return(test.rpcRsp, test.rpcErr)
 			}
 
 			gotRsp := httptest.NewRecorder()
@@ -1671,21 +1671,20 @@ func (s *testSigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts)
 
 // rpcMsg is a gomock Matcher for protos, as used in the gRPC docs.
 type rpcMsg struct {
-    msg proto.Message
+	msg proto.Message
 }
 
 // Matches returns true if msg is a proto.Message and matches the expected one,
 // otherwise it returns false.
 func (r *rpcMsg) Matches(msg interface{}) bool {
-    m, ok := msg.(proto.Message)
-    if !ok {
-        return false
-    }
-    return proto.Equal(m, r.msg)
+	m, ok := msg.(proto.Message)
+	if !ok {
+		return false
+	}
+	return proto.Equal(m, r.msg)
 }
 
 // String returns a string version of the rpcMsg.
 func (r *rpcMsg) String() string {
-    return fmt.Sprintf("is %s", r.msg)
+	return fmt.Sprintf("is %s", r.msg)
 }
-

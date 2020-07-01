@@ -12,7 +12,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.2
-	github.com/google/certificate-transparency-go v1.0.21
+	github.com/google/certificate-transparency-go v1.1.0
 	github.com/google/trillian v1.3.9
 	github.com/huandu/xstrings v1.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0

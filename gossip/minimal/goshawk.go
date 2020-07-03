@@ -31,14 +31,14 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/certificate-transparency-go/gossip/minimal/x509ext"
 	"github.com/google/monologue/incident"
+	"github.com/google/trillian-examples/gossip/minimal/configpb"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
-	"github.com/google/trillian-examples/gossip/minimal/configpb"
 
 	ct "github.com/google/certificate-transparency-go"
 	logclient "github.com/google/certificate-transparency-go/client"

@@ -25,9 +25,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/gossip/minimal"
 	"github.com/google/trillian/monitoring/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/google/trillian-examples/gossip/minimal"
 
 	// Register PEMKeyFile and PrivateKey ProtoHandlers
 	_ "github.com/google/trillian/crypto/keys/der/proto"

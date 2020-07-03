@@ -29,9 +29,9 @@ import (
 	"github.com/google/certificate-transparency-go/jsonclient"
 	"github.com/google/certificate-transparency-go/x509"
 	"github.com/google/certificate-transparency-go/x509util"
+	"github.com/google/trillian-examples/gossip/minimal/configpb"
 	"github.com/google/trillian/crypto/keys"
 	"github.com/google/trillian/monitoring"
-	"github.com/google/trillian-examples/gossip/minimal/configpb"
 
 	logclient "github.com/google/certificate-transparency-go/client"
 	hubclient "github.com/google/trillian-examples/gossip/client"

@@ -1,7 +1,7 @@
-FROM golang:1.11 as build
+FROM golang:1.13 as build
 
-ADD . /go/src/github.com/google/certificate-transparency-go
-WORKDIR /go/src/github.com/google/certificate-transparency-go
+ADD . /go/src/github.com/google/trillian-examples
+WORKDIR /go/src/github.com/google/trillian-examples
 
 ARG GOFLAGS=""
 

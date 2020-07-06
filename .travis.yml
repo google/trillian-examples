@@ -20,7 +20,7 @@ env:
 jobs:
   fast_finish: true
   include:
-    - name: go mod tidy
+    - name: "go mod tidy"
       before_install: skip
       install: skip
       before_script: go mod tidy -v
@@ -33,6 +33,8 @@ jobs:
     - name: tests with race detection
       env:
         - GOFLAGS='-race'
+  allowed_failures:
+    - name: "go mod tidy"
 
 install:
   - mkdir ../protoc

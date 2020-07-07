@@ -16,10 +16,9 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/mock v1.4.3
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.2
 	github.com/golangci/golangci-lint v1.23.1 // indirect
 	github.com/google/certificate-transparency-go v1.1.0
-	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/monologue v0.0.0-20200117164337-ad3ddc05419e
 	github.com/google/trillian v1.3.5
 	github.com/huandu/xstrings v1.3.0 // indirect

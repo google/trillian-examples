@@ -39,7 +39,7 @@ require (
 	github.com/securego/gosec v0.0.0-20200121091311-459e2d3e91bd // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/viper v1.6.2 // indirect
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.6.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/urfave/cli v1.22.2 // indirect
 	go.etcd.io/etcd v3.3.18+incompatible // indirect

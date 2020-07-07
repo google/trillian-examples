@@ -16,24 +16,21 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
 	github.com/golang/mock v1.4.3
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.2
 	github.com/golangci/golangci-lint v1.23.1 // indirect
 	github.com/google/certificate-transparency-go v1.1.0
-	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/google/monologue v0.0.0-20200117164337-ad3ddc05419e
 	github.com/google/trillian v1.3.5
 	github.com/huandu/xstrings v1.3.0 // indirect
 	github.com/jhump/protoreflect v1.6.0 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
-	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mattn/go-sqlite3 v1.10.0
 	github.com/mwitkow/go-proto-validators v0.3.0 // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/client_golang v1.3.0
-	github.com/prometheus/common v0.9.1 // indirect
+	github.com/prometheus/client_golang v1.7.1
 	github.com/rs/cors v1.7.0
 	github.com/russross/blackfriday v2.0.0+incompatible // indirect
 	github.com/securego/gosec v0.0.0-20200121091311-459e2d3e91bd // indirect

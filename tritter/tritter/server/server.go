@@ -6,7 +6,7 @@ import (
 	"net"
 
 	"github.com/golang/glog"
-	"github.com/mhutchinson/tritter/tritter"
+	"github.com/google/trillian-examples/tritter/tritter"
 	"google.golang.org/grpc"
 )
 

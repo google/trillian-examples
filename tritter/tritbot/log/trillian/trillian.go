@@ -11,7 +11,7 @@ import (
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
 	tt "github.com/google/trillian/types"
-	"github.com/mhutchinson/tritter/tritbot/log"
+	"github.com/google/trillian-examples/tritter/tritbot/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

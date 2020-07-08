@@ -14,8 +14,8 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	tc "github.com/google/trillian/client"
 	tt "github.com/google/trillian/types"
-	"github.com/mhutchinson/tritter/tritbot/log"
-	"github.com/mhutchinson/tritter/tritter"
+	"github.com/google/trillian-examples/tritter/tritbot/log"
+	"github.com/google/trillian-examples/tritter/tritter"
 	"google.golang.org/grpc"
 )
 

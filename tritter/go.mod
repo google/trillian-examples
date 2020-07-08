@@ -1,4 +1,4 @@
-module github.com/mhutchinson/tritter
+module github.com/google/trillian-examples/tritter
 
 go 1.13
 

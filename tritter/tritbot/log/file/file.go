@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/mhutchinson/tritter/tritbot/log"
+	"github.com/google/trillian-examples/tritter/tritbot/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

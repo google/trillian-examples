@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package log;
 
-option go_package = "github.com/mhutchinson/tritter/tritbot/log";
+option go_package = "github.com/google/trillian-examples/tritter/tritbot/log";
 
 import "trillian.proto";
 import "trillian_log_api.proto";

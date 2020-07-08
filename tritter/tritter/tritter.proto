@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package tritter;
+
+option go_package = "github.com/mhutchinson/tritter/tritter";
+
+service Tritter {
+    rpc Send(SendRequest) returns (SendResponse) {}
+}
+
+message SendRequest {
+    string message = 1;
+}
+
+message SendResponse {
+}

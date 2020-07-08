@@ -6,8 +6,6 @@ require (
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/benlaurie/gds-registers v0.0.0-20180214133647-6355673a9585
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
-	github.com/coreos/bbolt v1.3.3 // indirect
-	github.com/coreos/etcd v3.3.18+incompatible // indirect
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/ethereum/go-ethereum v1.9.15
 	github.com/fatih/color v1.9.0 // indirect

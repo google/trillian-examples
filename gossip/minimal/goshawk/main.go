@@ -29,7 +29,7 @@ import (
 	"github.com/google/trillian-examples/gossip/minimal"
 	"github.com/google/trillian-examples/gossip/minimal/mysql"
 
-	incidentmysql "github.com/google/monologue/incident/mysql"
+	incidentmysql "github.com/google/trillian-examples/gossip/incident/mysql"
 
 	// Load MySQL driver
 	_ "github.com/go-sql-driver/mysql"

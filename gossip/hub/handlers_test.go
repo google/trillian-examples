@@ -35,6 +35,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/trillian/mockclient"
 	"github.com/google/certificate-transparency-go/x509"
@@ -844,7 +845,7 @@ func TestGetSTH(t *testing.T) {
 			info := setupTest(t, test.signer)
 			defer info.mockCtrl.Finish()
 			rpcReq := &trillian.GetLatestSignedLogRootRequest{LogId: testTreeID}
-			info.client.EXPECT().GetLatestSignedLogRoot(ctx, rpcReq).Return(test.rpcRsp, test.rpcErr)
+			info.client.EXPECT().GetLatestSignedLogRoot(ctx, &rpcMsg{msg: rpcReq}).Return(test.rpcRsp, test.rpcErr)
 
 			gotRsp := httptest.NewRecorder()
 			gotStatus, gotErr := getSTH(info.hi, gotRsp, req)
@@ -1031,7 +1032,7 @@ func TestGetSTHConsistency(t *testing.T) {
 			defer info.mockCtrl.Finish()
 			if test.rpcRsp != nil || test.rpcErr != nil {
 				rpcReq := &trillian.GetConsistencyProofRequest{LogId: testTreeID, FirstTreeSize: test.first, SecondTreeSize: test.second}
-				info.client.EXPECT().GetConsistencyProof(ctx, rpcReq).Return(test.rpcRsp, test.rpcErr)
+				info.client.EXPECT().GetConsistencyProof(ctx, &rpcMsg{msg: rpcReq}).Return(test.rpcRsp, test.rpcErr)
 			}
 
 			gotRsp := httptest.NewRecorder()
@@ -1228,7 +1229,7 @@ func TestGetProofByHash(t *testing.T) {
 			defer info.mockCtrl.Finish()
 			if test.rpcRsp != nil || test.rpcErr != nil {
 				rpcReq := &trillian.GetInclusionProofByHashRequest{LogId: testTreeID, LeafHash: test.hash, TreeSize: test.treeSize, OrderBySequence: true}
-				info.client.EXPECT().GetInclusionProofByHash(ctx, rpcReq).Return(test.rpcRsp, test.rpcErr)
+				info.client.EXPECT().GetInclusionProofByHash(ctx, &rpcMsg{msg: rpcReq}).Return(test.rpcRsp, test.rpcErr)
 			}
 
 			gotRsp := httptest.NewRecorder()
@@ -1463,7 +1464,7 @@ func TestGetEntries(t *testing.T) {
 			defer info.mockCtrl.Finish()
 			if test.rpcRsp != nil || test.rpcErr != nil {
 				rpcReq := &trillian.GetLeavesByRangeRequest{LogId: testTreeID, StartIndex: test.start, Count: test.count}
-				info.client.EXPECT().GetLeavesByRange(ctx, rpcReq).Return(test.rpcRsp, test.rpcErr)
+				info.client.EXPECT().GetLeavesByRange(ctx, &rpcMsg{msg: rpcReq}).Return(test.rpcRsp, test.rpcErr)
 			}
 
 			gotRsp := httptest.NewRecorder()
@@ -1666,4 +1667,21 @@ func (s *testSigner) Public() crypto.PublicKey {
 // Sign returns the will return the signature or error that the signerStub was created to provide.
 func (s *testSigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
 	return s.signature, s.err
+}
+
+// rpcMsg is a matcher for protobufs when using gomock.
+type rpcMsg struct {
+	msg proto.Message
+}
+
+func (r *rpcMsg) Matches(msg interface{}) bool {
+	m, ok := msg.(proto.Message)
+	if !ok {
+		return false
+	}
+	return proto.Equal(m, r.msg)
+}
+
+func (r *rpcMsg) String() string {
+	return fmt.Sprintf("is %s", r.msg)
 }

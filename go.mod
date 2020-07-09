@@ -43,7 +43,6 @@ require (
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20200427203606-3cfed13b9966 // indirect
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
 	github.com/urfave/cli v1.22.2 // indirect
-	go.etcd.io/etcd v0.0.0-20200513171258-e048e166ab9c
 	go.uber.org/atomic v1.5.1 // indirect
 	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 	google.golang.org/grpc v1.29.1

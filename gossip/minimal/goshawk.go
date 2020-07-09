@@ -35,7 +35,7 @@ import (
 	"github.com/google/certificate-transparency-go/schedule"
 	"github.com/google/certificate-transparency-go/tls"
 	"github.com/google/certificate-transparency-go/x509"
-	"github.com/google/monologue/incident"
+	"github.com/google/trillian-examples/gossip/incident"
 	"github.com/google/trillian-examples/gossip/minimal/configpb"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/rfc6962"
@@ -547,7 +547,7 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 		TreeHeadSignature: sthInfo.TreeHeadSignature,
 	}
 	if err := o.Log.VerifySTHSignature(sth); err != nil {
-		o.reporter.Logf(ctx, o.URL, "STH signature verification failure", "signature",
+		o.reporter.LogViolationf(ctx, o.URL, "STH signature verification failure", "signature",
 			fmt.Sprintf("%s%s", o.URL, ct.GetSTHPath),
 			"sthInfo=%+v", sthInfo)
 		return fmt.Errorf("failed to validate STH signature: %v", err)
@@ -567,7 +567,7 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 	}
 	proof, err := o.Log.GetSTHConsistency(ctx, first, second)
 	if err != nil {
-		o.reporter.Logf(ctx, o.URL, "STH consistency retrieval failure", "get",
+		o.reporter.LogUpdatef(ctx, o.URL, "STH consistency retrieval failure", "get",
 			fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
 			"err=%s", expandRspError(err))
 		return err
@@ -575,7 +575,7 @@ func (o *originLog) validateSTH(ctx context.Context, sthInfo *x509ext.LogSTHInfo
 	glog.V(2).Infof("Checker(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
 
 	if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
-		o.reporter.Logf(ctx, o.URL, "STH consistency proof failure", "proof",
+		o.reporter.LogViolationf(ctx, o.URL, "STH consistency proof failure", "proof",
 			fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
 			"hash1=%x hash2=%x proof=%x err=%s", firstHash, secondHash, proof, err)
 		return fmt.Errorf("failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", firstHash, first, secondHash, second, err)
@@ -610,7 +610,7 @@ func (o *originLog) updateSTHIfConsistent(ctx context.Context, sth *ct.SignedTre
 		}
 		glog.V(2).Infof("STHRetriever(%s): got STH consistency proof %d=>%d of size %d", o.Name, first, second, len(proof))
 		if err := verifier.VerifyConsistencyProof(int64(first), int64(second), firstHash, secondHash, proof); err != nil {
-			o.reporter.Logf(ctx, o.URL, "STH consistency proof failure", "proof",
+			o.reporter.LogViolationf(ctx, o.URL, "STH consistency proof failure", "proof",
 				fmt.Sprintf("%s%s?first=%d&second=%d", o.URL, ct.GetSTHConsistencyPath, first, second),
 				"hash1=%x hash2=%x proof=%x err=%s", firstHash, secondHash, proof, err)
 			glog.Errorf("STHRetriever(%s): failed to VerifyConsistencyProof(%x @size=%d, %x @size=%d): %v", o.Name, firstHash, first, secondHash, second, err)

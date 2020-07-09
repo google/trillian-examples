@@ -9,10 +9,10 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/golang/protobuf/proto"
+	"github.com/google/trillian-examples/tritter/tritbot/log"
 	tc "github.com/google/trillian/client"
 	"github.com/google/trillian/types"
 	tt "github.com/google/trillian/types"
-	"github.com/google/trillian-examples/tritter/tritbot/log"
 	"google.golang.org/grpc"
 )
 

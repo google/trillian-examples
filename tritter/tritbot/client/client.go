@@ -24,13 +24,13 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"google.golang.org/protobuf/encoding/prototext"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/google/trillian-examples/tritter/tritbot/log"
 	"github.com/google/trillian-examples/tritter/tritter"
 	tc "github.com/google/trillian/client"
 	tt "github.com/google/trillian/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var (
@@ -110,7 +110,7 @@ func (t *tritBot) Send(ctx context.Context, msg *log.InternalMessage) error {
 		}
 
 		bs, err := prototext.Marshal(msg)
-                if err != nil {
+		if err != nil {
 			return err
 		}
 		if err := t.v.VerifyInclusionByHash(root, t.v.BuildLeaf(bs).MerkleLeafHash, r.GetProof().GetProof()); err != nil {

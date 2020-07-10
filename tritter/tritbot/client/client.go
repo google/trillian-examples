@@ -85,12 +85,12 @@ func newVerifyingTritBot(ctx context.Context) *tritBot {
 	return t
 }
 
-func (t *tritBot) Send(ctx context.Context, msg log.InternalMessage) error {
+func (t *tritBot) Send(ctx context.Context, msg *log.InternalMessage) error {
 	ctx, cancel := context.WithTimeout(ctx, t.timeout)
 	defer cancel()
 
 	// First write the message to the log.
-	r, err := t.log.Log(ctx, &log.LogRequest{Message: &msg})
+	r, err := t.log.Log(ctx, &log.LogRequest{Message: msg})
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (t *tritBot) Send(ctx context.Context, msg log.InternalMessage) error {
 			return fmt.Errorf("failed to verify log root: %v", err)
 		}
 
-		bs, err := prototext.Marshal(&msg)
+		bs, err := prototext.Marshal(msg)
                 if err != nil {
 			return err
 		}
@@ -152,7 +152,7 @@ func main() {
 	defer t.Close()
 
 	for _, msg := range flag.Args() {
-		m := log.InternalMessage{
+		m := &log.InternalMessage{
 			User:      user.Username,
 			Message:   msg,
 			Timestamp: timestamppb.Now(),

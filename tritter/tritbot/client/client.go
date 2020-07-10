@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"github.com/google/trillian-examples/tritter/tritbot/log"
 	"github.com/google/trillian-examples/tritter/tritter"
 	tc "github.com/google/trillian/client"
@@ -109,7 +109,10 @@ func (t *tritBot) Send(ctx context.Context, msg log.InternalMessage) error {
 			return fmt.Errorf("failed to verify log root: %v", err)
 		}
 
-		bs := []byte(proto.MarshalTextString(&msg))
+		bs, err := prototext.Marshal(&msg)
+                if err != nil {
+			return err
+		}
 		if err := t.v.VerifyInclusionByHash(root, t.v.BuildLeaf(bs).MerkleLeafHash, r.GetProof().GetProof()); err != nil {
 			return fmt.Errorf("could not verify inclusion proof: %v", err)
 		}
@@ -152,7 +155,7 @@ func main() {
 		m := log.InternalMessage{
 			User:      user.Username,
 			Message:   msg,
-			Timestamp: ptypes.TimestampNow(),
+			Timestamp: timestamppb.Now(),
 		}
 		if err := t.Send(context.Background(), m); err != nil {
 			glog.Fatalf("could not send message: %v", err)

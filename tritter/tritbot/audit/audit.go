@@ -22,12 +22,12 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian-examples/tritter/tritbot/log"
 	tc "github.com/google/trillian/client"
 	"github.com/google/trillian/types"
 	tt "github.com/google/trillian/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var (
@@ -83,10 +83,10 @@ func (a *auditor) checkLatest(ctx context.Context) error {
 			}
 
 			var msg log.InternalMessage
-			if err := proto.UnmarshalText(string(bs), &msg); err != nil {
+			if err := prototext.Unmarshal(bs, &msg); err != nil {
 				return fmt.Errorf("failed to unmarshal verified bytes at index %d in revision %d: %v", i, newRoot.Revision, err)
 			}
-			glog.V(2).Infof("Confirmed data at index %d: %v", i, msg)
+			glog.V(2).Infof("Confirmed data at index %d: %v", i, prototext.Format(&msg))
 		}
 
 		// 3. Update the trusted root to latest audited value.

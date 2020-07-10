@@ -14,4 +14,4 @@
 
 package tritter
 
-//go:generate protoc -I=. -I=$GOPATH/src -I=$GOPATH/src/github.com/googleapis/googleapis --go_out=plugins=grpc,paths=source_relative:. tritter.proto
+//go:generate sh -c "protoc -I=. -I=$GOPATH/src -I=$GOPATH/src/github.com/googleapis/googleapis -I$(go list -f '{{ .Dir }}' github.com/google/trillian) --go_out=plugins=grpc,paths=source_relative:. tritter.proto"

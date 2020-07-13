@@ -16,6 +16,9 @@ Currently the examples here are:
  * [registers](registers): A tutorial for building Trillian apps showing the
    use of logs and maps and serving the results to clients.
 
+ * [tritter](tritter): An example / demo of a chat service with audit
+   capability.
+
 These examples are not supported per-se, but the Trillian team will likely try
 to help where possible.  You can contact them via the channels listed under
 *Support* on the [Trillian][] repo.

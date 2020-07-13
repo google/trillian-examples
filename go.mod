@@ -35,5 +35,6 @@ require (
 	go.uber.org/atomic v1.5.1 // indirect
 	golang.org/x/crypto v0.0.0-20200311171314-f7b00557c8c4
 	google.golang.org/grpc v1.29.1
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )

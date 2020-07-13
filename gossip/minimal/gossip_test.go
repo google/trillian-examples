@@ -52,7 +52,7 @@ func TestCanSubmitCT(t *testing.T) {
 		{
 			name: "ValidResponse",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
-				fmt.Fprintln(w, fmt.Sprintf(`{"certificates":["%s"]}`, base64.StdEncoding.EncodeToString(g.root.Raw)))
+				fmt.Fprintf(w, `{"certificates":["%s"]}\n`, base64.StdEncoding.EncodeToString(g.root.Raw))
 			},
 		},
 		{
@@ -141,7 +141,7 @@ func TestCanSubmitHub(t *testing.T) {
 		{
 			name: "ValidResponse",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
-				fmt.Fprintln(w, fmt.Sprintf(`{"entries":[{"id":"%s","pub_key":"%s","kind":"rfc6962-sth"}]}`, src.URL, base64.StdEncoding.EncodeToString(srcDER)))
+				fmt.Fprintf(w, `{"entries":[{"id":"%s","pub_key":"%s","kind":"rfc6962-sth"}]}\n`, src.URL, base64.StdEncoding.EncodeToString(srcDER))
 			},
 		},
 		{
@@ -168,7 +168,7 @@ func TestCanSubmitHub(t *testing.T) {
 		{
 			name: "ValidResponseWithoutRoot",
 			handler: func(w http.ResponseWriter, _ *http.Request) {
-				fmt.Fprintln(w, fmt.Sprintf(`{"entries":[{"id":"%s","pub_key":"%s","kind":"rfc6962-sth"}]}`, src.URL, base64.StdEncoding.EncodeToString([]byte{0x01, 0x02})))
+				fmt.Fprintf(w, `{"entries":[{"id":"%s","pub_key":"%s","kind":"rfc6962-sth"}]}`, src.URL, base64.StdEncoding.EncodeToString([]byte{0x01, 0x02}))
 			},
 			wantErr: "not accepted by the hub",
 		},

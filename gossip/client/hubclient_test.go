@@ -290,7 +290,7 @@ func TestGetSTHConsistency(t *testing.T) {
 			desc:    "Malformed base-64",
 			first:   1,
 			second:  10,
-			body:    fmt.Sprintf(`{"consistency":"@@"}`),
+			body:    `{"consistency":"@@"}`,
 			wantErr: "cannot unmarshal",
 		},
 		{
@@ -351,7 +351,7 @@ func TestGetProofByHash(t *testing.T) {
 		},
 		{
 			desc:    "Malformed base-64",
-			body:    fmt.Sprintf(`{"leaf_index":4,"audit_path":"@@"}`),
+			body:    `{"leaf_index":4,"audit_path":"@@"}`,
 			wantErr: "cannot unmarshal",
 		},
 		{

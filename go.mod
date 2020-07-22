@@ -14,7 +14,7 @@ require (
 	github.com/golang/mock v1.4.3
 	github.com/golang/protobuf v1.4.2
 	github.com/google/certificate-transparency-go v1.0.22-0.20200708065856-b8561831ac3c
-	github.com/google/go-cmp v0.5.0
+	github.com/google/go-cmp v0.5.1
 	github.com/google/trillian v1.3.10
 	github.com/huandu/xstrings v1.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0

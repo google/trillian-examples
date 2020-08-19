@@ -2,7 +2,7 @@
 
 The clone tool downloads all entries from the [Go SumDB](https://blog.golang.org/module-mirror-launch) into a local SQLite database, and verifies that the downloaded data matches the log commitment.
 
-This auditor provides an example for how log data can be verifiably cloned, and demonstrates how this can be used as a basis to verify the [Claims](https://github.com/google/trillian/blob/master/docs/claimantmodel/). In the GoLang SuDB case, the auditor needs to check that no module+version appears in the log twice, as this would provide a vector for different clients to be presented with different expected checksums. 
+This auditor provides an example for how log data can be verifiably cloned, and demonstrates how this can be used as a basis to verify the [Claims](https://github.com/google/trillian/blob/master/docs/claimantmodel/). In the GoLang SumDB case, the auditor needs to check that no module+version appears in the log twice, as this would provide a vector for different clients to be presented with different expected checksums. 
 
 ## Running
 

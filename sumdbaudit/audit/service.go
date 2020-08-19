@@ -151,7 +151,7 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) erro
 			if err != nil {
 				return fmt.Errorf("failed to get tile L=%d, O=%d: %v (did you run hashfill?)", level, offset, err)
 			}
-			// Calulate this tile as a standalone subtree
+			// Calculate this tile as a standalone subtree
 			tcr := s.rf.NewEmptyRange(0)
 			for _, t := range tHashes {
 				tcr.Append(t, nil)
@@ -320,7 +320,7 @@ func (s *Service) hashUpperLevel(level, tileCount int, in, out chan *compact.Ran
 			inHashes[i] = cr.Hashes()[0]
 			copy(tileHashBlob[i*HashLenBytes:], inHashes[i])
 
-			if found && bytes.Compare(dbTileHashes[i], inHashes[i]) != 0 {
+			if found && !bytes.Equal(dbTileHashes[i], inHashes[i]) {
 				return fmt.Errorf("got diffence in hash at L=%d, O=%d, leaf=%d", level, offset, i)
 			}
 		}

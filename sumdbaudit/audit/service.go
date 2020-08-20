@@ -1,3 +1,8 @@
+// Package audit contains all the components needed to clone the SumDB into a
+// local database and verify that the data downloaded matches that guaranteed
+// by the Checkpoint advertised by the SumDB service. It also provides support
+// for parsing the downloaded data and verifying that no module+version is
+// every provided with different checksums.
 package audit
 
 import (
@@ -8,6 +13,7 @@ import (
 	"strings"
 
 	backoff "github.com/cenkalti/backoff/v4"
+	"github.com/golang/glog"
 	"github.com/google/trillian/merkle/compact"
 	"golang.org/x/mod/sumdb/tlog"
 	"golang.org/x/sync/errgroup"
@@ -45,9 +51,9 @@ func NewService(localDB *Database, sumDB *SumDBClient, height int) *Service {
 // It only copies whole tiles, which means that some stragglers may not be
 // copied locally.
 func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) error {
-	head, err := s.localDB.GetHead()
+	head, err := s.localDB.Head()
 	if err != nil {
-		// failed to find head of database, assuming empty and starting from scratch
+		glog.Infof("failed to find head of database, assuming empty and starting from scratch: %v", err)
 		head = -1
 	}
 	if checkpoint.N < head {
@@ -147,9 +153,9 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) erro
 		firstTileOffset := int(logRange.End() / tileLeafCount)
 
 		for offset := firstTileOffset; offset < levelTileCount; offset++ {
-			tHashes, err := s.localDB.GetTile(s.height, level, offset)
+			tHashes, err := s.localDB.Tile(s.height, level, offset)
 			if err != nil {
-				return fmt.Errorf("failed to get tile L=%d, O=%d: %v (did you run hashfill?)", level, offset, err)
+				return fmt.Errorf("failed to get tile L=%d, O=%d: %v", level, offset, err)
 			}
 			// Calculate this tile as a standalone subtree
 			tcr := s.rf.NewEmptyRange(0)
@@ -194,14 +200,14 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) erro
 }
 
 // VerifyTiles checks that every tile calculated locally matches the result returned
-// by SumDB. This shouldn't be possible if CheckRootHash is working, but this may be
+// by SumDB. This shouldn't be necessary if CheckRootHash is working, but this may be
 // useful to determine where any corruption has happened in the tree.
 func (s *Service) VerifyTiles(ctx context.Context, checkpoint *tlog.Tree) error {
 	for level := 0; level <= s.getLevelsForLeafCount(checkpoint.N); level++ {
 		finishedLevel := false
 		offset := 0
 		for !finishedLevel {
-			localHashes, err := s.localDB.GetTile(s.height, level, offset)
+			localHashes, err := s.localDB.Tile(s.height, level, offset)
 			if err != nil {
 				if err == sql.ErrNoRows {
 					finishedLevel = true
@@ -234,7 +240,7 @@ func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *tlog.Tree) er
 	// TODO: skip to head of metadata
 	for offset := 0; offset < int(checkpoint.N/int64(tileWidth)); offset++ {
 		leafOffset := int64(offset) * int64(tileWidth)
-		hashes, err := s.localDB.GetLeaves(leafOffset, tileWidth)
+		hashes, err := s.localDB.Leaves(leafOffset, tileWidth)
 		if err != nil {
 			return err
 		}
@@ -262,9 +268,9 @@ func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *tlog.Tree) er
 	return nil
 }
 
-func (s *Service) hashLeafLevel(tileCount int, roots chan *compact.Range) error {
+func (s *Service) hashLeafLevel(tileCount int, roots chan<- *compact.Range) error {
 	for offset := 0; offset < tileCount; offset++ {
-		hashes, err := s.localDB.GetTile(s.height, 0, offset)
+		hashes, err := s.localDB.Tile(s.height, 0, offset)
 		if err == sql.ErrNoRows {
 			hashes, err = s.hashLeafTile(offset)
 		}
@@ -286,7 +292,7 @@ func (s *Service) hashLeafLevel(tileCount int, roots chan *compact.Range) error 
 func (s *Service) hashLeafTile(offset int) ([][]byte, error) {
 	tileWidth := 1 << s.height
 
-	leaves, err := s.localDB.GetLeaves(int64(tileWidth)*int64(offset), tileWidth)
+	leaves, err := s.localDB.Leaves(int64(tileWidth)*int64(offset), tileWidth)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get leaves from DB: %v", err)
 	}
@@ -300,13 +306,13 @@ func (s *Service) hashLeafTile(offset int) ([][]byte, error) {
 	return res, s.localDB.SetTile(s.height, 0, offset, leafHashes)
 }
 
-func (s *Service) hashUpperLevel(level, tileCount int, in, out chan *compact.Range) error {
+func (s *Service) hashUpperLevel(level, tileCount int, in <-chan *compact.Range, out chan<- *compact.Range) error {
 	tileWidth := 1 << s.height
 
 	inHashes := make([][]byte, tileWidth)
 	tileHashBlob := make([]byte, tileWidth*HashLenBytes)
 	for offset := 0; offset < tileCount; offset++ {
-		dbTileHashes, err := s.localDB.GetTile(s.height, level, offset)
+		dbTileHashes, err := s.localDB.Tile(s.height, level, offset)
 		found := true
 		if err == sql.ErrNoRows {
 			found = false
@@ -355,7 +361,8 @@ func (s *Service) getLevelsForLeafCount(leaves int64) int {
 	return topLevel
 }
 
+// tileLeaves is a contiguous block of leaves within a tile.
 type tileLeaves struct {
-	start int64
-	data  [][]byte
+	start int64    // The leaf index of the first leaf
+	data  [][]byte // The leaf data
 }

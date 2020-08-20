@@ -15,6 +15,9 @@ import (
 // HashLenBytes is the number of bytes in the SumDB hashes.
 const HashLenBytes = 32
 
+// pathBase is the max number of entries in any SumDB directory.
+// Beyond this, sub directories are created.
+// https://github.com/golang/mod/blob/346a37af5599be02f125bd8bc0a5e1d33db21ddc/sumdb/tlog/tile.go#L168
 const pathBase = 1000
 
 // Fetcher gets data paths. This allows impl to be swapped for tests.
@@ -72,12 +75,7 @@ func (c *SumDBClient) LatestCheckpoint() (*tlog.Tree, error) {
 
 // FullLeavesAtOffset gets the Nth chunk of 2**height leaves.
 func (c *SumDBClient) FullLeavesAtOffset(offset int) ([][]byte, error) {
-	nStr := fmt.Sprintf("%03d", offset%pathBase)
-	for offset >= pathBase {
-		offset /= pathBase
-		nStr = fmt.Sprintf("x%03d/%s", offset%pathBase, nStr)
-	}
-	data, err := c.fetcher.GetData(fmt.Sprintf("/tile/%d/data/%s", c.height, nStr))
+	data, err := c.fetcher.GetData(fmt.Sprintf("/tile/%d/data/%s", c.height, c.tilePath(offset)))
 	if err != nil {
 		return nil, err
 	}
@@ -86,16 +84,23 @@ func (c *SumDBClient) FullLeavesAtOffset(offset int) ([][]byte, error) {
 
 // PartialLeavesAtOffset gets the final tile of incomplete leaves.
 func (c *SumDBClient) PartialLeavesAtOffset(offset, count int) ([][]byte, error) {
+	data, err := c.fetcher.GetData(fmt.Sprintf("/tile/%d/data/%s.p/%d", c.height, c.tilePath(offset), count))
+	if err != nil {
+		return nil, err
+	}
+	return dataToLeaves(data), nil
+}
+
+// tilePath constructs the component of the path which refers to a tile at a
+// given offset. This was copied from the core implementation:
+// https://github.com/golang/mod/blob/346a37af5599be02f125bd8bc0a5e1d33db21ddc/sumdb/tlog/tile.go#L171
+func (c *SumDBClient) tilePath(offset int) string {
 	nStr := fmt.Sprintf("%03d", offset%pathBase)
 	for offset >= pathBase {
 		offset /= pathBase
 		nStr = fmt.Sprintf("x%03d/%s", offset%pathBase, nStr)
 	}
-	data, err := c.fetcher.GetData(fmt.Sprintf("/tile/%d/data/%s.p/%d", c.height, nStr, count))
-	if err != nil {
-		return nil, err
-	}
-	return dataToLeaves(data), nil
+	return nStr
 }
 
 func dataToLeaves(data []byte) [][]byte {
@@ -115,12 +120,7 @@ func dataToLeaves(data []byte) [][]byte {
 
 // TileHashes gets the hashes at the given level and offset.
 func (c *SumDBClient) TileHashes(level, offset int) ([]tlog.Hash, error) {
-	nStr := fmt.Sprintf("%03d", offset%pathBase)
-	for offset >= pathBase {
-		offset /= pathBase
-		nStr = fmt.Sprintf("x%03d/%s", offset%pathBase, nStr)
-	}
-	data, err := c.fetcher.GetData(fmt.Sprintf("/tile/%d/%d/%s", c.height, level, nStr))
+	data, err := c.fetcher.GetData(fmt.Sprintf("/tile/%d/%d/%s", c.height, level, c.tilePath(offset)))
 	if err != nil {
 		return nil, err
 	}

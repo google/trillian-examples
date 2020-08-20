@@ -19,7 +19,8 @@ Currently the examples here are:
  * [tritter](tritter): An example / demo of a chat service with audit
    capability.
 
- * [sumdbaudit](sumdbaudit): Demonstration of an auditor for the GoLang SumDB
+ * [sumdbaudit](sumdbaudit): Demonstration of an auditor for the
+   [GoLang SumDB](https://go.googlesource.com/proposal/+/master/design/25530-sumdb.md)
    module proxy, which clones a log and verifies the data in it.
 
 These examples are not supported per-se, but the Trillian team will likely try

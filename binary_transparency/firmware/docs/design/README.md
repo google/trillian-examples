@@ -64,7 +64,7 @@ This model builds in the idea of a firmware manifest file while commits to the
 contents of the firmware image along with some metadata.
 
 #### **System<sup>FIRMWARE</sup>**:
-System<sup>FIRMWARE</sup> talks only about the blaims inherent in the signature
+System<sup>FIRMWARE</sup> talks only about the claims inherent in the signature
 over the firmware made by the firmware vendor.
 
    * **Claim<sup>FIRMWARE</sup>**
@@ -124,3 +124,113 @@ System<sup>FIRMWARE</sup> above.
   Who can kick a log out for misbehaving?
 
 
+### Overview
+
+The design for the demo consists of a number of different entities which play
+the roles described in the claimant model above, these are shown in the
+following diagram:
+
+![overview diagram](./overview.svg)
+
+For clarity, the mapping of actors to claimant model roles are listed explicitly here:
+
+**Firmware vendor**:
+* Claimant<sup>FIRMWARE</sup>
+
+**Update client**:
+* Believer<sup>FIRMWARE</sup>
+* Believer<sup>FIRMWARE_LOG</sup>
+* Verifier<sup>FIRMWARE_LOG</sup> (when used with STH Witness)
+
+**Target device (toaster)**:
+* Believer<sup>FIRMWARE</sup>
+* Believer<sup>FIRMWARE_LOG</sup>
+
+**Log**:
+* Claimant<sup>FIRMWARE_LOG</sup>
+
+**STH Witness**:
+* Verifier<sup>FIRMWARE_LOG</sup>
+
+**Interested Observer**:
+* Verifier<sup>FIRMWARE</sup>
+* Verifier<sup>FIRMWARE_LOG</sup>
+
+There are no Arbiters in the demo.
+
+#### Caveats/Scope
+
+For the purposes of the demo, the "on device" enforcement will be implemented
+at the bootloader level.
+Clearly, in a production system we'd expect to see this enforcement implemented
+inside mask ROM, or some other similarly secure location, however for the
+purpose of demonstrating the required functionality the bootloader will serve
+well enough.
+
+### Demo script
+> :warning: Drafty!
+
+The "target" demo-script is below:
+
+#### Preparation
+1. Partition SDCard:
+   1. bootloader "firmware/fake ROM"
+      This will validate proofs, and jump to the unikernel in `partition 2` if
+      everything is good, otherwise it will light the RED LED and halt the
+      device.
+   1. unikernel (this is the only partition covered by firmware manifest)
+      This is a simple app which simply flashes the GREEN LED.
+   1. proof storage
+1. flash our "fake ROM" primary boot loader onto "toaster" SD card `partition 1`
+
+#### Happy Path
+1. Build/package a simple "helloworld" unikernel which blinks an LED
+1. Log it to the log
+1. Note that the "interested observer" has spotted a new firmware and printed
+   something out about it to `stdout`
+1. Run the `update firmware on toaster` tool, which:
+    1. fetches STH from STH witness
+    1. verifies signatures on:
+       1. Firmware manifest
+       1. STH<sub>device</sub> (the on-device STH used to install the current
+          firmware)
+       1. STH<sub>update</sub> (the STH provided with the firmware update)
+       1. STH<sub>witness</sub> (the STH fetched from the witness)
+    1. verifies that STH<sub>device</sub>, STH<sub>update</sub>, and
+       STH<sub>witness</sub> are on a single timeline <br>
+      _(note that care must be taken if relationship STH<sub>device</sub> <=
+      STH<sub>update</sub> <= STH<sub>witness</sub> does not hold)_
+    1. verifies inclusion of `Firmware manifest` under STH<sub>update</sub>
+    1. if successful, writes:
+       1. Firmware image to SDCard `partition 2`
+       1. Firmware manifest, STH<sub>update</sub> & inclusion proof to SD card `partition 3`
+1. reboot, device loads "bootloader" from SD `partition 1`, which:
+    1. verifies signature on STH<sub>update</sub>
+    1. verifies signature on Firmware manifest
+    1. verifies inclusion proof for manifest
+    1. verifies _measurement_ of SD card `partition 2` matches manifest
+    1. if successful, jumps into unikernel -> blinky LED \o/
+
+#### Sad Path
+1. Modify `unikernel` source, rebuild, but **DON'T** log it
+1. Show that `update firmware on toaster` tool fails because no inclusion proof
+   is present
+1. Re-run `update tool` with `--force` flag and supply proofs from earlier
+   build
+1. Reboot, observe that the bootloader fails to verify the proofs, and sets
+   the big RED LED and halts the device.
+
+#### Return To Happiness
+1. Update `unikernel` source again, and rebuild, this time **DO* log as we
+   originally did
+1. Note that the `Interested Observer` again spots the new firmware, flash to
+   device
+1. Reboot, and note the unikernel is running and flashing the GREEN LED.
+
+
+#### Other Sad Paths
+There are some more Sad Paths we can explore in order to highlight security
+properties of the system, e.g.:
+1. Split view by log
+   Fork the log and show that the install client is unable to verify consistency between the update, device, and witness STHs.
+   For a tighter system which prevents against a compromised update client, the STH witness responses can be stored along with proofs on the device such that the device itself does the "consensus" algorithm to figure out which of the witness STHs should be used.

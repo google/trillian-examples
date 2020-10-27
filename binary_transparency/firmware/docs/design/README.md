@@ -221,7 +221,7 @@ The "target" demo-script is below:
    the big RED LED and halts the device.
 
 #### Return To Happiness
-1. Update `unikernel` source again, and rebuild, this time **DO* log as we
+1. Update `unikernel` source again, and rebuild, this time **DO** log as we
    originally did
 1. Note that the `Interested Observer` again spots the new firmware, flash to
    device

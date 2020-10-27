@@ -12,15 +12,15 @@ demo.
      No access to firmware signing key, but can attempt to quietly modify
      the source tree.
      Notes:
-         * should be visible with code-review enforcement, commit audit etc.
-         * FT enables impact to be known (how many, and which builds were
+       * should be visible with code-review enforcement, commit audit etc.
+       * FT enables impact to be known (how many, and which builds were
            affected)
   1. Build firmware from patched tree
      Able to modify source tree prior to build pipeline, no direct access to
      firmware signing key, but pipeline will result in signed firmware.
      Notes:
-         * Patched builds must be logged, or they are useless.
-         * FT enables discoverability for automatic detection if reproducible
+       * Patched builds must be logged, or they are useless.
+       * FT enables discoverability for automatic detection if reproducible
            builds are possible, and manual forensic inspection if not. Either
            way, evidence is publicly available.
   1. Full control of signing key.
@@ -32,16 +32,16 @@ demo.
   1. Compromised firmware download server (e.g. CDN)
      Can replace/modify firmware update files made available for download/
      distribution.
-         * DoS/block updates
-         * Rollbacks
+       * DoS/block updates
+       * Rollbacks
   1. On-path adversary for firmware downloads
      Can intercept and modify firmware update downloads.
 1. Device-local risk
   1. Compromised local-machine used to update device firmware
      Attacker can modify downloaded firmware update files, and run arbitrary
      code on local machine used to update firmware on target device.
-         * Can DoS/block updates
-         * Rollback updates?
+       * Can DoS/block updates
+       * Rollback updates?
   1. Physical access to low-level interfaces on target device
      Attacker has arbitrary access to the device whose firmware is to be
      updated.
@@ -71,7 +71,7 @@ over the firmware made by the firmware vendor.
     _I, Vendor, claim that the firmware described by this manifest_:
       1. has cryptographic hash X
       1. is unique for the specified {device, class, version} tuple
-      1. is functionally correct, and without known attack vectors _
+      1. is functionally correct, and without known attack vectors
 *   **Statement<sup>FIRMWARE</sup>**: signed firmware manifest file
 *   **Claimant<sup>FIRMWARE</sup>**: firmware vendor
 *   **Believer<sup>FIRMWARE</sup>**:
@@ -123,8 +123,7 @@ System<sup>FIRMWARE</sup> above.
 * **Arbiter<sup>FIRMWARE_LOG</sup>**:
   Who can kick a log out for misbehaving?
 
-
-### Overview
+## Overview
 
 The design for the demo consists of a number of different entities which play
 the roles described in the claimant model above, these are shown in the
@@ -158,7 +157,7 @@ For clarity, the mapping of actors to claimant model roles are listed explicitly
 
 There are no Arbiters in the demo.
 
-#### Caveats/Scope
+### Caveats/Scope
 
 For the purposes of the demo, the "on device" enforcement will be implemented
 at the bootloader level.
@@ -167,70 +166,87 @@ inside mask ROM, or some other similarly secure location, however for the
 purpose of demonstrating the required functionality the bootloader will serve
 well enough.
 
-### Demo script
+## Demo script
 > :warning: Drafty!
 
-The "target" demo-script is below:
+The current demo-script is below:
 
-#### Preparation
-1. Partition SDCard:
-   1. bootloader "firmware/fake ROM"
-      This will validate proofs, and jump to the unikernel in `partition 2` if
-      everything is good, otherwise it will light the RED LED and halt the
-      device.
-   1. unikernel (this is the only partition covered by firmware manifest)
-      This is a simple app which simply flashes the GREEN LED.
-   1. proof storage
-1. flash our "fake ROM" primary boot loader onto "toaster" SD card `partition 1`
+### Preparation
+1. Partition SD card into the following partitions:
+   * **bootloader**
 
-#### Happy Path
-1. Build/package a simple "helloworld" unikernel which blinks an LED
-1. Log it to the log
-1. Note that the "interested observer" has spotted a new firmware and printed
-   something out about it to `stdout`
-1. Run the `update firmware on toaster` tool, which:
-    1. fetches STH from STH witness
-    1. verifies signatures on:
+      This will contain our "fake ROM" which will validate proofs and
+      jump to the unikernel in the `unikernel` if everything is good, otherwise
+      it will light the RED LED and halt the device.
+
+   * **unikernel**
+
+      This will contain a simple app which simply flashes the GREEN LED, it is
+      the only partition covered by firmware manifest.
+
+   * **proof storage**
+
+      This will contain the firmware manifest, STHs, and inclusion &
+      consistency proofs.
+
+1. Write our "fake ROM" primary bootloader onto "toaster" SD card's
+   `bootloader` partition.
+
+### Happy Path
+1. Build & package a simple "helloworld" unikernel which blinks an LED
+1. Add it to the log
+   * Note that the `Interested Observer` spots the new firmware and prints
+     something out about it to `stdout`
+1. Run the `update_firmware_on_toaster` tool, which:
+    1. Verifies signatures on:
        1. Firmware manifest
        1. STH<sub>device</sub> (the on-device STH used to install the current
           firmware)
        1. STH<sub>update</sub> (the STH provided with the firmware update)
-       1. STH<sub>witness</sub> (the STH fetched from the witness)
-    1. verifies that STH<sub>device</sub>, STH<sub>update</sub>, and
+    1. Chooses an STH<sub>witness</sub> from STH witness which is at least as new
+       as STH<sub>update</sub>, or delays and retries if none
+    1. Verifies signature on STH<sub>witness</sub>
+    1. Verifies that STH<sub>device</sub>, STH<sub>update</sub>, and
        STH<sub>witness</sub> are on a single timeline <br>
       _(note that care must be taken if relationship STH<sub>device</sub> <=
       STH<sub>update</sub> <= STH<sub>witness</sub> does not hold)_
-    1. verifies inclusion of `Firmware manifest` under STH<sub>update</sub>
-    1. if successful, writes:
-       1. Firmware image to SDCard `partition 2`
-       1. Firmware manifest, STH<sub>update</sub> & inclusion proof to SD card `partition 3`
-1. reboot, device loads "bootloader" from SD `partition 1`, which:
-    1. verifies signature on STH<sub>update</sub>
-    1. verifies signature on Firmware manifest
-    1. verifies inclusion proof for manifest
-    1. verifies _measurement_ of SD card `partition 2` matches manifest
-    1. if successful, jumps into unikernel -> blinky LED \o/
+    1. Verifies inclusion of `Firmware manifest` under STH<sub>update</sub>
 
-#### Sad Path
+       If successful, writes:
+        1. Firmware image to SD card `unikernel` partition
+        1. Firmware manifest, STH<sub>update</sub> & inclusion proof to SD card `proof storage` partition`
+
+        (otherwise prints an error)
+1. Reboot device, which loads "bootloader" from SD `bootloader` partition, that:
+    1. Verifies signature on STH<sub>update</sub>
+    1. Verifies signature on Firmware manifest
+    1. Verifies inclusion proof for manifest
+    1. Verifies _measurement_ of SD card `unikernel` partition matches manifest
+
+        If successful jumps into unikernel -> blinky GREEN LED \o/
+
+        (otherwise lights the RED LED).
+
+### Sad Path
 1. Modify `unikernel` source, rebuild, but **DON'T** log it
-1. Show that `update firmware on toaster` tool fails because no inclusion proof
+1. Show that `update_firmware_on_toaster` tool fails because no inclusion proof
    is present
-1. Re-run `update tool` with `--force` flag and supply proofs from earlier
+1. Re-run `update_firmware_on_toaster` tool with `--force` flag and supply proofs from earlier
    build
 1. Reboot, observe that the bootloader fails to verify the proofs, and sets
    the big RED LED and halts the device.
 
-#### Return To Happiness
+### Return To Happiness
 1. Update `unikernel` source again, and rebuild, this time **DO** log as we
    originally did
-1. Note that the `Interested Observer` again spots the new firmware, flash to
-   device
+   * Note that the `Interested Observer` again spots the new firmware
+1. Flash unikernel to device using the `update_firmware_on_toaster` tool
 1. Reboot, and note the unikernel is running and flashing the GREEN LED.
 
-
-#### Other Sad Paths
+### Other Sad Paths
 There are some more Sad Paths we can explore in order to highlight security
 properties of the system, e.g.:
-1. Split view by log
+1. **Split view by log**
+
    Fork the log and show that the install client is unable to verify consistency between the update, device, and witness STHs.
    For a tighter system which prevents against a compromised update client, the STH witness responses can be stored along with proofs on the device such that the device itself does the "consensus" algorithm to figure out which of the witness STHs should be used.

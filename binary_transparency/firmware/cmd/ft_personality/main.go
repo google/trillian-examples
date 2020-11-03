@@ -1,4 +1,6 @@
 // This package is the entrypoint for the Firmware Transparency personality server.
+// Start the server using:
+// go run ./cmd/ft_personality/main.go --logtostderr -v=2
 package main
 
 import (

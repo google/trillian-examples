@@ -1,4 +1,4 @@
-// Package internal contains private implementation details for the FirmwareTransparency personality server.
+// Package http contains private implementation details for the FirmwareTransparency personality server.
 package http
 
 import (
@@ -19,7 +19,7 @@ type Server struct {
 // TODO(al): store the actual firmware image in a CAS too.
 //
 // Example usage:
-// curl -i -X POST -H 'Content-Type: application/json' --data '@testdata/firmware_statement.json' localhost:8000/ft/v0/add_firmware
+// curl -i -X POST -H 'Content-Type: application/json' --data '@testdata/firmware_statement.json' localhost:8000/ft/v0/add-firmware
 func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	stmt := api.FirmwareStatement{}
 	if err := json.NewDecoder(r.Body).Decode(&stmt); err != nil {
@@ -44,7 +44,7 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	glog.V(1).Infof("Got firmware %+v", meta)
 }
 
-// getConsitency returns consistency proofs between publised tree sizes.
+// getConsistency returns consistency proofs between published tree sizes.
 func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not implemented", http.StatusNotImplemented)
 }

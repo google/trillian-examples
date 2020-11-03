@@ -90,3 +90,28 @@ unless they have been made discoverable through being logged.
  - [ ] Build simple monitor to tail the log and dump info from meta-data in realtime.
  - [ ] Integrate STH Witness support.
 
+Running the Demo
+----------------
+Prerequisites:
+* Install Docker
+* Install Go (1.15+)
+* Checkout:
+  * This repo (FT)
+  * [Trillian](https://github.com/google/trillian)
+
+Terminal 1 - Trillian:
+* Open terminal in root of trillian git repo
+* `export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"`
+* `docker-compose -f examples/deployment/docker-compose.yml up`
+
+Terminal 3 - Provision Log Tree:
+* `go run github.com/google/trillian/cmd/createtree --admin_server=localhost:8090`
+  * Note the tree ID that is returned, it will be referred to as $TREE_ID
+
+Terminal 2 - FT Personality:
+* Open terminal in root of ft-demo git repo
+* `go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID`
+
+Terminal 3 - Add Something:
+* `curl -i -X POST -H 'Content-Type: application/json' --data '@testdata/firmware_statement.json' localhost:8000/ft/v0/add-firmware`
+* You should see output in Terminal 1 and Terminal 2

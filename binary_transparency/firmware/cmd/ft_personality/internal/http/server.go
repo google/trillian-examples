@@ -2,16 +2,27 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
 // Server is the core state & handler implementation of the FT personality.
 type Server struct {
+	c *client.LogClient
+}
+
+// NewServer creates a new server that interfaces with the given Trillian logger.
+func NewServer(c *client.LogClient) *Server {
+	return &Server{
+		c: c,
+	}
 }
 
 // addFirmware handles requests to log new firmware images.
@@ -22,7 +33,15 @@ type Server struct {
 // curl -i -X POST -H 'Content-Type: application/json' --data '@testdata/firmware_statement.json' localhost:8000/ft/v0/add-firmware
 func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	stmt := api.FirmwareStatement{}
-	if err := json.NewDecoder(r.Body).Decode(&stmt); err != nil {
+
+	// Store the original bytes as statement to avoid a round-trip (de)serialization.
+	statement, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -42,6 +61,10 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	}
 
 	glog.V(1).Infof("Got firmware %+v", meta)
+
+	// TODO(mhutchinson): This blocks until the statement is integrated into the log.
+	// This _may_ be OK for a demo, but it really should be split.
+	s.c.AddLeaf(r.Context(), statement)
 }
 
 // getConsistency returns consistency proofs between published tree sizes.

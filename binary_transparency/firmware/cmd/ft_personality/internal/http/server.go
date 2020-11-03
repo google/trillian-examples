@@ -72,8 +72,8 @@ func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not implemented", http.StatusNotImplemented)
 }
 
-// getFirmwareEntries returns the leaves in the tree.
-func (s *Server) getFirmwareEntries(w http.ResponseWriter, r *http.Request) {
+// getManifestEntries returns the leaves in the tree.
+func (s *Server) getManifestEntries(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not implemented", http.StatusNotImplemented)
 }
 
@@ -84,8 +84,8 @@ func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.
 func (s *Server) RegisterHandlers() {
-	http.HandleFunc("/ft/v0/add-firmware", s.addFirmware)
-	http.HandleFunc("/ft/v0/get-consistency", s.getConsistency)
-	http.HandleFunc("/ft/v0/get-firmware-entries", s.getFirmwareEntries)
-	http.HandleFunc("/ft/v0/get-root", s.getRoot)
+	http.HandleFunc(api.HTTPAddFirmware, s.addFirmware)
+	http.HandleFunc(api.HTTPGetConsistency, s.getConsistency)
+	http.HandleFunc(api.HTTPGetManifestEntries, s.getManifestEntries)
+	http.HandleFunc(api.HTTPGetRoot, s.getRoot)
 }

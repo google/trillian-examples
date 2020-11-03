@@ -66,17 +66,17 @@ unless they have been made discoverable through being logged.
 > [F-Secure USB Armory Mk II](https://inversepath.com/usbarmory.html) in mind.
 > Would be nice if we can make this work with QEmu too.
 
- - [ ] Define a [claimant model](https://github.com/google/trillian/tree/master/docs/claimantmodel)
-       description.
+ - [X] Define a [claimant model](https://github.com/google/trillian/tree/master/docs/claimantmodel)
+       description: [FT Claimant Model](./docs/design/README.md#claimant-model)
  - [ ] Specify/document a system architecture for that model.
- - [X] Come up with some metadata format.
+ - [X] Come up with some metadata format: [FirmwareMetadata](./api/firmware_metadata.go)
  - [ ] Build a simple personality around that format.
  - [ ] Build a simple tool to create metadata given a "boot" image (e.g. Linux
      Kernel, Tamago unikernel, etc.), and log it via the personality.
  - [ ] Figure out a way to package the metadata with the bootable image.
  - [ ] Use [armory-boot](https://github.com/f-secure-foundry/armory-boot) as
      the boot loader (pretend it was in mask ROM for now, *hand-wave*).
- - [ ] Clone & modify amory-boot so that it will refuse to launch the boot image
+ - [ ] Clone & modify armory-boot so that it will refuse to launch the boot image
      unless all of the following are true:
     - [ ] the metadata is present.
     - [ ] the metadata has a "valid" signature (perhaps using the "LOL! Sig"

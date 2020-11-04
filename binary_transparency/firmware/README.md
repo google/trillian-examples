@@ -113,5 +113,7 @@ Terminal 2 - FT Personality:
 * `go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID`
 
 Terminal 3 - Add Something:
-* `curl -i -X POST -H 'Content-Type: application/json' --data '@testdata/firmware_statement.json' localhost:8000/ft/v0/add-firmware`
-* You should see output in Terminal 1 and Terminal 2
+* `go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./README.md`
+* `curl -i localhost:8000/ft/v0/get-root`
+  * This should show a non-zero tree size
+  * Note that this will only increase for each **unique** manifest published

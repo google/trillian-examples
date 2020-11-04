@@ -72,5 +72,7 @@ func newTrillianLogger(ctx context.Context, timeout time.Duration, logAddr strin
 	log := trillian.NewTrillianLogClient(conn)
 	c := client.New(treeID, log, v, tt.LogRootV1{})
 
+	// Start off with an up-to-date root
+	c.UpdateRoot(ctx)
 	return c, func() { conn.Close() }, nil
 }

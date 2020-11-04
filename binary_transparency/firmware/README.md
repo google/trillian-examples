@@ -93,14 +93,14 @@ unless they have been made discoverable through being logged.
 Running the Demo
 ----------------
 Prerequisites:
-* Install Docker
+* Install Docker and docker-compose
 * Install Go (1.15+)
 * Checkout:
   * This repo (FT)
   * [Trillian](https://github.com/google/trillian)
 
 Terminal 1 - Trillian:
-* Open terminal in root of trillian git repo
+* Open terminal in root of `trillian` git repo
 * `export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"`
 * `docker-compose -f examples/deployment/docker-compose.yml up`
 
@@ -109,10 +109,11 @@ Terminal 3 - Provision Log Tree:
   * Note the tree ID that is returned, it will be referred to as $TREE_ID
 
 Terminal 2 - FT Personality:
-* Open terminal in root of ft-demo git repo
+* Open terminal in root of `firmware-transparency-demo` git repo
 * `go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID`
 
 Terminal 3 - Add Something:
+* Open terminal in root of `firmware-transparency-demo` git repo
 * `go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./README.md`
 * `curl -i localhost:8000/ft/v0/get-root`
   * This should show a non-zero tree size

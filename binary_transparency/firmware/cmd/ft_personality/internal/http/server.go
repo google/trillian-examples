@@ -97,8 +97,8 @@ func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.
 func (s *Server) RegisterHandlers() {
-	http.HandleFunc(api.HTTPAddFirmware, s.addFirmware)
-	http.HandleFunc(api.HTTPGetConsistency, s.getConsistency)
-	http.HandleFunc(api.HTTPGetManifestEntries, s.getManifestEntries)
-	http.HandleFunc(api.HTTPGetRoot, s.getRoot)
+	http.HandleFunc(fmt.Sprintf("/%s", api.HTTPAddFirmware), s.addFirmware)
+	http.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetConsistency), s.getConsistency)
+	http.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetManifestEntries), s.getManifestEntries)
+	http.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetRoot), s.getRoot)
 }

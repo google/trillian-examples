@@ -79,7 +79,20 @@ func (s *Server) getManifestEntries(w http.ResponseWriter, r *http.Request) {
 
 // getRoot returns a recent tree root.
 func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+	sth := s.c.GetRoot()
+	checkpoint := api.LogCheckpoint{
+		TreeSize:       sth.TreeSize,
+		RootHash:       sth.RootHash,
+		TimestampNanos: sth.TimestampNanos,
+	}
+	js, err := json.Marshal(checkpoint)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
 }
 
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.

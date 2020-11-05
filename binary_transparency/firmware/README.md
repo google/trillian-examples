@@ -102,7 +102,7 @@ Prerequisites:
 Terminal 1 - Trillian:
 * Open terminal in root of `trillian` git repo
 * `export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"`
-* `docker-compose -f examples/deployment/docker-compose.yml up`
+* `docker-compose -f examples/deployment/docker-compose.yml up trillian-log-server trillian-log-signer`
 
 Terminal 3 - Provision Log Tree:
 * `go run github.com/google/trillian/cmd/createtree --admin_server=localhost:8090`

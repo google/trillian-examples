@@ -9,17 +9,17 @@ import (
 	"net/http"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
 )
 
 // Server is the core state & handler implementation of the FT personality.
 type Server struct {
-	c *client.LogClient
+	c *trillian.Client
 }
 
 // NewServer creates a new server that interfaces with the given Trillian logger.
-func NewServer(c *client.LogClient) *Server {
+func NewServer(c *trillian.Client) *Server {
 	return &Server{
 		c: c,
 	}
@@ -61,10 +61,9 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	}
 
 	glog.V(1).Infof("Got firmware %+v", meta)
-
-	// TODO(mhutchinson): This blocks until the statement is integrated into the log.
-	// This _may_ be OK for a demo, but it really should be split.
-	s.c.AddLeaf(r.Context(), statement)
+	if err := s.c.AddFirmwareManifest(r.Context(), statement); err != nil {
+		http.Error(w, fmt.Sprintf("failed to log firmware to Trillian %v", err), http.StatusInternalServerError)
+	}
 }
 
 // getConsistency returns consistency proofs between published tree sizes.

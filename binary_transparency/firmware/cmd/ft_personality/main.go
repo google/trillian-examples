@@ -8,16 +8,12 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian"
-	"github.com/google/trillian/client"
-	tt "github.com/google/trillian/types"
-	"google.golang.org/grpc"
 	ih "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/http"
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
 
 	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
 )
@@ -37,42 +33,16 @@ func main() {
 		glog.Exitf("tree_id is required")
 	}
 	glog.Infof("Connecting to Trillian Log...")
-	tlog, close, err := newTrillianLogger(context.Background(), *connectTimeout, *trillianAddr, *treeID)
+	tclient, err := trillian.NewClient(context.Background(), *connectTimeout, *trillianAddr, *treeID)
 	if err != nil {
 		glog.Exitf("failed to connect to Trillian: %v", err)
 	}
-	defer close()
+	defer tclient.Close()
 
 	glog.Infof("Starting FT personality server...")
-	srv := ih.NewServer(tlog)
+	srv := ih.NewServer(tclient)
 
 	srv.RegisterHandlers()
 
 	glog.Fatal(http.ListenAndServe(*listenAddr, nil))
-}
-
-func newTrillianLogger(ctx context.Context, timeout time.Duration, logAddr string, treeID int64) (*client.LogClient, func(), error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	conn, err := grpc.DialContext(ctx, logAddr, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		return nil, nil, fmt.Errorf("did not connect to trillian on %v: %v", logAddr, err)
-	}
-	admin := trillian.NewTrillianAdminClient(conn)
-	tree, err := admin.GetTree(ctx, &trillian.GetTreeRequest{TreeId: treeID})
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get tree %d: %v", treeID, err)
-	}
-	glog.Infof("Got tree %v", tree)
-	v, err := client.NewLogVerifierFromTree(tree)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create verifier from tree: %v", err)
-	}
-
-	log := trillian.NewTrillianLogClient(conn)
-	c := client.New(treeID, log, v, tt.LogRootV1{})
-
-	// Start off with an up-to-date root
-	c.UpdateRoot(ctx)
-	return c, func() { conn.Close() }, nil
 }

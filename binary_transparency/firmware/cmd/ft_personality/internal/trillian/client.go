@@ -88,9 +88,9 @@ func (c *Client) AddFirmwareManifest(ctx context.Context, data []byte) error {
 	return err
 }
 
-// GetRoot returns the most recent root seen by this client.
+// Root returns the most recent root seen by this client.
 // Use UpdateRoot() to update this client's view of the latest root.
-func (c *Client) GetRoot() *types.LogRootV1 {
+func (c *Client) Root() *types.LogRootV1 {
 	c.goldenLock.Lock()
 	defer c.goldenLock.Unlock()
 
@@ -102,7 +102,7 @@ func (c *Client) GetRoot() *types.LogRootV1 {
 // UpdateRoot retrieves the current SignedLogRoot, verifying it against roots this client has
 // seen in the past, and updating the currently trusted root if the new root verifies, and is
 // newer than the currently trusted root.
-// After returning, the most recent verified root will be obtainable via c.GetRoot().
+// After returning, the most recent verified root will be obtainable via c.Root().
 func (c *Client) UpdateRoot(ctx context.Context) error {
 	// Only one root update should be running at any point in time, because
 	// the update involves a consistency proof from the old value, and if the
@@ -110,7 +110,7 @@ func (c *Client) UpdateRoot(ctx context.Context) error {
 	// result could be inconsistent.
 	c.updateLock.Lock()
 	defer c.updateLock.Unlock()
-	golden := c.GetRoot()
+	golden := c.Root()
 
 	resp, err := c.client.GetLatestSignedLogRoot(ctx,
 		&trillian.GetLatestSignedLogRootRequest{
@@ -140,6 +140,19 @@ func (c *Client) UpdateRoot(ctx context.Context) error {
 
 	c.golden = newRoot
 	return nil
+}
+
+// ConsistencyProof gets the consistency proof between two given tree sizes.
+func (c *Client) ConsistencyProof(ctx context.Context, from, to uint64) ([][]byte, error) {
+	cp, err := c.client.GetConsistencyProof(ctx, &trillian.GetConsistencyProofRequest{
+		LogId:          c.logID,
+		FirstTreeSize:  int64(from),
+		SecondTreeSize: int64(to),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return cp.Proof.Hashes, nil
 }
 
 // Close finishes the underlying connections and tidies up after the Client is finished.

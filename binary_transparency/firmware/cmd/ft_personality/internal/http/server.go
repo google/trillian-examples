@@ -68,7 +68,43 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 
 // getConsistency returns consistency proofs between published tree sizes.
 func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+	cr := api.GetConsistencyRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&cr); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validation on the tree sizes being requested.
+	if cr.FromSize == 0 {
+		http.Error(w, fmt.Sprintf("fromSize %d must be larger than 0", cr.FromSize), http.StatusBadRequest)
+		return
+	}
+	if cr.FromSize > cr.ToSize {
+		http.Error(w, fmt.Sprintf("fromSize %d > toSize %d", cr.FromSize, cr.ToSize), http.StatusBadRequest)
+		return
+	}
+	goldenSize := s.c.Root().TreeSize
+	if cr.ToSize > goldenSize {
+		http.Error(w, fmt.Sprintf("requested tree size %d > current tree size %d", cr.ToSize, goldenSize), http.StatusBadRequest)
+		return
+	}
+
+	// Tree sizes requested seem reasonable, so fetch and return the proof.
+	proof, err := s.c.ConsistencyProof(r.Context(), cr.FromSize, cr.ToSize)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get consistency proof: %v", err), http.StatusInternalServerError)
+	}
+	cp := api.ConsistencyProof{
+		Proof: proof,
+	}
+
+	js, err := json.Marshal(cp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
 }
 
 // getManifestEntries returns the leaves in the tree.
@@ -78,7 +114,7 @@ func (s *Server) getManifestEntries(w http.ResponseWriter, r *http.Request) {
 
 // getRoot returns a recent tree root.
 func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
-	sth := s.c.GetRoot()
+	sth := s.c.Root()
 	checkpoint := api.LogCheckpoint{
 		TreeSize:       sth.TreeSize,
 		RootHash:       sth.RootHash,
@@ -89,7 +125,6 @@ func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(js)
 }

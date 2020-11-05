@@ -4,6 +4,7 @@ package trillian
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -16,8 +17,14 @@ import (
 
 // Client represents the personality's view of the Trillian Log.
 type Client struct {
-	c    *client.LogClient
-	done func()
+	*client.LogVerifier
+
+	logID      int64
+	client     trillian.TrillianLogClient
+	golden     types.LogRootV1
+	goldenLock sync.Mutex
+	updateLock sync.Mutex
+	done       func()
 }
 
 // NewClient returns a new client that will read/write to the given treeID at
@@ -47,31 +54,92 @@ func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeI
 	}
 
 	log := trillian.NewTrillianLogClient(conn)
-	c := client.New(treeID, log, v, tt.LogRootV1{})
 
-	// Start off with an up-to-date root
-	c.UpdateRoot(ctx)
-	return &Client{
-		c:    c,
-		done: func() { conn.Close() },
-	}, nil
+	// This implicitly trusts whatever state the log now reports.
+	// If the log is considered outside of the personality's TCB
+	// (https://en.wikipedia.org/wiki/Trusted_computing_base) then this
+	// initial state should be read from some local storage from the last
+	// time the personality ran.
+	golden := tt.LogRootV1{}
+
+	client := &Client{
+		LogVerifier: v,
+		logID:       treeID,
+		client:      log,
+		golden:      golden,
+		done:        func() { conn.Close() },
+	}
+
+	return client, nil
 }
 
 // AddFirmwareManifest adds the firmware manifest to the log if it isn't already present.
-// TODO(mhutchinson): This blocks until the statement is integrated into the log.
-// This _may_ be OK for a demo, but it really should be split.
 func (c *Client) AddFirmwareManifest(ctx context.Context, data []byte) error {
-	return c.c.AddLeaf(ctx, data)
+	leafHash := c.Hasher.HashLeaf(data)
+	leaf := &trillian.LogLeaf{
+		LeafValue:      data,
+		MerkleLeafHash: leafHash,
+	}
+
+	_, err := c.client.QueueLeaf(ctx, &trillian.QueueLeafRequest{
+		LogId: c.logID,
+		Leaf:  leaf,
+	})
+	return err
 }
 
 // GetRoot returns the most recent root seen by this client.
-// Due to the nature of distributed systems there can be no guarantee that this is
-// globally the freshest root.
-// TODO(mhutchinson): This should have some promise of freshness, which could be obtained
-// by periodically updating the root in the background if we haven't fetched it for other
-// reasons.
+// Use UpdateRoot() to update this client's view of the latest root.
 func (c *Client) GetRoot() *types.LogRootV1 {
-	return c.c.GetRoot()
+	c.goldenLock.Lock()
+	defer c.goldenLock.Unlock()
+
+	// Copy the internal trusted root in order to prevent clients from modifying it.
+	ret := c.golden
+	return &ret
+}
+
+// UpdateRoot retrieves the current SignedLogRoot, verifying it against roots this client has
+// seen in the past, and updating the currently trusted root if the new root verifies, and is
+// newer than the currently trusted root.
+// After returning, the most recent verified root will be obtainable via c.GetRoot().
+func (c *Client) UpdateRoot(ctx context.Context) error {
+	// Only one root update should be running at any point in time, because
+	// the update involves a consistency proof from the old value, and if the
+	// old value could change along the way (in another goroutine) then the
+	// result could be inconsistent.
+	c.updateLock.Lock()
+	defer c.updateLock.Unlock()
+	golden := c.GetRoot()
+
+	resp, err := c.client.GetLatestSignedLogRoot(ctx,
+		&trillian.GetLatestSignedLogRootRequest{
+			LogId:         c.logID,
+			FirstTreeSize: int64(golden.TreeSize),
+		})
+	if err != nil {
+		return err
+	}
+	var newRoot types.LogRootV1
+	if err := newRoot.UnmarshalBinary(resp.GetSignedLogRoot().LogRoot); err != nil {
+		return err
+	}
+
+	if newRoot.TreeSize <= golden.TreeSize {
+		return nil
+	}
+
+	// The new root is fresher than our golden, let's check consistency and update
+	// the golden root if it verifies.
+	if _, err := c.VerifyRoot(golden, resp.GetSignedLogRoot(), resp.GetProof().GetHashes()); err != nil {
+		return err
+	}
+
+	c.goldenLock.Lock()
+	defer c.goldenLock.Unlock()
+
+	c.golden = newRoot
+	return nil
 }
 
 // Close finishes the underlying connections and tidies up after the Client is finished.

@@ -66,7 +66,7 @@ func main() {
 		glog.Exitf("failed to marshal statement: %v", err)
 	}
 
-	httpPath := fmt.Sprintf("http://%s%s", *logAddress, api.HTTPAddFirmware)
+	httpPath := fmt.Sprintf("http://%s/%s", *logAddress, api.HTTPAddFirmware)
 	resp, err := http.Post(httpPath, "application/json", bytes.NewBuffer(js))
 	if err != nil {
 		glog.Exitf("failed to publish to log endpoint (%s): %v", httpPath, err)

@@ -3,23 +3,36 @@ package http
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian/types"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
 )
+
+// Trillian is the interface to the Trillian Log required for the personality frontend.
+type Trillian interface {
+	// AddFirmwareManifest adds the firmware manifest to the log if it isn't already present.
+	AddFirmwareManifest(ctx context.Context, data []byte) error
+
+	// Root returns the most recent root seen by this client.
+	Root() *types.LogRootV1
+
+	// ConsistencyProof gets the consistency proof between two given tree sizes.
+	ConsistencyProof(ctx context.Context, from, to uint64) ([][]byte, error)
+}
 
 // Server is the core state & handler implementation of the FT personality.
 type Server struct {
-	c *trillian.Client
+	c Trillian
 }
 
 // NewServer creates a new server that interfaces with the given Trillian logger.
-func NewServer(c *trillian.Client) *Server {
+func NewServer(c Trillian) *Server {
 	return &Server{
 		c: c,
 	}

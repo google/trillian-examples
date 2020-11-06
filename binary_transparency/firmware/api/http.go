@@ -41,3 +41,17 @@ type GetConsistencyRequest struct {
 type ConsistencyProof struct {
 	Proof [][]byte
 }
+
+// GetFirmwareManifestRequest is sent to ask for the value at the given LeafIndex,
+// with an inclusion proof to the root at the given TreeSize.
+type GetFirmwareManifestRequest struct {
+	LeafIndex uint64
+	TreeSize  uint64
+}
+
+// InclusionProof contains the value at the requested index and the proof to the
+// requested tree size.
+type InclusionProof struct {
+	Value []byte
+	Proof [][]byte
+}

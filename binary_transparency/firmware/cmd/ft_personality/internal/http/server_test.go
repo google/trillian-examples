@@ -176,3 +176,84 @@ func TestGetConsistency(t *testing.T) {
 		})
 	}
 }
+
+func TestGetManifestEntries(t *testing.T) {
+	root := types.LogRootV1{TreeSize: 24, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}}
+	for _, test := range []struct {
+		desc                string
+		body                string
+		wantIndex, wantSize uint64
+		trillianData        []byte
+		trillianProof       [][]byte
+		trillianErr         error
+		wantStatus          int
+		wantBody            string
+	}{
+		{
+			desc:       "malformed request",
+			body:       "garbage",
+			wantStatus: http.StatusBadRequest,
+		}, {
+			desc:          "valid request",
+			body:          `{"LeafIndex": 1, "TreeSize": 24}`,
+			wantIndex:     1,
+			wantSize:      24,
+			trillianData:  []byte("leafdata"),
+			trillianProof: [][]byte{[]byte("pr"), []byte("oo"), []byte("f!")},
+			wantStatus:    http.StatusOK,
+			wantBody:      `{"Value":"bGVhZmRhdGE=","Proof":["cHI=","b28=","ZiE="]}`,
+		}, {
+			desc:       "TreeSize bigger than golden tree size",
+			body:       `{"LeafIndex": 1, "TreeSize": 29}`,
+			wantStatus: http.StatusBadRequest,
+		}, {
+			desc:       "LeafIndex larger than tree size",
+			body:       `{"LeafIndex": 1, "TreeSize": 0}`,
+			wantStatus: http.StatusBadRequest,
+		}, {
+			desc:       "LeafIndex equal to tree size",
+			body:       `{"LeafIndex": 4, "TreeSize": 4}`,
+			wantStatus: http.StatusBadRequest,
+		}, {
+			desc:        "valid request but trillian failure",
+			body:        `{"LeafIndex": 1, "TreeSize": 24}`,
+			wantIndex:   1,
+			wantSize:    24,
+			trillianErr: errors.New("boom"),
+			wantStatus:  http.StatusInternalServerError,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mt := NewMockTrillian(ctrl)
+			server := NewServer(mt)
+
+			mt.EXPECT().Root().
+				Return(&root)
+
+			mt.EXPECT().FirmwareManifestAtIndex(gomock.Any(), gomock.Eq(test.wantIndex), gomock.Eq(test.wantSize)).
+				Return(test.trillianData, test.trillianProof, test.trillianErr)
+
+			ts := httptest.NewServer(http.HandlerFunc(server.getManifestEntries))
+			defer ts.Close()
+
+			client := ts.Client()
+			resp, err := client.Post(ts.URL, "application/json", strings.NewReader(test.body))
+			if err != nil {
+				t.Errorf("error response: %v", err)
+			}
+			if got, want := resp.StatusCode, test.wantStatus; got != want {
+				t.Errorf("status code got != want (%d, %d)", got, want)
+			}
+			if len(test.wantBody) > 0 {
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					t.Errorf("failed to read body: %v", err)
+				}
+				if got, want := string(body), test.wantBody; got != test.wantBody {
+					t.Errorf("got '%s' want '%s'", got, want)
+				}
+			}
+		})
+	}
+}

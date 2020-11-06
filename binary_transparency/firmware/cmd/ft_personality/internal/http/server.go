@@ -24,6 +24,10 @@ type Trillian interface {
 
 	// ConsistencyProof gets the consistency proof between two given tree sizes.
 	ConsistencyProof(ctx context.Context, from, to uint64) ([][]byte, error)
+
+	// FirmwareManifestAtIndex gets the value at the given index and an inclusion proof
+	// to the given tree size.
+	FirmwareManifestAtIndex(ctx context.Context, index, treeSize uint64) ([]byte, [][]byte, error)
 }
 
 // Server is the core state & handler implementation of the FT personality.
@@ -106,6 +110,7 @@ func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 	proof, err := s.c.ConsistencyProof(r.Context(), cr.FromSize, cr.ToSize)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get consistency proof: %v", err), http.StatusInternalServerError)
+		return
 	}
 	cp := api.ConsistencyProof{
 		Proof: proof,
@@ -114,7 +119,7 @@ func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 	js, err := json.Marshal(cp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-
+		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(js)
@@ -122,7 +127,41 @@ func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 
 // getManifestEntries returns the leaves in the tree.
 func (s *Server) getManifestEntries(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "not implemented", http.StatusNotImplemented)
+	mr := api.GetFirmwareManifestRequest{}
+	if err := json.NewDecoder(r.Body).Decode(&mr); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Validation on the tree sizes being requested.
+	if mr.LeafIndex >= mr.TreeSize {
+		http.Error(w, fmt.Sprintf("LeafIndex %d >= TreeSize %d", mr.LeafIndex, mr.TreeSize), http.StatusBadRequest)
+		return
+	}
+	goldenSize := s.c.Root().TreeSize
+	if mr.TreeSize > goldenSize {
+		http.Error(w, fmt.Sprintf("requested tree size %d > current tree size %d", mr.TreeSize, goldenSize), http.StatusBadRequest)
+		return
+	}
+
+	// Tree sizes requested seem reasonable, so fetch and return the proof.
+	data, proof, err := s.c.FirmwareManifestAtIndex(r.Context(), mr.LeafIndex, mr.TreeSize)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get leaf & inclusion proof: %v", err), http.StatusInternalServerError)
+		return
+	}
+	cp := api.InclusionProof{
+		Value: data,
+		Proof: proof,
+	}
+
+	js, err := json.Marshal(cp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
 }
 
 // getRoot returns a recent tree root.

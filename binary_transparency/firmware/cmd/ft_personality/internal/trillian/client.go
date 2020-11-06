@@ -155,6 +155,20 @@ func (c *Client) ConsistencyProof(ctx context.Context, from, to uint64) ([][]byt
 	return cp.Proof.Hashes, nil
 }
 
+// FirmwareManifestAtIndex gets the value at the given index and an inclusion proof
+// to the given tree size.
+func (c *Client) FirmwareManifestAtIndex(ctx context.Context, index, treeSize uint64) ([]byte, [][]byte, error) {
+	ip, err := c.client.GetEntryAndProof(ctx, &trillian.GetEntryAndProofRequest{
+		LogId:     c.logID,
+		LeafIndex: int64(index),
+		TreeSize:  int64(treeSize),
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return ip.Leaf.LeafValue, ip.Proof.Hashes, nil
+}
+
 // Close finishes the underlying connections and tidies up after the Client is finished.
 func (c *Client) Close() {
 	c.done()

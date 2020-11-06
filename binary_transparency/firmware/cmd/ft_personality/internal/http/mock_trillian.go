@@ -62,6 +62,22 @@ func (mr *MockTrillianMockRecorder) ConsistencyProof(arg0, arg1, arg2 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConsistencyProof", reflect.TypeOf((*MockTrillian)(nil).ConsistencyProof), arg0, arg1, arg2)
 }
 
+// FirmwareManifestAtIndex mocks base method
+func (m *MockTrillian) FirmwareManifestAtIndex(arg0 context.Context, arg1, arg2 uint64) ([]byte, [][]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FirmwareManifestAtIndex", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].([][]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// FirmwareManifestAtIndex indicates an expected call of FirmwareManifestAtIndex
+func (mr *MockTrillianMockRecorder) FirmwareManifestAtIndex(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirmwareManifestAtIndex", reflect.TypeOf((*MockTrillian)(nil).FirmwareManifestAtIndex), arg0, arg1, arg2)
+}
+
 // Root mocks base method
 func (m *MockTrillian) Root() *types.LogRootV1 {
 	m.ctrl.T.Helper()

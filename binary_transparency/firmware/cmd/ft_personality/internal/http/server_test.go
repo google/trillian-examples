@@ -2,6 +2,7 @@ package http
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,8 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/google/trillian/types"
+	"github.com/gorilla/mux"
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
 func TestRoot(t *testing.T) {
@@ -87,11 +90,14 @@ func TestAddFirmware(t *testing.T) {
 			mt.EXPECT().AddFirmwareManifest(gomock.Any(), gomock.Eq([]byte(test.body))).
 				Return(test.trillianErr)
 
-			ts := httptest.NewServer(http.HandlerFunc(server.addFirmware))
+			r := mux.NewRouter()
+			server.RegisterHandlers(r)
+			ts := httptest.NewServer(r)
 			defer ts.Close()
 
 			client := ts.Client()
-			resp, err := client.Post(ts.URL, "application/json", strings.NewReader(test.body))
+			url := fmt.Sprintf("%s/%s", ts.URL, api.HTTPAddFirmware)
+			resp, err := client.Post(url, "application/json", strings.NewReader(test.body))
 			if err != nil {
 				t.Errorf("error response: %v", err)
 			}
@@ -106,7 +112,7 @@ func TestGetConsistency(t *testing.T) {
 	root := types.LogRootV1{TreeSize: 24, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}}
 	for _, test := range []struct {
 		desc             string
-		body             string
+		from, to         int
 		wantFrom, wantTo uint64
 		trillianProof    [][]byte
 		trillianErr      error
@@ -114,12 +120,9 @@ func TestGetConsistency(t *testing.T) {
 		wantBody         string
 	}{
 		{
-			desc:       "malformed request",
-			body:       "garbage",
-			wantStatus: http.StatusBadRequest,
-		}, {
 			desc:          "valid request",
-			body:          `{"FromSize": 1, "ToSize": 24}`,
+			from:          1,
+			to:            24,
 			wantFrom:      1,
 			wantTo:        24,
 			trillianProof: [][]byte{[]byte("pr"), []byte("oo"), []byte("f!")},
@@ -127,15 +130,18 @@ func TestGetConsistency(t *testing.T) {
 			wantBody:      `{"Proof":["cHI=","b28=","ZiE="]}`,
 		}, {
 			desc:       "ToSize bigger than tree size",
-			body:       `{"FromSize": 1, "ToSize": 25}`,
+			from:       1,
+			to:         25,
 			wantStatus: http.StatusBadRequest,
 		}, {
 			desc:       "FromSize too large",
-			body:       `{"FromSize": 15, "ToSize": 12}`,
+			from:       15,
+			to:         12,
 			wantStatus: http.StatusBadRequest,
 		}, {
 			desc:        "valid request but trillian failure",
-			body:        `{"FromSize": 11, "ToSize": 15}`,
+			from:        11,
+			to:          15,
 			wantFrom:    11,
 			wantTo:      15,
 			trillianErr: errors.New("boom"),
@@ -146,18 +152,20 @@ func TestGetConsistency(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
 			server := NewServer(mt)
-
 			mt.EXPECT().Root().
 				Return(&root)
 
 			mt.EXPECT().ConsistencyProof(gomock.Any(), gomock.Eq(test.wantFrom), gomock.Eq(test.wantTo)).
 				Return(test.trillianProof, test.trillianErr)
 
-			ts := httptest.NewServer(http.HandlerFunc(server.getConsistency))
+			r := mux.NewRouter()
+			server.RegisterHandlers(r)
+			ts := httptest.NewServer(r)
 			defer ts.Close()
+			url := fmt.Sprintf("%s/%s/from/%d/to/%d", ts.URL, api.HTTPGetConsistency, test.from, test.to)
 
 			client := ts.Client()
-			resp, err := client.Post(ts.URL, "application/json", strings.NewReader(test.body))
+			resp, err := client.Get(url)
 			if err != nil {
 				t.Errorf("error response: %v", err)
 			}
@@ -181,7 +189,8 @@ func TestGetManifestEntries(t *testing.T) {
 	root := types.LogRootV1{TreeSize: 24, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}}
 	for _, test := range []struct {
 		desc                string
-		body                string
+		index               int
+		treeSize            int
 		wantIndex, wantSize uint64
 		trillianData        []byte
 		trillianProof       [][]byte
@@ -190,12 +199,9 @@ func TestGetManifestEntries(t *testing.T) {
 		wantBody            string
 	}{
 		{
-			desc:       "malformed request",
-			body:       "garbage",
-			wantStatus: http.StatusBadRequest,
-		}, {
 			desc:          "valid request",
-			body:          `{"LeafIndex": 1, "TreeSize": 24}`,
+			index:         1,
+			treeSize:      24,
 			wantIndex:     1,
 			wantSize:      24,
 			trillianData:  []byte("leafdata"),
@@ -204,19 +210,23 @@ func TestGetManifestEntries(t *testing.T) {
 			wantBody:      `{"Value":"bGVhZmRhdGE=","Proof":["cHI=","b28=","ZiE="]}`,
 		}, {
 			desc:       "TreeSize bigger than golden tree size",
-			body:       `{"LeafIndex": 1, "TreeSize": 29}`,
+			index:      1,
+			treeSize:   29,
 			wantStatus: http.StatusBadRequest,
 		}, {
 			desc:       "LeafIndex larger than tree size",
-			body:       `{"LeafIndex": 1, "TreeSize": 0}`,
+			index:      1,
+			treeSize:   0,
 			wantStatus: http.StatusBadRequest,
 		}, {
 			desc:       "LeafIndex equal to tree size",
-			body:       `{"LeafIndex": 4, "TreeSize": 4}`,
+			index:      4,
+			treeSize:   4,
 			wantStatus: http.StatusBadRequest,
 		}, {
 			desc:        "valid request but trillian failure",
-			body:        `{"LeafIndex": 1, "TreeSize": 24}`,
+			index:       1,
+			treeSize:    24,
 			wantIndex:   1,
 			wantSize:    24,
 			trillianErr: errors.New("boom"),
@@ -234,11 +244,14 @@ func TestGetManifestEntries(t *testing.T) {
 			mt.EXPECT().FirmwareManifestAtIndex(gomock.Any(), gomock.Eq(test.wantIndex), gomock.Eq(test.wantSize)).
 				Return(test.trillianData, test.trillianProof, test.trillianErr)
 
-			ts := httptest.NewServer(http.HandlerFunc(server.getManifestEntries))
+			r := mux.NewRouter()
+			server.RegisterHandlers(r)
+			ts := httptest.NewServer(r)
 			defer ts.Close()
+			url := fmt.Sprintf("%s/%s/at/%d/in-tree-of/%d", ts.URL, api.HTTPGetManifestEntryAndProof, test.index, test.treeSize)
 
 			client := ts.Client()
-			resp, err := client.Post(ts.URL, "application/json", strings.NewReader(test.body))
+			resp, err := client.Get(url)
 			if err != nil {
 				t.Errorf("error response: %v", err)
 			}

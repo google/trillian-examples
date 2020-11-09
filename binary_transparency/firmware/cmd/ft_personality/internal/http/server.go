@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian/types"
+	"github.com/gorilla/mux"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
@@ -81,33 +83,49 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	if err := s.c.AddFirmwareManifest(r.Context(), statement); err != nil {
 		http.Error(w, fmt.Sprintf("failed to log firmware to Trillian %v", err), http.StatusInternalServerError)
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+}
+
+func parseIntParam(r *http.Request, name string) (uint64, error) {
+	v := mux.Vars(r)
+	i, err := strconv.ParseUint(v[name], 0, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%s should be an integer (%q)", name, err)
+	}
+	return i, nil
 }
 
 // getConsistency returns consistency proofs between published tree sizes.
 func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
-	cr := api.GetConsistencyRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&cr); err != nil {
+	from, err := parseIntParam(r, "from")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	to, err := parseIntParam(r, "to")
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Validation on the tree sizes being requested.
-	if cr.FromSize == 0 {
-		http.Error(w, fmt.Sprintf("fromSize %d must be larger than 0", cr.FromSize), http.StatusBadRequest)
+	if from == 0 {
+		http.Error(w, fmt.Sprintf("from %d must be larger than 0", from), http.StatusBadRequest)
 		return
 	}
-	if cr.FromSize > cr.ToSize {
-		http.Error(w, fmt.Sprintf("fromSize %d > toSize %d", cr.FromSize, cr.ToSize), http.StatusBadRequest)
+	if from > to {
+		http.Error(w, fmt.Sprintf("from %d > to %d", from, to), http.StatusBadRequest)
 		return
 	}
 	goldenSize := s.c.Root().TreeSize
-	if cr.ToSize > goldenSize {
-		http.Error(w, fmt.Sprintf("requested tree size %d > current tree size %d", cr.ToSize, goldenSize), http.StatusBadRequest)
+	if to > goldenSize {
+		http.Error(w, fmt.Sprintf("requested tree size %d > current tree size %d", to, goldenSize), http.StatusBadRequest)
 		return
 	}
 
 	// Tree sizes requested seem reasonable, so fetch and return the proof.
-	proof, err := s.c.ConsistencyProof(r.Context(), cr.FromSize, cr.ToSize)
+	proof, err := s.c.ConsistencyProof(r.Context(), from, to)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get consistency proof: %v", err), http.StatusInternalServerError)
 		return
@@ -125,27 +143,31 @@ func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 	w.Write(js)
 }
 
-// getManifestEntries returns the leaves in the tree.
-func (s *Server) getManifestEntries(w http.ResponseWriter, r *http.Request) {
-	mr := api.GetFirmwareManifestRequest{}
-	if err := json.NewDecoder(r.Body).Decode(&mr); err != nil {
+// getManifestEntryAndProof returns a tree leaf and corresponding inclusion proof.
+func (s *Server) getManifestEntryAndProof(w http.ResponseWriter, r *http.Request) {
+	index, err := parseIntParam(r, "index")
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
+	treeSize, err := parseIntParam(r, "treesize")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	// Validation on the tree sizes being requested.
-	if mr.LeafIndex >= mr.TreeSize {
-		http.Error(w, fmt.Sprintf("LeafIndex %d >= TreeSize %d", mr.LeafIndex, mr.TreeSize), http.StatusBadRequest)
+	if index >= treeSize {
+		http.Error(w, fmt.Sprintf("index %d >= treesize %d", index, treeSize), http.StatusBadRequest)
 		return
 	}
 	goldenSize := s.c.Root().TreeSize
-	if mr.TreeSize > goldenSize {
-		http.Error(w, fmt.Sprintf("requested tree size %d > current tree size %d", mr.TreeSize, goldenSize), http.StatusBadRequest)
+	if treeSize > goldenSize {
+		http.Error(w, fmt.Sprintf("requested tree size %d > current tree size %d", treeSize, goldenSize), http.StatusBadRequest)
 		return
 	}
 
 	// Tree sizes requested seem reasonable, so fetch and return the proof.
-	data, proof, err := s.c.FirmwareManifestAtIndex(r.Context(), mr.LeafIndex, mr.TreeSize)
+	data, proof, err := s.c.FirmwareManifestAtIndex(r.Context(), index, treeSize)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get leaf & inclusion proof: %v", err), http.StatusInternalServerError)
 		return
@@ -182,9 +204,9 @@ func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 }
 
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.
-func (s *Server) RegisterHandlers() {
-	http.HandleFunc(fmt.Sprintf("/%s", api.HTTPAddFirmware), s.addFirmware)
-	http.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetConsistency), s.getConsistency)
-	http.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetManifestEntries), s.getManifestEntries)
-	http.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetRoot), s.getRoot)
+func (s *Server) RegisterHandlers(r *mux.Router) {
+	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPAddFirmware), s.addFirmware).Methods("POST")
+	r.HandleFunc(fmt.Sprintf("/%s/from/{from:[0-9]+}/to/{to:[0-9]+}", api.HTTPGetConsistency), s.getConsistency).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/at/{index:[0-9]+}/in-tree-of/{treesize:[0-9]+}", api.HTTPGetManifestEntryAndProof), s.getManifestEntryAndProof).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetRoot), s.getRoot).Methods("GET")
 }

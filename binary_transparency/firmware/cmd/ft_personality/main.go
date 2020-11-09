@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/gorilla/mux"
 	ih "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/http"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
 
@@ -59,8 +60,7 @@ func main() {
 
 	glog.Infof("Starting FT personality server...")
 	srv := ih.NewServer(tclient)
-
-	srv.RegisterHandlers()
-
-	glog.Fatal(http.ListenAndServe(*listenAddr, nil))
+	r := mux.NewRouter()
+	srv.RegisterHandlers(r)
+	glog.Fatal(http.ListenAndServe(*listenAddr, r))
 }

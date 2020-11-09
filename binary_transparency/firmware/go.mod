@@ -7,5 +7,6 @@ require (
 	github.com/golang/mock v1.4.4
 	github.com/google/go-cmp v0.5.2
 	github.com/google/trillian v1.3.11
+	github.com/gorilla/mux v1.8.0
 	google.golang.org/grpc v1.29.1
 )

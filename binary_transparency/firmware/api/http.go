@@ -7,8 +7,8 @@ const (
 	HTTPAddFirmware = "ft/v0/add-firmware"
 	// HTTPGetConsistency is the path of the URL to get a consistency proof between log roots.
 	HTTPGetConsistency = "ft/v0/get-consistency"
-	// HTTPGetManifestEntries is the path of the URL to get firmware manifest entries with inclusion proofs.
-	HTTPGetManifestEntries = "ft/v0/get-firmware-manifest-entries"
+	// HTTPGetManifestEntryAndProof is the path of the URL to get firmware manifest entries with inclusion proofs.
+	HTTPGetManifestEntryAndProof = "ft/v0/get-firmware-manifest-entry-and-proof"
 	// HTTPGetRoot is the path of the URL to get a recent log root.
 	HTTPGetRoot = "ft/v0/get-root"
 )
@@ -32,8 +32,8 @@ func (l LogCheckpoint) String() string {
 // GetConsistencyRequest is sent to ask for a proof that the tree at ToSize
 // is append-only from the tree at FromSize. The response is a ConsistencyProof.
 type GetConsistencyRequest struct {
-	FromSize uint64
-	ToSize   uint64
+	From uint64
+	To   uint64
 }
 
 // ConsistencyProof contains the hashes to demonstrate the append-only evolution
@@ -45,8 +45,8 @@ type ConsistencyProof struct {
 // GetFirmwareManifestRequest is sent to ask for the value at the given LeafIndex,
 // with an inclusion proof to the root at the given TreeSize.
 type GetFirmwareManifestRequest struct {
-	LeafIndex uint64
-	TreeSize  uint64
+	Index    uint64
+	TreeSize uint64
 }
 
 // InclusionProof contains the value at the requested index and the proof to the

@@ -3,6 +3,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha512"
 	"encoding/json"
 	"flag"
@@ -10,34 +11,72 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 )
 
 var (
-	logAddress = flag.String("log_address", "localhost:8000", "server:port of the log HTTP API")
+	logURL = flag.String("log_url", "http://localhost:8000", "Base URL of the log HTTP API")
 
 	deviceID   = flag.String("device", "TalkieToaster", "the target device for the firmware")
 	revision   = flag.Uint64("revision", 1, "the version of the firmware")
 	binaryPath = flag.String("binary_path", "", "file path to the firmware binary")
 	timestamp  = flag.String("timestamp", "", "timestamp formatted as RFC3339, or empty to use current time")
+	timeout    = flag.Duration("timeout", 5*time.Minute, "Duration to wait for inclusion of submitted metadata")
 )
 
 func main() {
 	flag.Parse()
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
 
+	logURL, err := url.Parse(*logURL)
+	if err != nil {
+		glog.Exitf("logURL is invalid: %v", err)
+	}
+
+	metadata, err := createManifestFromFlags()
+	if err != nil {
+		glog.Exitf("Failed to create manifest: %v", err)
+	}
+
+	js, err := createStatementJSON(metadata)
+	if err != nil {
+		glog.Exitf("Failed to marshal statement: %v", err)
+	}
+
+	glog.Info("Submitting entry...")
+	if err := submitStatement(logURL, js); err != nil {
+		glog.Exitf("Couldn't submit statement: %v", err)
+	}
+
+	c := &client.Client{
+		LogURL: logURL,
+	}
+
+	glog.Info("Successfully submitted entry, waiting for inclusion...")
+	if err := awaitInclusion(ctx, c, js); err != nil {
+		glog.Exitf("Failed while waiting for inclusion: %v", err)
+	}
+
+	glog.Infof("Successfully logged %s", js)
+}
+
+func createManifestFromFlags() (api.FirmwareMetadata, error) {
 	file, err := os.Open(*binaryPath)
 	if err != nil {
-		glog.Exitf("failed to open '%s' for reading: %v", *binaryPath, err)
+		return api.FirmwareMetadata{}, fmt.Errorf("failed to open '%s' for reading: %w", *binaryPath, err)
 	}
 	defer file.Close()
 
 	h := sha512.New()
 	if _, err := io.Copy(h, file); err != nil {
-		glog.Exitf("failed to read '%s': %v", *binaryPath, err)
+		return api.FirmwareMetadata{}, fmt.Errorf("failed to read '%s': %w", *binaryPath, err)
 	}
 
 	buildTime := *timestamp
@@ -51,9 +90,14 @@ func main() {
 		ExpectedFirmwareMeasurement: []byte{}, // TODO: This should be provided somehow.
 		BuildTimestamp:              buildTime,
 	}
-	js, err := json.Marshal(metadata)
+
+	return metadata, nil
+}
+
+func createStatementJSON(m api.FirmwareMetadata) ([]byte, error) {
+	js, err := json.Marshal(m)
 	if err != nil {
-		glog.Exitf("failed to marshal metadata: %v", err)
+		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
 	statement := api.FirmwareStatement{
@@ -61,22 +105,30 @@ func main() {
 		Signature: []byte("LOL!"),
 	}
 
-	js, err = json.Marshal(statement)
-	if err != nil {
-		glog.Exitf("failed to marshal statement: %v", err)
-	}
+	return json.Marshal(statement)
+}
 
-	httpPath := fmt.Sprintf("http://%s/%s", *logAddress, api.HTTPAddFirmware)
-	resp, err := http.Post(httpPath, "application/json", bytes.NewBuffer(js))
+func submitStatement(base *url.URL, s []byte) error {
+	url, err := base.Parse(api.HTTPAddFirmware)
 	if err != nil {
-		glog.Exitf("failed to publish to log endpoint (%s): %v", httpPath, err)
+		return err
+	}
+	glog.V(1).Infof("Submitting to %v", url.String())
+	resp, err := http.Post(url.String(), "application/json", bytes.NewBuffer(s))
+	if err != nil {
+		return fmt.Errorf("failed to publish to log endpoint (%s): %w", url, err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			glog.Exitf("failed to parse body of response! %v", err)
+			return fmt.Errorf("failed to parse body of response! %w", err)
 		}
-		glog.Exitf("failed to publish to log: %s\n%s", resp.Status, string(body))
+		return fmt.Errorf("failed to publish to log: %s\n%s", resp.Status, string(body))
 	}
-	glog.Infof("Successfully logged %s", statement)
+	return nil
+}
+
+func awaitInclusion(ctx context.Context, c *client.Client, s []byte) error {
+	// TODO(al): implement this
+	return nil
 }

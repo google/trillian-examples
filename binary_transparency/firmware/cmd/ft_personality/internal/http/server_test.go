@@ -1,6 +1,8 @@
 package http
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -10,8 +12,11 @@ import (
 	"testing"
 
 	gomock "github.com/golang/mock/gomock"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
@@ -207,7 +212,7 @@ func TestGetManifestEntries(t *testing.T) {
 			trillianData:  []byte("leafdata"),
 			trillianProof: [][]byte{[]byte("pr"), []byte("oo"), []byte("f!")},
 			wantStatus:    http.StatusOK,
-			wantBody:      `{"Value":"bGVhZmRhdGE=","Proof":["cHI=","b28=","ZiE="]}`,
+			wantBody:      `{"Value":"bGVhZmRhdGE=","LeafIndex":1,"Proof":["cHI=","b28=","ZiE="]}`,
 		}, {
 			desc:       "TreeSize bigger than golden tree size",
 			index:      1,
@@ -265,6 +270,91 @@ func TestGetManifestEntries(t *testing.T) {
 				}
 				if got, want := string(body), test.wantBody; got != test.wantBody {
 					t.Errorf("got '%s' want '%s'", got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestGetInclusionProofByHash(t *testing.T) {
+	root := types.LogRootV1{TreeSize: 24, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}}
+	for _, test := range []struct {
+		desc          string
+		hash          []byte
+		treeSize      int
+		trillianIndex uint64
+		trillianProof [][]byte
+		trillianErr   error
+		wantStatus    int
+		wantBody      api.InclusionProof
+	}{
+		{
+			desc:          "valid request",
+			hash:          []byte("a good leaf hash"),
+			treeSize:      24,
+			trillianProof: [][]byte{[]byte("pr"), []byte("oo"), []byte("f!")},
+			trillianIndex: 4,
+			wantStatus:    http.StatusOK,
+		}, {
+			desc:       "TreeSize bigger than golden tree size",
+			hash:       []byte("a good leaf hash"),
+			treeSize:   29,
+			wantStatus: http.StatusBadRequest,
+		}, {
+			desc:        "unknown leafhash",
+			hash:        []byte("made up leaf hash"),
+			treeSize:    24,
+			trillianErr: status.Error(codes.NotFound, "never heard of it, mate"),
+			wantStatus:  http.StatusNotFound,
+		}, {
+			desc:        "valid request but trillian failure",
+			hash:        []byte("a good leaf hash"),
+			treeSize:    24,
+			trillianErr: errors.New("boom"),
+			wantStatus:  http.StatusInternalServerError,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			mt := NewMockTrillian(ctrl)
+			server := NewServer(mt)
+
+			mt.EXPECT().Root().
+				Return(&root)
+
+			mt.EXPECT().InclusionProofByHash(gomock.Any(), gomock.Eq(test.hash), gomock.Eq(root.TreeSize)).
+				Return(test.trillianIndex, test.trillianProof, test.trillianErr)
+
+			r := mux.NewRouter()
+			server.RegisterHandlers(r)
+			ts := httptest.NewServer(r)
+			defer ts.Close()
+			url := fmt.Sprintf("%s/%s/for-leaf-hash/%s/in-tree-of/%d", ts.URL, api.HTTPGetInclusion, base64.URLEncoding.EncodeToString(test.hash), test.treeSize)
+
+			client := ts.Client()
+			resp, err := client.Get(url)
+			if err != nil {
+				t.Errorf("error response: %v", err)
+			}
+			if got, want := resp.StatusCode, test.wantStatus; got != want {
+				t.Errorf("status code got != want (%d, %d)", got, want)
+			}
+			if test.wantStatus == http.StatusOK {
+				// If we're expecting a good response then check that all values got passed through ok
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatalf("failed to read body: %v", err)
+				}
+				wantBody := api.InclusionProof{
+					LeafIndex: test.trillianIndex,
+					Proof:     test.trillianProof,
+				}
+				var gotBody api.InclusionProof
+				if err := json.Unmarshal(body, &gotBody); err != nil {
+					t.Fatalf("got invalid json response: %q", err)
+				}
+				if diff := cmp.Diff(gotBody, wantBody); len(diff) > 0 {
+					t.Errorf("got response with diff %q", diff)
 				}
 			}
 		})

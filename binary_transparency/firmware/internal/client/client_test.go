@@ -93,6 +93,7 @@ func TestGetInclusion(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Check for path prefix, trimming off leading / since it's not present in the
 				// const.
+				// TODO Add an index to the test case to improve coverage
 				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPGetInclusion) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
@@ -116,6 +117,122 @@ func TestGetInclusion(t *testing.T) {
 			default:
 				if d := cmp.Diff(ip, test.want); len(d) != 0 {
 					t.Fatalf("Got checkpoint with diff: %s", d)
+				}
+			}
+		})
+	}
+}
+
+func TestGetManifestAndProof(t *testing.T) {
+	for _, test := range []struct {
+		desc    string
+		body    string
+		want    api.InclusionProof
+		wantErr bool
+	}{
+		{
+			desc: "valid 1",
+			body: `{ "Value":"EjQ=", "Proof": ["qg==", "uw==", "zA=="]}`,
+			want: api.InclusionProof{Value: []byte{0x12, 0x34}, Proof: [][]byte{{0xAA}, {0xBB}, {0xCC}}},
+		}, {
+			desc: "valid 2",
+			body: `{ "Value":"NBI=","Proof": ["3Q==", "7g=="]}`,
+			want: api.InclusionProof{Value: []byte{0x34, 0x12}, Proof: [][]byte{{0xDD}, {0xEE}}},
+		}, {
+			desc:    "garbage",
+			body:    `garbage`,
+			wantErr: true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Check for path prefix, trimming off leading / since it's not present in the
+				// const.
+				// TODO Add an index to the test case to improve coverage
+				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPGetManifestEntryAndProof) {
+					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
+				}
+				fmt.Fprintln(w, test.body)
+			}))
+			defer ts.Close()
+
+			tsURL, err := url.Parse((ts.URL))
+			if err != nil {
+				t.Fatalf("Failed to parse test server URL: %v", err)
+			}
+			c := client.Client{LogURL: tsURL}
+			ip, err := c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{0, 0})
+			switch {
+			case err != nil && !test.wantErr:
+				t.Fatalf("Got unexpected error %q", err)
+			case err == nil && test.wantErr:
+				t.Fatal("Got no error, but wanted error")
+			case err != nil && test.wantErr:
+				// expected error
+			default:
+				if d := cmp.Diff(*ip, test.want); len(d) != 0 {
+					t.Fatalf("Got response with diff: %s", d)
+				}
+			}
+		})
+	}
+}
+
+func TestGetConsistency(t *testing.T) {
+	for _, test := range []struct {
+		desc    string
+		body    string
+		From    uint64
+		To      uint64
+		want    api.ConsistencyProof
+		wantErr bool
+	}{
+		{
+			desc: "valid 1",
+			body: `{"Proof": ["qg==", "uw==", "zA=="]}`,
+			From: 0,
+			To:   1,
+			want: api.ConsistencyProof{Proof: [][]byte{{0xAA}, {0xBB}, {0xCC}}},
+		}, {
+			desc: "valid 2",
+			body: `{"Proof": ["3Q==", "7g=="]}`,
+			From: 1,
+			To:   2,
+			want: api.ConsistencyProof{Proof: [][]byte{{0xDD}, {0xEE}}},
+		}, {
+			desc:    "garbage",
+			body:    `garbage`,
+			wantErr: true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Check for path prefix, trimming off leading / since it's not present in the
+				// const.
+				// TODO Add an index to the test case to improve coverage
+				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPGetConsistency) {
+					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
+				}
+				fmt.Fprintln(w, test.body)
+			}))
+			defer ts.Close()
+
+			tsURL, err := url.Parse((ts.URL))
+			if err != nil {
+				t.Fatalf("Failed to parse test server URL: %v", err)
+			}
+			c := client.Client{LogURL: tsURL}
+			cp, err := c.GetConsistencyProof(api.GetConsistencyRequest{test.From, test.To})
+			switch {
+			case err != nil && !test.wantErr:
+				t.Fatalf("Got unexpected error %q", err)
+			case err == nil && test.wantErr:
+				t.Fatal("Got no error, but wanted error")
+			case err != nil && test.wantErr:
+				// expected error
+			default:
+				if d := cmp.Diff(*cp, test.want); len(d) != 0 {
+					t.Fatalf("Got response with diff: %s", d)
 				}
 			}
 		})

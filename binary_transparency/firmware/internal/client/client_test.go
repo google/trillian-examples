@@ -64,3 +64,60 @@ func TestGetCheckpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestGetInclusion(t *testing.T) {
+	cp := api.LogCheckpoint{
+		TreeSize: 30,
+	}
+	for _, test := range []struct {
+		desc    string
+		body    string
+		want    api.InclusionProof
+		wantErr bool
+	}{
+		{
+			desc: "valid 1",
+			body: `{ "LeafIndex": 2, "Proof": ["qg==", "uw==", "zA=="]}`,
+			want: api.InclusionProof{LeafIndex: 2, Proof: [][]byte{{0xAA}, {0xBB}, {0xCC}}},
+		}, {
+			desc: "valid 2",
+			body: `{ "LeafIndex": 20, "Proof": ["3Q==", "7g=="]}`,
+			want: api.InclusionProof{LeafIndex: 20, Proof: [][]byte{{0xDD}, {0xEE}}},
+		}, {
+			desc:    "garbage",
+			body:    `garbage`,
+			wantErr: true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Check for path prefix, trimming off leading / since it's not present in the
+				// const.
+				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPGetInclusion) {
+					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
+				}
+				fmt.Fprintln(w, test.body)
+			}))
+			defer ts.Close()
+
+			tsURL, err := url.Parse((ts.URL))
+			if err != nil {
+				t.Fatalf("Failed to parse test server URL: %v", err)
+			}
+			c := client.Client{LogURL: tsURL}
+			ip, err := c.GetInclusion([]byte{}, cp)
+			switch {
+			case err != nil && !test.wantErr:
+				t.Fatalf("Got unexpected error %q", err)
+			case err == nil && test.wantErr:
+				t.Fatal("Got no error, but wanted error")
+			case err != nil && test.wantErr:
+				// expected error
+			default:
+				if d := cmp.Diff(ip, test.want); len(d) != 0 {
+					t.Fatalf("Got checkpoint with diff: %s", d)
+				}
+			}
+		})
+	}
+}

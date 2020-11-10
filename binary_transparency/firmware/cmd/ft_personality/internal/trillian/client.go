@@ -169,6 +169,23 @@ func (c *Client) FirmwareManifestAtIndex(ctx context.Context, index, treeSize ui
 	return ip.Leaf.LeafValue, ip.Proof.Hashes, nil
 }
 
+// InclusionProofByHash gets an inclusion proof in the specified tree size for the
+// first leaf found with the specified hash.
+func (c *Client) InclusionProofByHash(ctx context.Context, hash []byte, treeSize uint64) (uint64, [][]byte, error) {
+	ip, err := c.client.GetInclusionProofByHash(ctx, &trillian.GetInclusionProofByHashRequest{
+		LogId:    c.logID,
+		LeafHash: hash,
+		TreeSize: int64(treeSize),
+	})
+	if err != nil {
+		return 0, nil, err
+	}
+	if len(ip.Proof) == 0 {
+		return 0, nil, fmt.Errorf("no leaves found for hash 0x%x", hash)
+	}
+	return uint64(ip.Proof[0].LeafIndex), ip.Proof[0].Hashes, nil
+}
+
 // Close finishes the underlying connections and tidies up after the Client is finished.
 func (c *Client) Close() {
 	c.done()

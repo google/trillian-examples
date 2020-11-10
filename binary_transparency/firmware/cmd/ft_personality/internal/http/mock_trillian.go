@@ -78,6 +78,22 @@ func (mr *MockTrillianMockRecorder) FirmwareManifestAtIndex(arg0, arg1, arg2 int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FirmwareManifestAtIndex", reflect.TypeOf((*MockTrillian)(nil).FirmwareManifestAtIndex), arg0, arg1, arg2)
 }
 
+// InclusionProofByHash mocks base method
+func (m *MockTrillian) InclusionProofByHash(arg0 context.Context, arg1 []byte, arg2 uint64) (uint64, [][]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InclusionProofByHash", arg0, arg1, arg2)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].([][]byte)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// InclusionProofByHash indicates an expected call of InclusionProofByHash
+func (mr *MockTrillianMockRecorder) InclusionProofByHash(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InclusionProofByHash", reflect.TypeOf((*MockTrillian)(nil).InclusionProofByHash), arg0, arg1, arg2)
+}
+
 // Root mocks base method
 func (m *MockTrillian) Root() *types.LogRootV1 {
 	m.ctrl.T.Helper()

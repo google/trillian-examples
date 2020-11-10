@@ -4,6 +4,7 @@ package http
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -13,6 +14,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
@@ -30,6 +33,9 @@ type Trillian interface {
 	// FirmwareManifestAtIndex gets the value at the given index and an inclusion proof
 	// to the given tree size.
 	FirmwareManifestAtIndex(ctx context.Context, index, treeSize uint64) ([]byte, [][]byte, error)
+
+	// InclusionProofByHash fetches an inclusion proof and index for the first leaf found with the specified hash, if any.
+	InclusionProofByHash(ctx context.Context, hash []byte, treeSize uint64) (uint64, [][]byte, error)
 }
 
 // Server is the core state & handler implementation of the FT personality.
@@ -87,15 +93,6 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func parseIntParam(r *http.Request, name string) (uint64, error) {
-	v := mux.Vars(r)
-	i, err := strconv.ParseUint(v[name], 0, 64)
-	if err != nil {
-		return 0, fmt.Errorf("%s should be an integer (%q)", name, err)
-	}
-	return i, nil
-}
-
 // getConsistency returns consistency proofs between published tree sizes.
 func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 	from, err := parseIntParam(r, "from")
@@ -143,6 +140,48 @@ func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 	w.Write(js)
 }
 
+// getInclusionByHash returns an inclusion proof for the entry with the specified hash (if it exists).
+func (s *Server) getInclusionByHash(w http.ResponseWriter, r *http.Request) {
+	hash, err := parseBase64Param(r, "hash")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	treeSize, err := parseIntParam(r, "treesize")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	goldenSize := s.c.Root().TreeSize
+	if treeSize > goldenSize {
+		http.Error(w, fmt.Sprintf("requested tree size %d > current tree size %d", treeSize, goldenSize), http.StatusBadRequest)
+		return
+	}
+
+	// Tree sizes requested seem reasonable, so fetch and return the proof.
+	index, proof, err := s.c.InclusionProofByHash(r.Context(), hash, treeSize)
+	if status.Code(err) == codes.NotFound {
+		http.Error(w, fmt.Sprintf("leaf hash not found: %v", err), http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get inclusion proof: %v", err), http.StatusInternalServerError)
+		return
+	}
+	cp := api.InclusionProof{
+		LeafIndex: index,
+		Proof:     proof,
+	}
+
+	js, err := json.Marshal(cp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}
+
 // getManifestEntryAndProof returns a tree leaf and corresponding inclusion proof.
 func (s *Server) getManifestEntryAndProof(w http.ResponseWriter, r *http.Request) {
 	index, err := parseIntParam(r, "index")
@@ -173,8 +212,9 @@ func (s *Server) getManifestEntryAndProof(w http.ResponseWriter, r *http.Request
 		return
 	}
 	cp := api.InclusionProof{
-		Value: data,
-		Proof: proof,
+		Value:     data,
+		LeafIndex: index,
+		Proof:     proof,
 	}
 
 	js, err := json.Marshal(cp)
@@ -207,6 +247,25 @@ func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 func (s *Server) RegisterHandlers(r *mux.Router) {
 	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPAddFirmware), s.addFirmware).Methods("POST")
 	r.HandleFunc(fmt.Sprintf("/%s/from/{from:[0-9]+}/to/{to:[0-9]+}", api.HTTPGetConsistency), s.getConsistency).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/for-leaf-hash/{hash}/in-tree-of/{treesize:[0-9]+}", api.HTTPGetInclusion), s.getInclusionByHash).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/at/{index:[0-9]+}/in-tree-of/{treesize:[0-9]+}", api.HTTPGetManifestEntryAndProof), s.getManifestEntryAndProof).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetRoot), s.getRoot).Methods("GET")
+}
+
+func parseBase64Param(r *http.Request, name string) ([]byte, error) {
+	v := mux.Vars(r)
+	b, err := base64.URLEncoding.DecodeString(v[name])
+	if err != nil {
+		return nil, fmt.Errorf("%s should be URL-safe base64 (%q)", name, err)
+	}
+	return b, nil
+}
+
+func parseIntParam(r *http.Request, name string) (uint64, error) {
+	v := mux.Vars(r)
+	i, err := strconv.ParseUint(v[name], 0, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%s should be an integer (%q)", name, err)
+	}
+	return i, nil
 }

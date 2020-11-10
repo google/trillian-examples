@@ -7,6 +7,8 @@ const (
 	HTTPAddFirmware = "ft/v0/add-firmware"
 	// HTTPGetConsistency is the path of the URL to get a consistency proof between log roots.
 	HTTPGetConsistency = "ft/v0/get-consistency"
+	// HTTPGetInclusion is the path of the URL to get inclusion proofs for entries in the log.
+	HTTPGetInclusion = "ft/v0/get-inclusion"
 	// HTTPGetManifestEntryAndProof is the path of the URL to get firmware manifest entries with inclusion proofs.
 	HTTPGetManifestEntryAndProof = "ft/v0/get-firmware-manifest-entry-and-proof"
 	// HTTPGetRoot is the path of the URL to get a recent log root.
@@ -52,6 +54,7 @@ type GetFirmwareManifestRequest struct {
 // InclusionProof contains the value at the requested index and the proof to the
 // requested tree size.
 type InclusionProof struct {
-	Value []byte
-	Proof [][]byte
+	Value     []byte
+	LeafIndex uint64
+	Proof     [][]byte
 }

@@ -26,6 +26,7 @@ func (c Client) GetCheckpoint() (*api.LogCheckpoint, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var cp api.LogCheckpoint
 	if err := json.NewDecoder(r.Body).Decode(&cp); err != nil {
 		return nil, err
@@ -48,4 +49,47 @@ func (c Client) GetInclusion(statement []byte, cp api.LogCheckpoint) (api.Inclus
 	var ip api.InclusionProof
 	err = json.NewDecoder(r.Body).Decode(&ip)
 	return ip, err
+}
+
+// GetManifestEntryAndProof returns the manifest and proof from the server, for given Index and TreeSize
+func (c Client) GetManifestEntryAndProof(request api.GetFirmwareManifestRequest) (*api.InclusionProof, error) {
+	url := fmt.Sprintf("%s/at/%d/in-tree-of/%d", api.HTTPGetManifestEntryAndProof, request.Index, request.TreeSize)
+
+	u, err := c.LogURL.Parse(url)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	var mr api.InclusionProof
+	if err := json.NewDecoder(r.Body).Decode(&mr); err != nil {
+		return nil, err
+	}
+
+	return &mr, nil
+}
+
+// GetConsistencyProof returns the Consistency Proof from the server, for the two given snapshots
+func (c Client) GetConsistencyProof(request api.GetConsistencyRequest) (*api.ConsistencyProof, error) {
+	url := fmt.Sprintf("%s/from/%d/to/%d", api.HTTPGetConsistency, request.From, request.To)
+
+	u, err := c.LogURL.Parse(url)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+
+	var cp api.ConsistencyProof
+	if err := json.NewDecoder(r.Body).Decode(&cp); err != nil {
+		return nil, err
+	}
+
+	return &cp, nil
 }

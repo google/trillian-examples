@@ -53,9 +53,33 @@ func main() {
 			continue
 		}
 		glog.V(1).Infof("Got newer checkpoint %s", cp)
-		// TODO(al): check consistency with latestCP
-		latestCP = *cp
 
-		// TODO(al): fetch and process new entries
+		// Fetch all the manifests from now till new checkpoint
+		for idx := latestCP.TreeSize; idx < cp.TreeSize; idx++ {
+
+			manifest, err := c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{idx, cp.TreeSize})
+			if err != nil {
+				glog.Warningf("Failed to fetch the Manifest: %q", err)
+				continue
+			}
+			glog.V(1).Infof("Received New Manifest with Information=")
+			glog.V(1).Infof("Manifest Value = %s", manifest.Value)
+			glog.V(1).Infof("LeafIndex = %d", manifest.LeafIndex)
+			glog.V(1).Infof("Proof = %x", manifest.Proof)
+			// TODO verify the inclusion proof
+		}
+
+		// Perform consistency check only for non-zero initial tree size
+		if latestCP.TreeSize != 0 {
+			consistency, err := c.GetConsistencyProof(api.GetConsistencyRequest{latestCP.TreeSize, cp.TreeSize})
+			if err != nil {
+				glog.Warningf("Failed to fetch the Consistency: %q", err)
+				continue
+			}
+			glog.V(1).Infof("Printing the latest Consistency Proof Information")
+			glog.V(1).Infof("Consistency Proof = %x", consistency.Proof)
+		}
+		// TODO verify the fetched consistency proof, before updating the checkpoint
+		latestCP = *cp
 	}
 }

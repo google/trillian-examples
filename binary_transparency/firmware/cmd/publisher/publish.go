@@ -50,18 +50,27 @@ func main() {
 		glog.Exitf("Failed to marshal statement: %v", err)
 	}
 
+	c := &client.Client{
+		LogURL: logURL,
+	}
+
+	initialCP, err := c.GetCheckpoint()
+	if err != nil {
+		glog.Exitf("Failed to get a pre-submission checkpoint from log: %q", err)
+	}
+
 	glog.Info("Submitting entry...")
 	if err := submitStatement(logURL, js); err != nil {
 		glog.Exitf("Couldn't submit statement: %v", err)
 	}
 
-	c := &client.Client{
-		LogURL: logURL,
-	}
-
 	glog.Info("Successfully submitted entry, waiting for inclusion...")
-	if err := awaitInclusion(ctx, c, js); err != nil {
-		glog.Exitf("Failed while waiting for inclusion: %v", err)
+	cp, ip, err := awaitInclusion(ctx, c, *initialCP, js)
+	if err != nil {
+		glog.Errorf("Failed while waiting for inclusion: %v", err)
+		glog.Warningf("Failed checkpoint: %s", cp)
+		glog.Warningf("Failed proof: %v", ip)
+		glog.Exit("Bailing.")
 	}
 
 	glog.Infof("Successfully logged %s", js)
@@ -128,7 +137,46 @@ func submitStatement(base *url.URL, s []byte) error {
 	return nil
 }
 
-func awaitInclusion(ctx context.Context, c *client.Client, s []byte) error {
-	// TODO(al): implement this
-	return nil
+// awaitInclusion waits for the specified statement s to be included into the log and then
+// returns the checkpoint under which it was found to be present, along with an valid inclusion proof.
+func awaitInclusion(ctx context.Context, c *client.Client, cp api.LogCheckpoint, s []byte) (api.LogCheckpoint, api.InclusionProof, error) {
+	lh := client.HashLeaf(s)
+	lv := client.NewLogVerifier()
+
+	for {
+		select {
+		case <-time.After(1 * time.Second):
+			//
+		case <-ctx.Done():
+			return api.LogCheckpoint{}, api.InclusionProof{}, ctx.Err()
+		}
+
+		newCP, err := c.GetCheckpoint()
+		if err != nil {
+			return api.LogCheckpoint{}, api.InclusionProof{}, err
+		}
+		if newCP.TreeSize <= cp.TreeSize {
+			glog.V(1).Info("Waiting for tree to integrate new leaves")
+			continue
+		}
+		if cp.TreeSize > 0 {
+			// TODO(al): fetch & check consistency proof
+		}
+		cp = *newCP
+
+		ip, err := c.GetInclusion(s, cp)
+		if err != nil {
+			glog.Warningf("Received error while fetching inclusion proof: %q", err)
+			continue
+		}
+		if err := lv.VerifyInclusionProof(int64(ip.LeafIndex), int64(cp.TreeSize), ip.Proof, cp.RootHash, lh); err != nil {
+			// Whoa Nelly, this is bad - bail!
+			glog.Warning("Invalid inclusion proof received!")
+			return cp, ip, fmt.Errorf("invalid inclusion proof received: %w", err)
+		}
+
+		glog.Infof("Inclusion proof for leafhash 0x%x verified", lh)
+		return cp, ip, nil
+	}
+	// unreachable
 }

@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,6 +13,64 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 )
+
+func TestSubmitManifest(t *testing.T) {
+	for _, test := range []struct {
+		desc     string
+		manifest []byte
+		wantErr  bool
+	}{
+		{
+			desc:     "valid",
+			manifest: []byte("Boo!"),
+		}, {
+			desc:     "log server fails",
+			manifest: []byte("Boo!"),
+			wantErr:  true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Check for path prefix, trimming off leading / since it's not present in the
+				// const.
+				// TODO Add an index to the test case to improve coverage
+				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPAddFirmware) {
+					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
+				}
+
+				if test.wantErr {
+					http.Error(w, "BOOM", http.StatusInternalServerError)
+					return
+				}
+
+				b, err := ioutil.ReadAll(r.Body)
+				if err != nil {
+					t.Fatalf("Failed to read request body: %v", err)
+				}
+				if diff := cmp.Diff(b, test.manifest); len(diff) != 0 {
+					t.Errorf("POSTed body with unexpected diff: %v", diff)
+				}
+			}))
+			defer ts.Close()
+
+			tsURL, err := url.Parse((ts.URL))
+			if err != nil {
+				t.Fatalf("Failed to parse test server URL: %v", err)
+			}
+			c := client.Client{LogURL: tsURL}
+			err = c.SubmitManifest(test.manifest)
+			switch {
+			case err != nil && !test.wantErr:
+				t.Fatalf("Got unexpected error %q", err)
+			case err == nil && test.wantErr:
+				t.Fatal("Got no error, but wanted error")
+			case err != nil && test.wantErr:
+				// expected error
+			default:
+			}
+		})
+	}
+}
 
 func TestGetCheckpoint(t *testing.T) {
 	for _, test := range []struct {

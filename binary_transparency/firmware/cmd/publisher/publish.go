@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"time"
@@ -25,6 +25,7 @@ var (
 	binaryPath = flag.String("binary_path", "", "file path to the firmware binary")
 	timestamp  = flag.String("timestamp", "", "timestamp formatted as RFC3339, or empty to use current time")
 	timeout    = flag.Duration("timeout", 5*time.Minute, "Duration to wait for inclusion of submitted metadata")
+	outputPath = flag.String("output_path", "/tmp/update.ota", "File path to write the update package file to. This file is intended to be consumed by the flash_tool only.")
 )
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 		glog.Exitf("logURL is invalid: %v", err)
 	}
 
-	metadata, err := createManifestFromFlags()
+	metadata, fw, err := createManifestFromFlags()
 	if err != nil {
 		glog.Exitf("Failed to create manifest: %v", err)
 	}
@@ -72,19 +73,39 @@ func main() {
 	}
 
 	glog.Infof("Successfully logged %s", js)
+
+	if len(*outputPath) > 0 {
+		glog.Infof("Creating update package file %q...", *outputPath)
+
+		bundle := api.UpdatePackage{
+			FirmwareImage: fw,
+			ProofBundle: api.ProofBundle{
+				ManifestStatement: js,
+				Checkpoint:        cp,
+				InclusionProof:    ip,
+			},
+		}
+
+		f, err := os.OpenFile(*outputPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+		if err != nil {
+			glog.Exitf("Failed to create output package file %q: %q", *outputPath, err)
+		}
+		defer f.Close()
+
+		if err := json.NewEncoder(f).Encode(bundle); err != nil {
+			glog.Exitf("Failed to encode output package JSON: %q", err)
+		}
+		glog.Infof("Successfully created update package file %q", *outputPath)
+	}
 }
 
-func createManifestFromFlags() (api.FirmwareMetadata, error) {
-	file, err := os.Open(*binaryPath)
+func createManifestFromFlags() (api.FirmwareMetadata, []byte, error) {
+	fw, err := ioutil.ReadFile(*binaryPath)
 	if err != nil {
-		return api.FirmwareMetadata{}, fmt.Errorf("failed to open '%s' for reading: %w", *binaryPath, err)
+		return api.FirmwareMetadata{}, nil, fmt.Errorf("failed to read %q: %w", *binaryPath, err)
 	}
-	defer file.Close()
 
-	h := sha512.New()
-	if _, err := io.Copy(h, file); err != nil {
-		return api.FirmwareMetadata{}, fmt.Errorf("failed to read '%s': %w", *binaryPath, err)
-	}
+	h := sha512.Sum512(fw)
 
 	buildTime := *timestamp
 	if buildTime == "" {
@@ -93,12 +114,12 @@ func createManifestFromFlags() (api.FirmwareMetadata, error) {
 	metadata := api.FirmwareMetadata{
 		DeviceID:                    *deviceID,
 		FirmwareRevision:            *revision,
-		FirmwareImageSHA512:         h.Sum(nil),
+		FirmwareImageSHA512:         h[:],
 		ExpectedFirmwareMeasurement: []byte{}, // TODO: This should be provided somehow.
 		BuildTimestamp:              buildTime,
 	}
 
-	return metadata, nil
+	return metadata, fw, nil
 }
 
 func createStatementJSON(m api.FirmwareMetadata) ([]byte, error) {

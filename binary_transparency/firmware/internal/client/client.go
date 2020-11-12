@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -14,9 +15,28 @@ import (
 )
 
 // Client is an HTTP client for the FT personality.
+//
+// TODO(al): split this into Client and SubmitClient.
 type Client struct {
 	// LogURL is the base URL for the FT log.
 	LogURL *url.URL
+}
+
+// SubmitManifest sends a firmware manifest file to the log server.
+func (c Client) SubmitManifest(manifest []byte) error {
+	u, err := c.LogURL.Parse(api.HTTPAddFirmware)
+	if err != nil {
+		return err
+	}
+	glog.V(1).Infof("Submitting to %v", u.String())
+	r, err := http.Post(u.String(), "application/json", bytes.NewBuffer(manifest))
+	if err != nil {
+		return fmt.Errorf("failed to publish to log endpoint (%s): %w", u, err)
+	}
+	if r.StatusCode != http.StatusOK {
+		return errFromResponse("failed to submit to log", r)
+	}
+	return nil
 }
 
 // GetCheckpoint returns a new LogCheckPoint from the server.

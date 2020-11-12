@@ -2,15 +2,12 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha512"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -60,16 +57,17 @@ func main() {
 	}
 
 	glog.Info("Submitting entry...")
-	if err := submitStatement(logURL, js); err != nil {
+	if err := c.SubmitManifest(js); err != nil {
 		glog.Exitf("Couldn't submit statement: %v", err)
 	}
 
 	glog.Info("Successfully submitted entry, waiting for inclusion...")
-	cp, ip, err := awaitInclusion(ctx, c, *initialCP, js)
+	cp, consistency, ip, err := client.AwaitInclusion(ctx, c, *initialCP, js)
 	if err != nil {
 		glog.Errorf("Failed while waiting for inclusion: %v", err)
 		glog.Warningf("Failed checkpoint: %s", cp)
-		glog.Warningf("Failed proof: %v", ip)
+		glog.Warningf("Failed consistency proof: %x", consistency)
+		glog.Warningf("Failed inclusion proof: %x", ip)
 		glog.Exit("Bailing.")
 	}
 
@@ -115,68 +113,4 @@ func createStatementJSON(m api.FirmwareMetadata) ([]byte, error) {
 	}
 
 	return json.Marshal(statement)
-}
-
-func submitStatement(base *url.URL, s []byte) error {
-	url, err := base.Parse(api.HTTPAddFirmware)
-	if err != nil {
-		return err
-	}
-	glog.V(1).Infof("Submitting to %v", url.String())
-	resp, err := http.Post(url.String(), "application/json", bytes.NewBuffer(s))
-	if err != nil {
-		return fmt.Errorf("failed to publish to log endpoint (%s): %w", url, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("failed to parse body of response! %w", err)
-		}
-		return fmt.Errorf("failed to publish to log: %s\n%s", resp.Status, string(body))
-	}
-	return nil
-}
-
-// awaitInclusion waits for the specified statement s to be included into the log and then
-// returns the checkpoint under which it was found to be present, along with an valid inclusion proof.
-func awaitInclusion(ctx context.Context, c *client.Client, cp api.LogCheckpoint, s []byte) (api.LogCheckpoint, api.InclusionProof, error) {
-	lh := client.HashLeaf(s)
-	lv := client.NewLogVerifier()
-
-	for {
-		select {
-		case <-time.After(1 * time.Second):
-			//
-		case <-ctx.Done():
-			return api.LogCheckpoint{}, api.InclusionProof{}, ctx.Err()
-		}
-
-		newCP, err := c.GetCheckpoint()
-		if err != nil {
-			return api.LogCheckpoint{}, api.InclusionProof{}, err
-		}
-		if newCP.TreeSize <= cp.TreeSize {
-			glog.V(1).Info("Waiting for tree to integrate new leaves")
-			continue
-		}
-		if cp.TreeSize > 0 {
-			// TODO(al): fetch & check consistency proof
-		}
-		cp = *newCP
-
-		ip, err := c.GetInclusion(s, cp)
-		if err != nil {
-			glog.Warningf("Received error while fetching inclusion proof: %q", err)
-			continue
-		}
-		if err := lv.VerifyInclusionProof(int64(ip.LeafIndex), int64(cp.TreeSize), ip.Proof, cp.RootHash, lh); err != nil {
-			// Whoa Nelly, this is bad - bail!
-			glog.Warning("Invalid inclusion proof received!")
-			return cp, ip, fmt.Errorf("invalid inclusion proof received: %w", err)
-		}
-
-		glog.Infof("Inclusion proof for leafhash 0x%x verified", lh)
-		return cp, ip, nil
-	}
-	// unreachable
 }

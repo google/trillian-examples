@@ -27,6 +27,8 @@ func AwaitInclusion(ctx context.Context, c *Client, cp api.LogCheckpoint, s []by
 		if err != nil {
 			return api.LogCheckpoint{}, api.ConsistencyProof{}, api.InclusionProof{}, err
 		}
+		// TODO(al): check signature on checkpoint when they're added.
+
 		if newCP.TreeSize <= cp.TreeSize {
 			glog.V(1).Info("Waiting for tree to integrate new leaves")
 			continue

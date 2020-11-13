@@ -23,6 +23,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
 var (
@@ -51,6 +52,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to read update package file: %q", err)
 	}
+	// TODO(al): check signature on statment and checkpoints when they're added.
 
 	var dev devices.Device
 	dev, err = devices.NewDummyDeviceFromFlags()
@@ -67,12 +69,12 @@ func main() {
 		fatal(fmt.Sprintf("Manifest/firmware is corrupt: %q", err))
 	}
 
-	if err := checkInclusion(c, up); err != nil {
-		fatal(fmt.Sprintf("Could not verify manifest inclusion under update checkpoint: %q", err))
+	if err := verifyUpdate(up); err != nil {
+		fatal(fmt.Sprintf("Failed to validate update: %q", err))
 	}
 
 	if err := checkConsistency(c, up, dev); err != nil {
-		fatal(fmt.Sprintf("Could not verify consistency between manifest checkpoint and device checkpoint: %q", err))
+		fatal(fmt.Sprintf("Failed to validate update consistency with device state: %q", err))
 	}
 
 	glog.Info("Update verified, about to apply to device...")
@@ -103,12 +105,18 @@ func readUpdateFileFromFlags() (api.UpdatePackage, error) {
 	return up, nil
 }
 
-func checkManifestHash(up api.UpdatePackage) error {
-	// TODO(al): implement this
+// verifyUpdate checks that an update package is self-consistent.
+func verifyUpdate(up api.UpdatePackage) error {
+	if err := checkManifestHash(up); err != nil {
+		return fmt.Errorf("failed to verify firmware hash: %q", err)
+	}
+	if err := verify.Bundle(up.ProofBundle); err != nil {
+		return fmt.Errorf("failed to verify proof bundle: %q", err)
+	}
 	return nil
 }
 
-func checkInclusion(c *client.Client, up api.UpdatePackage) error {
+func checkManifestHash(up api.UpdatePackage) error {
 	// TODO(al): implement this
 	return nil
 }

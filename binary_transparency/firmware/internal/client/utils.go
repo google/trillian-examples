@@ -7,13 +7,14 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
 // AwaitInclusion waits for the specified statement s to be included into the log and then
 // returns the checkpoint under which it was found to be present, along with valid consistency and inclusion proofs.
 func AwaitInclusion(ctx context.Context, c *Client, cp api.LogCheckpoint, s []byte) (api.LogCheckpoint, api.ConsistencyProof, api.InclusionProof, error) {
-	lh := HashLeaf(s)
-	lv := NewLogVerifier()
+	lh := verify.HashLeaf(s)
+	lv := verify.NewLogVerifier()
 	for {
 		select {
 		case <-time.After(1 * time.Second):

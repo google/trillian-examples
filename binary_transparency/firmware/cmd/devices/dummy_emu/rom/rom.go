@@ -80,7 +80,10 @@ func ResetFromFlags() (Chain, error) {
 
 	// boot
 	glog.Infof("Prepared to boot %s", stmt.Metadata)
-	return func() error { return nil }, nil
+	boot1 := func() error {
+		return bootWasm("main", fw)
+	}
+	return boot1, nil
 }
 
 func readAndParseBundle(bundleFile string) (api.ProofBundle, error) {

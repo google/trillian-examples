@@ -12,6 +12,7 @@ import (
 	"github.com/golang/glog"
 	"google.golang.org/grpc/status"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
 // Client is an HTTP client for the FT personality.
@@ -63,7 +64,7 @@ func (c Client) GetCheckpoint() (*api.LogCheckpoint, error) {
 
 // GetInclusion returns an inclusion proof for the statement under the given checkpoint.
 func (c Client) GetInclusion(statement []byte, cp api.LogCheckpoint) (api.InclusionProof, error) {
-	hash := HashLeaf(statement)
+	hash := verify.HashLeaf(statement)
 	u, err := c.LogURL.Parse(fmt.Sprintf("%s/for-leaf-hash/%s/in-tree-of/%d", api.HTTPGetInclusion, base64.URLEncoding.EncodeToString(hash), cp.TreeSize))
 	if err != nil {
 		return api.InclusionProof{}, err

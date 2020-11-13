@@ -99,22 +99,75 @@ Prerequisites:
   * This repo (FT)
   * [Trillian](https://github.com/google/trillian)
 
-Terminal 1 - Trillian:
-* Open terminal in root of `trillian` git repo
-* `export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"`
-* `docker-compose -f examples/deployment/docker-compose.yml up trillian-log-server trillian-log-signer`
+#### Terminal 1 - Trillian:
+* Open terminal in root of `trillian` git repo, run:
 
-Terminal 3 - Provision Log Tree:
-* `go run github.com/google/trillian/cmd/createtree --admin_server=localhost:8090`
-  * Note the tree ID that is returned, it will be referred to as $TREE_ID
+```bash
+export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"
+docker-compose -f examples/deployment/docker-compose.yml up trillian-log-server trillian-log-signer
+```
 
-Terminal 2 - FT Personality:
-* Open terminal in root of `firmware-transparency-demo` git repo
-* `go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID`
+#### Terminal 3 - Provision Log Tree:
+* Run the following command to create a new tree inside Trillian, this only needs to be done once:
 
-Terminal 3 - Add Something:
-* Open terminal in root of `firmware-transparency-demo` git repo
-* `go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./README.md`
-* `curl -i localhost:8000/ft/v0/get-root`
-  * This should show a non-zero tree size
-  * Note that this will only increase for each **unique** manifest published
+```bash
+go run github.com/google/trillian/cmd/createtree --admin_server=localhost:8090
+```
+
+Record the tree ID that is returned by the command above, it will be referred to
+as $TREE_ID by subsequent commands:
+
+#### Terminal 2 - FT Personality:
+* Open terminal in root of `firmware-transparency-demo` git repo, run:
+
+```bash
+go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID
+```
+
+#### Terminal 3
+Open terminal in root of `firmware-transparency-demo` git repo for the following steps:
+
+1. Add Something
+
+   We're going to log a new "firmware" build.
+
+   Open terminal in root of `firmware-transparency-demo` git repo, run:
+
+   ```bash
+   go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./testdata/firmware.bin --output_path=/tmp/update.ota
+   ```
+
+   This creates and logs a new firmware manifest to the log, waits for it to be
+   included, and then builds an firmware update package ("OTA") and writes it out to local disk.
+
+2. "Flash" a device with the new firmware.
+
+   Now that we have an update package for our new firmware, we can try flashing
+   it to a device. The repo contains a "dummy device" which uses the local disk
+   to store the device's state.
+
+   We'll use the `cmd/flash_tool` to do this flashing.
+
+   > :warning: Note that the first time you do this the "dummy device" will
+   > have no state and the flashing process will fail.
+   > It will also fail if you've previously flashed firmware onto the device
+   > from a different log.
+   > In both of these cases, you can use the `--force` flag on the `flash_tool`.
+
+   ```bash
+   go run ./cmd/flash_tool/ --logtostderr --update_file=/tmp/update.ota --dummy_storage_dir=/tmp/dummy_device  # --force if it's the first time
+   ```
+
+3. Boot the device.
+
+   We'll boot the device emulator to check that everything is working ok.
+   The "ROM" on the dummy device verifies the integrity of the firmware and
+   proofs stored on the device.
+
+    ```bash
+    go run ./cmd/devices/dummy_emu --logtostderr --dummy_storage_dir=/tmp/dummy_device
+    ```
+
+4. Now we've seen it works, let's try to hack it!
+
+   TODO(al): write this bit

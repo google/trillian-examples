@@ -134,7 +134,7 @@ Open terminal in root of `firmware-transparency-demo` git repo for the following
    Open terminal in root of `firmware-transparency-demo` git repo, run:
 
    ```bash
-   go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./testdata/firmware.bin --output_path=/tmp/update.ota
+   go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./testdata/firmware/dummy_device/example.wasm --output_path=/tmp/update.ota
    ```
 
    This creates and logs a new firmware manifest to the log, waits for it to be

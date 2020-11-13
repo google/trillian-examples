@@ -17,6 +17,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
 var (
@@ -40,8 +41,9 @@ func main() {
 	ticker := time.NewTicker(*pollInterval)
 
 	c := client.Client{LogURL: ftURL}
-	// TODO(al): check signature on checkpoint when they're added.
 	var latestCP api.LogCheckpoint
+
+	lv := verify.NewLogVerifier()
 
 	for {
 		<-ticker.C
@@ -69,7 +71,15 @@ func main() {
 			glog.V(1).Infof("Manifest Value = %s", manifest.Value)
 			glog.V(1).Infof("LeafIndex = %d", manifest.LeafIndex)
 			glog.V(1).Infof("Proof = %x", manifest.Proof)
-			// TODO verify the inclusion proof
+
+			lh := client.HashLeaf(manifest.Value)
+			if err := lv.VerifyInclusionProof(int64(manifest.LeafIndex), int64(cp.TreeSize), manifest.Proof, cp.RootHash, lh); err != nil {
+				// Report Failed Inclusion Proof
+				glog.Warning("Invalid inclusion proof received for LeafIndex %d", manifest.LeafIndex)
+				continue
+			}
+
+			glog.V(1).Infof("Inclusion proof for leafhash 0x%x verified", lh)
 		}
 
 		// Perform consistency check only for non-zero initial tree size

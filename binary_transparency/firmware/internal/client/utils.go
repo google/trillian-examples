@@ -33,17 +33,18 @@ func AwaitInclusion(ctx context.Context, c *Client, cp api.LogCheckpoint, s []by
 			glog.V(1).Info("Waiting for tree to integrate new leaves")
 			continue
 		}
-		var consistency *api.ConsistencyProof
+		var consistency api.ConsistencyProof
 		if cp.TreeSize > 0 {
-			consistency, err = c.GetConsistencyProof(api.GetConsistencyRequest{From: cp.TreeSize, To: newCP.TreeSize})
+			cproof, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: cp.TreeSize, To: newCP.TreeSize})
 			if err != nil {
 				glog.Warningf("Received error while fetching consistency proof: %q", err)
 				continue
 			}
+			consistency = *cproof
 			if err := lv.VerifyConsistencyProof(int64(cp.TreeSize), int64(newCP.TreeSize), cp.RootHash, newCP.RootHash, consistency.Proof); err != nil {
 				// Whoa Nelly, this is bad - bail!
 				glog.Warning("Invalid consistency proof received!")
-				return cp, *consistency, api.InclusionProof{}, fmt.Errorf("invalid inclusion proof received: %w", err)
+				return cp, consistency, api.InclusionProof{}, fmt.Errorf("invalid inclusion proof received: %w", err)
 			}
 			glog.Infof("Consistency proof between %d and %d verified", cp.TreeSize, newCP.TreeSize)
 		}
@@ -57,11 +58,11 @@ func AwaitInclusion(ctx context.Context, c *Client, cp api.LogCheckpoint, s []by
 		if err := lv.VerifyInclusionProof(int64(ip.LeafIndex), int64(cp.TreeSize), ip.Proof, cp.RootHash, lh); err != nil {
 			// Whoa Nelly, this is bad - bail!
 			glog.Warning("Invalid inclusion proof received!")
-			return cp, *consistency, ip, fmt.Errorf("invalid inclusion proof received: %w", err)
+			return cp, consistency, ip, fmt.Errorf("invalid inclusion proof received: %w", err)
 		}
 
 		glog.Infof("Inclusion proof for leafhash 0x%x verified", lh)
-		return cp, *consistency, ip, nil
+		return cp, consistency, ip, nil
 	}
 	// unreachable
 }

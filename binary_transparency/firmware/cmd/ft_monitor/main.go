@@ -40,6 +40,7 @@ func main() {
 	ticker := time.NewTicker(*pollInterval)
 
 	c := client.Client{LogURL: ftURL}
+	// TODO(al): check signature on checkpoint when they're added.
 	var latestCP api.LogCheckpoint
 
 	for {
@@ -49,6 +50,8 @@ func main() {
 			glog.Warningf("Failed to update LogCheckpoint: %q", err)
 			continue
 		}
+		// TODO(al): check signature on checkpoint when they're added.
+
 		if cp.TreeSize <= latestCP.TreeSize {
 			continue
 		}

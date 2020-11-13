@@ -10,7 +10,7 @@ type UpdatePackage struct {
 
 // ProofBundle contains the manifest and associated proofs for a given firmware image.
 type ProofBundle struct {
-	// ManifestStatement is the json representation of an `api.FirmwareMetadata` struct.
+	// ManifestStatement is the json representation of an `api.FirmwareStatement` struct.
 	ManifestStatement []byte
 	// Checkpoint must represent a tree which includes the ManifestStatement.
 	Checkpoint LogCheckpoint

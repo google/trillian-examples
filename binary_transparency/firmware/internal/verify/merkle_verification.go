@@ -1,4 +1,4 @@
-package client
+package verify
 
 import (
 	"github.com/google/trillian/merkle"

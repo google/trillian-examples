@@ -72,7 +72,7 @@ func main() {
 			glog.V(1).Infof("LeafIndex = %d", manifest.LeafIndex)
 			glog.V(1).Infof("Proof = %x", manifest.Proof)
 
-			lh := client.HashLeaf(manifest.Value)
+			lh := verify.HashLeaf(manifest.Value)
 			if err := lv.VerifyInclusionProof(int64(manifest.LeafIndex), int64(cp.TreeSize), manifest.Proof, cp.RootHash, lh); err != nil {
 				// Report Failed Inclusion Proof
 				glog.Warning("Invalid inclusion proof received for LeafIndex %d", manifest.LeafIndex)

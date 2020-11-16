@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// mapdemo is a simple example that shows how a verifiable map can be
-// constructed in Beam.
+// map constructs a verifiable map from the modules in Go SumDB.
 package main
 
 import (
@@ -81,7 +80,7 @@ func main() {
 	// Create the directory if it doesn't exist
 	if _, err := os.Stat(output); os.IsNotExist(err) {
 		if err = os.Mkdir(output, 0700); err != nil {
-			glog.Fatalf("couldn't find or create directory %s, %v", output, err)
+			glog.Exitf("couldn't find or create directory %q, %q", output, err)
 		}
 	}
 
@@ -94,7 +93,7 @@ func main() {
 	allTiles, err := batchmap.Create(s, entries, *treeID, hash, *prefixStrata)
 
 	if err != nil {
-		glog.Fatalf("Failed to create pipeline: %v", err)
+		glog.Exitf("Failed to create pipeline: %q", err)
 	}
 
 	// Write this collection of tiles to the output directory.
@@ -102,7 +101,7 @@ func main() {
 
 	// All of the above constructs the pipeline but doesn't run it. Now we run it.
 	if err := beamx.Run(context.Background(), p); err != nil {
-		glog.Fatalf("Failed to execute job: %v", err)
+		glog.Exitf("Failed to execute job: %q", err)
 	}
 }
 

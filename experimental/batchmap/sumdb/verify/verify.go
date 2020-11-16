@@ -47,16 +47,16 @@ func main() {
 	flag.Parse()
 
 	if *mapDir == "" {
-		glog.Fatal("No map_dir provided")
+		glog.Exitf("No map_dir provided")
 	}
 	if *sumFile == "" {
-		glog.Fatal("No sum_file provided")
+		glog.Exitf("No sum_file provided")
 	}
 
 	// Open the go.sum file for reading a line at a time.
 	file, err := os.Open(*sumFile)
 	if err != nil {
-		glog.Exitf("failed to read file %s: %v", *sumFile, err)
+		glog.Exitf("failed to read file %q: %q", *sumFile, err)
 	}
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
@@ -74,13 +74,13 @@ func main() {
 		split := strings.LastIndex(line, " ")
 		key := line[:split]
 		expectedString := line[split+1:]
-		glog.V(1).Infof("checking key '%s' value '%s'", key, expectedString)
+		glog.V(1).Infof("checking key %q value %q", key, expectedString)
 		newRoot, err := checkInclusion(*mapDir, key, expectedString)
 		if err != nil {
-			glog.Fatalf("inclusion check failed for key '%s' value '%s': %v", key, expectedString, err)
+			glog.Exitf("inclusion check failed for key %q value %q: %q", key, expectedString, err)
 		}
 		if root != nil && !bytes.Equal(root, newRoot) {
-			glog.Fatalf("map root changed while verifying file")
+			glog.Exitf("map root changed while verifying file")
 		}
 		root = newRoot
 		count++
@@ -162,7 +162,7 @@ func checkInclusion(mapDir, key, value string) ([]byte, error) {
 	// If we get here then we have proved that the value was correct and that the map
 	// root commits to this value. Any other user with the same map root must see the
 	// same value under the same key we have checked.
-	glog.V(2).Infof("key %s found at path %x, with value '%s' (%x) committed to by map root %x", key, keyPath, value, expectedValueHash, needValue)
+	glog.V(2).Infof("key %s found at path %x, with value %q (%x) committed to by map root %x", key, keyPath, value, expectedValueHash, needValue)
 	return needValue, nil
 }
 

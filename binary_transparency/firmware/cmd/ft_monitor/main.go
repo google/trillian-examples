@@ -91,8 +91,16 @@ func main() {
 			}
 			glog.V(1).Infof("Printing the latest Consistency Proof Information")
 			glog.V(1).Infof("Consistency Proof = %x", consistency.Proof)
+
+			//Verify the fetched consistency proof
+			if err := lv.VerifyConsistencyProof(int64(latestCP.TreeSize), int64(cp.TreeSize), latestCP.RootHash, cp.RootHash, consistency.Proof); err != nil {
+				// Verification of Consistency Proof failed!!
+				glog.Warning("Failed verification of Consistency proof %q", err)
+				continue
+			}
+			glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)
 		}
-		// TODO verify the fetched consistency proof, before updating the checkpoint
+
 		latestCP = *cp
 	}
 }

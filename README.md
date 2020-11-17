@@ -6,6 +6,11 @@ Transparency concepts to problems other than
 [Certificates](https://github.com/google/certificate-transparency-go).
 
 Currently the examples here are:
+ * [binary_transparency/firmware](binary_transparency/firmware): A demo
+   showing how to apply transparency bring discoverability to device firmware
+   updates, but the principles are also more generally applicable to all kinds
+   of binaries/updates.
+
  * [etherslurp](etherslurp): An app which syncs a popular blockchain into a
    Trillian Log, and then replays the transactions contained in the blocks
    into a Trillian Map of SHA256(Account ID) -> Balance.

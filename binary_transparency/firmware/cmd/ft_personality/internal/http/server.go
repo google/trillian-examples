@@ -4,12 +4,16 @@ package http
 import (
 	"bytes"
 	"context"
+	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian/types"
@@ -51,21 +55,17 @@ func NewServer(c Trillian) *Server {
 }
 
 // addFirmware handles requests to log new firmware images.
-// It expects a mime/multipart POST consisting of FirmwareStatement.
-// TODO(al): store the actual firmware image in a CAS too.
-//
-// Example usage:
-// curl -i -X POST -H 'Content-Type: application/json' --data '@testdata/firmware_statement.json' localhost:8000/ft/v0/add-firmware
+// It expects a mime/multipart POST consisting of FirmwareStatement and then firmware bytes.
 func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
-	stmt := api.FirmwareStatement{}
-
 	// Store the original bytes as statement to avoid a round-trip (de)serialization.
-	statement, err := ioutil.ReadAll(r.Body)
+	// TODO(mhutchinson): store the actual firmware image in a CAS too.
+	statement, image, err := parseAddFirmwareRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	stmt := api.FirmwareStatement{}
 	if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -86,11 +86,61 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	}
 
 	glog.V(1).Infof("Got firmware %+v", meta)
+
+	// Check the firmware bytes matches the manifest
+	h := sha512.Sum512(image)
+	if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
+		http.Error(w, fmt.Sprintf("uploaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512), http.StatusBadRequest)
+		return
+	}
+
 	if err := s.c.AddFirmwareManifest(r.Context(), statement); err != nil {
 		http.Error(w, fmt.Sprintf("failed to log firmware to Trillian %v", err), http.StatusInternalServerError)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+}
+
+// parseAddFirmwareRequest returns the bytes for the FirmwareStatement, and the firmware image respectively.
+func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
+	h := r.Header["Content-Type"]
+	if len(h) == 0 {
+		return nil, nil, fmt.Errorf("no content-type header")
+	}
+
+	mediaType, mediaParams, err := mime.ParseMediaType(h[0])
+	if err != nil {
+		return nil, nil, err
+	}
+	if !strings.HasPrefix(mediaType, "multipart/") {
+		return nil, nil, fmt.Errorf("expecting mime multipart body")
+	}
+	boundary := mediaParams["boundary"]
+	if len(boundary) == 0 {
+		return nil, nil, fmt.Errorf("invalid mime multipart header - no boundary specified")
+	}
+	mr := multipart.NewReader(r.Body, boundary)
+
+	// Get firmware statement (JSON)
+	p, err := mr.NextPart()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find firmware statement in request body: %v", err)
+	}
+	rawJSON, err := ioutil.ReadAll(p)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read body of firmware statement: %v", err)
+	}
+
+	// Get firmware binary image
+	p, err = mr.NextPart()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find firmware image in request body: %v", err)
+	}
+	image, err := ioutil.ReadAll(p)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read body of firmware image: %v", err)
+	}
+	return rawJSON, image, nil
 }
 
 // getConsistency returns consistency proofs between published tree sizes.

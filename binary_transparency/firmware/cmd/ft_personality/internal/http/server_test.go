@@ -67,24 +67,65 @@ func TestRoot(t *testing.T) {
 
 func TestAddFirmware(t *testing.T) {
 	for _, test := range []struct {
-		desc        string
-		body        string
-		trillianErr error
-		wantStatus  int
+		desc         string
+		body         string
+		trillianErr  error
+		wantManifest string
+		wantStatus   int
 	}{
 		{
 			desc:       "malformed request",
 			body:       "garbage",
 			wantStatus: http.StatusBadRequest,
 		}, {
-			desc:       "valid request",
-			body:       `{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiZGdmVVR4Z0tUVGVMYU5UNk9ncFRXTVJOSlRVOFExM29nUEJvc0lsemVDc2gzSE45bm9pMWdPUUo0eFVRRGJFczZWTDN0bXNSWXYwTTEyTVBuaTJlU1E9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0wNlQxMToyOTo0N1oifQ==","Signature":"TE9MIQ=="}`,
-			wantStatus: http.StatusOK,
+			desc: "valid request",
+			body: strings.Join([]string{"--mimeisfunlolol",
+				"Content-Type: application/json",
+				"",
+				`{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+				"--mimeisfunlolol",
+				"Content-Type: application/octet-stream",
+				"",
+				"hi",
+				"",
+				"--mimeisfunlolol--",
+				"",
+			}, "\n"),
+			wantManifest: `{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+			wantStatus:   http.StatusOK,
 		}, {
-			desc:        "valid request but trillian failure",
-			body:        `{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiZGdmVVR4Z0tUVGVMYU5UNk9ncFRXTVJOSlRVOFExM29nUEJvc0lsemVDc2gzSE45bm9pMWdPUUo0eFVRRGJFczZWTDN0bXNSWXYwTTEyTVBuaTJlU1E9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0wNlQxMToyOTo0N1oifQ==","Signature":"TE9MIQ=="}`,
-			trillianErr: errors.New("boom"),
-			wantStatus:  http.StatusInternalServerError,
+			desc: "firmware image does not match manifest",
+			body: strings.Join([]string{"--mimeisfunlolol",
+				"Content-Type: application/json",
+				"",
+				`{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+				"--mimeisfunlolol",
+				"Content-Type: application/octet-stream",
+				"",
+				"THIS HAS A DIFFERENT HASH THAN EXPECTED",
+				"",
+				"--mimeisfunlolol--",
+				"",
+			}, "\n"),
+			wantManifest: `{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+			wantStatus:   http.StatusBadRequest,
+		}, {
+			desc: "valid request but trillian failure",
+			body: strings.Join([]string{"--mimeisfunlolol",
+				"Content-Type: application/json",
+				"",
+				`{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+				"--mimeisfunlolol",
+				"Content-Type: application/octet-stream",
+				"",
+				"hi",
+				"",
+				"--mimeisfunlolol--",
+				"",
+			}, "\n"),
+			wantManifest: `{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+			trillianErr:  errors.New("boom"),
+			wantStatus:   http.StatusInternalServerError,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -92,7 +133,7 @@ func TestAddFirmware(t *testing.T) {
 			mt := NewMockTrillian(ctrl)
 			server := NewServer(mt)
 
-			mt.EXPECT().AddFirmwareManifest(gomock.Any(), gomock.Eq([]byte(test.body))).
+			mt.EXPECT().AddFirmwareManifest(gomock.Any(), gomock.Eq([]byte(test.wantManifest))).
 				Return(test.trillianErr)
 
 			r := mux.NewRouter()
@@ -102,7 +143,7 @@ func TestAddFirmware(t *testing.T) {
 
 			client := ts.Client()
 			url := fmt.Sprintf("%s/%s", ts.URL, api.HTTPAddFirmware)
-			resp, err := client.Post(url, "application/json", strings.NewReader(test.body))
+			resp, err := client.Post(url, "multipart/form-data; boundary=mimeisfunlolol", strings.NewReader(test.body))
 			if err != nil {
 				t.Errorf("error response: %v", err)
 			}

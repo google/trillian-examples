@@ -5,8 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"net/url"
 
 	"github.com/golang/glog"
@@ -23,14 +26,52 @@ type Client struct {
 	LogURL *url.URL
 }
 
-// SubmitManifest sends a firmware manifest file to the log server.
-func (c Client) SubmitManifest(manifest []byte) error {
+// PublishFirmware sends a firmware manifest and corresponding image to the log server.
+func (c Client) PublishFirmware(manifest, image []byte) error {
 	u, err := c.LogURL.Parse(api.HTTPAddFirmware)
 	if err != nil {
 		return err
 	}
 	glog.V(1).Infof("Submitting to %v", u.String())
-	r, err := http.Post(u.String(), "application/json", bytes.NewBuffer(manifest))
+	var b bytes.Buffer
+	w := multipart.NewWriter(&b)
+
+	// Write the manifest JSON part
+	mh := make(textproto.MIMEHeader)
+	mh.Set("Content-Type", "application/json")
+	partWriter, err := w.CreatePart(mh)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(partWriter, bytes.NewReader(manifest)); err != nil {
+		return err
+	}
+
+	// Write the binary FW image part
+	mh = make(textproto.MIMEHeader)
+	mh.Set("Content-Type", "application/octet-stream")
+	partWriter, err = w.CreatePart(mh)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(partWriter, bytes.NewReader(image)); err != nil {
+		return err
+	}
+
+	// Finish off the multipart request
+	if err := w.Close(); err != nil {
+		return err
+	}
+
+	// Turn this into an HTTP POST request
+	req, err := http.NewRequest("POST", u.String(), &b)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", w.FormDataContentType())
+
+	// And finally, submit the request to the log
+	r, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to publish to log endpoint (%s): %w", u, err)
 	}

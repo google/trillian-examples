@@ -58,7 +58,7 @@ func main() {
 	}
 
 	glog.Info("Submitting entry...")
-	if err := c.SubmitManifest(js); err != nil {
+	if err := c.PublishFirmware(js, fw); err != nil {
 		glog.Exitf("Couldn't submit statement: %v", err)
 	}
 

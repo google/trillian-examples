@@ -3,6 +3,8 @@ package client_test
 import (
 	"fmt"
 	"io/ioutil"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,10 +16,11 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 )
 
-func TestSubmitManifest(t *testing.T) {
+func TestPublish(t *testing.T) {
 	for _, test := range []struct {
 		desc     string
 		manifest []byte
+		image    []byte
 		wantErr  bool
 	}{
 		{
@@ -43,11 +46,11 @@ func TestSubmitManifest(t *testing.T) {
 					return
 				}
 
-				b, err := ioutil.ReadAll(r.Body)
+				meta, _, err := parseAddFirmwareRequest(r)
 				if err != nil {
-					t.Fatalf("Failed to read request body: %v", err)
+					t.Fatalf("Failed to read multipart body: %v", err)
 				}
-				if diff := cmp.Diff(b, test.manifest); len(diff) != 0 {
+				if diff := cmp.Diff(meta, test.manifest); len(diff) != 0 {
 					t.Errorf("POSTed body with unexpected diff: %v", diff)
 				}
 			}))
@@ -58,7 +61,7 @@ func TestSubmitManifest(t *testing.T) {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
 			c := client.Client{LogURL: tsURL}
-			err = c.SubmitManifest(test.manifest)
+			err = c.PublishFirmware(test.manifest, test.image)
 			switch {
 			case err != nil && !test.wantErr:
 				t.Fatalf("Got unexpected error %q", err)
@@ -70,6 +73,49 @@ func TestSubmitManifest(t *testing.T) {
 			}
 		})
 	}
+}
+
+// parseAddFirmwareRequest returns the bytes for the FirmwareStatement, and the firmware image respectively.
+// TODO(mhutchinson): For now this is a copy of the server code. de-dupe this.
+func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
+	h := r.Header["Content-Type"]
+	if len(h) == 0 {
+		return nil, nil, fmt.Errorf("no content-type header")
+	}
+
+	mediaType, mediaParams, err := mime.ParseMediaType(h[0])
+	if err != nil {
+		return nil, nil, err
+	}
+	if !strings.HasPrefix(mediaType, "multipart/") {
+		return nil, nil, fmt.Errorf("expecting mime multipart body")
+	}
+	boundary := mediaParams["boundary"]
+	if len(boundary) == 0 {
+		return nil, nil, fmt.Errorf("invalid mime multipart header - no boundary specified")
+	}
+	mr := multipart.NewReader(r.Body, boundary)
+
+	// Get firmware statement (JSON)
+	p, err := mr.NextPart()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find firmware statement in request body: %v", err)
+	}
+	rawJSON, err := ioutil.ReadAll(p)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read body of firmware statement: %v", err)
+	}
+
+	// Get firmware binary image
+	p, err = mr.NextPart()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to find firmware image in request body: %v", err)
+	}
+	image, err := ioutil.ReadAll(p)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read body of firmware image: %v", err)
+	}
+	return rawJSON, image, nil
 }
 
 func TestGetCheckpoint(t *testing.T) {

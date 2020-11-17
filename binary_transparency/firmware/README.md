@@ -61,34 +61,35 @@ to analyse them.
 The goal is to have a system where firmware updates can not be {installed/booted}
 unless they have been made discoverable through being logged.
 
-> :thinking: Since I've got one laying around, this is going to be initially
-> built with the
-> [F-Secure USB Armory Mk II](https://inversepath.com/usbarmory.html) in mind.
-> Would be nice if we can make this work with QEmu too.
 
  - [X] Define a [claimant model](https://github.com/google/trillian/tree/master/docs/claimantmodel)
        description: [FT Claimant Model](./docs/design/README.md#claimant-model)
  - [ ] Specify/document a system architecture for that model.
  - [X] Come up with some metadata format: [FirmwareMetadata](./api/firmware_metadata.go)
- - [ ] Build a simple personality around that format.
- - [ ] Build a simple tool to create metadata given a "boot" image (e.g. Linux
-     Kernel, Tamago unikernel, etc.), and log it via the personality.
- - [ ] Figure out a way to package the metadata with the bootable image.
- - [ ] Use [armory-boot](https://github.com/f-secure-foundry/armory-boot) as
-     the boot loader (pretend it was in mask ROM for now, *hand-wave*).
- - [ ] Clone & modify armory-boot so that it will refuse to launch the boot image
-     unless all of the following are true:
-    - [ ] the metadata is present.
+ - [X] Build a simple personality around that format.
+ - [ ] Extend personality to also store firmware images.
+ - [x] Build a simple tool to create metadata given a "boot" image (e.g. Linux
+     Kernel, WASM binary, etc.), and log it via the personality.
+ - [x] Figure out a way to package the metadata with the bootable image.
+ - [X] Build a noddy "device" emulator which enforces logging requirements, and refuses to boot
+       an image unless all of the following are true:
+    - [X] the metadata is present.
     - [ ] the metadata has a "valid" signature (perhaps using the "LOL! Sig"
           scheme).
-    - [ ] the boot-image hash matches the one committed do in the metadata.
-    - [ ] a valid STH and inclusion proof for the metatdata is available
-          (either bundled, or using Tamago networking).
-    - [ ] a valid consistency proof between previously seen STH and the new STH
-          is available (bundled, or network).
- - [ ] Boot loader stores new STH in "secure" location.
- - [ ] Build simple monitor to tail the log and dump info from meta-data in realtime.
+    - [X] the boot-image hash matches the one committed do in the metadata.
+    - [X] a valid STH and inclusion proof for the metatdata is available and
+          verifies correctly.
+ - [X] Build a simple "flash" tool which refuses to flash an image to a device
+       unless all of the boot-time requirements above are satisfied, in
+       addition to requesting and validating a valid consistency proof between
+       the previously seen STH and the new STH.
+ - [x] Flash stores "proof bundle" on device for validation at boot time.
+ - [x] Build simple monitor to tail the log and dump info from meta-data in realtime.
+ - [ ] Monitor is extended to validate firmware images hash
+
+Planned future enhancements:
  - [ ] Integrate STH Witness support.
+ - [ ] Add support for emulated and real hardware, e.g. via QEmu.
 
 Running the Demo
 ----------------

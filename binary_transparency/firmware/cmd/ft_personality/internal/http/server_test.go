@@ -53,7 +53,7 @@ func TestRoot(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt)
+			server := NewServer(mt, FakeCAS{})
 
 			mt.EXPECT().Root().Return(&test.root)
 
@@ -145,7 +145,7 @@ func TestAddFirmware(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt)
+			server := NewServer(mt, FakeCAS{})
 
 			mt.EXPECT().AddFirmwareManifest(gomock.Any(), gomock.Eq([]byte(test.wantManifest))).
 				Return(test.trillianErr)
@@ -211,7 +211,7 @@ func TestGetConsistency(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt)
+			server := NewServer(mt, FakeCAS{})
 			mt.EXPECT().Root().
 				Return(&root)
 
@@ -296,7 +296,7 @@ func TestGetManifestEntries(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt)
+			server := NewServer(mt, FakeCAS{})
 
 			mt.EXPECT().Root().
 				Return(&root)
@@ -372,7 +372,7 @@ func TestGetInclusionProofByHash(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt)
+			server := NewServer(mt, FakeCAS{})
 
 			mt.EXPECT().Root().
 				Return(&root)
@@ -414,4 +414,18 @@ func TestGetInclusionProofByHash(t *testing.T) {
 			}
 		})
 	}
+}
+
+type FakeCAS map[string][]byte
+
+func (f FakeCAS) Store(key, image []byte) error {
+	f[string(key)] = image
+	return nil
+}
+
+func (f FakeCAS) Retrieve(key []byte) ([]byte, error) {
+	if image, ok := f[string(key)]; ok {
+		return image, nil
+	}
+	return nil, errors.New("nope")
 }

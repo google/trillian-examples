@@ -122,8 +122,10 @@ as $TREE_ID by subsequent commands:
 * Open terminal in root of `firmware-transparency-demo` git repo, run:
 
 ```bash
-go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID
+go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID --cas_db_file=/path/to/ft.db
 ```
+
+The `cas_db_file` needs to be available for the duration of this log, so writing to `/tmp/` is considered risky.
 
 #### Terminal 3
 Open terminal in root of `firmware-transparency-demo` git repo for the following steps:

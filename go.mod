@@ -18,6 +18,7 @@ require (
 	github.com/google/certificate-transparency-go v1.0.22-0.20200708065856-b8561831ac3c
 	github.com/google/go-cmp v0.5.3
 	github.com/google/trillian v1.3.12-0.20201112151559-1e07d2420b67
+	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0
@@ -26,6 +27,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.5
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
+	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/prometheus/client_golang v1.8.0
 	github.com/rs/cors v1.7.0
 	github.com/spf13/cobra v1.0.0 // indirect

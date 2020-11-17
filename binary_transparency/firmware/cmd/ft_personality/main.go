@@ -21,16 +21,19 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"net/http"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/cas"
 	ih "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/http"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
 	"github.com/gorilla/mux"
 
 	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
+	_ "github.com/mattn/go-sqlite3"               // Load drivers for sqlite3
 )
 
 var (
@@ -39,6 +42,8 @@ var (
 	connectTimeout = flag.Duration("connect_timeout", time.Second, "the timeout for connecting to the backend")
 	trillianAddr   = flag.String("trillian", ":8090", "address:port of Trillian Log gRPC service")
 	treeID         = flag.Int64("tree_id", -1, "the tree ID of the log to use")
+
+	casDBFile = flag.String("cas_db_file", "", "Path to a file to be used as sqlite3 storage for images, e.g. /tmp/ft.db")
 
 	sthRefresh = flag.Duration("sth_refresh_interval", 5*time.Second, "how often to fetch the latest log root from Trillian")
 )
@@ -51,6 +56,20 @@ func main() {
 	if *treeID < 0 {
 		glog.Exitf("tree_id is required")
 	}
+	if *casDBFile == "" {
+		glog.Exitf("cas_db_file is required")
+	}
+
+	glog.Infof("Connecting to local DB at %q", *casDBFile)
+	db, err := sql.Open("sqlite3", *casDBFile)
+	if err != nil {
+		glog.Exitf("failed to connect to DB: %q", err)
+	}
+	cas, err := cas.NewBinaryStorage(db)
+	if err != nil {
+		glog.Exitf("failed to connect CAS to DB: %q", err)
+	}
+
 	glog.Infof("Connecting to Trillian Log...")
 	tclient, err := trillian.NewClient(ctx, *connectTimeout, *trillianAddr, *treeID)
 	if err != nil {
@@ -73,7 +92,7 @@ func main() {
 	}()
 
 	glog.Infof("Starting FT personality server...")
-	srv := ih.NewServer(tclient)
+	srv := ih.NewServer(tclient, cas)
 	r := mux.NewRouter()
 	srv.RegisterHandlers(r)
 	glog.Fatal(http.ListenAndServe(*listenAddr, r))

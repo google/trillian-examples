@@ -56,23 +56,32 @@ type Trillian interface {
 	InclusionProofByHash(ctx context.Context, hash []byte, treeSize uint64) (uint64, [][]byte, error)
 }
 
+// CAS is the interface to the Content Addressable Store for firmware images.
+type CAS interface {
+	// Store puts the image under the key.
+	Store([]byte, []byte) error
+
+	// Retrieve gets a binary image that was previously stored.
+	Retrieve([]byte) ([]byte, error)
+}
+
 // Server is the core state & handler implementation of the FT personality.
 type Server struct {
-	c Trillian
+	c   Trillian
+	cas CAS
 }
 
 // NewServer creates a new server that interfaces with the given Trillian logger.
-func NewServer(c Trillian) *Server {
+func NewServer(c Trillian, cas CAS) *Server {
 	return &Server{
-		c: c,
+		c:   c,
+		cas: cas,
 	}
 }
 
 // addFirmware handles requests to log new firmware images.
 // It expects a mime/multipart POST consisting of FirmwareStatement and then firmware bytes.
 func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
-	// Store the original bytes as statement to avoid a round-trip (de)serialization.
-	// TODO(mhutchinson): store the actual firmware image in a CAS too.
 	statement, image, err := parseAddFirmwareRequest(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -108,6 +117,9 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := s.cas.Store((h[:]), image); err != nil {
+		http.Error(w, fmt.Sprintf("failed to store image in CAS %v", err), http.StatusInternalServerError)
+	}
 	if err := s.c.AddFirmwareManifest(r.Context(), statement); err != nil {
 		http.Error(w, fmt.Sprintf("failed to log firmware to Trillian %v", err), http.StatusInternalServerError)
 	}

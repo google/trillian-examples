@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"log"
+	"strconv"
 
 	"github.com/google/trillian"
 )
@@ -25,7 +26,7 @@ func RecordHash(key string) []byte {
 }
 
 func KeyHash(index int) []byte {
-	return hash(KTKey, string(index))
+	return hash(KTKey, strconv.Itoa(index))
 }
 
 func GetValue(tmc trillian.TrillianMapClient, id int64, hash []byte) *string {

@@ -89,7 +89,7 @@ func main() {
 			lh := verify.HashLeaf(manifest.Value)
 			if err := lv.VerifyInclusionProof(int64(manifest.LeafIndex), int64(cp.TreeSize), manifest.Proof, cp.RootHash, lh); err != nil {
 				// Report Failed Inclusion Proof
-				glog.Warning("Invalid inclusion proof received for LeafIndex %d", manifest.LeafIndex)
+				glog.Warningf("Invalid inclusion proof received for LeafIndex %d", manifest.LeafIndex)
 				continue
 			}
 
@@ -109,7 +109,7 @@ func main() {
 			//Verify the fetched consistency proof
 			if err := lv.VerifyConsistencyProof(int64(latestCP.TreeSize), int64(cp.TreeSize), latestCP.RootHash, cp.RootHash, consistency.Proof); err != nil {
 				// Verification of Consistency Proof failed!!
-				glog.Warning("Failed verification of Consistency proof %q", err)
+				glog.Warningf("Failed verification of Consistency proof %q", err)
 				continue
 			}
 			glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)

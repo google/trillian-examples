@@ -19,21 +19,15 @@ require (
 	github.com/google/go-cmp v0.5.3
 	github.com/google/trillian v1.3.12-0.20201112151559-1e07d2420b67
 	github.com/gorilla/websocket v1.4.2 // indirect
-	github.com/huandu/xstrings v1.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-runewidth v0.0.8 // indirect
 	github.com/mattn/go-sqlite3 v1.14.5
-	github.com/mwitkow/go-proto-validators v0.3.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/olekukonko/tablewriter v0.0.4 // indirect
-	github.com/pborman/uuid v1.2.0 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.8.0
 	github.com/rs/cors v1.7.0
-	github.com/sclevine/agouti v3.0.0+incompatible // indirect
-	github.com/sirupsen/logrus v1.6.0 // indirect
 	github.com/spf13/cobra v1.0.0 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce

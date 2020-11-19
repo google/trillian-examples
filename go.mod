@@ -9,7 +9,10 @@ require (
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/deckarep/golang-set v1.7.1 // indirect
+	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
+	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
 	github.com/ethereum/go-ethereum v1.9.24
+	github.com/f-secure-foundry/tamago v0.0.0-20201119100619-1bcafd8de66a
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -33,6 +36,7 @@ require (
 	github.com/spf13/cobra v1.0.0 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/tomasen/realip v0.0.0-20180522021738-f0c99a92ddce
+	github.com/u-root/u-root v7.0.0+incompatible
 	github.com/urfave/cli v1.22.2 // indirect
 	go.uber.org/atomic v1.5.1 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9

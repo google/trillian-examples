@@ -7,11 +7,12 @@
 // that can be found in the LICENSE file.
 
 //+build console
+//+build armory
 
 package main
 
 import (
-	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
+	usbarmory "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 	"github.com/f-secure-foundry/tamago/soc/imx6"
 )
 

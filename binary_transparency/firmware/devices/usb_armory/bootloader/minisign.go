@@ -9,6 +9,8 @@
 // Use of this source code is governed by the license that can be found at:
 //   https://github.com/jedisct1/go-minisign/blob/master/LICENSE
 
+//+build armory
+
 package main
 
 import (

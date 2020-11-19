@@ -6,15 +6,18 @@
 // Use of this source code is governed by the license
 // that can be found in the LICENSE file.
 
+//+build armory
+
 package main
 
 import (
 	"fmt"
 
 	"github.com/f-secure-foundry/tamago/arm"
-	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 	"github.com/f-secure-foundry/tamago/dma"
 	"github.com/f-secure-foundry/tamago/soc/imx6"
+
+	usbarmory "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 )
 
 // defined in boot.s

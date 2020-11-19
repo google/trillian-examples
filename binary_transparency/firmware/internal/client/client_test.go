@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"mime"
@@ -352,6 +353,66 @@ func TestGetConsistency(t *testing.T) {
 			default:
 				if d := cmp.Diff(*cp, test.want); len(d) != 0 {
 					t.Fatalf("Got response with diff: %s", d)
+				}
+			}
+		})
+	}
+}
+
+func TestGetFirmwareImage(t *testing.T) {
+	knownHash := []byte("knownhash")
+	for _, test := range []struct {
+		desc      string
+		hash      []byte
+		body      []byte
+		isUnknown bool
+		want      []byte
+		wantErr   bool
+	}{
+		{
+			desc: "valid",
+			hash: knownHash,
+			body: []byte("body"),
+			want: []byte("body"),
+		}, {
+			desc:      "not found",
+			hash:      []byte("never heard of it"),
+			isUnknown: true,
+			wantErr:   true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Check for path prefix, trimming off leading / since it's not present in the
+				// const.
+				// TODO Add an index to the test case to improve coverage
+				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPGetFirmwareImage) {
+					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
+				}
+				if test.isUnknown {
+					http.Error(w, "unknown", http.StatusNotFound)
+					return
+				}
+				w.Write(test.body)
+			}))
+			defer ts.Close()
+
+			tsURL, err := url.Parse((ts.URL))
+			if err != nil {
+				t.Fatalf("Failed to parse test server URL: %v", err)
+			}
+			c := client.Client{LogURL: tsURL}
+			img, err := c.GetFirmwareImage(test.hash)
+			switch {
+			case err != nil && !test.wantErr:
+				t.Fatalf("Got unexpected error %q", err)
+			case err == nil && test.wantErr:
+				t.Fatal("Got no error, but wanted error")
+			case err != nil && test.wantErr:
+				// expected error
+			default:
+				if got, want := img, test.want; !bytes.Equal(got, want) {
+					t.Fatalf("Got body %q, want %q", got, want)
 				}
 			}
 		})

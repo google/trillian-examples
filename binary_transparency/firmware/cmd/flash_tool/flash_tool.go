@@ -66,7 +66,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to read update package file: %q", err)
 	}
-	// TODO(al): check signature on statment and checkpoints when they're added.
+	// TODO(al): check signature on statement and checkpoints when they're added.
 
 	var dev devices.Device
 	dev, err = devices.NewDummyDeviceFromFlags()

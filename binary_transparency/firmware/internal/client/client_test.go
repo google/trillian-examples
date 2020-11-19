@@ -280,7 +280,7 @@ func TestGetManifestAndProof(t *testing.T) {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
 			c := client.Client{LogURL: tsURL}
-			ip, err := c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{0, 0})
+			ip, err := c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{Index: 0, TreeSize: 0})
 			switch {
 			case err != nil && !test.wantErr:
 				t.Fatalf("Got unexpected error %q", err)
@@ -341,7 +341,7 @@ func TestGetConsistency(t *testing.T) {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
 			c := client.Client{LogURL: tsURL}
-			cp, err := c.GetConsistencyProof(api.GetConsistencyRequest{test.From, test.To})
+			cp, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: test.From, To: test.To})
 			switch {
 			case err != nil && !test.wantErr:
 				t.Fatalf("Got unexpected error %q", err)

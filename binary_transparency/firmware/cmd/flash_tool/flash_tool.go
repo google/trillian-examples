@@ -36,6 +36,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
+	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
@@ -69,7 +70,7 @@ func main() {
 	// TODO(al): check signature on statement and checkpoints when they're added.
 
 	var dev devices.Device
-	dev, err = devices.NewDummyDeviceFromFlags()
+	dev, err = dummy.NewFromFlags()
 	if err != nil {
 		switch t := err.(type) {
 		case devices.ErrNeedsInit:

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package devices
+package dummy
 
 import (
 	"encoding/json"
@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
 )
 
 var (
@@ -40,11 +41,11 @@ type DummyDevice struct {
 	bundle api.ProofBundle
 }
 
-var _ Device = DummyDevice{}
+var _ devices.Device = DummyDevice{}
 
-// NewDummyDeviceFromFlags creates a new dummy device instance using data from flags.
+// NewFromFlags creates a new dummy device instance using data from flags.
 // TODO(al): figure out how/whether to remove the flag from in here.
-func NewDummyDeviceFromFlags() (*DummyDevice, error) {
+func NewFromFlags() (*DummyDevice, error) {
 	dStat, err := os.Stat(*dummyDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("unable to stat dummy_storage_dir %q: %w", *dummyDirectory, err)
@@ -59,7 +60,7 @@ func NewDummyDeviceFromFlags() (*DummyDevice, error) {
 	f, err := os.OpenFile(fPath, os.O_RDONLY, os.ModePerm)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return d, ErrNeedsInit(fmt.Errorf("couldn't read bundle file %q: %w", fPath, err))
+			return d, devices.ErrNeedsInit(fmt.Errorf("couldn't read bundle file %q: %w", fPath, err))
 		}
 		return d, fmt.Errorf("failed to read bundle file %q: %w", fPath, err)
 	}

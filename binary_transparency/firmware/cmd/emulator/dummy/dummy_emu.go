@@ -23,14 +23,14 @@
 // successful validation has taken place.
 //
 // Usage:
-//   go run ./cmd/devices/dummy_emu --logtostderr --dummy_storage_dir=/tmp/dummy_device
+//   go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
 package main
 
 import (
 	"flag"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/devices/dummy_emu/rom"
+	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/rom"
 )
 
 func main() {

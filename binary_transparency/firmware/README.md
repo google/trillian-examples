@@ -168,7 +168,7 @@ Open terminal in root of `firmware-transparency-demo` git repo for the following
    proofs stored on the device.
 
     ```bash
-    go run ./cmd/devices/dummy_emu --logtostderr --dummy_storage_dir=/tmp/dummy_device
+    go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
     ```
 
 4. Now we've seen it works, let's try to hack it!

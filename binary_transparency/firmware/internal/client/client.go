@@ -32,16 +32,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Client is an HTTP client for the FT personality.
+// ReadonlyClient is an HTTP client for the FT personality.
 //
 // TODO(al): split this into Client and SubmitClient.
-type Client struct {
+type ReadonlyClient struct {
 	// LogURL is the base URL for the FT log.
 	LogURL *url.URL
 }
 
+// SubmitClient extends ReadonlyClient to also know how to submit entries
+type SubmitClient struct {
+	*ReadonlyClient
+}
+
 // PublishFirmware sends a firmware manifest and corresponding image to the log server.
-func (c Client) PublishFirmware(manifest, image []byte) error {
+func (c SubmitClient) PublishFirmware(manifest, image []byte) error {
 	u, err := c.LogURL.Parse(api.HTTPAddFirmware)
 	if err != nil {
 		return err
@@ -96,7 +101,7 @@ func (c Client) PublishFirmware(manifest, image []byte) error {
 }
 
 // GetCheckpoint returns a new LogCheckPoint from the server.
-func (c Client) GetCheckpoint() (*api.LogCheckpoint, error) {
+func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 	u, err := c.LogURL.Parse(api.HTTPGetRoot)
 	if err != nil {
 		return nil, err
@@ -118,7 +123,7 @@ func (c Client) GetCheckpoint() (*api.LogCheckpoint, error) {
 }
 
 // GetInclusion returns an inclusion proof for the statement under the given checkpoint.
-func (c Client) GetInclusion(statement []byte, cp api.LogCheckpoint) (api.InclusionProof, error) {
+func (c ReadonlyClient) GetInclusion(statement []byte, cp api.LogCheckpoint) (api.InclusionProof, error) {
 	hash := verify.HashLeaf(statement)
 	u, err := c.LogURL.Parse(fmt.Sprintf("%s/for-leaf-hash/%s/in-tree-of/%d", api.HTTPGetInclusion, base64.URLEncoding.EncodeToString(hash), cp.TreeSize))
 	if err != nil {
@@ -139,7 +144,7 @@ func (c Client) GetInclusion(statement []byte, cp api.LogCheckpoint) (api.Inclus
 }
 
 // GetManifestEntryAndProof returns the manifest and proof from the server, for given Index and TreeSize
-func (c Client) GetManifestEntryAndProof(request api.GetFirmwareManifestRequest) (*api.InclusionProof, error) {
+func (c ReadonlyClient) GetManifestEntryAndProof(request api.GetFirmwareManifestRequest) (*api.InclusionProof, error) {
 	url := fmt.Sprintf("%s/at/%d/in-tree-of/%d", api.HTTPGetManifestEntryAndProof, request.Index, request.TreeSize)
 
 	u, err := c.LogURL.Parse(url)
@@ -164,7 +169,7 @@ func (c Client) GetManifestEntryAndProof(request api.GetFirmwareManifestRequest)
 }
 
 // GetConsistencyProof returns the Consistency Proof from the server, for the two given snapshots
-func (c Client) GetConsistencyProof(request api.GetConsistencyRequest) (*api.ConsistencyProof, error) {
+func (c ReadonlyClient) GetConsistencyProof(request api.GetConsistencyRequest) (*api.ConsistencyProof, error) {
 	url := fmt.Sprintf("%s/from/%d/to/%d", api.HTTPGetConsistency, request.From, request.To)
 	u, err := c.LogURL.Parse(url)
 	if err != nil {
@@ -188,7 +193,7 @@ func (c Client) GetConsistencyProof(request api.GetConsistencyRequest) (*api.Con
 }
 
 // GetFirmwareImage returns the firmware image with the corresponding hash from the personality CAS.
-func (c Client) GetFirmwareImage(hash []byte) ([]byte, error) {
+func (c ReadonlyClient) GetFirmwareImage(hash []byte) ([]byte, error) {
 	url := fmt.Sprintf("%s/with-hash/%s", api.HTTPGetFirmwareImage, base64.URLEncoding.EncodeToString(hash))
 
 	u, err := c.LogURL.Parse(url)

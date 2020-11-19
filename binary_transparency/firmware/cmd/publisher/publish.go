@@ -62,8 +62,10 @@ func main() {
 		glog.Exitf("Failed to marshal statement: %v", err)
 	}
 
-	c := &client.Client{
-		LogURL: logURL,
+	c := &client.SubmitClient{
+		ReadonlyClient: &client.ReadonlyClient{
+			LogURL: logURL,
+		},
 	}
 
 	initialCP, err := c.GetCheckpoint()
@@ -77,7 +79,7 @@ func main() {
 	}
 
 	glog.Info("Successfully submitted entry, waiting for inclusion...")
-	cp, consistency, ip, err := client.AwaitInclusion(ctx, c, *initialCP, js)
+	cp, consistency, ip, err := client.AwaitInclusion(ctx, c.ReadonlyClient, *initialCP, js)
 	if err != nil {
 		glog.Errorf("Failed while waiting for inclusion: %v", err)
 		glog.Warningf("Failed checkpoint: %s", cp)

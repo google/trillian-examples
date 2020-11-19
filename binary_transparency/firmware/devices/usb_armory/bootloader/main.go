@@ -6,6 +6,8 @@
 // Use of this source code is governed by the license
 // that can be found in the LICENSE file.
 
+//+build armory
+
 package main
 
 import (
@@ -13,9 +15,10 @@ import (
 	"log"
 	"strconv"
 
-	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 	"github.com/f-secure-foundry/tamago/soc/imx6"
 	"github.com/f-secure-foundry/tamago/soc/imx6/usdhc"
+
+	usbarmory "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 )
 
 var Build string

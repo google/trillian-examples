@@ -9,7 +9,7 @@
 BUILD_USER = $(shell whoami)
 BUILD_HOST = $(shell hostname)
 BUILD_DATE = $(shell /bin/date -u "+%Y-%m-%d %H:%M:%S")
-BUILD_TAGS = linkramsize,linkramstart
+BUILD_TAGS = linkramsize,linkramstart,armory,console
 BUILD = ${BUILD_USER}@${BUILD_HOST} on ${BUILD_DATE}
 REV = $(shell git rev-parse --short HEAD 2> /dev/null)
 
@@ -66,9 +66,8 @@ check_hab_keys:
 	fi
 
 dcd:
-	echo $(GOMODCACHE)
 	echo $(TAMAGO_PKG)
-	cp -f $(GOMODCACHE)/$(TAMAGO_PKG)/board/f-secure/usbarmory/mark-two/imximage.cfg $(APP).dcd
+	cp -f $(TAMAGO_PKG)/board/f-secure/usbarmory/mark-two/imximage.cfg $(APP).dcd
 
 clean:
 	rm -f $(APP)
@@ -80,8 +79,7 @@ $(APP): check_tamago check_env
 	$(GOENV) $(TAMAGO) build $(GOFLAGS) -o ${APP}
 
 $(APP).dcd: check_tamago
-$(APP).dcd: GOMODCACHE=$(shell ${TAMAGO} env GOMODCACHE)
-$(APP).dcd: TAMAGO_PKG=$(shell grep "github.com/f-secure-foundry/tamago v" go.mod | awk '{print $$1"@"$$2}')
+$(APP).dcd: TAMAGO_PKG=$(shell go list -f {{.Root}} github.com/f-secure-foundry/tamago/bits)
 $(APP).dcd: dcd
 
 $(APP).bin: $(APP)

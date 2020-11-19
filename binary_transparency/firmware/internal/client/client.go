@@ -166,7 +166,6 @@ func (c Client) GetManifestEntryAndProof(request api.GetFirmwareManifestRequest)
 // GetConsistencyProof returns the Consistency Proof from the server, for the two given snapshots
 func (c Client) GetConsistencyProof(request api.GetConsistencyRequest) (*api.ConsistencyProof, error) {
 	url := fmt.Sprintf("%s/from/%d/to/%d", api.HTTPGetConsistency, request.From, request.To)
-
 	u, err := c.LogURL.Parse(url)
 	if err != nil {
 		return nil, err
@@ -186,6 +185,31 @@ func (c Client) GetConsistencyProof(request api.GetConsistencyRequest) (*api.Con
 	}
 
 	return &cp, nil
+}
+
+// GetFirmwareImage returns the firmware image with the corresponding hash from the personality CAS.
+func (c Client) GetFirmwareImage(hash []byte) ([]byte, error) {
+	url := fmt.Sprintf("%s/with-hash/%s", api.HTTPGetFirmwareImage, base64.URLEncoding.EncodeToString(hash))
+
+	u, err := c.LogURL.Parse(url)
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := http.Get(u.String())
+	if err != nil {
+		return nil, err
+	}
+	if r.StatusCode != 200 {
+		return nil, errFromResponse("failed to fetch firmware image", r)
+	}
+
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read firmware image from response: %w", err)
+	}
+
+	return b, nil
 }
 
 func errFromResponse(m string, r *http.Response) error {

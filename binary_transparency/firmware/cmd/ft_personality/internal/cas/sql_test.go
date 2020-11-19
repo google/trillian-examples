@@ -21,6 +21,8 @@ import (
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -43,6 +45,8 @@ func TestRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Error("failed to open temporary in-memory DB", err)
 			}
+			defer db.Close()
+
 			store, err := NewBinaryStorage(db)
 			if err != nil {
 				t.Error("failed to create CAS", err)
@@ -64,5 +68,27 @@ func TestRoundTrip(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+func TestUnknownHash(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Error("failed to open temporary in-memory DB", err)
+	}
+	defer db.Close()
+
+	store, err := NewBinaryStorage(db)
+	if err != nil {
+		t.Error("failed to create CAS", err)
+	}
+
+	keyBs := sha512.Sum512([]byte("This doesn't exist"))
+
+	r, err := store.Retrieve(keyBs[:])
+	if err == nil {
+		t.Fatalf("want error, but got none, result: %v", r)
+	}
+	if got, want := status.Code(err), codes.NotFound; got != want {
+		t.Fatalf("got error code %s, want %s", got, want)
 	}
 }

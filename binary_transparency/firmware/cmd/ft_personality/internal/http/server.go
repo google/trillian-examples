@@ -62,6 +62,7 @@ type CAS interface {
 	Store([]byte, []byte) error
 
 	// Retrieve gets a binary image that was previously stored.
+	// Must return status code NotFound if no such image exists.
 	Retrieve([]byte) ([]byte, error)
 }
 
@@ -319,12 +320,45 @@ func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 	w.Write(js)
 }
 
+// getFirmwareImage returns a firmware image stored in the CAS.
+func (s *Server) getFirmwareImage(w http.ResponseWriter, r *http.Request) {
+	hash, err := parseBase64Param(r, "hash")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	image, err := s.cas.Retrieve(hash)
+	if err != nil {
+		http.Error(w, err.Error(), httpStatusForErr(err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/binary")
+	w.Header().Set("Content-Length", strconv.Itoa(len(image)))
+	w.Write(image)
+}
+
+// httpStatusForErr maps status codes to HTTP errors.
+func httpStatusForErr(e error) int {
+	switch status.Code(e) {
+	case codes.OK:
+		return http.StatusOK
+	case codes.NotFound:
+		return http.StatusNotFound
+	default:
+		return http.StatusInternalServerError
+	}
+	// unreachable
+}
+
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
 	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPAddFirmware), s.addFirmware).Methods("POST")
 	r.HandleFunc(fmt.Sprintf("/%s/from/{from:[0-9]+}/to/{to:[0-9]+}", api.HTTPGetConsistency), s.getConsistency).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/for-leaf-hash/{hash}/in-tree-of/{treesize:[0-9]+}", api.HTTPGetInclusion), s.getInclusionByHash).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/at/{index:[0-9]+}/in-tree-of/{treesize:[0-9]+}", api.HTTPGetManifestEntryAndProof), s.getManifestEntryAndProof).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/with-hash/{hash}", api.HTTPGetFirmwareImage), s.getFirmwareImage).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetRoot), s.getRoot).Methods("GET")
 }
 

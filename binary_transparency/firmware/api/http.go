@@ -25,6 +25,8 @@ const (
 	HTTPGetInclusion = "ft/v0/get-inclusion"
 	// HTTPGetManifestEntryAndProof is the path of the URL to get firmware manifest entries with inclusion proofs.
 	HTTPGetManifestEntryAndProof = "ft/v0/get-firmware-manifest-entry-and-proof"
+	// HTTPGetFirmwareImage is the path of the URL for getting firmware images from the CAS.
+	HTTPGetFirmwareImage = "ft/v0/get-firmware-image"
 	// HTTPGetRoot is the path of the URL to get a recent log root.
 	HTTPGetRoot = "ft/v0/get-root"
 )

@@ -17,6 +17,9 @@ package cas
 
 import (
 	"database/sql"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // BinaryStorage is a CAS intended for storing binary images keyed by their hash string
@@ -53,9 +56,16 @@ func (bs *BinaryStorage) Store(key, image []byte) error {
 func (bs *BinaryStorage) Retrieve(key []byte) ([]byte, error) {
 	var res []byte
 	row := bs.db.QueryRow("SELECT data FROM images WHERE key=?", key)
-	if row.Err() != nil {
-		return nil, row.Err()
+	if err := row.Err(); err != nil {
+		return nil, err
 	}
-	row.Scan(&res)
+
+	if err := row.Scan(&res); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, status.Errorf(codes.NotFound, "unknown hash: %q", err)
+		}
+		return nil, err
+
+	}
 	return res, nil
 }

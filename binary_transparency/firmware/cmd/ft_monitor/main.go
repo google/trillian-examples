@@ -54,7 +54,7 @@ func main() {
 	glog.Infof("Monitoring FT log %q...", *ftLog)
 	ticker := time.NewTicker(*pollInterval)
 
-	c := client.Client{LogURL: ftURL}
+	c := client.ReadonlyClient{LogURL: ftURL}
 	var latestCP api.LogCheckpoint
 
 	lv := verify.NewLogVerifier()

@@ -60,7 +60,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("log_url is invalid: %v", err)
 	}
-	c := &client.Client{LogURL: logURL}
+	c := &client.ReadonlyClient{LogURL: logURL}
 
 	up, err := readUpdateFileFromFlags()
 	if err != nil {
@@ -135,7 +135,7 @@ func checkManifestHash(up api.UpdatePackage) error {
 	return nil
 }
 
-func checkConsistency(c *client.Client, up api.UpdatePackage, dev devices.Device) error {
+func checkConsistency(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) error {
 	// TODO(al): implement this
 	return nil
 }

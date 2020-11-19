@@ -75,7 +75,7 @@ func TestPublish(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			c := client.Client{LogURL: tsURL}
+			c := client.SubmitClient{ReadonlyClient: &client.ReadonlyClient{LogURL: tsURL}}
 			err = c.PublishFirmware(test.manifest, test.image)
 			switch {
 			case err != nil && !test.wantErr:
@@ -167,7 +167,7 @@ func TestGetCheckpoint(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			c := client.Client{LogURL: tsURL}
+			c := client.ReadonlyClient{LogURL: tsURL}
 			cp, err := c.GetCheckpoint()
 			switch {
 			case err != nil && !test.wantErr:
@@ -225,7 +225,7 @@ func TestGetInclusion(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			c := client.Client{LogURL: tsURL}
+			c := client.ReadonlyClient{LogURL: tsURL}
 			ip, err := c.GetInclusion([]byte{}, cp)
 			switch {
 			case err != nil && !test.wantErr:
@@ -280,7 +280,7 @@ func TestGetManifestAndProof(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			c := client.Client{LogURL: tsURL}
+			c := client.ReadonlyClient{LogURL: tsURL}
 			ip, err := c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{Index: 0, TreeSize: 0})
 			switch {
 			case err != nil && !test.wantErr:
@@ -341,7 +341,7 @@ func TestGetConsistency(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			c := client.Client{LogURL: tsURL}
+			c := client.ReadonlyClient{LogURL: tsURL}
 			cp, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: test.From, To: test.To})
 			switch {
 			case err != nil && !test.wantErr:
@@ -401,7 +401,7 @@ func TestGetFirmwareImage(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			c := client.Client{LogURL: tsURL}
+			c := client.ReadonlyClient{LogURL: tsURL}
 			img, err := c.GetFirmwareImage(test.hash)
 			switch {
 			case err != nil && !test.wantErr:

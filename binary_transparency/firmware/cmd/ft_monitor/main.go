@@ -76,7 +76,7 @@ func main() {
 		// Fetch all the manifests from now till new checkpoint
 		for idx := latestCP.TreeSize; idx < cp.TreeSize; idx++ {
 
-			manifest, err := c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{idx, cp.TreeSize})
+			manifest, err := c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{Index: idx, TreeSize: cp.TreeSize})
 			if err != nil {
 				glog.Warningf("Failed to fetch the Manifest: %q", err)
 				continue
@@ -98,7 +98,7 @@ func main() {
 
 		// Perform consistency check only for non-zero initial tree size
 		if latestCP.TreeSize != 0 {
-			consistency, err := c.GetConsistencyProof(api.GetConsistencyRequest{latestCP.TreeSize, cp.TreeSize})
+			consistency, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: latestCP.TreeSize, To: cp.TreeSize})
 			if err != nil {
 				glog.Warningf("Failed to fetch the Consistency: %q", err)
 				continue

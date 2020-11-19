@@ -341,7 +341,6 @@ func TestGetInclusionProofByHash(t *testing.T) {
 		trillianProof [][]byte
 		trillianErr   error
 		wantStatus    int
-		wantBody      api.InclusionProof
 	}{
 		{
 			desc:          "valid request",

@@ -29,6 +29,8 @@ import (
 	"encoding/json"
 	"flag"
 	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -40,6 +42,7 @@ import (
 var (
 	ftLog        = flag.String("ftlog", "http://localhost:8000", "Base URL of FT Log server")
 	pollInterval = flag.Duration("poll_interval", 5*time.Second, "Duration to wait between polling for new entries")
+	keyWord      = flag.String("keyword", "trojan", "Example keyword for malware")
 )
 
 func main() {
@@ -53,6 +56,8 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to parse FT log URL: %q", err)
 	}
+
+	ftKeyWords := (*keyWord)
 
 	glog.Infof("Monitoring FT log %q...", *ftLog)
 	ticker := time.NewTicker(*pollInterval)
@@ -101,7 +106,7 @@ func main() {
 			statement := manifest.Value
 			stmt := api.FirmwareStatement{}
 			if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
-				glog.Warningf("Firmware Statement decoding from manifest failed reason %q", err)
+				glog.Warningf("Fimware Statement decoding from manifest Failed reason %q", err)
 				continue
 			}
 			// Parse the firmware metadata:
@@ -116,13 +121,25 @@ func main() {
 				glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
 				continue
 			}
-			// Verify Image Hash from log Manifest matches the actual image hash
+			// Verify Image Hash from log Manifest match the actual image hash
 			h := sha512.Sum512(image)
 			if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
 				glog.Warningf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
 				continue
 			}
 			glog.V(1).Infof("Image Hash Verified for image at leaf index %d", manifest.LeafIndex)
+
+			//Search for specific keywords inside firmware image
+			for _, keyword := range strings.Fields(ftKeyWords) {
+				cond, err := regexp.MatchString(("\\b" + keyword + "\\b"), string(image))
+				if err != nil {
+					glog.Warningf("Unable to perform pattern matching %q", err)
+					break
+				}
+				if cond {
+					glog.Warningf("Malware detected matched pattern %s", keyword)
+				}
+			}
 		}
 
 		// Perform consistency check only for non-zero initial tree size

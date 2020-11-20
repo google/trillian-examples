@@ -35,17 +35,17 @@ const (
 	firmwarePath = "firmware.bin"
 )
 
-// DummyDevice is a fake device using the local filesystem for storage.
-type DummyDevice struct {
+// Device is a fake device using the local filesystem for storage.
+type Device struct {
 	// bundle holds all the update data except the firmware image.
 	bundle api.ProofBundle
 }
 
-var _ devices.Device = DummyDevice{}
+var _ devices.Device = Device{}
 
 // NewFromFlags creates a new dummy device instance using data from flags.
 // TODO(al): figure out how/whether to remove the flag from in here.
-func NewFromFlags() (*DummyDevice, error) {
+func NewFromFlags() (*Device, error) {
 	dStat, err := os.Stat(*dummyDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("unable to stat dummy_storage_dir %q: %w", *dummyDirectory, err)
@@ -54,7 +54,7 @@ func NewFromFlags() (*DummyDevice, error) {
 		return nil, fmt.Errorf("dummy_storage_dir %q is not a directory", *dummyDirectory)
 	}
 
-	d := &DummyDevice{}
+	d := &Device{}
 
 	fPath := filepath.Join(*dummyDirectory, bundlePath)
 	f, err := os.OpenFile(fPath, os.O_RDONLY, os.ModePerm)
@@ -71,14 +71,14 @@ func NewFromFlags() (*DummyDevice, error) {
 }
 
 // DeviceCheckpoint returns the latest log checkpoint stored on the device.
-func (d DummyDevice) DeviceCheckpoint() (api.LogCheckpoint, error) {
+func (d Device) DeviceCheckpoint() (api.LogCheckpoint, error) {
 	return d.bundle.Checkpoint, nil
 }
 
 // ApplyUpdate applies the firmware update to the dummy device.
 // The firmware image is stored in the dummy state directory in the firmware.bin file,
 // and the rest of the update bundle is stored in the bundle.json file.
-func (d DummyDevice) ApplyUpdate(u api.UpdatePackage) error {
+func (d Device) ApplyUpdate(u api.UpdatePackage) error {
 	fwFile := filepath.Join(*dummyDirectory, firmwarePath)
 	bundleFile := filepath.Join(*dummyDirectory, bundlePath)
 

@@ -24,6 +24,9 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha512"
+	"encoding/json"
 	"flag"
 	"net/url"
 	"time"
@@ -94,6 +97,32 @@ func main() {
 			}
 
 			glog.V(1).Infof("Inclusion proof for leafhash 0x%x verified", lh)
+
+			statement := manifest.Value
+			stmt := api.FirmwareStatement{}
+			if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
+				glog.Warningf("Fimware Statement decoding from manifest Failed reason %q", err)
+				continue
+			}
+			// Parse the firmware metadata:
+			var meta api.FirmwareMetadata
+			if err := json.Unmarshal(stmt.Metadata, &meta); err != nil {
+				glog.Warningf("Unable to decode FW Metadata from Statement %q", err)
+				continue
+			}
+			// Fetch the Image from FT Personality
+			image, err := c.GetFirmwareImage(meta.FirmwareImageSHA512)
+			if err != nil {
+				glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
+				continue
+			}
+			// Verify Image Hash from log Manifest match the actual image hash
+			h := sha512.Sum512(image)
+			if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
+				glog.Warningf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
+				continue
+			}
+			glog.V(1).Infof("Image Hash Verified for image at leaf index %d", manifest.LeafIndex)
 		}
 
 		// Perform consistency check only for non-zero initial tree size

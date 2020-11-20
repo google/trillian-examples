@@ -18,7 +18,7 @@ require (
 	github.com/google/certificate-transparency-go v1.0.22-0.20200708065856-b8561831ac3c
 	github.com/google/go-cmp v0.5.3
 	github.com/google/trillian v1.3.12-0.20201112151559-1e07d2420b67
-	github.com/gorilla/mux v1.7.3
+	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/kylelemons/godebug v1.1.0

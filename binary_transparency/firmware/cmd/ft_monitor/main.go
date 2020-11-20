@@ -106,7 +106,7 @@ func main() {
 			statement := manifest.Value
 			stmt := api.FirmwareStatement{}
 			if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
-				glog.Warningf("Fimware Statement decoding from manifest Failed reason %q", err)
+				glog.Warningf("Firmware Statement decoding from manifest failed reason %q", err)
 				continue
 			}
 			// Parse the firmware metadata:
@@ -121,13 +121,15 @@ func main() {
 				glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
 				continue
 			}
-			// Verify Image Hash from log Manifest match the actual image hash
+
+			// Verify Image Hash from log Manifest matches the actual image hash
 			h := sha512.Sum512(image)
 			if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
 				glog.Warningf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
 				continue
 			}
 			glog.V(1).Infof("Image Hash Verified for image at leaf index %d", manifest.LeafIndex)
+
 
 			//Search for specific keywords inside firmware image
 			for _, keyword := range strings.Fields(ftKeyWords) {

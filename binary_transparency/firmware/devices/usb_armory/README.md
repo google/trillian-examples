@@ -138,17 +138,17 @@ There are some invariants which must hold for this chain to work:
 3. The `firmware` partition MUST contain a `/boot` directory with at least the
     following contents:
     * `armory-boot.conf` - a JSON file which tells the bootloader which files
-      to load.
+      to load
     * a valid ARM linux Kernel image
-    * a valid DTB file.
+    * a valid DTB file
    Note that the `armory-boot.conf` file also contains SHA256 hashes of the
    kernel and DTB files, and these MUST be correct.
 
 
 > :frog: The [Armory Debian Base Image](https://github.com/f-secure-foundry/usbarmory-debian-base_image/releases)
-> is a good source for the kernle (zImage) and dtb files.
+> is a good source for the kernel (zImage) and dtb files.
 >
-> You can decompress and monut the image to access the files like so:
+> You can decompress and mount the image to access the files like so:
 > ```bash
 > # decompress image 
 > $ xz -d usbarmory-mark-two-usd-debian_buster-base_image-20200714.raw.xz

@@ -25,7 +25,9 @@ var Build string
 var Revision string
 
 var Boot string
-var Start string
+var StartKernel string
+var LenKernel string
+var StartProof string
 
 func init() {
 	log.SetFlags(0)
@@ -34,6 +36,26 @@ func init() {
 		panic(fmt.Sprintf("WARNING: error setting ARM frequency: %v\n", err))
 	}
 }
+
+const (
+	CodeInvalidBoot = iota + 1
+	CodeCardDetect
+	CodeInvalidStartKernel
+	CodeInvalidLenKernel
+	CodeInvalidStartProof
+	CodeInvalidConfig
+	CodeHashPartitionFailed
+	CodeLoadBundleFailed
+	CodeConfigVerificationError
+	CodeInvalidConfigSignature
+	CodeKernelLoadFailure
+	CodeDTBLoadFailure
+	CodeKernelHashIncorrect
+	CodeDTBHashIncorrect
+	CodeFixupDTBFailure
+)
+
+
 
 func main() {
 	usbarmory.LED("blue", false)
@@ -47,67 +69,92 @@ func main() {
 	case "uSD":
 		card = usbarmory.SD
 	default:
-		haltAndCatchFire("invalid boot parameter", 1)
+		haltAndCatchFire("invalid boot parameter", CodeInvalidBoot)
 	}
 
 	if err := card.Detect(); err != nil {
-		haltAndCatchFire(fmt.Sprintf("card detect error: %v\n", err), 2)
+		haltAndCatchFire(fmt.Sprintf("card detect error: %v\n", err), CodeCardDetect)
+	}
+
+	kernelOffset, err := strconv.ParseInt(StartKernel, 10, 64)
+	if err != nil {
+		haltAndCatchFire(fmt.Sprintf("invalid kernel partition start offset: %v\n", err), CodeInvalidStartKernel)
+	}
+	kernelLen, err := strconv.ParseInt(LenKernel, 10, 64)
+	if err != nil {
+		haltAndCatchFire(fmt.Sprintf("invalid kernel partition length : %v\n", err), CodeInvalidLenKernel)
+	}
+	proofOffset, err := strconv.ParseInt(StartProof, 10, 64)
+	if err != nil {
+		haltAndCatchFire(fmt.Sprintf("invalid proof partition start offset: %v\n", err), CodeInvalidStartProof)
+	}
+
+	kernelPart := &Partition{
+		Card:   card,
+		Offset: kernelOffset,
+	}
+	if err = conf.Read(kernelPart, defaultConfigPath); err != nil {
+		haltAndCatchFire(fmt.Sprintf("invalid configuration: %v\n", err), CodeInvalidConfig)
 	}
 
 	usbarmory.LED("white", true)
-
-	offset, err := strconv.ParseInt(Start, 10, 64)
+	h, err := hashPartition(kernelLen, kernelPart)
 	if err != nil {
-		haltAndCatchFire(fmt.Sprintf("invalid start offset: %v\n", err), 3)
+		haltAndCatchFire(fmt.Sprintf("failed to hash kernelPart: %w\n", err), CodeHashPartitionFailed)
 	}
+	fmt.Printf("Partition hash: %x\n", h)
+	usbarmory.LED("white", false)
 
-	partition := &Partition{
+	proofPart := &Partition{
 		Card:   card,
-		Offset: offset,
+		Offset: proofOffset,
 	}
+	bundle, err := loadBundle(proofPart)
+	if err != nil {
+		haltAndCatchFire(fmt.Sprintf("Failed to load proof bundle: %q", err), CodeLoadBundleFailed)
+	}
+	fmt.Printf("Loaded bundle: %v\n", bundle)
 
-	if err = conf.Read(partition, defaultConfigPath); err != nil {
-		haltAndCatchFire(fmt.Sprintf("invalid configuration: %v\n", err), 4)
-	}
+
 
 	if len(PublicKeyStr) > 0 {
-		valid, err := conf.Verify(partition, defaultConfigPath+signatureSuffix)
+		valid, err := conf.Verify(kernelPart, defaultConfigPath+signatureSuffix)
 
 		if err != nil {
-			haltAndCatchFire(fmt.Sprintf("configuration verification error: %v\n", err), 5)
+			haltAndCatchFire(fmt.Sprintf("configuration verification error: %v\n", err), CodeConfigVerificationError)
 		}
 
 		if !valid {
-			haltAndCatchFire("invalid configuration signature", 6)
+			haltAndCatchFire("invalid configuration signature", CodeInvalidConfigSignature)
 		}
 	}
 
-	kernel, err := partition.ReadAll(conf.Kernel[0])
+	kernel, err := kernelPart.ReadAll(conf.Kernel[0])
 
 	if err != nil {
-		haltAndCatchFire(fmt.Sprintf("invalid kernel path: %v\n", err), 7)
+		haltAndCatchFire(fmt.Sprintf("invalid kernel path: %v\n", err), CodeKernelLoadFailure)
 	}
 
-	dtb, err := partition.ReadAll(conf.DeviceTreeBlob[0])
+	dtb, err := kernelPart.ReadAll(conf.DeviceTreeBlob[0])
 
 	if err != nil {
-		haltAndCatchFire(fmt.Sprintf("invalid dtb path: %v\n", err), 8)
+		haltAndCatchFire(fmt.Sprintf("invalid dtb path: %v\n", err), CodeDTBLoadFailure)
 	}
 
 	usbarmory.LED("blue", true)
 
 	if !verifyHash(kernel, conf.Kernel[1]) {
-		haltAndCatchFire("invalid kernel hash", 9)
+		haltAndCatchFire("invalid kernel hash", CodeKernelHashIncorrect)
 	}
 
 	if !verifyHash(dtb, conf.DeviceTreeBlob[1]) {
-		haltAndCatchFire("invalid dtb hash", 10)
+		haltAndCatchFire("invalid dtb hash", CodeDTBHashIncorrect)
 	}
 
 	dtb, err = fixupDeviceTree(dtb, conf.CmdLine)
 
 	if err != nil {
-		haltAndCatchFire(fmt.Sprintf("dtb fixup error: %v\n", err), 11)
+		haltAndCatchFire(fmt.Sprintf("dtb fixup error: %v\n", err), CodeFixupDTBFailure)
 	}
 
 	boot(kernel, dtb, conf.CmdLine)

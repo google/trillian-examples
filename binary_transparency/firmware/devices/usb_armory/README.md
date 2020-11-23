@@ -124,3 +124,89 @@ Finally, we'll write the bootloader we just built onto the SD card in the right
 # Note that we're writing to the raw device here NOT the boot partition.
 $ sudo dd if=armory-boot.imx of=/dev/myscard bs=512 seek=2 conv=fsync,notrunc
 ```
+
+
+Firmware images
+---------------
+
+Currently, the bootloader can only chain to a Linux kernel.
+
+There are some invariants which must hold for this chain to work:
+1. The `firmware` partition MUST be located at the precise offset mentioned
+    above.
+2. The `firmware` partition MUST be formatted with ext4.
+3. The `firmware` partition MUST contain a `/boot` directory with at least the
+    following contents:
+    * `armory-boot.conf` - a JSON file which tells the bootloader which files
+      to load.
+    * a valid ARM linux Kernel image
+    * a valid DTB file.
+   Note that the `armory-boot.conf` file also contains SHA256 hashes of the
+   kernel and DTB files, and these MUST be correct.
+
+
+> :frog: The [Armory Debian Base Image](https://github.com/f-secure-foundry/usbarmory-debian-base_image/releases)
+> is a good source for the kernle (zImage) and dtb files.
+>
+> You can decompress and monut the image to access the files like so:
+> ```bash
+> # decompress image 
+> $ xz -d usbarmory-mark-two-usd-debian_buster-base_image-20200714.raw.xz
+> # mount image with loopback:
+> # note the offset parameter below - the raw file is a complete disk image, this
+> # offset is the first byte of the root partition (you can use fdisk or parted
+> # on the raw file to view this yourself)
+> $ sudo mount -o loop,ro,offet=5242880 /home/al/Downloads/usbarmory-mark-two-usd-debian_buster-base_image-20201020.raw /mnt
+> # the files we're interested in are now visible in /mnt/boot:
+> $ ls -l /mnt/boot
+> total 8148
+> -rw-r--r-- 1 root root   99319 Oct 20 17:13 config-5.4.72-0-usbarmory
+> lrwxrwxrwx 1 root root      21 Oct 20 17:14 imx6ull-usbarmory.dtb -> imx6ulz-usbarmory.dtb
+> -rw-r--r-- 1 root root   19938 Oct 20 17:14 imx6ulz-usbarmory-default-5.4.72-0.dtb
+> lrwxrwxrwx 1 root root      38 Oct 20 17:14 imx6ulz-usbarmory.dtb -> imx6ulz-usbarmory-default-5.4.72-0.dtb
+> -rw-r--r-- 1 root root 1488951 Oct 20 17:13 System.map-5.4.72-0-usbarmory
+> lrwxrwxrwx 1 root root      25 Oct 20 17:14 zImage -> zImage-5.4.72-0-usbarmory
+> -rwxr-xr-x 1 root root 6726952 Oct 20 17:13 zImage-5.4.72-0-usbarmory
+> ```
+
+An example `armory-boot.conf` file is:
+
+```json
+{
+  "kernel": [
+    "/boot/zImage-5.4.51-0-usbarmory",
+    "aceb3514d5ba6ac591a7d5f2cad680e83a9f848d19763563da8024f003e927c7"
+  ],
+  "dtb": [
+    "/boot/imx6ulz-usbarmory-default-5.4.51-0.dtb",
+    "60d4fe465ef60042293f5723bf4a001d8e75f26e517af2b55e6efaef9c0db1f6"
+  ],
+  "cmdline": "console=ttymxc1,115200 root=/dev/sdc3 rootwait rw"
+}
+```
+
+TODO(al): Consider wrapping this up into a script.
+
+Booting
+-------
+
+If all is well, booting the USB Armory using the debug accessory will show
+console output like so:
+
+```
+Terminal ready
+�armory-boot: starting kernel image@80800000 params@87000000
+Booting Linux on physical CPU 0x0
+Linux version 5.4.72-0 (usbarmory@f-secure-foundry) (gcc version 7.5.0 (Ubuntu/Linaro 7.5.0-3ubuntu1~18.04)) #1 PREEMPT Tue Oct 20 16:03:37 UTC 2020
+CPU: ARMv7 Processor [410fc075] revision 5 (ARMv7), cr=10c53c7d
+CPU: div instructions available: patching division code
+CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+OF: fdt: Machine model: F-Secure USB armory Mk II
+Memory policy: Data cache writeback
+CPU: All CPU(s) started in SVC mode.
+Built 1 zonelists, mobility grouping on.  Total pages: 130048
+Kernel command line: console=ttymxc1,115200 root=/dev/sda3 rootwait rw
+Dentry cache hash table entries: 65536 (order: 6, 262144 bytes, linear)
+...
+```
+

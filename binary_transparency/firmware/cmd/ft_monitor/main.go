@@ -57,8 +57,6 @@ func main() {
 		glog.Exitf("Failed to parse FT log URL: %q", err)
 	}
 
-	ftKeyWords := (*keyWord)
-
 	glog.Infof("Monitoring FT log %q...", *ftLog)
 	ticker := time.NewTicker(*pollInterval)
 
@@ -66,6 +64,12 @@ func main() {
 	var latestCP api.LogCheckpoint
 
 	lv := verify.NewLogVerifier()
+
+	// Parse the input keywords as regular expression
+	var ftKeywords []*regexp.Regexp
+	for _, k := range strings.Fields(*keyWord) {
+		ftKeywords = append(ftKeywords, regexp.MustCompile(k))
+	}
 
 	for {
 		<-ticker.C
@@ -121,7 +125,6 @@ func main() {
 				glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
 				continue
 			}
-
 			// Verify Image Hash from log Manifest matches the actual image hash
 			h := sha512.Sum512(image)
 			if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
@@ -130,16 +133,10 @@ func main() {
 			}
 			glog.V(1).Infof("Image Hash Verified for image at leaf index %d", manifest.LeafIndex)
 
-
 			//Search for specific keywords inside firmware image
-			for _, keyword := range strings.Fields(ftKeyWords) {
-				cond, err := regexp.MatchString(("\\b" + keyword + "\\b"), string(image))
-				if err != nil {
-					glog.Warningf("Unable to perform pattern matching %q", err)
-					break
-				}
-				if cond {
-					glog.Warningf("Malware detected matched pattern %s", keyword)
+			for _, m := range ftKeywords {
+				if m.Match(image) {
+					glog.Warningf("Malware detected matched pattern %s", m)
 				}
 			}
 		}

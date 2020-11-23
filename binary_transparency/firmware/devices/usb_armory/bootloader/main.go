@@ -47,19 +47,18 @@ func main() {
 	case "uSD":
 		card = usbarmory.SD
 	default:
-		panic("invalid boot parameter")
+		haltAndCatchFire("invalid boot parameter", 1)
 	}
 
 	if err := card.Detect(); err != nil {
-		panic(fmt.Sprintf("card detect error: %v\n", err))
+		haltAndCatchFire(fmt.Sprintf("card detect error: %v\n", err), 2)
 	}
 
 	usbarmory.LED("white", true)
 
 	offset, err := strconv.ParseInt(Start, 10, 64)
-
 	if err != nil {
-		panic(fmt.Sprintf("invalid start offset: %v\n", err))
+		haltAndCatchFire(fmt.Sprintf("invalid start offset: %v\n", err), 3)
 	}
 
 	partition := &Partition{
@@ -68,47 +67,47 @@ func main() {
 	}
 
 	if err = conf.Read(partition, defaultConfigPath); err != nil {
-		panic(fmt.Sprintf("invalid configuration: %v\n", err))
+		haltAndCatchFire(fmt.Sprintf("invalid configuration: %v\n", err), 4)
 	}
 
 	if len(PublicKeyStr) > 0 {
 		valid, err := conf.Verify(partition, defaultConfigPath+signatureSuffix)
 
 		if err != nil {
-			panic(fmt.Sprintf("configuration verification error: %v\n", err))
+			haltAndCatchFire(fmt.Sprintf("configuration verification error: %v\n", err), 5)
 		}
 
 		if !valid {
-			panic("invalid configuration signature")
+			haltAndCatchFire("invalid configuration signature", 6)
 		}
 	}
 
 	kernel, err := partition.ReadAll(conf.Kernel[0])
 
 	if err != nil {
-		panic(fmt.Sprintf("invalid kernel path: %v\n", err))
+		haltAndCatchFire(fmt.Sprintf("invalid kernel path: %v\n", err), 7)
 	}
 
 	dtb, err := partition.ReadAll(conf.DeviceTreeBlob[0])
 
 	if err != nil {
-		panic(fmt.Sprintf("invalid dtb path: %v\n", err))
+		haltAndCatchFire(fmt.Sprintf("invalid dtb path: %v\n", err), 8)
 	}
 
 	usbarmory.LED("blue", true)
 
 	if !verifyHash(kernel, conf.Kernel[1]) {
-		panic("invalid kernel hash")
+		haltAndCatchFire("invalid kernel hash", 9)
 	}
 
 	if !verifyHash(dtb, conf.DeviceTreeBlob[1]) {
-		panic("invalid dtb hash")
+		haltAndCatchFire("invalid dtb hash", 10)
 	}
 
 	dtb, err = fixupDeviceTree(dtb, conf.CmdLine)
 
 	if err != nil {
-		panic(fmt.Sprintf("dtb fixup error: %v\n", err))
+		haltAndCatchFire(fmt.Sprintf("dtb fixup error: %v\n", err), 11)
 	}
 
 	boot(kernel, dtb, conf.CmdLine)

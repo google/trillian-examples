@@ -28,23 +28,23 @@ func loadBundle(p *Partition) (api.ProofBundle, error) {
 	return bundle, nil
 }
 
-// hashPartition calclates the SHA256 of the first numBytes of the partition.
-func hashPartition(numBytes int, p *Partition) ([]byte, error) {
-	fmt.Println("Reading partition...")
+// hashPartition calculates the SHA256 of the first numBytes of the partition.
+func hashPartition(numBytes int64, p *Partition) ([]byte, error) {
+	fmt.Println("Reading partition at offset %d...", p.Offset)
 	if _, err := p.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek: %w", err)
 	}
 
-	bs := 1<<16
+	bs := int64(1<<16)
 	rc := make(chan []byte, 10)
 	hc := make(chan []byte)
 
 	go func() {
 		h := sha256.New()
 		for b := range(rc) {
-		if _, err := h.Write(b); err != nil {
-			panic(fmt.Errorf("failed to hash: %w", err))
-		}
+			if _, err := h.Write(b); err != nil {
+				panic(fmt.Errorf("failed to hash: %w", err))
+			}
 		}
 		hash := h.Sum(nil)
 		hc <- hash
@@ -62,7 +62,7 @@ func hashPartition(numBytes int, p *Partition) ([]byte, error) {
 		}
 		rc<-b[:bc]
 
-		numBytes -= bc
+		numBytes -= int64(bc)
 	}
 	close(rc)
 

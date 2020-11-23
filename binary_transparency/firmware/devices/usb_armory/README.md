@@ -9,7 +9,7 @@ Since the SoC on the hardware already has ROM we can't patch that to root our
 trust there, so for now we'll simply use a first-stage EL3 bootloader to
 "enforce" the correctness of the proof bundle before chaining to something
 (e.g. a full linux image based app) that represents the firmware being made
-discoverable.
+transparent.
 
 The enforcement code not being in the masked ROM is an obvious shortcoming of this
 demo, however given the interesting array of security hardware on this board
@@ -70,7 +70,7 @@ sudo parted /dev/my_sdcard
 (parted) mkpart primary 1KB 10240KB
 # Create a partition for the proofs
 (parted) mkpart primary ext4 10241KB 10753KB
-# Create a partition for the firmwware
+# Create a partition for the firmware
 (parted) mkpart primary ext4 10754KB 100MB
 
 # Check our work:

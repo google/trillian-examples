@@ -29,6 +29,8 @@ import (
 	"encoding/json"
 	"flag"
 	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -40,6 +42,7 @@ import (
 var (
 	ftLog        = flag.String("ftlog", "http://localhost:8000", "Base URL of FT Log server")
 	pollInterval = flag.Duration("poll_interval", 5*time.Second, "Duration to wait between polling for new entries")
+	keyWord      = flag.String("keyword", "trojan", "Example keyword for malware")
 )
 
 func main() {
@@ -61,6 +64,12 @@ func main() {
 	var latestCP api.LogCheckpoint
 
 	lv := verify.NewLogVerifier()
+
+	// Parse the input keywords as regular expression
+	var ftKeywords []*regexp.Regexp
+	for _, k := range strings.Fields(*keyWord) {
+		ftKeywords = append(ftKeywords, regexp.MustCompile(k))
+	}
 
 	for {
 		<-ticker.C
@@ -123,6 +132,13 @@ func main() {
 				continue
 			}
 			glog.V(1).Infof("Image Hash Verified for image at leaf index %d", manifest.LeafIndex)
+
+			//Search for specific keywords inside firmware image
+			for _, m := range ftKeywords {
+				if m.Match(image) {
+					glog.Warningf("Malware detected matched pattern %s", m)
+				}
+			}
 		}
 
 		// Perform consistency check only for non-zero initial tree size

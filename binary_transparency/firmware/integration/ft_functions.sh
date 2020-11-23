@@ -40,7 +40,7 @@ ft_prep_test() {
 
   echo "Starting FT monitor"
   FT_MONITOR_LOG=$(mktemp /tmp/ft-monitor-log-XXXXX)
-  ./ft_monitor  --ftlog="http://localhost:${port}" --poll_interval=200ms -v 1 --logtostderr > ${FT_MONITOR_LOG} 2>&1 &
+  ./ft_monitor  --ftlog="http://${FT_SERVER}" --poll_interval=200ms -v 1 --logtostderr > ${FT_MONITOR_LOG} 2>&1 &
   pid=$!
   FT_MONITOR_PID=${pid}
 }

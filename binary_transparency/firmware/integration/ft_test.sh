@@ -33,22 +33,44 @@ echo "Running test(s)"
 pushd "${INTEGRATION_DIR}"
 
 banner "Logging initial firmware"
-go run ../cmd/publisher/ --binary_path ../testdata/firmware/dummy_device/example.wasm  --revision 1 --logtostderr -v 2 --output_path=${UPDATE_FILE}
+go run ../cmd/publisher/ \
+    --log_url=http://${FT_SERVER} \
+    --binary_path ../testdata/firmware/dummy_device/example.wasm  \
+    --revision 1 \
+    --output_path=${UPDATE_FILE} \
+    --logtostderr -v 2
 
 banner "Force flashing device (init)"
-go run ../cmd/flash_tool/ --logtostderr --update_file=${UPDATE_FILE} --dummy_storage_dir=${DEVICE_STATE} --force --v 2
+go run ../cmd/flash_tool/ \
+    --log_url=http://${FT_SERVER} \
+    --update_file=${UPDATE_FILE} \
+    --dummy_storage_dir=${DEVICE_STATE} \
+    --force \
+    --v 2 --logtostderr
 
 banner "Booting device with initial firmware"
-go run ../cmd/emulator/dummy/ --logtostderr --dummy_storage_dir=${DEVICE_STATE}
+go run ../cmd/emulator/dummy/ \
+    --dummy_storage_dir=${DEVICE_STATE} \
+    --logtostderr
 
 banner "Logging update firmware"
-go run ../cmd/publisher/ --binary_path ../testdata/firmware/dummy_device/example.wasm  --revision 2 --logtostderr -v 2 --output_path=${UPDATE_FILE}
+go run ../cmd/publisher/ \
+    --log_url=http://${FT_SERVER} \
+    --binary_path ../testdata/firmware/dummy_device/example.wasm  \
+    --revision 2 \
+    --output_path=${UPDATE_FILE} \
+    --logtostderr -v 2
 
 banner "Force flashing device (update)"
-go run ../cmd/flash_tool/ --logtostderr --update_file=${UPDATE_FILE} --dummy_storage_dir=${DEVICE_STATE} --v 2
+go run ../cmd/flash_tool/ \
+    --update_file=${UPDATE_FILE} \
+    --dummy_storage_dir=${DEVICE_STATE} \
+    --logtostderr --v 2
 
 banner "Booting updated device"
-go run ../cmd/emulator/dummy/ --logtostderr --dummy_storage_dir=${DEVICE_STATE}
+go run ../cmd/emulator/dummy/ \
+    --dummy_storage_dir=${DEVICE_STATE} \
+    --logtostderr
 
 # Give the monitor a chance to see some things
 sleep 10

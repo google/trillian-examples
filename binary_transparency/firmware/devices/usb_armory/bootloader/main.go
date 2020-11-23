@@ -25,7 +25,8 @@ var Build string
 var Revision string
 
 var Boot string
-var Start string
+var StartKernel string
+var StartProof string
 
 func init() {
 	log.SetFlags(0)
@@ -54,24 +55,45 @@ func main() {
 		haltAndCatchFire(fmt.Sprintf("card detect error: %v\n", err), 2)
 	}
 
-	usbarmory.LED("white", true)
-
-	offset, err := strconv.ParseInt(Start, 10, 64)
+	kernelOffset, err := strconv.ParseInt(StartKernel, 10, 64)
 	if err != nil {
-		haltAndCatchFire(fmt.Sprintf("invalid start offset: %v\n", err), 3)
+		haltAndCatchFire(fmt.Sprintf("invalid kernel partition start offset: %v\n", err), 3)
+	}
+	proofOffset, err := strconv.ParseInt(StartProof, 10, 64)
+	if err != nil {
+		haltAndCatchFire(fmt.Sprintf("invalid proof partition start offset: %v\n", err), 3)
 	}
 
-	partition := &Partition{
+	kernelPart := &Partition{
 		Card:   card,
-		Offset: offset,
+		Offset: kernelOffset,
 	}
-
-	if err = conf.Read(partition, defaultConfigPath); err != nil {
+	if err = conf.Read(kernelPart, defaultConfigPath); err != nil {
 		haltAndCatchFire(fmt.Sprintf("invalid configuration: %v\n", err), 4)
 	}
 
+	usbarmory.LED("white", true)
+	h, err := hashPartition(89246720, kernelPart)
+	if err != nil {
+		haltAndCatchFire(fmt.Sprintf("failed to hash kernelPart: %w\n", err), 15)
+	}
+	fmt.Printf("Partition hash: %x", h)
+	usbarmory.LED("white", false)
+
+	proofPart := &Partition{
+		Card:   card,
+		Offset: proofOffset,
+	}
+	bundle, err := loadBundle(proofPart)
+	if err != nil {
+		haltAndCatchFire(fmt.Sprintf("Failed to load proof bundle: %q", err), 16)
+	}
+	fmt.Println("Loaded bundle: %v", bundle)
+
+
+
 	if len(PublicKeyStr) > 0 {
-		valid, err := conf.Verify(partition, defaultConfigPath+signatureSuffix)
+		valid, err := conf.Verify(kernelPart, defaultConfigPath+signatureSuffix)
 
 		if err != nil {
 			haltAndCatchFire(fmt.Sprintf("configuration verification error: %v\n", err), 5)
@@ -82,13 +104,13 @@ func main() {
 		}
 	}
 
-	kernel, err := partition.ReadAll(conf.Kernel[0])
+	kernel, err := kernelPart.ReadAll(conf.Kernel[0])
 
 	if err != nil {
 		haltAndCatchFire(fmt.Sprintf("invalid kernel path: %v\n", err), 7)
 	}
 
-	dtb, err := partition.ReadAll(conf.DeviceTreeBlob[0])
+	dtb, err := kernelPart.ReadAll(conf.DeviceTreeBlob[0])
 
 	if err != nil {
 		haltAndCatchFire(fmt.Sprintf("invalid dtb path: %v\n", err), 8)

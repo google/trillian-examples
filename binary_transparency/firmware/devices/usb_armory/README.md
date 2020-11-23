@@ -108,8 +108,9 @@ To compile the bootloader itself, run the following command in the `bootloader`
 directory:
 
 ```bash
-# Note that START corresponds to the offset of the firmwware partition;
-make CROSS_COMPILE=arm-none-eabi- TARGET=usbarmory imx BOOT=uSD START=10753536
+# Note that START_KERNEL corresponds to the offset of the firmwware partition, 
+# and START_PROOF is the offset of the proof partition
+make CROSS_COMPILE=arm-none-eabi- TARGET=usbarmory imx BOOT=uSD START_KERNEL=10753536 START_PROOF=10240512
 ```
 
 If successful, this will create a few files - the one we're interested in is

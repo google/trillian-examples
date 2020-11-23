@@ -71,5 +71,6 @@ script:
         export ETCD_DIR="${GOPATH}/bin"
       fi
   - ./gossip/integration/gossip_test.sh
+  - ./binary_transparency/firmware/integration/ft_test.sh
   - set +e
 

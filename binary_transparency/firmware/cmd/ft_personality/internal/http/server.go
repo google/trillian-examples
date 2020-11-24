@@ -31,6 +31,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/common"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
@@ -96,9 +97,8 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// "Verify" the signature:
-	// TODO(al): do proper sigs
-	if sigStr := string(stmt.Signature); sigStr != "LOL!" {
-		http.Error(w, fmt.Sprintf("invalid LOL! sig %q", sigStr), http.StatusBadRequest)
+	if ok, err := common.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
+		http.Error(w, fmt.Sprintf("Signature verification failed! %v", err), http.StatusBadRequest)
 		return
 	}
 

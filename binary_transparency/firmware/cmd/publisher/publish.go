@@ -28,6 +28,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/common"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 )
 
@@ -143,10 +144,14 @@ func createStatementJSON(m api.FirmwareMetadata) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
 	}
+	sign, err := common.SignMessage(js)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate signature: %w", err)
+	}
 
 	statement := api.FirmwareStatement{
 		Metadata:  js,
-		Signature: []byte("LOL!"),
+		Signature: sign,
 	}
 
 	return json.Marshal(statement)

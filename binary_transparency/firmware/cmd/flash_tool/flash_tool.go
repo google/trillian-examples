@@ -26,6 +26,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -36,6 +37,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
+	"github.com/google/trillian-examples/binary_transparency/firmware/common"
 	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
@@ -67,7 +69,11 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to read update package file: %q", err)
 	}
-	// TODO(al): check signature on statement and checkpoints when they're added.
+	// TODO(al): check signature on checkpoints when they're added.
+	// Verify Signature on the manifest statement
+	if err := checkSignature(up); err != nil {
+		fatal(fmt.Sprintf("Manifest/signature verification failed: %q", err))
+	}
 
 	var dev devices.Device
 	dev, err = dummy.NewFromFlags()
@@ -118,6 +124,19 @@ func readUpdateFileFromFlags() (api.UpdatePackage, error) {
 		glog.Exitf("Failed to parse update package file: %q", err)
 	}
 	return up, nil
+}
+
+func checkSignature(up api.UpdatePackage) error {
+	stmt := api.FirmwareStatement{}
+	if err := json.NewDecoder(bytes.NewReader(up.ProofBundle.ManifestStatement)).Decode(&stmt); err != nil {
+		glog.Exitf("Failed to decode firmware statement: %q", err)
+	}
+
+	// "Verify" the signature:
+	if ok, err := common.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
+		glog.Exitf("Firmware signature verification failed reason %q", err)
+	}
+	return nil
 }
 
 // verifyUpdate checks that an update package is self-consistent.

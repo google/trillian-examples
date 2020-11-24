@@ -28,6 +28,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/common"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
@@ -80,6 +81,18 @@ func TestRoot(t *testing.T) {
 }
 
 func TestAddFirmware(t *testing.T) {
+	st := []byte("eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==")
+	sign, err := common.SignMessage(st)
+	statement := api.FirmwareStatement{Metadata: st, Signature: sign}
+	if err != nil {
+		t.Errorf("signing failed, bailing out!: %v", err)
+	}
+	js, err := json.Marshal(statement)
+	if err != nil {
+		t.Errorf("marshaling failed, bailing out!: %v", err)
+	}
+
+	s := string(js)
 	for _, test := range []struct {
 		desc         string
 		body         string
@@ -96,7 +109,7 @@ func TestAddFirmware(t *testing.T) {
 			body: strings.Join([]string{"--mimeisfunlolol",
 				"Content-Type: application/json",
 				"",
-				`{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+				s,
 				"--mimeisfunlolol",
 				"Content-Type: application/octet-stream",
 				"",
@@ -105,14 +118,14 @@ func TestAddFirmware(t *testing.T) {
 				"--mimeisfunlolol--",
 				"",
 			}, "\n"),
-			wantManifest: `{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+			wantManifest: s,
 			wantStatus:   http.StatusOK,
 		}, {
 			desc: "firmware image does not match manifest",
 			body: strings.Join([]string{"--mimeisfunlolol",
 				"Content-Type: application/json",
 				"",
-				`{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+				s,
 				"--mimeisfunlolol",
 				"Content-Type: application/octet-stream",
 				"",
@@ -121,14 +134,14 @@ func TestAddFirmware(t *testing.T) {
 				"--mimeisfunlolol--",
 				"",
 			}, "\n"),
-			wantManifest: `{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+			wantManifest: s,
 			wantStatus:   http.StatusBadRequest,
 		}, {
 			desc: "valid request but trillian failure",
 			body: strings.Join([]string{"--mimeisfunlolol",
 				"Content-Type: application/json",
 				"",
-				`{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+				s,
 				"--mimeisfunlolol",
 				"Content-Type: application/octet-stream",
 				"",
@@ -137,7 +150,7 @@ func TestAddFirmware(t *testing.T) {
 				"--mimeisfunlolol--",
 				"",
 			}, "\n"),
-			wantManifest: `{"Metadata":"eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==","Signature":"TE9MIQ=="}`,
+			wantManifest: s,
 			trillianErr:  errors.New("boom"),
 			wantStatus:   http.StatusInternalServerError,
 		},

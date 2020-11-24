@@ -6,7 +6,7 @@ FT_SERVERS=
 
 # ft_prep_test prepares a set of running processes for a FT test.
 # Parameters:
-#  none
+#  - COMMON_FLAGS      : shared flags to pass to every job, e.g. logging flags, etc.
 # Populates:
 #  - FT_SERVER         : personality HTTP address
 #  - FT_SERVER_PID     : FT personality pid
@@ -29,7 +29,12 @@ ft_prep_test() {
   FT_SERVER="localhost:${port}"
 
   echo "Starting FT server on localhost:${port}, metrics on localhost:${metrics_port}"
-  ./ft_personality  --trillian="${RPC_SERVERS}" --listen="localhost:${port}" --tree_id=${tree_id} --cas_db_file=${ft_cas} &
+  ./ft_personality \
+     --trillian="${RPC_SERVERS}" \
+     --listen="localhost:${port}" \
+     --tree_id=${tree_id} \
+     --cas_db_file=${ft_cas} \
+     ${COMMON_FLAGS} &
   pid=$!
   FT_SERVER_PID=${pid}
   FT_CAS_DB=${ft_cas}
@@ -40,7 +45,10 @@ ft_prep_test() {
 
   echo "Starting FT monitor"
   FT_MONITOR_LOG=$(mktemp /tmp/ft-monitor-log-XXXXX)
-  ./ft_monitor  --ftlog="http://${FT_SERVER}" --poll_interval=200ms -v 1 --logtostderr > ${FT_MONITOR_LOG} 2>&1 &
+  ./ft_monitor  \
+    --ftlog="http://${FT_SERVER}" \
+    --poll_interval=200ms \
+    ${COMMON_FLAGS} > ${FT_MONITOR_LOG} 2>&1 &
   pid=$!
   FT_MONITOR_PID=${pid}
 }
@@ -48,30 +56,24 @@ ft_prep_test() {
 # fr_provision provisions everything an FT personality needs to run.
 ft_provision() {
   local admin_server="$1"
-  local ft_cfg_template="$2"
 
   echo 'Building createtree'
   go build ${GOFLAGS} github.com/google/trillian/cmd/createtree/
 
   echo 'Provisioning FT Logs'
-  ft_provision_tree ${admin_server} ${FT_CFG}
+  ft_provision_tree ${admin_server}
 
   ft_cas=$(mktemp ${TMPDIR}/ft-cas-XXXXXX)
 }
 
-# ft_provision_tree provisions trees for the logs in a specified config file.
+# ft_provision_tree provisions a tree for the log
 # Parameters:
 #   - location of admin server instance
-#   - the config file to be provisioned for
 ft_provision_tree() {
   local admin_server="$1"
 
   tree_id=$(./createtree \
-    --admin_server="${admin_server}" \
-    --private_key_format=PrivateKey \
-    --pem_key_path=$(go list -f '{{.Dir}}' github.com/google/certificate-transparency-go)/trillian/testdata/log-rpc-server.privkey.pem \
-    --pem_key_password=towel \
-    --signature_algorithm=ECDSA)
+    --admin_server="${admin_server}")
   echo "Created tree ${tree_id}"
 }
 

@@ -131,7 +131,7 @@ func createManifestFromFlags() (api.FirmwareMetadata, []byte, error) {
 		DeviceID:                    *deviceID,
 		FirmwareRevision:            *revision,
 		FirmwareImageSHA512:         h[:],
-		ExpectedFirmwareMeasurement: []byte{}, // TODO: This should be provided somehow.
+		ExpectedFirmwareMeasurement: h[:], // TODO: This should be provided somehow.
 		BuildTimestamp:              buildTime,
 	}
 

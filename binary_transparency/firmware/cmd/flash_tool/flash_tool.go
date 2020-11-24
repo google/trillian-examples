@@ -26,6 +26,7 @@
 package main
 
 import (
+	"crypto/sha512"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -80,10 +81,6 @@ func main() {
 		}
 	}
 
-	if err := checkManifestHash(up); err != nil {
-		fatal(fmt.Sprintf("Manifest/firmware is corrupt: %q", err))
-	}
-
 	if err := verifyUpdate(up); err != nil {
 		fatal(fmt.Sprintf("Failed to validate update: %q", err))
 	}
@@ -122,17 +119,10 @@ func readUpdateFileFromFlags() (api.UpdatePackage, error) {
 
 // verifyUpdate checks that an update package is self-consistent.
 func verifyUpdate(up api.UpdatePackage) error {
-	if err := checkManifestHash(up); err != nil {
-		return fmt.Errorf("failed to verify firmware hash: %q", err)
-	}
-	if err := verify.Bundle(up.ProofBundle); err != nil {
+	fwHash := sha512.Sum512(up.FirmwareImage)
+	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:]); err != nil {
 		return fmt.Errorf("failed to verify proof bundle: %q", err)
 	}
-	return nil
-}
-
-func checkManifestHash(up api.UpdatePackage) error {
-	// TODO(al): implement this
 	return nil
 }
 

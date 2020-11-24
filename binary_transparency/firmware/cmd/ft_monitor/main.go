@@ -119,6 +119,9 @@ func main() {
 				glog.Warningf("Unable to decode FW Metadata from Statement %q", err)
 				continue
 			}
+
+			glog.Infof("Found firmware (@%d): %s", idx, meta)
+
 			// Fetch the Image from FT Personality
 			image, err := c.GetFirmwareImage(meta.FirmwareImageSHA512)
 			if err != nil {

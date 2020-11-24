@@ -70,6 +70,8 @@ script:
       if [[ "${WITH_ETCD}" == "true" ]]; then
         export ETCD_DIR="${GOPATH}/bin"
       fi
+  # TODO(al): split these tests out into separate tasks/jobs/envs.
   - ./gossip/integration/gossip_test.sh
+  - ./binary_transparency/firmware/integration/ft_test.sh
   - set +e
 

@@ -4,7 +4,7 @@ set -e
 INTEGRATION_DIR="$( cd "$( dirname "$0" )" && pwd )"
 . "${INTEGRATION_DIR}"/ft_functions.sh
 
-COMMON_FLAGS="-v 1 --alsologtostderr"
+COMMON_FLAGS="-v 2 --alsologtostderr"
 
 ft_prep_test
 
@@ -39,45 +39,45 @@ PUBLISH_TIMESTAMP_2="2020-11-24 10:15:00+00:00"
 
 banner "Logging initial firmware"
 go run ../cmd/publisher/ \
-    --log_url=http://${FT_SERVER} \
-    --binary_path ../testdata/firmware/dummy_device/example.wasm  \
-    --timestamp ${PUBLISH_TIMESTAMP_1} \
-    --revision 1 \
-    --output_path=${UPDATE_FILE} \
+    --log_url="http://${FT_SERVER}" \
+    --binary_path="../testdata/firmware/dummy_device/example.wasm"  \
+    --timestamp="${PUBLISH_TIMESTAMP_1}" \
+    --revision=1 \
+    --output_path="${UPDATE_FILE}" \
     ${COMMON_FLAGS}
 
 banner "Force flashing device (init)"
 go run ../cmd/flash_tool/ \
-    --log_url=http://${FT_SERVER} \
-    --update_file=${UPDATE_FILE} \
-    --dummy_storage_dir=${DEVICE_STATE} \
+    --log_url="http://${FT_SERVER}" \
+    --update_file="${UPDATE_FILE}" \
+    --dummy_storage_dir="${DEVICE_STATE}" \
     --force \
     ${COMMON_FLAGS}
 
 banner "Booting device with initial firmware"
 go run ../cmd/emulator/dummy/ \
-    --dummy_storage_dir=${DEVICE_STATE} \
+    --dummy_storage_dir="${DEVICE_STATE}" \
     ${COMMON_FLAGS}
 
 banner "Logging update firmware"
 go run ../cmd/publisher/ \
-    --log_url=http://${FT_SERVER} \
-    --binary_path ../testdata/firmware/dummy_device/example.wasm  \
-    --timestamp ${PUBLISH_TIMESTAMP_2} \
-    --revision 2 \
-    --output_path=${UPDATE_FILE} \
+    --log_url="http://${FT_SERVER}" \
+    --binary_path="../testdata/firmware/dummy_device/example.wasm" \
+    --timestamp="${PUBLISH_TIMESTAMP_2}" \
+    --revision=2 \
+    --output_path="${UPDATE_FILE}" \
     ${COMMON_FLAGS}
 
 banner "Flashing device (update)"
 go run ../cmd/flash_tool/ \
-    --log_url=http://${FT_SERVER} \
-    --update_file=${UPDATE_FILE} \
-    --dummy_storage_dir=${DEVICE_STATE} \
+    --log_url="http://${FT_SERVER}" \
+    --update_file="${UPDATE_FILE}" \
+    --dummy_storage_dir="${DEVICE_STATE}" \
     ${COMMON_FLAGS}
 
 banner "Booting updated device"
 go run ../cmd/emulator/dummy/ \
-    --dummy_storage_dir=${DEVICE_STATE} \
+    --dummy_storage_dir="${DEVICE_STATE}" \
     ${COMMON_FLAGS}
 
 # Give the monitor a chance to see some things
@@ -85,7 +85,7 @@ sleep 10
 
 # TODO(al): look for things in the monitor log
 banner "Monitor saw (${FT_MONITOR_LOG})"
-cat ${FT_MONITOR_LOG}
+cat "${FT_MONITOR_LOG}"
 
 banner "DONE"
 

@@ -29,7 +29,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/binary_transparency/firmware/common"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
@@ -91,7 +91,7 @@ func b64Decode(b64 string) []byte {
 func TestAddFirmware(t *testing.T) {
 	st := b64Decode("eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==")
 
-	sign, err := common.SignMessage(st)
+	sign, err := crypto.SignMessage(st)
 	if err != nil {
 		t.Fatalf("signing failed, bailing out!: %v", err)
 	}

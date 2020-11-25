@@ -31,7 +31,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/binary_transparency/firmware/common"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
@@ -97,7 +97,7 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the signature:
-	if ok, err := common.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
+	if ok, err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
 		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
 		return
 	}

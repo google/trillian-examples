@@ -35,8 +35,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/binary_transparency/firmware/common"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
@@ -116,7 +116,7 @@ func main() {
 			}
 
 			// Verify the signature:
-			if ok, err := common.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
+			if ok, err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
 				glog.Warningf("Firmware signature verification failed: %q", err)
 				continue
 			}

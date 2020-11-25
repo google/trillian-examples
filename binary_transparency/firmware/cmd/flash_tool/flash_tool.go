@@ -73,7 +73,7 @@ func main() {
 	// TODO(al): check signature on checkpoints when they're added.
 	// Verify Signature on the manifest statement
 	if err := checkSignature(up); err != nil {
-		fatal(fmt.Sprintf("Manifest/signature verification failed: %q", err))
+		glog.Exitf("Manifest/signature verification failed: %q", err)
 	}
 
 	var dev devices.Device
@@ -126,12 +126,12 @@ func readUpdateFileFromFlags() (api.UpdatePackage, error) {
 func checkSignature(up api.UpdatePackage) error {
 	stmt := api.FirmwareStatement{}
 	if err := json.NewDecoder(bytes.NewReader(up.ProofBundle.ManifestStatement)).Decode(&stmt); err != nil {
-		glog.Exitf("Failed to decode firmware statement: %q", err)
+		return fmt.Errorf("Failed to decode firmware statement: %q", err)
 	}
 
-	// "Verify" the signature:
+	//Verify the signature:
 	if ok, err := common.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
-		glog.Exitf("Firmware signature verification failed reason %q", err)
+		return fmt.Errorf("Firmware signature verification failed reason %q", err)
 	}
 	return nil
 }

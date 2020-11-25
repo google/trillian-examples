@@ -96,9 +96,9 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// "Verify" the signature:
+	// Verify the signature:
 	if ok, err := common.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
-		http.Error(w, fmt.Sprintf("Signature verification failed! %v", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
 		return
 	}
 

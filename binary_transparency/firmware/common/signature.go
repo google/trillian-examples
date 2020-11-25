@@ -21,6 +21,7 @@ import (
 	"crypto/sha512"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -31,28 +32,22 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 	mKey := strings.NewReader(RSApri)
 	priv, err := ioutil.ReadAll(mKey)
 	if err != nil {
-		glog.Exitf("Read failed! %s", err)
+		return nil, fmt.Errorf("Read failed! %s", err)
 	}
 
 	privPem, _ := pem.Decode(priv)
-	var privPemBytes []byte
 	if privPem.Type != "RSA PRIVATE KEY" {
-		glog.Exitf("RSA private key is of the wrong type %s", privPem.Type)
+		return nil, fmt.Errorf("RSA private key is of the wrong type %s", privPem.Type)
 	}
-	privPemBytes = privPem.Bytes
 
 	var parsedKey interface{}
-	if parsedKey, err = x509.ParsePKCS1PrivateKey(privPemBytes); err != nil {
-		if parsedKey, err = x509.ParsePKCS8PrivateKey(privPemBytes); err != nil {
-			glog.Exitf("Unable to parse RSA private key %v", err)
-		}
+	if parsedKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
+		return nil, fmt.Errorf("Unable to parse RSA private key %v", err)
 	}
 
-	var privateKey *rsa.PrivateKey
-	var ok bool
-	privateKey, ok = parsedKey.(*rsa.PrivateKey)
+	privateKey, ok := parsedKey.(*rsa.PrivateKey)
 	if !ok {
-		glog.Exitf("Unable to parse RSA private key %v", err)
+		return nil, fmt.Errorf("Unable to parse RSA private key %v", err)
 	}
 	return privateKey, nil
 }
@@ -66,21 +61,21 @@ func getPublicKey() (*rsa.PublicKey, error) {
 
 	pubPem, _ := pem.Decode(pub)
 	if pubPem == nil {
-		glog.Exit("pem decoded to nil")
+		return nil, fmt.Errorf("pem decoded to nil")
 	}
 	if pubPem.Type != "RSA PUBLIC KEY" {
-		glog.Exitf("RSA public key is of the wrong type %s", pubPem.Type)
+		return nil, fmt.Errorf("RSA public key is of the wrong type %s", pubPem.Type)
 	}
 
 	var parsedKey interface{}
 	if parsedKey, err = x509.ParsePKCS1PublicKey(pubPem.Bytes); err != nil {
-		glog.Exitf("Unable to parse RSA public key, generating a temp one %v", err)
+		return nil, fmt.Errorf("Unable to parse RSA public key, generating a temp one %v", err)
 	}
 
 	var pubKey *rsa.PublicKey
 	var ok bool
 	if pubKey, ok = parsedKey.(*rsa.PublicKey); !ok {
-		glog.Exit("Unable to parse RSA public key")
+		return nil, fmt.Errorf("Unable to parse RSA public key")
 	}
 
 	return pubKey, nil

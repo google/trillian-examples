@@ -19,7 +19,7 @@ import (
 	"github.com/golang/glog"
 )
 
-func TestSignatureVerification(t *testing.T) {
+func TestSignatureRoundTrip(t *testing.T) {
 	for _, test := range []struct {
 		desc       string
 		signbody   string

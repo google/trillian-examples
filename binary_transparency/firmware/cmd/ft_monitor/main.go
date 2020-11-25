@@ -111,16 +111,16 @@ func main() {
 			statement := manifest.Value
 			stmt := api.FirmwareStatement{}
 			if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
-				glog.Warningf("Firmware Statement decoding from manifest failed reason %q", err)
+				glog.Warningf("Firmware Statement decoding from manifest failed: %q", err)
 				continue
 			}
 
-			// "Verify" the signature:
+			// Verify the signature:
 			if ok, err := common.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
-				glog.Warningf("Firmware signature verification failed reason %q", err)
+				glog.Warningf("Firmware signature verification failed: %q", err)
 				continue
 			}
-			glog.Infof("Firmware signature verification SUCCESS")
+			glog.V(1).Infof("Firmware signature verification SUCCESS")
 
 			// Parse the firmware metadata:
 			var meta api.FirmwareMetadata

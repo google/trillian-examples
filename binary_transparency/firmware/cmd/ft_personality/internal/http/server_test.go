@@ -25,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/glog"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
@@ -80,19 +81,24 @@ func TestRoot(t *testing.T) {
 	}
 }
 
+func b64Decode(b64 string) []byte {
+	st, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		glog.Exitf("b64 decoding failed: %v", err)
+	}
+	return st
+}
 func TestAddFirmware(t *testing.T) {
-	st, err := base64.StdEncoding.DecodeString("eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==")
-	if err != nil {
-		t.Errorf("failed to decode metadata: %v", err)
-	}
+	st := b64Decode("eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==")
+
 	sign, err := common.SignMessage(st)
-	statement := api.FirmwareStatement{Metadata: st, Signature: sign}
 	if err != nil {
-		t.Errorf("signing failed, bailing out!: %v", err)
+		t.Fatalf("signing failed, bailing out!: %v", err)
 	}
+	statement := api.FirmwareStatement{Metadata: st, Signature: sign}
 	js, err := json.Marshal(statement)
 	if err != nil {
-		t.Errorf("marshaling failed, bailing out!: %v", err)
+		t.Fatalf("marshaling failed, bailing out!: %v", err)
 	}
 
 	s := string(js)
@@ -178,13 +184,7 @@ func TestAddFirmware(t *testing.T) {
 				t.Errorf("error response: %v", err)
 			}
 			if got, want := resp.StatusCode, test.wantStatus; got != want {
-				var desc string
-				body, err := ioutil.ReadAll(resp.Body)
-				if err == nil {
-					// Don't error if we don't get the body, that's not the goal of this test
-					desc = string(body)
-				}
-				t.Errorf("status code got != want (%d, %d): %q", got, want, desc)
+				t.Errorf("status code got != want (%d, %d):", got, want)
 			}
 		})
 	}

@@ -14,6 +14,8 @@
 
 package api
 
+import "fmt"
+
 // FirmwareMetadata represents a firmware image and related info.
 type FirmwareMetadata struct {
 	////// What's this firmware for? //////
@@ -42,6 +44,11 @@ type FirmwareMetadata struct {
 	// BuildTimestamp is the time at which this build was published in RFC3339 format.
 	// e.g. "1985-04-12T23:20:50.52Z"
 	BuildTimestamp string
+}
+
+// String returns a human-readable representation of the firmware metadata info.
+func (m FirmwareMetadata) String() string {
+	return fmt.Sprintf("%s/v%d built at %s with image hash 0x%x", m.DeviceID, m.FirmwareRevision, m.BuildTimestamp, m.FirmwareImageSHA512)
 }
 
 // FirmwareStatement is the embodiment of the Statement in the claimant model for this demo.

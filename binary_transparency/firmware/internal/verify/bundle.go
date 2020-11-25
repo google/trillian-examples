@@ -12,23 +12,65 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The verify package holds helpers for validating the correctness of various
+// Package verify holds helpers for validating the correctness of various
 // artifacts and proofs used in the system.
 package verify
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
-// Bundle checks that the manifest, checkpoint, and proofs in a bundle are all self-consistent.
-func Bundle(b api.ProofBundle) error {
+// BundleForUpdate checks that the manifest, checkpoint, and proofs in a bundle
+// are all self-consistent, and that the provided firmware image hash matches
+// the one in the bundle.
+func BundleForUpdate(b api.ProofBundle, fwHash []byte) error {
+	fwMeta, err := verifyBundle(b)
+	if err != nil {
+		return err
+	}
+
+	if got, want := fwHash, fwMeta.FirmwareImageSHA512; !bytes.Equal(got, want) {
+		return fmt.Errorf("firmware update image hash does not match metadata (0x%x != 0x%x)", got, want)
+	}
+	return nil
+}
+
+// BundleForBoot checks that the manifest, checkpoint, and proofs in a bundle
+// are all self-consistent, and that the provided firmware measurement matches
+// the one expected by the bundle.
+func BundleForBoot(b api.ProofBundle, measurement []byte) error {
+	fwMeta, err := verifyBundle(b)
+	if err != nil {
+		return err
+	}
+
+	if got, want := measurement, fwMeta.ExpectedFirmwareMeasurement; !bytes.Equal(got, want) {
+		return fmt.Errorf("firmware measurement does not match metadata (0x%x != 0x%x)", got, want)
+	}
+	return nil
+}
+
+// verifyBundle verifies the self-consistency of a proof bundle.
+func verifyBundle(b api.ProofBundle) (api.FirmwareMetadata, error) {
+	var fwStatement api.FirmwareStatement
+	if err := json.Unmarshal(b.ManifestStatement, &fwStatement); err != nil {
+		return api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal FirmwareStatement: %w", err)
+	}
+	// TODO(al): check sig on fwStatement
+	var fwMeta api.FirmwareMetadata
+	if err := json.Unmarshal(fwStatement.Metadata, &fwMeta); err != nil {
+		return api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal Metadata: %w", err)
+	}
+
 	lh := HashLeaf(b.ManifestStatement)
 	lv := NewLogVerifier()
 
 	if err := lv.VerifyInclusionProof(int64(b.InclusionProof.LeafIndex), int64(b.Checkpoint.TreeSize), b.InclusionProof.Proof, b.Checkpoint.RootHash, lh); err != nil {
-		return fmt.Errorf("invalid inclusion proof in bundle: %w", err)
+		return api.FirmwareMetadata{}, fmt.Errorf("invalid inclusion proof in bundle: %w", err)
 	}
-	return nil
+	return fwMeta, nil
 }

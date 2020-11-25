@@ -15,7 +15,6 @@
 package rom
 
 import (
-	"bytes"
 	"crypto/sha512"
 	"encoding/json"
 	"flag"
@@ -65,8 +64,16 @@ func ResetFromFlags() (Chain, error) {
 		return nil, fmt.Errorf("failed to read transparency bundle: %w", err)
 	}
 
+	// TODO(al): measure firmware and check against manifest expected measurement.
+	// HACK: this should use the firmware measurement field, but it'll do for now.
+	fw, err := ioutil.ReadFile(fwFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read firmware: %w", err)
+	}
+	fwHash := sha512.Sum512(fw)
+
 	// validate bundle
-	if err := verify.Bundle(b); err != nil {
+	if err := verify.BundleForBoot(b, fwHash[:]); err != nil {
 		return nil, fmt.Errorf("failed to verify bundle: %w", err)
 	}
 
@@ -75,22 +82,6 @@ func ResetFromFlags() (Chain, error) {
 		return nil, fmt.Errorf("error parsing firmware metadata: %w", err)
 	}
 	// TODO(al): check signature on statement and checkpoints when they're added.
-
-	var metadata api.FirmwareMetadata
-	if err := json.Unmarshal(stmt.Metadata, &metadata); err != nil {
-		return nil, fmt.Errorf("error parsing firmware metadata: %w", err)
-	}
-
-	// TODO(al): measure firmware and check against manifest expected measurement.
-	// HACK: this should use the firmware measurement field, but it'll do for now.
-	fw, err := ioutil.ReadFile(fwFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read firmware: %w", err)
-	}
-	fwHash := sha512.Sum512(fw)
-	if !bytes.Equal(fwHash[:], metadata.FirmwareImageSHA512) {
-		return nil, fmt.Errorf("firmware hash does not match manifest: %w", err)
-	}
 
 	// boot
 	glog.Infof("Prepared to boot %s", stmt.Metadata)

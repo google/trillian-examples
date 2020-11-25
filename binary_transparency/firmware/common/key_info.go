@@ -14,7 +14,8 @@
 
 package common
 
-var RSA_pri string = `-----BEGIN RSA PRIVATE KEY-----
+//RSApri is a variable to store the pem formatted private key
+var RSApri string = `-----BEGIN RSA PRIVATE KEY-----
 MIIEpQIBAAKCAQEAumH27frnBBnP/sgSbgiGkkxUGflZOJU0AZ+zDlGh4xIsam+8
 mSI/DKGodwQ6rDtjpWhLmIAPEusRC0Pw78+zxGZihxNEmuHM4vEQkwBLKAPAX8oo
 hE5cZADINwasFloO0hgynqvUJs/qpmp+FnxDQQe/ISsmsFDdQ+8NyuJuX203rMC3
@@ -42,7 +43,8 @@ cxj/AZRxN9Xdvc13CuKYQ6m7l23fpLl6fd59/pviYUopLvqhtfCE8khb0UBc2c3/
 nJaDjwwm2fmeALKdhqOejIGkKSiVbc0OJbCzPMUt0LohVodSds984rk=
 -----END RSA PRIVATE KEY-----`
 
-var RSA_pub string = `
+//RSApub is a variable to store the pem formatted private key
+var RSApub string = `
 -----BEGIN RSA PUBLIC KEY-----
 MIIBCgKCAQEAumH27frnBBnP/sgSbgiGkkxUGflZOJU0AZ+zDlGh4xIsam+8mSI/
 DKGodwQ6rDtjpWhLmIAPEusRC0Pw78+zxGZihxNEmuHM4vEQkwBLKAPAX8oohE5c

@@ -28,7 +28,7 @@ import (
 )
 
 func getPrivateKey() (*rsa.PrivateKey, error) {
-	mKey := strings.NewReader(RSA_pri)
+	mKey := strings.NewReader(RSApri)
 	priv, err := ioutil.ReadAll(mKey)
 	if err != nil {
 		glog.Exitf("Read failed! %s", err)
@@ -58,7 +58,7 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 }
 
 func getPublicKey() (*rsa.PublicKey, error) {
-	mKey := strings.NewReader(RSA_pub)
+	mKey := strings.NewReader(RSApub)
 	pub, err := ioutil.ReadAll(mKey)
 	if err != nil {
 		glog.Exitf("Pubkey read failed! %s", err)
@@ -114,7 +114,9 @@ func SignMessage(msg []byte) (sig []byte, err error) {
 func VerifySignature(msg []byte, signature []byte) (verified bool, err error) {
 	// Get the required key for signing
 	key, err := getPublicKey()
-
+	if err != nil {
+		glog.Exitf("Public key fetch failed %v", err)
+	}
 	// Before verify, we need to hash the message
 	// The hash is what we actually verify
 	msgHash := sha512.New()

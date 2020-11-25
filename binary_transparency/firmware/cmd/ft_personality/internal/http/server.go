@@ -86,13 +86,13 @@ func NewServer(c Trillian, cas CAS) *Server {
 func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	statement, image, err := parseAddFirmwareRequest(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to parse request: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
 
 	stmt := api.FirmwareStatement{}
 	if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to decode statement: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
 
@@ -105,7 +105,7 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	// Parse the firmware metadata:
 	var meta api.FirmwareMetadata
 	if err := json.Unmarshal(stmt.Metadata, &meta); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to unmarshal metadata: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
 

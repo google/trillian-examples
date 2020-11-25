@@ -15,7 +15,7 @@
 package common
 
 //RSApri is a variable to store the pem formatted private key
-var RSApri string = `-----BEGIN RSA PRIVATE KEY-----
+RSApri := `-----BEGIN RSA PRIVATE KEY-----
 MIIEpQIBAAKCAQEAumH27frnBBnP/sgSbgiGkkxUGflZOJU0AZ+zDlGh4xIsam+8
 mSI/DKGodwQ6rDtjpWhLmIAPEusRC0Pw78+zxGZihxNEmuHM4vEQkwBLKAPAX8oo
 hE5cZADINwasFloO0hgynqvUJs/qpmp+FnxDQQe/ISsmsFDdQ+8NyuJuX203rMC3
@@ -44,7 +44,7 @@ nJaDjwwm2fmeALKdhqOejIGkKSiVbc0OJbCzPMUt0LohVodSds984rk=
 -----END RSA PRIVATE KEY-----`
 
 //RSApub is a variable to store the pem formatted private key
-var RSApub string = `
+RSApub := `
 -----BEGIN RSA PUBLIC KEY-----
 MIIBCgKCAQEAumH27frnBBnP/sgSbgiGkkxUGflZOJU0AZ+zDlGh4xIsam+8mSI/
 DKGodwQ6rDtjpWhLmIAPEusRC0Pw78+zxGZihxNEmuHM4vEQkwBLKAPAX8oohE5c

@@ -81,7 +81,10 @@ func TestRoot(t *testing.T) {
 }
 
 func TestAddFirmware(t *testing.T) {
-	st := []byte("eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==")
+	st, err := base64.StdEncoding.DecodeString("eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==")
+	if err != nil {
+		t.Errorf("failed to decode metadata: %v", err)
+	}
 	sign, err := common.SignMessage(st)
 	statement := api.FirmwareStatement{Metadata: st, Signature: sign}
 	if err != nil {
@@ -175,7 +178,13 @@ func TestAddFirmware(t *testing.T) {
 				t.Errorf("error response: %v", err)
 			}
 			if got, want := resp.StatusCode, test.wantStatus; got != want {
-				t.Errorf("status code got != want (%d, %d)", got, want)
+				var desc string
+				body, err := ioutil.ReadAll(resp.Body)
+				if err == nil {
+					// Don't error if we don't get the body, that's not the goal of this test
+					desc = string(body)
+				}
+				t.Errorf("status code got != want (%d, %d): %q", got, want, desc)
 			}
 		})
 	}

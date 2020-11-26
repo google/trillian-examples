@@ -67,11 +67,11 @@ func main() {
 	flag.Parse()
 	beam.Init()
 
-	if *sumDB == "" {
+	if len(*sumDB) == 0 {
 		glog.Exitf("No sum_db provided")
 	}
 
-	if *output == "" {
+	if len(*output) == 0 {
 		glog.Exitf("No output provided")
 	}
 

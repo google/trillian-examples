@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 
 	"github.com/apache/beam/sdks/go/pkg/beam"
@@ -46,6 +45,7 @@ var (
 	output       = flag.String("output", "", "Output directory in which the tiles will be written.")
 	treeID       = flag.Int64("tree_id", 12345, "The ID of the tree. Used as a salt in hashing.")
 	prefixStrata = flag.Int("prefix_strata", 2, "The number of strata of 8-bit strata before the final strata.")
+	count        = flag.Int("count", -1, "The total number of entries starting from the beginning of the SumDB to use, or -1 to use all")
 )
 
 func init() {
@@ -67,28 +67,24 @@ func main() {
 	flag.Parse()
 	beam.Init()
 
-	sumDB := filepath.Clean(*sumDB)
-	if sumDB == "" {
+	if len(*sumDB) == 0 {
 		glog.Exitf("No sum_db provided")
 	}
 
-	output := filepath.Clean(*output)
-	if output == "" {
+	if len(*output) == 0 {
 		glog.Exitf("No output provided")
 	}
 
 	// Create the directory if it doesn't exist
-	if _, err := os.Stat(output); os.IsNotExist(err) {
-		if err = os.Mkdir(output, 0700); err != nil {
-			glog.Exitf("couldn't find or create directory %q, %q", output, err)
+	if _, err := os.Stat(*output); os.IsNotExist(err) {
+		if err = os.Mkdir(*output, 0700); err != nil {
+			glog.Exitf("couldn't find or create directory %q, %q", *output, err)
 		}
 	}
 
 	p, s := beam.NewPipelineWithRoot()
 
-	// This version can be used to load just a few entries.
-	// records := databaseio.Read(s, "sqlite3", sumDB, "leafMetadata limit 5", reflect.TypeOf(Metadata{}))
-	records := databaseio.Read(s.Scope("readdb"), "sqlite3", sumDB, "leafMetadata", reflect.TypeOf(Metadata{}))
+	records := sourceFromFlags(s.Scope("source"))
 	entries := beam.ParDo(s.Scope("mapentries"), &mapEntryFn{*treeID}, records)
 	allTiles, err := batchmap.Create(s, entries, *treeID, hash, *prefixStrata)
 
@@ -97,12 +93,19 @@ func main() {
 	}
 
 	// Write this collection of tiles to the output directory.
-	beam.ParDo0(s.Scope("output"), &writeTileFn{output}, allTiles)
+	beam.ParDo0(s.Scope("output"), &writeTileFn{*output}, allTiles)
 
 	// All of the above constructs the pipeline but doesn't run it. Now we run it.
 	if err := beamx.Run(context.Background(), p); err != nil {
 		glog.Exitf("Failed to execute job: %q", err)
 	}
+}
+
+func sourceFromFlags(s beam.Scope) beam.PCollection {
+	if *count < 0 {
+		return databaseio.Read(s, "sqlite3", *sumDB, "leafMetadata", reflect.TypeOf(Metadata{}))
+	}
+	return databaseio.Query(s, "sqlite3", *sumDB, fmt.Sprintf("SELECT * FROM leafMetadata WHERE id < %d", *count), reflect.TypeOf(Metadata{}))
 }
 
 type mapEntryFn struct {

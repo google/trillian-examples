@@ -210,11 +210,11 @@ in the last step).
 > correctness of the inclusion proofs, they are convinced that the firmware
 > is now _discoverable_ - anybody looking at the contents of the log _also_
 > knows about its existence: this doesn't guarantee that the firmware is
-> _"good"_, but we know at least that can't be a covert targeted attack, _and_
+> _"good"_, but we know at least that it can't be a covert targeted attack, _and_
 > we can assume that the `Firmware vendor` is aware of it too.
 
 #### Terminal 666 - The Hacker :shipit::computer:
-_"Nice system you've got there. Let's, um, test it."_
+_"Nice system you've got there. Let's test it..."_
 
 * cd to the root of `binary_transparency/firmware` for the following steps.
 
@@ -223,7 +223,7 @@ device. It's in `testdata/firmware/dummy_device/hacked.wasm`.
 
 1. Write malicious firmware directly onto the device.
 
-Let's imaging the hacker has access to our device, they're going to write their
+Let's imagine the hacker has access to our device, they're going to write their
 malicious firmware directly over the top of our device's firmware:
 
 ```bash
@@ -236,6 +236,8 @@ Let's watch as the device owner turns on their device in the next step...
 #### Terminal 5 - Device owner
 The device owner wants to use their device, however, unbeknownst to them it's
 been HACKED!
+
+Start up the device:
 
 ```bash
 go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
@@ -265,7 +267,7 @@ sha512sum testdata/firmware/dummy_device/hacked.wasm
 efb19feba9ea0e0d5de73ac16d8aa9c4ceb092ecd13eab5548f49a61e85c367a2f2c8ce1eb36b67e1407148406705e67663dc5b6d3f05a45475f6e4a2b69e285  testdata/firmware/dummy_device/hacked.wasm
 ```
 
-We'll need that in base64:
+For what we're going to do, we'll need that in base64:
 
 ```bash
 echo "efb19feba9ea0e0d5de73ac16d8aa9c4ceb092ecd13eab5548f49a61e85c367a2f2c8ce1eb36b67e1407148406705e67663dc5b6d3f05a45475f6e4a2b69e285" |
@@ -275,7 +277,7 @@ echo "efb19feba9ea0e0d5de73ac16d8aa9c4ceb092ecd13eab5548f49a61e85c367a2f2c8ce1eb
 77Gf66nqDg1d5zrBbYqpxM6wkuzRPqtVSPSaYehcNnovLIzh6za2fhQHFIQGcF5nZj3FttPwWkVHX25KK2nihQ==
 ```
 
-Now we'll patch that into the `bundle.json` file on the device:
+Now we're going to patch that hash into the `bundle.json` file on the device:
 ```bash
 export HACKED_SHA512="77Gf66nqDg1d5zrBbYqpxM6wkuzRPqtVSPSaYehcNnovLIzh6za2fhQHFIQGcF5nZj3FttPwWkVHX25KK2nihQ=="
 
@@ -289,7 +291,7 @@ Let's watch as the device owner turns on their device in the next step...
 
 #### Terminal 5 - Device owner
 
-The device owner turns on their device again:
+Start the device:
 
 ```bash
 go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
@@ -334,5 +336,3 @@ go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T23:0
 >
 > Anybody else running a monitor also knows that malicious firmware has been
 > logged and can raise the alarm.
-
-

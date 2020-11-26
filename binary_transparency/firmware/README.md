@@ -119,16 +119,18 @@ Record the tree ID that is returned by the command above, it will be referred to
 as $TREE_ID by subsequent commands:
 
 #### Terminal 2 - FT Personality:
-* Open terminal in root of `firmware-transparency-demo` git repo, run:
+* Open a terminal in the `binary_transparency/firmware` directory.
+* A file is needed to hold the CAS DB which will back the log, this file
+  needs to be available for the duration of this log, so writing to '/tmp'
+  is considered risky. Choose a file path and add as below.
 
 ```bash
-go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID --cas_db_file=/path/to/ft.db
+export CAS_DB_FILE='/full/path/to/file.db'
+go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID --cas_db_file=${CAS_DB_FILE}
 ```
 
-The `cas_db_file` needs to be available for the duration of this log, so writing to `/tmp/` is considered risky.
-
 #### Terminal 3
-Open terminal in root of `firmware-transparency-demo` git repo for the following steps:
+cd to the root of `binary_transparency/firmware` for the following steps:
 
 1. Add Something
 
@@ -147,7 +149,13 @@ Open terminal in root of `firmware-transparency-demo` git repo for the following
 
    Now that we have an update package for our new firmware, we can try flashing
    it to a device. The repo contains a "dummy device" which uses the local disk
-   to store the device's state.
+   to store the device's state. You'll need to choose and create a directory
+   where this dummy device state will live - the instructions below assume
+   that is `/tmp/dummy_device', change the path if you're using something different.
+
+   ```bash
+   mkdir /tmp/dummy_device
+   ```
 
    We'll use the `cmd/flash_tool` to do this flashing.
 

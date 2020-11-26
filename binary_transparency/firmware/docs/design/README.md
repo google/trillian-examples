@@ -131,27 +131,62 @@ following diagram:
 
 ![overview diagram](./overview.svg)
 
-For clarity, the mapping of actors to claimant model roles are listed explicitly here:
+For clarity, the mapping of actors to the claimant model roles, along with
+software provided by the demo used to fulfil those roles, are listed explicitly
+here:
 
 **Firmware vendor**:
+
+Uses the [`publisher`](/binary_transparency/firmware/cmd/publisher) to publish
+firmware metadata & images to the log, and create an "OTA" update bundle.
+
 * Claimant<sup>FIRMWARE</sup>
 
 **Update client**:
+
+Uses the [`flash_tool`](/binary_transparency/firmware/cmd/flash_tool) to verify
+and install the update bundle provided by the vendor onto the device.
+
 * Believer<sup>FIRMWARE</sup>
 * Believer<sup>FIRMWARE_LOG</sup>
 * Verifier<sup>FIRMWARE_LOG</sup> (when used with STH Witness)
 
 **Target device (toaster)**:
+
+Device implementations:
+* [`emulator/dummy`](/binary_transparency/firmware/cmd/emulator/dummy) models
+a simple WASM VM device.
+* [`usbarmory`](/binary/transparency/firmware/devices/usbarmory) provides an
+enforcing EL3 bootloader for the F-Secure
+[USB Armory mkII](https://inversepath.com/usbarmory.html).
+
+These implementation rely on most of the same verification logic as the
+[`flash_tool`](/binary_transparency/firmware/cmd/flash_tool) to verify the
+proofs stored alongside the firmware in the device.
+
 * Believer<sup>FIRMWARE</sup>
 * Believer<sup>FIRMWARE_LOG</sup>
 
 **Log**:
+
+Uses the [`ft_personality`](/binary_transparency/firmware/cmd/ft_personality)
+along with [Trillian](https://github.com/google/trillian) to provide the
+_discoverability_ that Firmware Transparency leverages.
+
 * Claimant<sup>FIRMWARE_LOG</sup>
 
 **STH Witness**:
+
+_Not yet implemented here._
+
 * Verifier<sup>FIRMWARE_LOG</sup>
 
-**Interested Observer**:
+**Interested Observers**:
+
+Use the [`ft_monitor`](/binary_transparency/firmware/cmd/ft_monitor) to
+both verify the log operator's claims, and support verification of the
+firmware vendor claims.
+
 * Verifier<sup>FIRMWARE</sup>
 * Verifier<sup>FIRMWARE_LOG</sup>
 
@@ -166,87 +201,3 @@ inside mask ROM, or some other similarly secure location, however for the
 purpose of demonstrating the required functionality the bootloader will serve
 well enough.
 
-## Demo script
-> :warning: Drafty!
-
-The current demo-script is below:
-
-### Preparation
-1. Partition SD card into the following partitions:
-   * **bootloader**
-
-      This will contain our "fake ROM" which will validate proofs and
-      jump to the unikernel in the `unikernel` if everything is good, otherwise
-      it will light the RED LED and halt the device.
-
-   * **unikernel**
-
-      This will contain a simple app which simply flashes the GREEN LED, it is
-      the only partition covered by firmware manifest.
-
-   * **proof storage**
-
-      This will contain the firmware manifest, STHs, and inclusion &
-      consistency proofs.
-
-1. Write our "fake ROM" primary bootloader onto "toaster" SD card's
-   `bootloader` partition.
-
-### Happy Path
-1. Build & package a simple "helloworld" unikernel which blinks an LED
-1. Add it to the log
-   * Note that the `Interested Observer` spots the new firmware and prints
-     something out about it to `stdout`
-1. Run the `update_firmware_on_toaster` tool, which:
-    1. Verifies signatures on:
-       1. Firmware manifest
-       1. STH<sub>device</sub> (the on-device STH used to install the current
-          firmware)
-       1. STH<sub>update</sub> (the STH provided with the firmware update)
-    1. Chooses an STH<sub>witness</sub> from STH witness which is at least as new
-       as STH<sub>update</sub>, or delays and retries if none
-    1. Verifies signature on STH<sub>witness</sub>
-    1. Verifies that STH<sub>device</sub>, STH<sub>update</sub>, and
-       STH<sub>witness</sub> are on a single timeline <br>
-      _(note that care must be taken if relationship STH<sub>device</sub> <=
-      STH<sub>update</sub> <= STH<sub>witness</sub> does not hold)_
-    1. Verifies inclusion of `Firmware manifest` under STH<sub>update</sub>
-
-       If successful, writes:
-        1. Firmware image to SD card `unikernel` partition
-        1. Firmware manifest, STH<sub>update</sub> & inclusion proof to SD card `proof storage` partition`
-
-        (otherwise prints an error)
-1. Reboot device, which loads "bootloader" from SD `bootloader` partition, that:
-    1. Verifies signature on STH<sub>update</sub>
-    1. Verifies signature on Firmware manifest
-    1. Verifies inclusion proof for manifest
-    1. Verifies _measurement_ of SD card `unikernel` partition matches manifest
-
-        If successful jumps into unikernel -> blinky GREEN LED \o/
-
-        (otherwise lights the RED LED).
-
-### Sad Path
-1. Modify `unikernel` source, rebuild, but **DON'T** log it
-1. Show that `update_firmware_on_toaster` tool fails because no inclusion proof
-   is present
-1. Re-run `update_firmware_on_toaster` tool with `--force` flag and supply proofs from earlier
-   build
-1. Reboot, observe that the bootloader fails to verify the proofs, and sets
-   the big RED LED and halts the device.
-
-### Return To Happiness
-1. Update `unikernel` source again, and rebuild, this time **DO** log as we
-   originally did
-   * Note that the `Interested Observer` again spots the new firmware
-1. Flash unikernel to device using the `update_firmware_on_toaster` tool
-1. Reboot, and note the unikernel is running and flashing the GREEN LED.
-
-### Other Sad Paths
-There are some more Sad Paths we can explore in order to highlight security
-properties of the system, e.g.:
-1. **Split view by log**
-
-   Fork the log and show that the install client is unable to verify consistency between the update, device, and witness STHs.
-   For a tighter system which prevents against a compromised update client, the STH witness responses can be stored along with proofs on the device such that the device itself does the "consensus" algorithm to figure out which of the witness STHs should be used.

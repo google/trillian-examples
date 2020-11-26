@@ -67,7 +67,7 @@ unless they have been made discoverable through being logged.
  - [ ] Specify/document a system architecture for that model.
  - [X] Come up with some metadata format: [FirmwareMetadata](./api/firmware_metadata.go)
  - [X] Build a simple personality around that format.
- - [ ] Extend personality to also store firmware images.
+ - [X] Extend personality to also store firmware images.
  - [x] Build a simple tool to create metadata given a "boot" image (e.g. Linux
      Kernel, WASM binary, etc.), and log it via the personality.
  - [x] Figure out a way to package the metadata with the bootable image.
@@ -85,7 +85,7 @@ unless they have been made discoverable through being logged.
        the previously seen STH and the new STH.
  - [x] Flash stores "proof bundle" on device for validation at boot time.
  - [x] Build simple monitor to tail the log and dump info from meta-data in realtime.
- - [ ] Monitor is extended to validate firmware images hash
+ - [X] Monitor is extended to validate firmware images hash
 
 Planned future enhancements:
  - [ ] Integrate STH Witness support.

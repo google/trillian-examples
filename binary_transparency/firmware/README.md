@@ -129,8 +129,6 @@ export CAS_DB_FILE='/full/path/to/file.db'
 go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID --cas_db_file=${CAS_DB_FILE}
 ```
 
-The `cas_db_file` needs to be available for the duration of this log, so writing to `/tmp/` is considered risky.
-
 #### Terminal 3
 cd to the root of `binary_transparency/firmware` for the following steps:
 

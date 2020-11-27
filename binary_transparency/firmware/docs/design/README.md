@@ -138,9 +138,17 @@ here:
 **Firmware vendor**:
 
 Uses the [`publisher`](/binary_transparency/firmware/cmd/publisher) to publish
-firmware metadata & images to the log, and create an "OTA" update bundle.
+firmware metadata & images to the log, and create an "OTA" update bundle:
 
 * Claimant<sup>FIRMWARE</sup>
+
+Also uses the [`ft_monitor`](/binary_transparency/firmware/cmd/ft_monitor) to
+check for unexpected firmware apparently issued by the vendor, so additionally
+plays the following roles:
+
+* Believer<sup>FIRMWARE_LOG</sup>
+* Verifier<sup>FIRMWARE</sup>
+* Verifier<sup>FIRMWARE_LOG</sup> (when used with STH Witness)
 
 **Update client**:
 

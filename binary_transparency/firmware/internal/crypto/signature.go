@@ -79,7 +79,7 @@ func getPublicKey() (*rsa.PublicKey, error) {
 }
 
 //SignMessage is used to sign the Statement
-func SignMessage(msg []byte) (sig []byte, err error) {
+func SignMessage(msg []byte) ([]byte, error) {
 	// Before signing, we need to hash the message
 	// The hash is what we actually sign
 	h := sha512.Sum512(msg)
@@ -98,7 +98,7 @@ func SignMessage(msg []byte) (sig []byte, err error) {
 }
 
 //VerifySignature is used to verify the incoming message
-func VerifySignature(msg []byte, signature []byte) (err error) {
+func VerifySignature(msg []byte, signature []byte) error {
 	// Get the required key for signing
 	key, err := getPublicKey()
 	if err != nil {

@@ -36,6 +36,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
@@ -110,9 +111,17 @@ func main() {
 			statement := manifest.Value
 			stmt := api.FirmwareStatement{}
 			if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
-				glog.Warningf("Firmware Statement decoding from manifest failed reason %q", err)
+				glog.Warningf("Firmware Statement decoding from manifest failed: %q", err)
 				continue
 			}
+
+			// Verify the signature:
+			if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
+				glog.Warningf("Firmware signature verification failed: %q", err)
+				continue
+			}
+			glog.V(1).Infof("Firmware signature verification SUCCESS")
+
 			// Parse the firmware metadata:
 			var meta api.FirmwareMetadata
 			if err := json.Unmarshal(stmt.Metadata, &meta); err != nil {

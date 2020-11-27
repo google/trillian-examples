@@ -31,6 +31,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
@@ -85,27 +86,26 @@ func NewServer(c Trillian, cas CAS) *Server {
 func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	statement, image, err := parseAddFirmwareRequest(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to parse request: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
 
 	stmt := api.FirmwareStatement{}
 	if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to decode statement: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
 
-	// "Verify" the signature:
-	// TODO(al): do proper sigs
-	if sigStr := string(stmt.Signature); sigStr != "LOL!" {
-		http.Error(w, fmt.Sprintf("invalid LOL! sig %q", sigStr), http.StatusBadRequest)
+	// Verify the signature:
+	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
+		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
 		return
 	}
 
 	// Parse the firmware metadata:
 	var meta api.FirmwareMetadata
 	if err := json.Unmarshal(stmt.Metadata, &meta); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to unmarshal metadata: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
 

@@ -29,6 +29,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 )
 
 var (
@@ -143,10 +144,14 @@ func createStatementJSON(m api.FirmwareMetadata) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
 	}
+	sig, err := crypto.SignMessage(js)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate signature: %w", err)
+	}
 
 	statement := api.FirmwareStatement{
 		Metadata:  js,
-		Signature: []byte("LOL!"),
+		Signature: sig,
 	}
 
 	return json.Marshal(statement)

@@ -22,23 +22,25 @@ import (
 	"crypto"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian/experimental/batchmap/tilepb"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/coniks"
+
+	"github.com/google/trillian-examples/experimental/batchmap/sumdb/mapdb"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const hash = crypto.SHA512_256
 
 var (
 	sumFile      = flag.String("sum_file", "", "go.sum file to check for integrity.")
-	mapDir       = flag.String("map_dir", "", "Directory containing map tiles.")
+	mapDB        = flag.String("map_db", "", "sqlite DB containing the map tiles.")
 	treeID       = flag.Int64("tree_id", 12345, "The ID of the tree. Used as a salt in hashing.")
 	prefixStrata = flag.Int("prefix_strata", 2, "The number of strata of 8-bit strata before the final strata.")
 )
@@ -46,11 +48,20 @@ var (
 func main() {
 	flag.Parse()
 
-	if *mapDir == "" {
+	if *mapDB == "" {
 		glog.Exitf("No map_dir provided")
 	}
 	if *sumFile == "" {
 		glog.Exitf("No sum_file provided")
+	}
+
+	tiledb, err := mapdb.NewTileDB(*mapDB)
+	if err != nil {
+		glog.Exitf("Failed to open map DB at %q: %v", *mapDB, err)
+	}
+	var rev int
+	if rev, err = tiledb.MaxRevision(); err != nil {
+		glog.Exitf("No revisions found in map DB at %q: %v", *mapDB, err)
 	}
 
 	// Open the go.sum file for reading a line at a time.
@@ -75,7 +86,7 @@ func main() {
 		key := line[:split]
 		expectedString := line[split+1:]
 		glog.V(1).Infof("checking key %q value %q", key, expectedString)
-		newRoot, err := checkInclusion(*mapDir, key, expectedString)
+		newRoot, err := checkInclusion(tiledb, rev, key, expectedString)
 		if err != nil {
 			glog.Exitf("inclusion check failed for key %q value %q: %q", key, expectedString, err)
 		}
@@ -90,7 +101,7 @@ func main() {
 
 // checkInclusion confirms that the key & value are committed to by the map in the given
 // directory, and returns the computed and confirmed root hash that commits to this.
-func checkInclusion(mapDir, key, value string) ([]byte, error) {
+func checkInclusion(tiledb *mapdb.TileDB, rev int, key, value string) ([]byte, error) {
 	// Determine the key/value we expect to find.
 	// Note that the map tiles do not contain raw values, but commitments to the values.
 	// If the map needs to return the values to clients then it is recommended that the
@@ -102,7 +113,7 @@ func checkInclusion(mapDir, key, value string) ([]byte, error) {
 	expectedValueHash := coniks.Default.HashLeaf(*treeID, keyPath, []byte(value))
 
 	// Read the tiles required for this check from disk.
-	tiles, err := getTilesForKey(mapDir, keyPath)
+	tiles, err := getTilesForKey(tiledb, rev, keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't load tiles: %v", err)
 	}
@@ -167,18 +178,13 @@ func checkInclusion(mapDir, key, value string) ([]byte, error) {
 }
 
 // getTilesForKey loads the tiles on the path from the root to the given leaf.
-func getTilesForKey(mapDir string, key []byte) ([]*tilepb.Tile, error) {
+func getTilesForKey(tiledb *mapdb.TileDB, rev int, key []byte) ([]*tilepb.Tile, error) {
 	tiles := make([]*tilepb.Tile, *prefixStrata+1)
 	for i := 0; i <= *prefixStrata; i++ {
 		tilePath := key[0:i]
-		tileFile := fmt.Sprintf("%s/path_%x", mapDir, tilePath)
-		in, err := ioutil.ReadFile(tileFile)
+		tile, err := tiledb.Tile(rev, tilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %v", tileFile, err)
-		}
-		tile := &tilepb.Tile{}
-		if err := proto.Unmarshal(in, tile); err != nil {
-			return nil, fmt.Errorf("failed to parse tile in %s: %v", tileFile, err)
+			return nil, fmt.Errorf("failed to read tile %x @ revision %d: %v", tilePath, rev, err)
 		}
 		tiles[i] = tile
 	}

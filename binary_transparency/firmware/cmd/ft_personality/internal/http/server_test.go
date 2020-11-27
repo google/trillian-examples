@@ -25,7 +25,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/golang/glog"
 	gomock "github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
@@ -85,7 +84,7 @@ func b64Decode(t *testing.T, b64 string) []byte {
 	t.Helper()
 	st, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
-		glog.Exitf("b64 decoding failed: %v", err)
+		t.Fatalf("b64 decoding failed: %v", err)
 	}
 	return st
 }

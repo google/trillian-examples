@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/f-secure-foundry/tamago/soc/imx6/dcp"
@@ -46,7 +47,7 @@ func hashPartition(p *Partition) ([]byte, error) {
 		return nil, fmt.Errorf("failed to seek: %w", err)
 	}
 
-	bs := int64(1<<20)
+	bs := uint64(1<<16)
 	rc := make(chan []byte, 10)
 	hc := make(chan []byte)
 
@@ -80,11 +81,11 @@ func hashPartition(p *Partition) ([]byte, error) {
 		}
 		rc<-b[:bc]
 
-		numBytes -= int64(bc)
+		numBytes -= uint64(bc)
 	}
 	close(rc)
 
-	fmt.Printf("Finished reading, hashing in %s\n", time.Now().Sub(start))
+	log.Printf("Finished reading, hashing in %s\n", time.Now().Sub(start))
 	hash := <-hc
 	return hash[:], nil
 }

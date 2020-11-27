@@ -21,7 +21,14 @@ const defaultConfigPath = "/boot/armory-boot.conf"
 
 var conf Config
 
+// Config tells the boot-loader what it should attempt to load and boot.
+//
+// The bootloader can load either a Linux kernel, or an ELF unikernel.
 type Config struct {
+	// Unikernel is the path to an ELF unikernel image.
+	Unikernel []string `json:"unikernel"`
+
+	// Kernel is the path to a Linux kernel image.
 	Kernel         []string `json:"kernel"`
 	DeviceTreeBlob []string `json:"dtb"`
 	CmdLine        string   `json:"cmdline"`
@@ -44,12 +51,28 @@ func (c *Config) Read(partition *Partition, configPath string) (err error) {
 		return
 	}
 
-	if len(conf.Kernel) != 2 {
-		return errors.New("invalid kernel parameter size")
+	ul, kl := len(conf.Unikernel), len(conf.Kernel)
+	isUnikernel, isKernel := ul > 0, kl > 0
+
+	if isUnikernel == isKernel {
+		return errors.New("must specify either unikernel or kernel")
 	}
 
-	if len(conf.DeviceTreeBlob) != 2 {
-		return errors.New("invalid kernel parameter size")
+	switch {
+	case isKernel:
+		if kl != 2 {
+			return errors.New("invalid kernel parameter size")
+		}
+
+		if len(conf.DeviceTreeBlob) != 2 {
+			return errors.New("invalid dtb parameter size")
+		}
+	case isUnikernel:
+		if ul != 2 {
+			return errors.New("invalid unikernel parameter size")
+		}
+	default:
+		panic("armory-boot: config is neither for kernel nor unikernel")
 	}
 
 	c.Print()

@@ -15,10 +15,9 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 	"github.com/f-secure-foundry/tamago/soc/imx6"
 	"github.com/f-secure-foundry/tamago/soc/imx6/usdhc"
-
-	usbarmory "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 )
 
 var Build string
@@ -56,7 +55,9 @@ func main() {
 		panic(fmt.Sprintf("card detect error: %v\n", err))
 	}
 
-	kernelOffset, err := strconv.ParseInt(StartKernel, 10, 64)
+	usbarmory.LED("white", true)
+
+        kernelOffset, err := strconv.ParseInt(StartKernel, 10, 64)
 	if err != nil {
 		panic(fmt.Sprintf("invalid kernel partition start offset: %v\n", err))
 	}
@@ -69,36 +70,32 @@ func main() {
 		panic(fmt.Sprintf("invalid proof partition start offset: %v\n", err))
 	}
 
-	kernelPart := &Partition{
+	partition := &Partition{
 		Card:   card,
 		Offset: kernelOffset,
 	}
-	if err = conf.Read(kernelPart, defaultConfigPath); err != nil {
+	if err = conf.Read(partition, defaultConfigPath); err != nil {
 		panic(fmt.Sprintf("invalid configuration: %v\n", err))
 	}
 
-	usbarmory.LED("white", true)
-	h, err := hashPartition(kernelLen, kernelPart)
+	h, err := hashPartition(kernelLen, partition)
 	if err != nil {
 		panic(fmt.Sprintf("failed to hash kernelPart: %w\n", err))
 	}
-	fmt.Printf("Partition hash: %x\n", h)
-	usbarmory.LED("white", false)
-
+	fmt.Printf("partition hash: 0x%x\n", h)
 	proofPart := &Partition{
 		Card:   card,
 		Offset: proofOffset,
 	}
+
 	bundle, err := loadBundle(proofPart)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load proof bundle: %q", err))
 	}
-	fmt.Printf("Loaded bundle: %v\n", bundle)
-
-
+	fmt.Printf("loaded bundle: %v\n", bundle)
 
 	if len(PublicKeyStr) > 0 {
-		valid, err := conf.Verify(kernelPart, defaultConfigPath+signatureSuffix)
+		valid, err := conf.Verify(partition, defaultConfigPath+signatureSuffix)
 
 		if err != nil {
 			panic(fmt.Sprintf("configuration verification error: %v\n", err))
@@ -109,33 +106,52 @@ func main() {
 		}
 	}
 
-	kernel, err := kernelPart.ReadAll(conf.Kernel[0])
+	switch {
+	case len(conf.Kernel) > 0:
+		fmt.Println("Loaded kernel config")
+		kernel, err := partition.ReadAll(conf.Kernel[0])
+		if err != nil {
+			panic(fmt.Sprintf("invalid kernel path: %v\n", err))
+		}
 
-	if err != nil {
-		panic(fmt.Sprintf("invalid kernel path: %v\n", err))
+		dtb, err := partition.ReadAll(conf.DeviceTreeBlob[0])
+		if err != nil {
+			panic(fmt.Sprintf("invalid dtb path: %v\n", err))
+		}
+
+		usbarmory.LED("blue", true)
+
+		if !verifyHash(kernel, conf.Kernel[1]) {
+			panic("invalid kernel hash")
+		}
+
+		if !verifyHash(dtb, conf.DeviceTreeBlob[1]) {
+			panic("invalid dtb hash")
+		}
+
+		dtb, err = fixupDeviceTree(dtb, conf.CmdLine)
+
+		if err != nil {
+			panic(fmt.Sprintf("dtb fixup error: %v\n", err))
+		}
+
+		bootKernel(kernel, dtb, conf.CmdLine)
+
+	case len(conf.Unikernel) > 0:
+		fmt.Println("Loaded unikernel config")
+		unikernel, err := partition.ReadAll(conf.Unikernel[0])
+		if err != nil {
+			panic(fmt.Sprintf("invalid unikernel path: %v\n", err))
+		}
+
+		usbarmory.LED("blue", true)
+
+		if !verifyHash(unikernel, conf.Unikernel[1]) {
+			panic("invalid unikernel hash")
+		}
+
+		bootELFUnikernel(unikernel)
+	default:
+		panic("invalid config")
 	}
-
-	dtb, err := kernelPart.ReadAll(conf.DeviceTreeBlob[0])
-
-	if err != nil {
-		panic(fmt.Sprintf("invalid dtb path: %v\n", err))
-	}
-
-	usbarmory.LED("blue", true)
-
-	if !verifyHash(kernel, conf.Kernel[1]) {
-		panic("invalid kernel hash")
-	}
-
-	if !verifyHash(dtb, conf.DeviceTreeBlob[1]) {
-		panic("invalid dtb hash")
-	}
-
-	dtb, err = fixupDeviceTree(dtb, conf.CmdLine)
-
-	if err != nil {
-		panic(fmt.Sprintf("dtb fixup error: %v\n", err))
-	}
-
-	boot(kernel, dtb, conf.CmdLine)
 }

@@ -33,9 +33,15 @@ func loadBundle(p *Partition) (api.ProofBundle, error) {
 	return bundle, nil
 }
 
-// hashPartition calculates the SHA256 of the first numBytes of the partition.
-func hashPartition(numBytes int64, p *Partition) ([]byte, error) {
-	fmt.Println("Reading partition at offset %d...", p.Offset)
+// hashPartition calculates the SHA256 of the whole partition.
+func hashPartition(p *Partition) ([]byte, error) {
+	log.Printf("Reading partition at offset %d...\n", p.Offset)
+	numBytes, err := p.GetPartitionSize()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get partition size: %w", err)
+	}
+	log.Printf("Partition size %d bytes\n", numBytes)
+
 	if _, err := p.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek: %w", err)
 	}

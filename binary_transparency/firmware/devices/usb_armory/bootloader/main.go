@@ -26,7 +26,6 @@ var Revision string
 
 var Boot string
 var StartKernel string
-var LenKernel string
 var StartProof string
 
 func init() {
@@ -63,15 +62,10 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("invalid kernel partition start offset: %v\n", err))
 	}
-	kernelLen, err := strconv.ParseInt(LenKernel, 10, 64)
-	if err != nil {
-		panic(fmt.Sprintf("invalid kernel partition length : %v\n", err))
-	}
 	proofOffset, err := strconv.ParseInt(StartProof, 10, 64)
 	if err != nil {
 		panic(fmt.Sprintf("invalid proof partition start offset: %v\n", err))
 	}
-
 	partition := &Partition{
 		Card:   card,
 		Offset: kernelOffset,
@@ -80,7 +74,7 @@ func main() {
 		panic(fmt.Sprintf("invalid configuration: %v\n", err))
 	}
 
-	h, err := hashPartition(kernelLen, partition)
+	h, err := hashPartition(partition)
 	if err != nil {
 		panic(fmt.Sprintf("failed to hash kernelPart: %w\n", err))
 	}

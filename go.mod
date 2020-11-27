@@ -12,7 +12,7 @@ require (
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
 	github.com/ethereum/go-ethereum v1.9.24
-	github.com/f-secure-foundry/tamago v0.0.0-20201119100619-1bcafd8de66a
+	github.com/f-secure-foundry/tamago v0.0.0-20201126222218-ecc3aa53ae88
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b

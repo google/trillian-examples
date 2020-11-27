@@ -68,6 +68,7 @@ check_hab_keys:
 	fi
 
 dcd:
+	echo $(GOMODCACHE)
 	echo $(TAMAGO_PKG)
 	cp -f $(TAMAGO_PKG)/board/f-secure/usbarmory/mark-two/imximage.cfg $(APP).dcd
 

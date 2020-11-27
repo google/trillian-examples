@@ -50,10 +50,25 @@ Configuration
 =============
 
 The bootloader expects a single configuration file to read information on the
-command line, kernel and device tree blob paths along with their SHA256
-checksum for validation.
+image and parameters to boot.
 
-Example `/boot/armory-boot.conf` configuration file:
+The bootloader is configured via a single configuration file, and can boot either
+ an ARM kernel image or an ELF unikernel (e.g.
+[tamago-example](https://github.com/f-secure-foundry/tamago-example)).
+The required elements in the configuration file differ depending on the type of
+image being loaded, examples for both are given below.
+
+It is an error specify both unikernel and kernel config parameters in the same
+configuration file.
+
+Linux kernel boot
+-----------------
+
+To load a Linux kernel, the bootloader requires that you provide the paths to
+the kernel image and the Device Tree Blob file, along with their respective
+SHA256 hashes for validation, as well as the kernel command line.
+
+Example `/boot/armory-boot.conf` configuration file for loading a Linux kernel:
 
 ```
 {
@@ -66,6 +81,27 @@ Example `/boot/armory-boot.conf` configuration file:
     "60d4fe465ef60042293f5723bf4a001d8e75f26e517af2b55e6efaef9c0db1f6"
   ],
   "cmdline": "console=ttymxc1,115200 root=/dev/mmcblk1p1 rootwait rw"
+}
+```
+
+TamaGo unikernel boot
+---------------------
+
+> :warning: this is currently experimental, and requires that the HW RNG is
+> not reinitialised.
+
+To load a TamaGo unikernel, the bootloader only needs the path to the ELF
+binary along with its SHA256 hash for validation.
+
+Example `/boot/armory-boot.conf` configuration file for loading a TamaGo
+unikernel:
+
+```
+{
+  "unikernel": [
+    "/boot/tamago-example",
+    "e6de9214249dd7989b4056372424e84b273ff4e5d2410fa12ac230ddaf22690a"
+  ]
 }
 ```
 

@@ -23,6 +23,7 @@ import (
 	"github.com/google/trillian/experimental/batchmap/tilepb"
 )
 
+// NoRevisionsFound is returned when the DB appears valid but has no revisions in it.
 type NoRevisionsFound = error
 
 // TileDB provides read/write access to the generated Map tiles.

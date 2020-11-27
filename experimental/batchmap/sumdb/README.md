@@ -19,9 +19,11 @@ There are some pre-requisites to running this demo:
 Congratulations on getting this far.
 Now, assuming the Python Portable Beam runner is listening on port `8099` the following will generate the verifiable map for every entry downloaded from the SumDB (assumed working directory is the one containg this README):
 
- * `go run build/map.go --output=/tmp/sumdbmap --sum_db=/path/to/sum.db --runner=universal --endpoint=localhost:8099 --environment_type=LOOPBACK`
+ * `go run build/map.go --runner=universal --endpoint=localhost:8099 --environment_type=LOOPBACK --sum_db=/path/to/sum.db --map_db=/path/to/map.db --count=256`
 
-This will put a file per tile in `/tmp/sumdbmap`.
+This will create a sqlite database at `/path/to/map.db` and store key/values for the first 256 entries from the SumDB log.
+Remove the `count` parameter to process every entry, though you might want to do this while you make a nice cup of tea.
+
 The verifier can check that every entry in a `go.sum` file is properly committed to by the map:
 
  * `go run verify/verify.go --logtostderr --v=1 --map_dir=/tmp/sumdbmap --sum_file=/path/to/go.sum`

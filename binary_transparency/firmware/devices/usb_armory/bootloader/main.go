@@ -16,6 +16,7 @@ import (
 	"strconv"
 
 	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
+	"github.com/f-secure-foundry/tamago/dma"
 	"github.com/f-secure-foundry/tamago/soc/imx6"
 	"github.com/f-secure-foundry/tamago/soc/imx6/usdhc"
 )
@@ -37,6 +38,7 @@ func init() {
 }
 
 func main() {
+	dma.Init(dmaStart, dmaSize)
 	usbarmory.LED("blue", false)
 	usbarmory.LED("white", false)
 

@@ -3,16 +3,21 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
+	"time"
 
+	"github.com/f-secure-foundry/tamago/soc/imx6/dcp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	_ "github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
 const bundlePath = "/bundle.json"
+
+func init() {
+	dcp.Init()
+}
 
 // loadBundle loads the proof bundle from the proof partition.
 func loadBundle(p *Partition) (api.ProofBundle, error) {
@@ -35,18 +40,25 @@ func hashPartition(numBytes int64, p *Partition) ([]byte, error) {
 		return nil, fmt.Errorf("failed to seek: %w", err)
 	}
 
-	bs := int64(1<<16)
+	bs := int64(1<<20)
 	rc := make(chan []byte, 10)
 	hc := make(chan []byte)
 
+	start := time.Now()
 	go func() {
-		h := sha256.New()
+		h, err := dcp.New256()
+		if err != nil {
+			panic(fmt.Sprintf("Failed to created hasher: %q", err))
+		}
 		for b := range(rc) {
 			if _, err := h.Write(b); err != nil {
 				panic(fmt.Errorf("failed to hash: %w", err))
 			}
 		}
-		hash := h.Sum(nil)
+		hash, err := h.Sum(nil)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to get final sum: %q", err))
+		}
 		hc <- hash
 	}()
 
@@ -66,7 +78,7 @@ func hashPartition(numBytes int64, p *Partition) ([]byte, error) {
 	}
 	close(rc)
 
-	fmt.Println("finished reading, hashing")
+	fmt.Printf("Finished reading, hashing in %s\n", time.Now().Sub(start))
 	hash := <-hc
 	return hash[:], nil
 }

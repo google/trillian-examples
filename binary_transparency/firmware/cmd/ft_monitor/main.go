@@ -116,7 +116,7 @@ func main() {
 			}
 
 			// Verify the signature:
-			if ok, err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
+			if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
 				glog.Warningf("Firmware signature verification failed: %q", err)
 				continue
 			}

@@ -97,7 +97,7 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the signature:
-	if ok, err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
+	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
 		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
 		return
 	}

@@ -126,12 +126,12 @@ func readUpdateFileFromFlags() (api.UpdatePackage, error) {
 func checkSignature(up api.UpdatePackage) error {
 	stmt := api.FirmwareStatement{}
 	if err := json.NewDecoder(bytes.NewReader(up.ProofBundle.ManifestStatement)).Decode(&stmt); err != nil {
-		return fmt.Errorf("Failed to decode firmware statement: %q", err)
+		return fmt.Errorf("failed to decode firmware statement: %q", err)
 	}
 
 	//Verify the signature:
-	if ok, err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); !ok {
-		return fmt.Errorf("Firmware signature verification failed reason %q", err)
+	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
+		return fmt.Errorf("firmware signature verification failed reason %q", err)
 	}
 	return nil
 }

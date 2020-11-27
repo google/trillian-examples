@@ -144,14 +144,14 @@ func createStatementJSON(m api.FirmwareMetadata) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
 	}
-	sign, err := crypto.SignMessage(js)
+	sig, err := crypto.SignMessage(js)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate signature: %w", err)
 	}
 
 	statement := api.FirmwareStatement{
 		Metadata:  js,
-		Signature: sign,
+		Signature: sig,
 	}
 
 	return json.Marshal(statement)

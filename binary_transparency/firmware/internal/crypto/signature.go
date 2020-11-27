@@ -24,31 +24,31 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
-
-	"github.com/golang/glog"
 )
 
 func getPrivateKey() (*rsa.PrivateKey, error) {
 	mKey := strings.NewReader(RSApri)
 	priv, err := ioutil.ReadAll(mKey)
 	if err != nil {
-		return nil, fmt.Errorf("Read failed! %s", err)
+		return nil, fmt.Errorf("read failed! %s", err)
 	}
 
-	privPem, _ := pem.Decode(priv)
+	privPem, rest := pem.Decode(priv)
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("extraneous data: %v", rest)
+	}
+	if privPem == nil {
+		return nil, fmt.Errorf("pem decoded to nil")
+	}
 	if privPem.Type != "RSA PRIVATE KEY" {
 		return nil, fmt.Errorf("RSA private key is of the wrong type %s", privPem.Type)
 	}
 
-	var parsedKey interface{}
-	if parsedKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
-		return nil, fmt.Errorf("Unable to parse RSA private key %v", err)
+	var privateKey *rsa.PrivateKey
+	if privateKey, err = x509.ParsePKCS1PrivateKey(privPem.Bytes); err != nil {
+		return nil, fmt.Errorf("unable to parse RSA private key %v", err)
 	}
 
-	privateKey, ok := parsedKey.(*rsa.PrivateKey)
-	if !ok {
-		return nil, fmt.Errorf("Unable to parse RSA private key %v", err)
-	}
 	return privateKey, nil
 }
 
@@ -56,10 +56,13 @@ func getPublicKey() (*rsa.PublicKey, error) {
 	mKey := strings.NewReader(RSApub)
 	pub, err := ioutil.ReadAll(mKey)
 	if err != nil {
-		glog.Exitf("Pubkey read failed! %s", err)
+		return nil, fmt.Errorf("public key read failed! %s", err)
 	}
 
-	pubPem, _ := pem.Decode(pub)
+	pubPem, rest := pem.Decode(pub)
+	if len(rest) != 0 {
+		return nil, fmt.Errorf("extraneous data: %v", rest)
+	}
 	if pubPem == nil {
 		return nil, fmt.Errorf("pem decoded to nil")
 	}
@@ -67,15 +70,9 @@ func getPublicKey() (*rsa.PublicKey, error) {
 		return nil, fmt.Errorf("RSA public key is of the wrong type %s", pubPem.Type)
 	}
 
-	var parsedKey interface{}
-	if parsedKey, err = x509.ParsePKCS1PublicKey(pubPem.Bytes); err != nil {
-		return nil, fmt.Errorf("Unable to parse RSA public key, generating a temp one %v", err)
-	}
-
 	var pubKey *rsa.PublicKey
-	var ok bool
-	if pubKey, ok = parsedKey.(*rsa.PublicKey); !ok {
-		return nil, fmt.Errorf("Unable to parse RSA public key")
+	if pubKey, err = x509.ParsePKCS1PublicKey(pubPem.Bytes); err != nil {
+		return nil, fmt.Errorf("unable to parse RSA public key %v", err)
 	}
 
 	return pubKey, nil
@@ -85,46 +82,36 @@ func getPublicKey() (*rsa.PublicKey, error) {
 func SignMessage(msg []byte) (sig []byte, err error) {
 	// Before signing, we need to hash the message
 	// The hash is what we actually sign
-	msgHash := sha512.New()
-	if _, err = msgHash.Write(msg); err != nil {
-		glog.Exitf("Message hashing failed %v", err)
-	}
-	msgHashSum := msgHash.Sum(nil)
+	h := sha512.Sum512(msg)
 
 	// Get the required key for signing
 	key, err := getPrivateKey()
 	if err != nil {
-		glog.Exitf("Private key fetch failed %v", err)
+		return nil, fmt.Errorf("private key fetch failed %v", err)
 	}
-
-	signature, err := rsa.SignPSS(rand.Reader, key, crypto.SHA512, msgHashSum, nil)
+	// use PSS over PKCS#1 v1.5 for enhanced security
+	signature, err := rsa.SignPSS(rand.Reader, key, crypto.SHA512, h[:], nil)
 	if err != nil {
-		glog.Exitf("Signing failed for firmware statement: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("signing failed for firmware statement %v", err)
 	}
 	return signature, nil
 }
 
 //VerifySignature is used to verify the incoming message
-func VerifySignature(msg []byte, signature []byte) (verified bool, err error) {
+func VerifySignature(msg []byte, signature []byte) (err error) {
 	// Get the required key for signing
 	key, err := getPublicKey()
 	if err != nil {
-		glog.Exitf("Public key fetch failed %v", err)
+		return fmt.Errorf("public key fetch failed %v", err)
 	}
 	// Before verify, we need to hash the message
 	// The hash is what we actually verify
-	msgHash := sha512.New()
-	if _, err = msgHash.Write(msg); err != nil {
-		glog.Exitf("Message hashing failed %v", err)
-	}
-	msgHashSum := msgHash.Sum(nil)
+	h := sha512.Sum512(msg)
 
-	if err = rsa.VerifyPSS(key, crypto.SHA512, msgHashSum, signature, nil); err != nil {
-		glog.Warningf("Failed to verify signature: %q", err)
-		return false, err
+	if err = rsa.VerifyPSS(key, crypto.SHA512, h[:], signature, nil); err != nil {
+		return fmt.Errorf("failed to verify signature %v", err)
 	}
 	// If we don't get any error from the `VerifyPSS` method, implies our
 	// signature is valid
-	return true, nil
+	return nil
 }

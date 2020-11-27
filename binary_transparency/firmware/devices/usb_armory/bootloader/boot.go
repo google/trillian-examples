@@ -27,7 +27,6 @@ func exec(kernel uint32, params uint32)
 func svc()
 
 func bootKernel(kernel []byte, dtb []byte, cmdline string) {
-	dma.Init(dmaStart, dmaSize)
 	mem, _ := dma.Reserve(dmaSize, 0)
 
 	dma.Write(mem, kernel, kernelOffset)

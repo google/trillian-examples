@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
@@ -81,8 +82,11 @@ func ResetFromFlags() (Chain, error) {
 	if err := json.Unmarshal(b.ManifestStatement, &stmt); err != nil {
 		return nil, fmt.Errorf("error parsing firmware metadata: %w", err)
 	}
-	// TODO(al): check signature on statement and checkpoints when they're added.
-
+	// TODO(al): check signature on checkpoints when they're added.
+	// verify the signature
+	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
+		return nil, fmt.Errorf("failed to verify signature: %w", err)
+	}
 	// boot
 	glog.Infof("Prepared to boot %s", stmt.Metadata)
 	boot1 := func() error {

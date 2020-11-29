@@ -74,8 +74,7 @@ unless they have been made discoverable through being logged.
  - [X] Build a noddy "device" emulator which enforces logging requirements, and refuses to boot
        an image unless all of the following are true:
     - [X] the metadata is present.
-    - [ ] the metadata has a "valid" signature (perhaps using the "LOL! Sig"
-          scheme).
+    - [X] the metadata has a "valid" signature
     - [X] the boot-image hash matches the one committed do in the metadata.
     - [X] a valid STH and inclusion proof for the metatdata is available and
           verifies correctly.

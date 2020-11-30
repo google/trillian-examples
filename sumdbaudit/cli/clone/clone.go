@@ -65,7 +65,11 @@ func main() {
 	if err := s.HashTiles(ctx, checkpoint); err != nil {
 		glog.Exitf("HashTiles: %v", err)
 	}
-	glog.Infof("Hashes updated successfully. Checking root hash...")
+	glog.Infof("Hashes updated successfully. Checking consistency with previous checkpoint...")
+	if err := s.CheckConsistency(ctx); err != nil {
+		glog.Exitf("CheckConsistency: %v", err)
+	}
+	glog.Infof("Log consistent. Checking root hash with remote...")
 	if err := s.CheckRootHash(ctx, checkpoint); err != nil {
 		glog.Exitf("CheckRootHash: %v", err)
 	}

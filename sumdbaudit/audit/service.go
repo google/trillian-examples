@@ -184,47 +184,77 @@ func (s *Service) HashTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	return nil
 }
 
+// CheckConsistency checks that the downloaded and hashed tiles are consistent with
+// the previously fetched Golden Checkpoint. Any previously fetched tiles are checked
+// by HashTiles, so this is only really checking that the stragglers that were
+// transiently acquired when the Golden Checkpoint was committed to were actually
+// kept the same and committed to when their tile was completed.
+func (s *Service) CheckConsistency(ctx context.Context) error {
+	golden, err := s.localDB.GoldenCheckpoint(s.sumDB.ParseCheckpointNote)
+	if err != nil {
+		switch err.(type) {
+		case NoDataFound:
+			// TODO(mhutchinson): This should fail hard later. Making tolerant for now
+			// so that previous databases can be cheaply upgraded (golden checkpoint
+			// storage is a new feature).
+			glog.Warning("Failed to find golden checkpoint!")
+			return nil
+		default:
+			return fmt.Errorf("failed to query for golden checkpoint: %v", err)
+		}
+	}
+	head, err := s.localDB.Head()
+	if err != nil {
+		return fmt.Errorf("cannot find head of local log: %v", err)
+	}
+	if golden.N > head {
+		// This can happen if SumDB hasn't committed to any new complete tiles since the
+		// last run of the auditor. Any changes in tile hashes will be caught by HashTiles
+		// so skipping the consistency check is safer than it appears.
+		glog.Infof("golden STH is at size %d but local log only has %d entries; consistency check skipped", golden.N, head)
+		return nil
+	}
+
+	logRange, stragglersCount, err := s.hashAtSize(golden.N)
+	if err != nil {
+		return fmt.Errorf("failed to hash log: %v", err)
+	}
+	if stragglersCount > 0 {
+		stragglerTileOffset := int(golden.N / (1 << s.height))
+		tHashes, err := s.localDB.Tile(s.height, 0, stragglerTileOffset)
+		if err != nil {
+			return fmt.Errorf("failed to get tile: %w", err)
+		}
+		for i := 0; i < stragglersCount; i++ {
+			logRange.Append(tHashes[i], nil)
+		}
+	}
+	if logRange.End() != uint64(golden.N) {
+		return fmt.Errorf("calculation error, found %d leaves but expected %d", logRange.End(), golden.N)
+	}
+
+	root, err := logRange.GetRootHash(nil)
+	if err != nil {
+		return fmt.Errorf("failed to get root hash: %v", err)
+	}
+	var rootHash tlog.Hash
+	copy(rootHash[:], root)
+	if rootHash != golden.Hash {
+		return fmt.Errorf("log root mismatch at tree size %d; calculated %x, SumDB says %x", golden.N, root, golden.Hash[:])
+	}
+	return nil
+}
+
 // CheckRootHash calculates the root hash from the locally generated tiles, and then
 // appends any stragglers from the SumDB, returning an error if this calculation
 // fails or the result does not match that in the checkpoint provided.
 func (s *Service) CheckRootHash(ctx context.Context, checkpoint *Checkpoint) error {
-	logRange := s.rf.NewEmptyRange(0)
-
-	// Calculate the whole log hash starting from left to right. We could compute these
-	// hashes just using the leaf level tiles all the way across, but it's more efficient
-	// to use the highest level tile possible. We start at the highest level, and then
-	// descend down a level each time we run out of completed tiles at that level. By the
-	// end we will be down to the leaf level and we will have computed the hashes for all
-	// completed tiles.
-	for level := s.getLevelsForLeafCount(checkpoint.N); level >= 0; level-- {
-		// how many real leaves a tile at this level covers.
-		tileLeafCount := uint64(1) << ((level + 1) * s.height)
-		levelTileCount := int(uint64(checkpoint.N) / tileLeafCount)
-		firstTileOffset := int(logRange.End() / tileLeafCount)
-
-		for offset := firstTileOffset; offset < levelTileCount; offset++ {
-			tHashes, err := s.localDB.Tile(s.height, level, offset)
-			if err != nil {
-				return fmt.Errorf("failed to get tile L=%d, O=%d: %v", level, offset, err)
-			}
-			// Calculate this tile as a standalone subtree
-			tcr := s.rf.NewEmptyRange(0)
-			for _, t := range tHashes {
-				tcr.Append(t, nil)
-			}
-			// Now use the range as what it really is; a commitment to a larger number of leaves
-			treeRange, err := s.rf.NewRange(uint64(offset)*tileLeafCount, uint64(offset+1)*tileLeafCount, tcr.Hashes())
-			if err != nil {
-				return fmt.Errorf("failed to create range for tile L=%d, O=%d: %v", level, offset, err)
-			}
-			// Append this into the running log range.
-			logRange.AppendRange(treeRange, nil)
-		}
+	logRange, stragglersCount, err := s.hashAtSize(checkpoint.N)
+	if err != nil {
+		return fmt.Errorf("failed to hash log: %v", err)
 	}
-
 	// All full tiles have now been computed. Now we need to add the stragglers to the
-	// running hash in `logRange` in order to compared with `checkpoint`.
-	stragglersCount := int(uint64(checkpoint.N) - logRange.End())
+	// running hash in `logRange` in order to compare with `checkpoint`.
 	stragglerTileOffset := int(checkpoint.N / (1 << s.height))
 	stragglers, err := s.sumDB.PartialLeavesAtOffset(stragglerTileOffset, stragglersCount)
 	if err != nil {
@@ -249,6 +279,46 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *Checkpoint) err
 		return fmt.Errorf("log root mismatch at tree size %d; calculated %x, SumDB says %x", checkpoint.N, root, checkpoint.Hash[:])
 	}
 	return s.localDB.SetGoldenCheckpoint(checkpoint)
+}
+
+// hashAtSize returns a compact range covering all full tiles from the local database
+// up to the size provided. Any incomplete tiles will not be added to the range and
+// the caller should do this. The number of missing entries is returned.
+func (s *Service) hashAtSize(n int64) (*compact.Range, int, error) {
+	logRange := s.rf.NewEmptyRange(0)
+
+	// Calculate the whole log hash starting from left to right. We could compute these
+	// hashes just using the leaf level tiles all the way across, but it's more efficient
+	// to use the highest level tile possible. We start at the highest level, and then
+	// descend down a level each time we run out of completed tiles at that level. By the
+	// end we will be down to the leaf level and we will have computed the hashes for all
+	// completed tiles.
+	for level := s.getLevelsForLeafCount(n); level >= 0; level-- {
+		// how many real leaves a tile at this level covers.
+		tileLeafCount := uint64(1) << ((level + 1) * s.height)
+		levelTileCount := int(uint64(n) / tileLeafCount)
+		firstTileOffset := int(logRange.End() / tileLeafCount)
+
+		for offset := firstTileOffset; offset < levelTileCount; offset++ {
+			tHashes, err := s.localDB.Tile(s.height, level, offset)
+			if err != nil {
+				return nil, 0, fmt.Errorf("failed to get tile L=%d, O=%d: %v", level, offset, err)
+			}
+			// Calculate this tile as a standalone subtree
+			tcr := s.rf.NewEmptyRange(0)
+			for _, t := range tHashes {
+				tcr.Append(t, nil)
+			}
+			// Now use the range as what it really is; a commitment to a larger number of leaves
+			treeRange, err := s.rf.NewRange(uint64(offset)*tileLeafCount, uint64(offset+1)*tileLeafCount, tcr.Hashes())
+			if err != nil {
+				return nil, 0, fmt.Errorf("failed to create range for tile L=%d, O=%d: %v", level, offset, err)
+			}
+			// Append this into the running log range.
+			logRange.AppendRange(treeRange, nil)
+		}
+	}
+	return logRange, int(uint64(n) - logRange.End()), nil
 }
 
 // VerifyTiles checks that every tile calculated locally matches the result returned

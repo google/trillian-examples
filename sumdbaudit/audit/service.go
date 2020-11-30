@@ -62,6 +62,15 @@ func NewService(localDB *Database, sumDB *SumDBClient, height int) *Service {
 	}
 }
 
+// GoldenCheckpoint gets the previously checked Checkpoint, or nil if not found.
+func (s *Service) GoldenCheckpoint(ctx context.Context) *Checkpoint {
+	golden, err := s.localDB.GoldenCheckpoint(s.sumDB.ParseCheckpointNote)
+	if err != nil {
+		return nil
+	}
+	return golden
+}
+
 // CloneLeafTiles copies the leaf data from the SumDB into the local database.
 // It only copies whole tiles, which means that some stragglers may not be
 // copied locally.

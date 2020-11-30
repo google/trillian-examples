@@ -57,6 +57,12 @@ func main() {
 
 	glog.Infof("Got SumDB checkpoint for %d entries. Downloading...", checkpoint.N)
 	s := audit.NewService(db, sumDB, *height)
+	golden := s.GoldenCheckpoint(ctx)
+	if golden != nil && golden.N >= checkpoint.N {
+		glog.Infof("nothing to do: latest SumDB size is %d and local size is %d", checkpoint.N, golden.N)
+		return
+	}
+
 	if err := s.CloneLeafTiles(ctx, checkpoint); err != nil {
 		glog.Exitf("failed to update leaves: %v", err)
 	}

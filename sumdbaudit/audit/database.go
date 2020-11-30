@@ -79,7 +79,7 @@ func (d *Database) GoldenCheckpoint(parse func([]byte) (*Checkpoint, error)) (*C
 	var datetime sql.NullTime
 	var data []byte
 	if err := d.db.QueryRow("SELECT datetime, checkpoint FROM checkpoints ORDER BY datetime DESC LIMIT 1").Scan(&datetime, &data); err != nil {
-		return nil, fmt.Errorf("failed to get max revision: %v", err)
+		return nil, fmt.Errorf("failed to get latest checkpoint: %w", err)
 	}
 	if !datetime.Valid {
 		return nil, NoDataFound(errors.New("no data found"))

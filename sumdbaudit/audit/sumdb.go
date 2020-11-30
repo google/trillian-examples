@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 
@@ -38,6 +37,13 @@ const pathBase = 1000
 type Fetcher interface {
 	// GetData gets the data at the given path, or returns an error.
 	GetData(path string) ([]byte, error)
+}
+
+// Checkpoint is a parsed Checkpoint and the raw bytes that it came from.
+type Checkpoint struct {
+	*tlog.Tree
+
+	Raw []byte
 }
 
 // SumDBClient provides access to information from the Sum DB.
@@ -63,28 +69,33 @@ func NewSumDB(height int, vkey string) *SumDBClient {
 }
 
 // LatestCheckpoint gets the freshest Checkpoint.
-func (c *SumDBClient) LatestCheckpoint() (*tlog.Tree, error) {
+func (c *SumDBClient) LatestCheckpoint() (*Checkpoint, error) {
 	checkpoint, err := c.fetcher.GetData("/latest")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get /latest Checkpoint; %w", err)
 	}
 
+	return c.ParseCheckpointNote(checkpoint)
+}
+
+// ParseCheckpointNote parses a previously acquired raw checkpoint note data.
+func (c *SumDBClient) ParseCheckpointNote(checkpoint []byte) (*Checkpoint, error) {
 	verifier, err := note.NewVerifier(c.vkey)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to create verifier: %w", err)
 	}
 	verifiers := note.VerifierList(verifier)
 
 	note, err := note.Open(checkpoint, verifiers)
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to open note: %w", err)
 	}
 	tree, err := tlog.ParseTree([]byte(note.Text))
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("failed to parse tree: %w", err)
 	}
 
-	return &tree, nil
+	return &Checkpoint{Tree: &tree, Raw: checkpoint}, nil
 }
 
 // FullLeavesAtOffset gets the Nth chunk of 2**height leaves.

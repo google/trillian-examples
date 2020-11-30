@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 )
 
 // NoDataFound is returned when the DB appears valid but has no data in it.
@@ -54,6 +55,9 @@ func (d *Database) Init() error {
 	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS tiles (height INTEGER, level INTEGER, offset INTEGER, hashes BLOB, PRIMARY KEY (height, level, offset))"); err != nil {
 		return err
 	}
+	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS checkpoints (datetime TIMESTAMP PRIMARY KEY, checkpoint BLOB)"); err != nil {
+		return err
+	}
 	_, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leafMetadata (id INTEGER PRIMARY KEY, module TEXT, version TEXT, repohash TEXT, modhash TEXT)")
 	return err
 }
@@ -68,6 +72,29 @@ func (d *Database) Head() (int64, error) {
 		return head.Int64, nil
 	}
 	return 0, NoDataFound(errors.New("no data found"))
+}
+
+// GoldenCheckpoint gets the latest checkpoint, using the provided function to parse the note data.
+func (d *Database) GoldenCheckpoint(parse func([]byte) (*Checkpoint, error)) (*Checkpoint, error) {
+	var datetime sql.NullTime
+	var data []byte
+	if err := d.db.QueryRow("SELECT datetime, checkpoint FROM checkpoints ORDER BY datetime DESC LIMIT 1").Scan(&datetime, &data); err != nil {
+		return nil, fmt.Errorf("failed to get max revision: %v", err)
+	}
+	if !datetime.Valid {
+		return nil, NoDataFound(errors.New("no data found"))
+	}
+	return parse(data)
+}
+
+// SetGoldenCheckpoint records the given checkpoint to the database.
+func (d *Database) SetGoldenCheckpoint(cp *Checkpoint) error {
+	now := time.Now()
+	_, err := d.db.Exec("INSERT INTO checkpoints (datetime, checkpoint) VALUES (?, ?)", now, cp.Raw)
+	if err != nil {
+		return fmt.Errorf("failed to insert checkpoint: %w", err)
+	}
+	return nil
 }
 
 // WriteLeaves writes the contiguous chunk of leaves, starting at the stated index.

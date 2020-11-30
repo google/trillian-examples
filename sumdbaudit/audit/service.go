@@ -65,7 +65,7 @@ func NewService(localDB *Database, sumDB *SumDBClient, height int) *Service {
 // CloneLeafTiles copies the leaf data from the SumDB into the local database.
 // It only copies whole tiles, which means that some stragglers may not be
 // copied locally.
-func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	head, err := s.localDB.Head()
 	if err != nil {
 		switch err.(type) {
@@ -152,7 +152,7 @@ func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) err
 // The results of the hashing are stored in the local DB.
 // This could be replaced by something more incremental if the performance is
 // unnacceptable. While the SumDB is still reasonably small, this is fine as is.
-func (s *Service) HashTiles(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) HashTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	tileWidth := 1 << s.height
 	tileCount := int(checkpoint.N / int64(tileWidth))
 
@@ -187,7 +187,7 @@ func (s *Service) HashTiles(ctx context.Context, checkpoint *tlog.Tree) error {
 // CheckRootHash calculates the root hash from the locally generated tiles, and then
 // appends any stragglers from the SumDB, returning an error if this calculation
 // fails or the result does not match that in the checkpoint provided.
-func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) CheckRootHash(ctx context.Context, checkpoint *Checkpoint) error {
 	logRange := s.rf.NewEmptyRange(0)
 
 	// Calculate the whole log hash starting from left to right. We could compute these
@@ -248,13 +248,13 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) erro
 	if rootHash != checkpoint.Hash {
 		return fmt.Errorf("log root mismatch at tree size %d; calculated %x, SumDB says %x", checkpoint.N, root, checkpoint.Hash[:])
 	}
-	return nil
+	return s.localDB.SetGoldenCheckpoint(checkpoint)
 }
 
 // VerifyTiles checks that every tile calculated locally matches the result returned
 // by SumDB. This shouldn't be necessary if CheckRootHash is working, but this may be
 // useful to determine where any corruption has happened in the tree.
-func (s *Service) VerifyTiles(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	for level := 0; level <= s.getLevelsForLeafCount(checkpoint.N); level++ {
 		finishedLevel := false
 		offset := 0
@@ -286,7 +286,7 @@ func (s *Service) VerifyTiles(ctx context.Context, checkpoint *tlog.Tree) error 
 }
 
 // ProcessMetadata parses the leaf data and writes the semantic data into the DB.
-func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *Checkpoint) error {
 	tileWidth := 1 << s.height
 	metadata := make([]Metadata, tileWidth)
 	// TODO: skip to head of metadata

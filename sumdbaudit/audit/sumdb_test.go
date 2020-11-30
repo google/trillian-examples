@@ -15,6 +15,7 @@
 package audit
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -80,18 +81,21 @@ func TestLatestCheckpoint(t *testing.T) {
 			values: map[string]string{"/latest": checkpointData},
 		},
 	}
-	tree, err := sumdb.LatestCheckpoint()
+	checkpoint, err := sumdb.LatestCheckpoint()
 	if err != nil {
 		t.Fatalf("failed to get checkpoint: %v", err)
+	}
+	if !bytes.Equal(checkpoint.Raw, []byte(checkpointData)) {
+		t.Errorf("expected raw checkpoint %q but got %q", checkpointData, checkpoint.Raw)
 	}
 	expectedHash, err := tlog.ParseHash("kn9DgqDhXzoZMM8828SQsbuovr/WRn7QfFd5Qe1rpwA=")
 	if err != nil {
 		t.Fatalf("static hash failed to parse")
 	}
-	if got, want := tree.Hash, expectedHash; got != want {
+	if got, want := checkpoint.Hash, expectedHash; got != want {
 		t.Errorf("unexpected hash. got, want = %s, %s", got, want)
 	}
-	if got, want := tree.N, int64(1514086); got != want {
+	if got, want := checkpoint.N, int64(1514086); got != want {
 		t.Errorf("unexpected tree size. got, want = %d, %d", got, want)
 	}
 }

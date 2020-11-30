@@ -17,8 +17,12 @@ package audit
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
+
+// NoDataFound is returned when the DB appears valid but has no data in it.
+type NoDataFound = error
 
 // Metadata is the semantic data that is contained within the leaves of the log.
 type Metadata struct {
@@ -56,9 +60,14 @@ func (d *Database) Init() error {
 
 // Head returns the largest leaf index written.
 func (d *Database) Head() (int64, error) {
-	var head int64
-	err := d.db.QueryRow("SELECT MAX(id) AS head FROM leaves").Scan(&head)
-	return head, err
+	var head sql.NullInt64
+	if err := d.db.QueryRow("SELECT MAX(id) AS head FROM leaves").Scan(&head); err != nil {
+		return 0, fmt.Errorf("failed to get max revision: %v", err)
+	}
+	if head.Valid {
+		return head.Int64, nil
+	}
+	return 0, NoDataFound(errors.New("no data found"))
 }
 
 // WriteLeaves writes the contiguous chunk of leaves, starting at the stated index.

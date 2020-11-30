@@ -37,7 +37,7 @@ import (
 var (
 	logURL = flag.String("log_url", "http://localhost:8000", "Base URL of the log HTTP API")
 
-	deviceID   = flag.String("device", "dummy", "the target device for the firmware")
+	deviceID   = flag.String("device", "", "the target device for the firmware")
 	revision   = flag.Uint64("revision", 1, "the version of the firmware")
 	binaryPath = flag.String("binary_path", "", "file path to the firmware binary")
 	timestamp  = flag.String("timestamp", "", "timestamp formatted as RFC3339, or empty to use current time")

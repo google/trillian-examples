@@ -125,7 +125,7 @@ func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) err
 			// Status updates if verbosity is high enough.
 			if glog.V(2) {
 				select {
-				case _ = <-ticker.C:
+				case <-ticker.C:
 					glog.V(2).Infof("cloning tile %d of %d", i, remainingChunks)
 				default:
 				}

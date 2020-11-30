@@ -7,7 +7,7 @@ set -eu
 check_license() {
   local path="$1"
 
-  if [[ "$path" =~ "usb_armory/bootloader" ]]; then
+  if [[ "$path" =~ "usbarmory/bootloader" ]]; then
     # This code forked from the USB Armory repo, and has
     # a LICENCE file in the directory.
     return 0
@@ -32,7 +32,7 @@ main() {
   fi
 
   # Check USB Armory license is intact
-  if ! grep -q "F-Secure" binary_transparency/firmware/devices/usb_armory/bootloader/LICENSE; then
+  if ! grep -q "F-Secure" binary_transparency/firmware/devices/usbarmory/bootloader/LICENSE; then
     echo "LICENSE for forked USB armory missing"
     exit 1
   fi

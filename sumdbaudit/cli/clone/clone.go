@@ -18,7 +18,8 @@ import (
 	"context"
 
 	"flag"
-	"log"
+
+	"github.com/golang/glog"
 
 	"github.com/google/trillian-examples/sumdbaudit/audit"
 	_ "github.com/mattn/go-sqlite3"
@@ -37,51 +38,48 @@ var (
 // contained in the SumDB.
 func main() {
 	ctx := context.Background()
-
-	log.SetPrefix("clone: ")
-	log.SetFlags(0)
 	flag.Parse()
 
 	db, err := audit.NewDatabase(*db)
 	if err != nil {
-		log.Fatalf("failed to open DB: %v", err)
+		glog.Exitf("failed to open DB: %v", err)
 	}
 	err = db.Init()
 	if err != nil {
-		log.Fatalf("failed to init DB: %v", err)
+		glog.Exitf("failed to init DB: %v", err)
 	}
 
 	sumDB := audit.NewSumDB(*height, *vkey)
 	checkpoint, err := sumDB.LatestCheckpoint()
 	if err != nil {
-		log.Fatalf("failed to get latest checkpoint: %s", err)
+		glog.Exitf("failed to get latest checkpoint: %s", err)
 	}
 
-	log.Printf("Got SumDB checkpoint for %d entries. Downloading...", checkpoint.N)
+	glog.Infof("Got SumDB checkpoint for %d entries. Downloading...", checkpoint.N)
 	s := audit.NewService(db, sumDB, *height)
 	if err := s.CloneLeafTiles(ctx, checkpoint); err != nil {
-		log.Fatalf("failed to update leaves: %v", err)
+		glog.Exitf("failed to update leaves: %v", err)
 	}
-	log.Printf("Updated leaves to latest checkpoint (tree size %d). Calculating hashes...", checkpoint.N)
+	glog.Infof("Updated leaves to latest checkpoint (tree size %d). Calculating hashes...", checkpoint.N)
 
 	if err := s.HashTiles(ctx, checkpoint); err != nil {
-		log.Fatalf("HashTiles: %v", err)
+		glog.Exitf("HashTiles: %v", err)
 	}
-	log.Printf("Hashes updated successfully. Checking root hash...")
+	glog.Infof("Hashes updated successfully. Checking root hash...")
 	if err := s.CheckRootHash(ctx, checkpoint); err != nil {
-		log.Fatalf("CheckRootHash: %v", err)
+		glog.Exitf("CheckRootHash: %v", err)
 	}
-	log.Printf("Cloned successfully. Tree size is %d, hash is %x (%s). Processing data...", checkpoint.N, checkpoint.Hash[:], checkpoint.Hash)
+	glog.Infof("Cloned successfully. Tree size is %d, hash is %x (%s). Processing data...", checkpoint.N, checkpoint.Hash[:], checkpoint.Hash)
 
 	if err := s.ProcessMetadata(ctx, checkpoint); err != nil {
-		log.Fatalf("ProcessMetadata: %v", err)
+		glog.Exitf("ProcessMetadata: %v", err)
 	}
-	log.Printf("Leaf data processed.")
+	glog.Infof("Leaf data processed.")
 	if *extraV {
-		log.Printf("Performing extra validation on tiles...")
+		glog.Infof("Performing extra validation on tiles...")
 		if err := s.VerifyTiles(ctx, checkpoint); err != nil {
-			log.Fatalf("VerifyTiles: %v", err)
+			glog.Exitf("VerifyTiles: %v", err)
 		}
-		log.Printf("Tile verificaton passed")
+		glog.Infof("Tile verificaton passed")
 	}
 }

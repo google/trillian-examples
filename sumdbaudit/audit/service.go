@@ -25,6 +25,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	backoff "github.com/cenkalti/backoff/v4"
 	"github.com/golang/glog"
@@ -67,8 +68,13 @@ func NewService(localDB *Database, sumDB *SumDBClient, height int) *Service {
 func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) error {
 	head, err := s.localDB.Head()
 	if err != nil {
-		glog.Infof("failed to find head of database, assuming empty and starting from scratch: %v", err)
-		head = -1
+		switch err.(type) {
+		case NoDataFound:
+			glog.Infof("failed to find head of database, assuming empty and starting from scratch: %v", err)
+			head = -1
+		default:
+			return fmt.Errorf("failed to query for head of local log: %v", err)
+		}
 	}
 	if checkpoint.N < head {
 		return fmt.Errorf("illegal state; more leaves locally (%d) than in SumDB (%d)", head, checkpoint.N)
@@ -81,8 +87,15 @@ func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) err
 	startOffset := int(localLeaves / tileWidth)
 
 	if remainingChunks > 0 {
+		glog.Infof("fetching %d new tiles starting at offset %d", remainingChunks, startOffset)
+
 		leafChan := make(chan tileLeaves)
 		errChan := make(chan error)
+
+		// Start a goroutine to sequentially fetch each of the full tiles that the local
+		// mirror is missing, using exponential backoff on each fetch in case of failure.
+		// Successfully fetched tiles are passed back using leafChan.
+		// Errors are passed back using errChan.
 		go func() {
 			for i := 0; i < remainingChunks; i++ {
 				var c tileLeaves
@@ -104,7 +117,20 @@ func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) err
 			}
 		}()
 
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+
+		// Consume the output from the goroutine above, writing tiles to the local DB.
 		for i := 0; i < remainingChunks; i++ {
+			// Status updates if verbosity is high enough.
+			if glog.V(2) {
+				select {
+				case _ = <-ticker.C:
+					glog.V(2).Infof("cloning tile %d of %d", i, remainingChunks)
+				default:
+				}
+			}
+
 			select {
 			case err := <-errChan:
 				return err
@@ -123,6 +149,7 @@ func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) err
 // HashTiles performs a full recalculation of all the tiles using the data from
 // the leaves table. Any hashes that no longer match what was previously stored
 // will cause an error. Any new hashes will be filled in.
+// The results of the hashing are stored in the local DB.
 // This could be replaced by something more incremental if the performance is
 // unnacceptable. While the SumDB is still reasonably small, this is fine as is.
 func (s *Service) HashTiles(ctx context.Context, checkpoint *tlog.Tree) error {
@@ -134,6 +161,7 @@ func (s *Service) HashTiles(ctx context.Context, checkpoint *tlog.Tree) error {
 
 	leafTileCount := tileCount
 	leafRoots := roots
+	glog.V(1).Infof("hashing %d leaf tiles", leafTileCount)
 	g.Go(func() error { return s.hashLeafLevel(leafTileCount, leafRoots) })
 
 	for i := 1; i <= s.getLevelsForLeafCount(checkpoint.N); i++ {
@@ -144,6 +172,8 @@ func (s *Service) HashTiles(ctx context.Context, checkpoint *tlog.Tree) error {
 		in := roots
 
 		outRoots := make(chan *compact.Range, tileWidth)
+
+		glog.V(1).Infof("hashing %d tiles at level %d", thisTileCount, thisLevel)
 		g.Go(func() error { return s.hashUpperLevel(thisLevel, thisTileCount, in, outRoots) })
 
 		roots = outRoots
@@ -160,6 +190,12 @@ func (s *Service) HashTiles(ctx context.Context, checkpoint *tlog.Tree) error {
 func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) error {
 	logRange := s.rf.NewEmptyRange(0)
 
+	// Calculate the whole log hash starting from left to right. We could compute these
+	// hashes just using the leaf level tiles all the way across, but it's more efficient
+	// to use the highest level tile possible. We start at the highest level, and then
+	// descend down a level each time we run out of completed tiles at that level. By the
+	// end we will be down to the leaf level and we will have computed the hashes for all
+	// completed tiles.
 	for level := s.getLevelsForLeafCount(checkpoint.N); level >= 0; level-- {
 		// how many real leaves a tile at this level covers.
 		tileLeafCount := uint64(1) << ((level + 1) * s.height)
@@ -186,6 +222,8 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) erro
 		}
 	}
 
+	// All full tiles have now been computed. Now we need to add the stragglers to the
+	// running hash in `logRange` in order to compared with `checkpoint`.
 	stragglersCount := int(uint64(checkpoint.N) - logRange.End())
 	stragglerTileOffset := int(checkpoint.N / (1 << s.height))
 	stragglers, err := s.sumDB.PartialLeavesAtOffset(stragglerTileOffset, stragglersCount)

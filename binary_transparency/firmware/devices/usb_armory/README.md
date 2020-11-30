@@ -151,6 +151,19 @@ There are some invariants which must hold for this chain to work:
    Note that the `armory-boot.conf` file also contains SHA256 hashes of 
    all files referenced, and these MUST be correct.A
 
+To aid in the creation of valid firmware images, the 
+`[cmd/usb_armory/image_builder/build.sh](/binary_transparency/firmware/cmd/usb_armory/image_builder/build.sh)`
+script can be used:
+
+```bash
+$ ./cmd/usb_armory/image_builder/build.sh -u ./testdata/firmware/usb_armory/example/tamago-example -o /tmp/armory.ext4
+
+/tmp/armory2.ext4: Writing to the journal is not supported.
+Created image in /tmp/armory2.ext4:
+-rw-rw-r-- 1 al al 13M Nov 30 10:39 /tmp/armory2.ext4
+
+```
+
 
 ### Linux
 

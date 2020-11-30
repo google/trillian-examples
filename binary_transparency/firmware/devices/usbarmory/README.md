@@ -152,11 +152,11 @@ There are some invariants which must hold for this chain to work:
    all files referenced, and these MUST be correct.
 
 To aid in the creation of valid firmware images, use the
-`[cmd/usb_armory/image_builder/build.sh](/binary_transparency/firmware/cmd/usb_armory/image_builder/build.sh)`
+`[cmd/usbarmory/image_builder/build.sh](/binary_transparency/firmware/cmd/usbarmory/image_builder/build.sh)`
 script, e.g.:
 
 ```bash
-$ ./cmd/usb_armory/image_builder/build.sh -u ./testdata/firmware/usb_armory/example/tamago-example -o /tmp/armory.ext4
+$ ./cmd/usbarmory/image_builder/build.sh -u ./testdata/firmware/usbarmory/example/tamago-example -o /tmp/armory.ext4
 
 /tmp/armory.ext4: Writing to the journal is not supported.
 Created image in /tmp/armory.ext4:

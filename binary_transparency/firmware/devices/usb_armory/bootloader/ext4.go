@@ -28,7 +28,11 @@ type Partition struct {
 	_offset int64
 }
 
-func (d *Partition) GetPartitionSize() (uint64, error) {
+// GetExt4FilesystemSize returns the size in bytes of the ext4 filesystem stored
+// in the partition.
+// Note that this may not be the same as the size of the disk partition which
+// contains the filesystem.
+func (d *Partition) GetExt4FilesystemSize() (uint64, error) {
 	_, err := d.Seek(ext4.Superblock0Offset, io.SeekStart)
 	if err != nil {
 		return 0, err
@@ -41,7 +45,6 @@ func (d *Partition) GetPartitionSize() (uint64, error) {
 
 	return uint64(sb.BlockSize()) * sb.BlockCount(), nil
 }
-
 
 func (d *Partition) getBlockGroupDescriptor(inode int) (bgd *ext4.BlockGroupDescriptor, err error) {
 	_, err = d.Seek(ext4.Superblock0Offset, io.SeekStart)

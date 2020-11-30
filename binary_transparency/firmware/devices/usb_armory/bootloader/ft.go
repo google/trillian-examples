@@ -37,7 +37,7 @@ func loadBundle(p *Partition) (api.ProofBundle, error) {
 // hashPartition calculates the SHA256 of the whole partition.
 func hashPartition(p *Partition) ([]byte, error) {
 	log.Printf("Reading partition at offset %d...\n", p.Offset)
-	numBytes, err := p.GetPartitionSize()
+	numBytes, err := p.GetExtFilesystemSize()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partition size: %w", err)
 	}
@@ -47,7 +47,7 @@ func hashPartition(p *Partition) ([]byte, error) {
 		return nil, fmt.Errorf("failed to seek: %w", err)
 	}
 
-	bs := uint64(1<<16)
+	bs := uint64(1 << 16)
 	rc := make(chan []byte, 10)
 	hc := make(chan []byte)
 
@@ -57,7 +57,7 @@ func hashPartition(p *Partition) ([]byte, error) {
 		if err != nil {
 			panic(fmt.Sprintf("Failed to created hasher: %q", err))
 		}
-		for b := range(rc) {
+		for b := range rc {
 			if _, err := h.Write(b); err != nil {
 				panic(fmt.Errorf("failed to hash: %w", err))
 			}
@@ -79,7 +79,7 @@ func hashPartition(p *Partition) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)
 		}
-		rc<-b[:bc]
+		rc <- b[:bc]
 
 		numBytes -= uint64(bc)
 	}
@@ -89,4 +89,3 @@ func hashPartition(p *Partition) ([]byte, error) {
 	hash := <-hc
 	return hash[:], nil
 }
-

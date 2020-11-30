@@ -39,8 +39,8 @@ The on-disk partition layout will be:
 index | name       | size    | format | notes
 ------|------------|---------|--------|-----------------------------------------------
 1     | boot       | 10M     | raw    | Must cover disk bytes 1024 onwards as we'll directly write the bootloader here.
-2     | proof      | 512KB   | ext4   | EXT4 filesytem for storing a serialised proof bundle
-3     | firmware   | 64MB+   | ext4   | EXT4 filesystem containing the bootable firmware  image, armory boot config, and DTD file.
+2     | proof      | 512KB   | ext4   | EXT4 filesystem for storing a serialised proof bundle
+3     | firmware   | 64MB+   | ext4   | EXT4 filesystem containing the bootable firmware image, armory boot config, etc.
 
 ### Preparing the SD Card
 
@@ -80,7 +80,7 @@ Model: Generic- Micro SD/M2 (scsi)
 Disk /dev/sdc: 15931539456B
 Sector size (logical/physical): 512B/512B
 Partition Table: msdos
-Disk Flags: 
+Disk Flags:
 
 Number  Start      End         Size       Type     File system  Flags
  1      512B       10240511B   10240000B  primary               lba
@@ -108,9 +108,9 @@ To compile the bootloader itself, run the following command in the `bootloader`
 directory:
 
 ```bash
-# Note that START_KERNEL corresponds to the offset of the firmware partition, 
+# Note that START_KERNEL corresponds to the offset of the firmware partition,
 # and START_PROOF is the offset of the proof partition
-make CROSS_COMPILE=arm-none-eabi- TARGET=usbarmory imx BOOT=uSD START_KERNEL=10753536 START_PROOF=10240512 LEN_KERNEL=89246720 
+make CROSS_COMPILE=arm-none-eabi- TARGET=usbarmory imx BOOT=uSD START_KERNEL=10753536 START_PROOF=10240512 LEN_KERNEL=89246720
 ```
 
 If successful, this will create a few files - the one we're interested in is
@@ -130,7 +130,8 @@ $ sudo dd if=armory-boot.imx of=/dev/myscard bs=512 seek=2 conv=fsync,notrunc
 Firmware images
 ---------------
 
-Currently, the bootloader can only chain to a Linux kernel.
+Currently, the bootloader can only chain to either a Linux kernel, or a
+bare-metal ELF unikernel (only tested with tamago-example thus far).
 
 There are some invariants which must hold for this chain to work:
 1. The `firmware` partition MUST be located at the precise offset mentioned
@@ -140,18 +141,45 @@ There are some invariants which must hold for this chain to work:
     following contents:
     * `armory-boot.conf` - a JSON file which tells the bootloader which files
       to load
-    * a valid ARM linux Kernel image
-    * a valid DTB file
-   Note that the `armory-boot.conf` file also contains SHA256 hashes of the
-   kernel and DTB files, and these MUST be correct.
+    * Either:
+        * to boot a Linux Kernel:
+           * a valid ARM linux Kernel image
+           * a valid DTB file
+        * to boot ELF unikernel:
+           * a valid ARM bare-metal ELF binary/unikernel
 
+   Note that the `armory-boot.conf` file also contains SHA256 hashes of
+   all files referenced, and these MUST be correct.
+
+To aid in the creation of valid firmware images, use the
+`[cmd/usb_armory/image_builder/build.sh](/binary_transparency/firmware/cmd/usb_armory/image_builder/build.sh)`
+script, e.g.:
+
+```bash
+$ ./cmd/usb_armory/image_builder/build.sh -u ./testdata/firmware/usb_armory/example/tamago-example -o /tmp/armory.ext4
+
+/tmp/armory.ext4: Writing to the journal is not supported.
+Created image in /tmp/armory.ext4:
+-rw-rw-r-- 1 al al 13M Nov 30 10:39 /tmp/armory.ext4
+
+```
+
+For now, this image can be written to the target partition using `dd`, e.g.:
+
+```bash
+$ sudo dd if=/tmp/armory.ext of=/dev/my_sdcard3 bs=1M conf=fsync
+```
+
+TODO(al): consider updating `flash_tool` with support for writing these images.
+
+### Linux
 
 > :frog: The [Armory Debian Base Image](https://github.com/f-secure-foundry/usbarmory-debian-base_image/releases)
 > is a good source for the kernel (zImage) and dtb files.
 >
 > You can decompress and mount the image to access the files like so:
 > ```bash
-> # decompress image 
+> # decompress image
 > $ xz -d usbarmory-mark-two-usd-debian_buster-base_image-20200714.raw.xz
 > # mount image with loopback:
 > # note the offset parameter below - the raw file is a complete disk image, this
@@ -170,7 +198,7 @@ There are some invariants which must hold for this chain to work:
 > -rwxr-xr-x 1 root root 6726952 Oct 20 17:13 zImage-5.4.72-0-usbarmory
 > ```
 
-An example `armory-boot.conf` file is:
+An example `armory-boot.conf` file configured to boot a Linux kernel is:
 
 ```json
 {
@@ -187,6 +215,24 @@ An example `armory-boot.conf` file is:
 ```
 
 TODO(al): Consider wrapping this up into a script.
+
+### ELF unikernel
+
+> :frog: A good sample unikernel is the
+> [tamago-example](https://github.com/f-secure-foundry/tamago-example)
+> application.
+
+An example `armory-boot.conf` file configured to boot an ELF unikernel is:
+
+```json
+{
+  "unikernel": [
+    "/boot/tamago-example",
+    "aceb3514d5ba6ac591a7d5f2cad680e83a9f848d19763563da8024f003e927c7"
+  ]
+}
+```
+
 
 Booting
 -------
@@ -211,3 +257,12 @@ Dentry cache hash table entries: 65536 (order: 6, 262144 bytes, linear)
 ...
 ```
 
+
+Firmware Measurement
+--------------------
+
+The 'firmware measurement' hash for the USB Armory is defined to be the SHA256
+hash of the raw bytes of the `ext4` **filesystem image** stored in the
+'firmware' partition of the SD Card.
+
+Note that this _may well_ be a different size than the partition itself.

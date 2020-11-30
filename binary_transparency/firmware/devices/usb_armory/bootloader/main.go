@@ -12,7 +12,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 
 	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
@@ -26,12 +25,9 @@ var Revision string
 
 var Boot string
 var StartKernel string
-var LenKernel string
 var StartProof string
 
 func init() {
-	log.SetFlags(0)
-
 	if err := imx6.SetARMFreq(900); err != nil {
 		panic(fmt.Sprintf("WARNING: error setting ARM frequency: %v\n", err))
 	}
@@ -63,15 +59,10 @@ func main() {
 	if err != nil {
 		panic(fmt.Sprintf("invalid kernel partition start offset: %v\n", err))
 	}
-	kernelLen, err := strconv.ParseInt(LenKernel, 10, 64)
-	if err != nil {
-		panic(fmt.Sprintf("invalid kernel partition length : %v\n", err))
-	}
 	proofOffset, err := strconv.ParseInt(StartProof, 10, 64)
 	if err != nil {
 		panic(fmt.Sprintf("invalid proof partition start offset: %v\n", err))
 	}
-
 	partition := &Partition{
 		Card:   card,
 		Offset: kernelOffset,
@@ -80,7 +71,7 @@ func main() {
 		panic(fmt.Sprintf("invalid configuration: %v\n", err))
 	}
 
-	h, err := hashPartition(kernelLen, partition)
+	h, err := hashPartition(partition)
 	if err != nil {
 		panic(fmt.Sprintf("failed to hash kernelPart: %w\n", err))
 	}
@@ -110,7 +101,7 @@ func main() {
 
 	switch {
 	case len(conf.Kernel) > 0:
-		fmt.Println("Loaded kernel config")
+		fmt.Printf("Loaded kernel config\n")
 		kernel, err := partition.ReadAll(conf.Kernel[0])
 		if err != nil {
 			panic(fmt.Sprintf("invalid kernel path: %v\n", err))
@@ -140,7 +131,7 @@ func main() {
 		bootKernel(kernel, dtb, conf.CmdLine)
 
 	case len(conf.Unikernel) > 0:
-		fmt.Println("Loaded unikernel config")
+		fmt.Printf("Loaded unikernel config\n")
 		unikernel, err := partition.ReadAll(conf.Unikernel[0])
 		if err != nil {
 			panic(fmt.Sprintf("invalid unikernel path: %v\n", err))

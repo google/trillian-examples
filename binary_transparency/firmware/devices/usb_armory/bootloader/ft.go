@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"time"
 
 	"github.com/f-secure-foundry/tamago/soc/imx6/dcp"
@@ -33,14 +34,20 @@ func loadBundle(p *Partition) (api.ProofBundle, error) {
 	return bundle, nil
 }
 
-// hashPartition calculates the SHA256 of the first numBytes of the partition.
-func hashPartition(numBytes int64, p *Partition) ([]byte, error) {
-	fmt.Println("Reading partition at offset %d...", p.Offset)
+// hashPartition calculates the SHA256 of the whole partition.
+func hashPartition(p *Partition) ([]byte, error) {
+	log.Printf("Reading partition at offset %d...\n", p.Offset)
+	numBytes, err := p.GetExtFilesystemSize()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get partition size: %w", err)
+	}
+	log.Printf("Partition size %d bytes\n", numBytes)
+
 	if _, err := p.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek: %w", err)
 	}
 
-	bs := int64(1<<20)
+	bs := uint64(1 << 16)
 	rc := make(chan []byte, 10)
 	hc := make(chan []byte)
 
@@ -50,7 +57,7 @@ func hashPartition(numBytes int64, p *Partition) ([]byte, error) {
 		if err != nil {
 			panic(fmt.Sprintf("Failed to created hasher: %q", err))
 		}
-		for b := range(rc) {
+		for b := range rc {
 			if _, err := h.Write(b); err != nil {
 				panic(fmt.Errorf("failed to hash: %w", err))
 			}
@@ -72,14 +79,13 @@ func hashPartition(numBytes int64, p *Partition) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)
 		}
-		rc<-b[:bc]
+		rc <- b[:bc]
 
-		numBytes -= int64(bc)
+		numBytes -= uint64(bc)
 	}
 	close(rc)
 
-	fmt.Printf("Finished reading, hashing in %s\n", time.Now().Sub(start))
+	log.Printf("Finished reading, hashing in %s\n", time.Now().Sub(start))
 	hash := <-hc
 	return hash[:], nil
 }
-

@@ -64,7 +64,6 @@ func bootKernel(kernel []byte, dtb []byte, cmdline string) {
 // This function implements a _very_ simple ELF loader which is suitable for
 // loading bare-metal ELF files like those produced by TamaGo.
 func bootELFUnikernel(img []byte) {
-	dma.Init(dmaStart, dmaSize)
 	mem, _ := dma.Reserve(dmaSize, 0)
 
 	f, err := elf.NewFile(bytes.NewReader(img))

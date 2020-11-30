@@ -28,6 +28,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy"
+	"github.com/google/trillian-examples/binary_transparency/firmware/devices/usbarmory"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 )
@@ -35,7 +37,7 @@ import (
 var (
 	logURL = flag.String("log_url", "http://localhost:8000", "Base URL of the log HTTP API")
 
-	deviceID   = flag.String("device", "TalkieToaster", "the target device for the firmware")
+	deviceID   = flag.String("device", "dummy", "the target device for the firmware")
 	revision   = flag.Uint64("revision", 1, "the version of the firmware")
 	binaryPath = flag.String("binary_path", "", "file path to the firmware binary")
 	timestamp  = flag.String("timestamp", "", "timestamp formatted as RFC3339, or empty to use current time")
@@ -45,6 +47,7 @@ var (
 
 func main() {
 	flag.Parse()
+
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
@@ -117,12 +120,26 @@ func main() {
 }
 
 func createManifestFromFlags() (api.FirmwareMetadata, []byte, error) {
+	var measure func([]byte) ([]byte, error)
+	switch *deviceID {
+	case "armory":
+		measure = usbarmory.ExpectedMeasurement
+	case "dummy":
+		measure = dummy.ExpectedMeasurement
+	default:
+		glog.Exitf("--device must be one of: 'dummy', 'armory'")
+	}
+
 	fw, err := ioutil.ReadFile(*binaryPath)
 	if err != nil {
 		return api.FirmwareMetadata{}, nil, fmt.Errorf("failed to read %q: %w", *binaryPath, err)
 	}
 
 	h := sha512.Sum512(fw)
+	m, err := measure(fw)
+	if err != nil {
+		return api.FirmwareMetadata{}, nil, fmt.Errorf("failed to calculate expected measurement for firmware: %w", err)
+	}
 
 	buildTime := *timestamp
 	if buildTime == "" {
@@ -132,7 +149,7 @@ func createManifestFromFlags() (api.FirmwareMetadata, []byte, error) {
 		DeviceID:                    *deviceID,
 		FirmwareRevision:            *revision,
 		FirmwareImageSHA512:         h[:],
-		ExpectedFirmwareMeasurement: h[:], // TODO: This should be provided somehow.
+		ExpectedFirmwareMeasurement: m,
 		BuildTimestamp:              buildTime,
 	}
 

@@ -73,6 +73,8 @@ func init() {
 }
 
 func main() {
+	dma.Init(dmaStart, dmaSize)
+
 	if err := partition.Card.Detect(); err != nil {
 		panic(fmt.Sprintf("boot media error, %v\n", err))
 	}
@@ -129,7 +131,6 @@ func main() {
 
 	usbarmory.LED("white", true)
 
-	dma.Init(dmaStart, dmaSize)
 	mem, _ := dma.Reserve(dmaSize, 0)
 
 	if conf.elf {

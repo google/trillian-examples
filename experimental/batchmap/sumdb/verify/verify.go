@@ -60,7 +60,8 @@ func main() {
 		glog.Exitf("Failed to open map DB at %q: %v", *mapDB, err)
 	}
 	var rev int
-	if rev, err = tiledb.MaxRevision(); err != nil {
+	var logRoot []byte
+	if rev, logRoot, _, err = tiledb.LatestRevision(); err != nil {
 		glog.Exitf("No revisions found in map DB at %q: %v", *mapDB, err)
 	}
 
@@ -96,7 +97,7 @@ func main() {
 		root = newRoot
 		count++
 	}
-	glog.Infof("verified %d entries committed to by map root %x", count, root)
+	glog.Infof("Verified %d entries committed to by map rev %d root %x. Log checkpoint:\n%s", count, rev, root, logRoot)
 }
 
 // checkInclusion confirms that the key & value are committed to by the map in the given

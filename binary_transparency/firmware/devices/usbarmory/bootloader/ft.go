@@ -92,6 +92,7 @@ func measureFirmware(p *Partition) ([]byte, error) {
 		if _, err := h.Write([]byte(firmwareMeasurementDomainPrefix)); err != nil {
 			panic(fmt.Sprintf("Failed to write measurement domain prefix: %q", err))
 		}
+
 		for b := range rc {
 			if _, err := h.Write(b); err != nil {
 				panic(fmt.Errorf("failed to hash: %w", err))

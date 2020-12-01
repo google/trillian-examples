@@ -61,6 +61,8 @@ func main() {
 		glog.Exitf("Failed to create manifest: %v", err)
 	}
 
+	glog.Infof("Measurement: %x", metadata.ExpectedFirmwareMeasurement)
+
 	js, err := createStatementJSON(metadata)
 	if err != nil {
 		glog.Exitf("Failed to marshal statement: %v", err)
@@ -136,6 +138,7 @@ func createManifestFromFlags() (api.FirmwareMetadata, []byte, error) {
 	}
 
 	h := sha512.Sum512(fw)
+
 	m, err := measure(fw)
 	if err != nil {
 		return api.FirmwareMetadata{}, nil, fmt.Errorf("failed to calculate expected measurement for firmware: %w", err)

@@ -215,6 +215,8 @@ github.com/ethereum/go-ethereum v1.9.24 h1:6AK+ORt3EMDO+FTjzXy/AQwHMbu52J2nYHIjy
 github.com/ethereum/go-ethereum v1.9.24/go.mod h1:JIfVb6esrqALTExdz9hRYvrP0xBDf6wCncIu1hNwHpM=
 github.com/f-secure-foundry/tamago v0.0.0-20201201112357-7f34012f4c37 h1:RRpu3dzar2uG3AN570DHrceC2aWGLnnYJP0byIwxaWU=
 github.com/f-secure-foundry/tamago v0.0.0-20201201112357-7f34012f4c37/go.mod h1:+xmhdYxGfaNhWUZ/F1mbwFu38H73slg/k/oPjOL7tc8=
+github.com/f-secure-foundry/usbarmory v0.0.0-20201112175734-ac6f93d052b0 h1:t/QaDnOFHSXzoFXKcICXIxcIcczVficz1bdNiKzNUBY=
+github.com/f-secure-foundry/usbarmory v0.0.0-20201112175734-ac6f93d052b0/go.mod h1:psXWG3CrtSta39ncbpEBkdJDG/4tfz8yNlyvclWzN+0=
 github.com/fatih/color v1.3.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=

@@ -302,9 +302,6 @@ func (s *Service) checkCheckpoint(cp *Checkpoint, getStragglers func(stragglerCo
 		if err != nil {
 			return fmt.Errorf("failed to get stragglers: %w", err)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to get tile: %w", err)
-		}
 		for i := 0; i < stragglersCount; i++ {
 			logRange.Append(stragglers[i], nil)
 		}

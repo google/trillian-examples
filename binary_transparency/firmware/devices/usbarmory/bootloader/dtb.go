@@ -48,9 +48,5 @@ func fixupDeviceTree(dtb []byte, cmdline string) (dtbFixed []byte, err error) {
 	dtbBuf := new(bytes.Buffer)
 	_, err = fdt.Write(dtbBuf)
 
-	if err != nil {
-		panic(err)
-	}
-
-	return dtbBuf.Bytes(), nil
+	return dtbBuf.Bytes(), err
 }

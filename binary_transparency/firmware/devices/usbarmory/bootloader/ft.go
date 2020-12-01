@@ -37,7 +37,7 @@ func loadBundle(p *Partition) (api.ProofBundle, error) {
 // hashPartition calculates the SHA256 of the whole partition.
 func hashPartition(p *Partition) ([]byte, error) {
 	log.Printf("Reading partition at offset %d...\n", p.Offset)
-	numBytes, err := p.GetExtFilesystemSize()
+	numBytes, err := p.GetExt4FilesystemSize()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partition size: %w", err)
 	}

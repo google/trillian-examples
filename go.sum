@@ -221,6 +221,8 @@ github.com/f-secure-foundry/tamago v0.0.0-20201127101424-e0d521d1ec51 h1:pewB+4y
 github.com/f-secure-foundry/tamago v0.0.0-20201127101424-e0d521d1ec51/go.mod h1:+xmhdYxGfaNhWUZ/F1mbwFu38H73slg/k/oPjOL7tc8=
 github.com/f-secure-foundry/tamago v0.0.0-20201127230944-9b6478583a99 h1:kMeONmx7TxN2Wgn6aURmObm2htgfey6luj3wJiGkYpM=
 github.com/f-secure-foundry/tamago v0.0.0-20201127230944-9b6478583a99/go.mod h1:+xmhdYxGfaNhWUZ/F1mbwFu38H73slg/k/oPjOL7tc8=
+github.com/f-secure-foundry/tamago v0.0.0-20201201112357-7f34012f4c37 h1:RRpu3dzar2uG3AN570DHrceC2aWGLnnYJP0byIwxaWU=
+github.com/f-secure-foundry/tamago v0.0.0-20201201112357-7f34012f4c37/go.mod h1:+xmhdYxGfaNhWUZ/F1mbwFu38H73slg/k/oPjOL7tc8=
 github.com/fatih/color v1.3.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.7.0 h1:DkWD4oS2D8LGGgTQ6IvwJJXSL5Vp2ffcQg58nFV38Ys=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=

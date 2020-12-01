@@ -62,10 +62,20 @@ func NewService(localDB *Database, sumDB *SumDBClient, height int) *Service {
 	}
 }
 
+// GoldenCheckpoint gets the previously checked Checkpoint, or nil if not found.
+func (s *Service) GoldenCheckpoint(ctx context.Context) *Checkpoint {
+	golden, err := s.localDB.GoldenCheckpoint(s.sumDB.ParseCheckpointNote)
+	if err != nil {
+		glog.Infof("failed to find previously stored golden checkpoint: %v", err)
+		return nil
+	}
+	return golden
+}
+
 // CloneLeafTiles copies the leaf data from the SumDB into the local database.
 // It only copies whole tiles, which means that some stragglers may not be
 // copied locally.
-func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	head, err := s.localDB.Head()
 	if err != nil {
 		switch err.(type) {
@@ -152,7 +162,7 @@ func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *tlog.Tree) err
 // The results of the hashing are stored in the local DB.
 // This could be replaced by something more incremental if the performance is
 // unnacceptable. While the SumDB is still reasonably small, this is fine as is.
-func (s *Service) HashTiles(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) HashTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	tileWidth := 1 << s.height
 	tileCount := int(checkpoint.N / int64(tileWidth))
 
@@ -184,10 +194,73 @@ func (s *Service) HashTiles(ctx context.Context, checkpoint *tlog.Tree) error {
 	return nil
 }
 
+// CheckConsistency checks that the downloaded and hashed tiles are consistent with
+// the previously fetched Golden Checkpoint. Any previously fetched tiles are checked
+// by HashTiles, so this is only really checking that any stragglers transiently acquired
+// when verifying the Golden Checkpoint made it into the completed tile unchanged.
+func (s *Service) CheckConsistency(ctx context.Context) error {
+	golden, err := s.localDB.GoldenCheckpoint(s.sumDB.ParseCheckpointNote)
+	if err != nil {
+		switch err.(type) {
+		case NoDataFound:
+			// TODO(mhutchinson): This should fail hard later. Making tolerant for now
+			// so that previous databases can be cheaply upgraded (golden checkpoint
+			// storage is a new feature).
+			glog.Warning("Failed to find golden checkpoint!")
+			return nil
+		default:
+			return fmt.Errorf("failed to query for golden checkpoint: %v", err)
+		}
+	}
+	head, err := s.localDB.Head()
+	if err != nil {
+		return fmt.Errorf("cannot find head of local log: %v", err)
+	}
+	if golden.N > head {
+		// This can happen if SumDB hasn't committed to any new complete tiles since the
+		// last run of the auditor. Any changes in tile hashes will be caught by HashTiles
+		// so skipping the consistency check is safer than it appears.
+		glog.Infof("golden STH is at size %d but local log only has %d entries; consistency check skipped", golden.N, head)
+		return nil
+	}
+
+	err = s.checkCheckpoint(golden, func(stragglerCount int) ([][]byte, error) {
+		stragglerTileOffset := int(golden.N / (1 << s.height))
+		return s.localDB.Tile(s.height, 0, stragglerTileOffset)
+	})
+	if err != nil {
+		return fmt.Errorf("local log failed consistency with previous golden checkpoint: %w", err)
+	}
+	return nil
+}
+
 // CheckRootHash calculates the root hash from the locally generated tiles, and then
 // appends any stragglers from the SumDB, returning an error if this calculation
 // fails or the result does not match that in the checkpoint provided.
-func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) CheckRootHash(ctx context.Context, checkpoint *Checkpoint) error {
+	err := s.checkCheckpoint(checkpoint, func(stragglerCount int) ([][]byte, error) {
+		stragglerTileOffset := int(checkpoint.N / (1 << s.height))
+		stragglers, err := s.sumDB.PartialLeavesAtOffset(stragglerTileOffset, stragglerCount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get stragglers: %w", err)
+		}
+		res := make([][]byte, stragglerCount)
+		for i, s := range stragglers {
+			sHash := tlog.RecordHash(s)
+			res[i] = sHash[:]
+		}
+		return res, nil
+	})
+	if err != nil {
+		return fmt.Errorf("local log does not match the SumDB checkpoint: %w", err)
+	}
+	return s.localDB.SetGoldenCheckpoint(checkpoint)
+}
+
+// checkCheckpoint ensures that the local log matches the commitment in the given checkpoint.
+// Complete tiles will be read from local storage, and any stragglers from the final incomplete
+// tile will be requested via the function.
+func (s *Service) checkCheckpoint(cp *Checkpoint, getStragglers func(stragglerCount int) ([][]byte, error)) error {
 	logRange := s.rf.NewEmptyRange(0)
 
 	// Calculate the whole log hash starting from left to right. We could compute these
@@ -196,10 +269,10 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) erro
 	// descend down a level each time we run out of completed tiles at that level. By the
 	// end we will be down to the leaf level and we will have computed the hashes for all
 	// completed tiles.
-	for level := s.getLevelsForLeafCount(checkpoint.N); level >= 0; level-- {
+	for level := s.getLevelsForLeafCount(cp.N); level >= 0; level-- {
 		// how many real leaves a tile at this level covers.
 		tileLeafCount := uint64(1) << ((level + 1) * s.height)
-		levelTileCount := int(uint64(checkpoint.N) / tileLeafCount)
+		levelTileCount := int(uint64(cp.N) / tileLeafCount)
 		firstTileOffset := int(logRange.End() / tileLeafCount)
 
 		for offset := firstTileOffset; offset < levelTileCount; offset++ {
@@ -222,31 +295,30 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) erro
 		}
 	}
 
-	// All full tiles have now been computed. Now we need to add the stragglers to the
-	// running hash in `logRange` in order to compared with `checkpoint`.
-	stragglersCount := int(uint64(checkpoint.N) - logRange.End())
-	stragglerTileOffset := int(checkpoint.N / (1 << s.height))
-	stragglers, err := s.sumDB.PartialLeavesAtOffset(stragglerTileOffset, stragglersCount)
-	if err != nil {
-		return fmt.Errorf("failed to get stragglers: %v", err)
-	}
-	for _, s := range stragglers {
-		sHash := tlog.RecordHash(s)
-		logRange.Append(sHash[:], nil)
-	}
-
-	if logRange.End() != uint64(checkpoint.N) {
-		return fmt.Errorf("calculation error, found %d leaves but expected %d", logRange.End(), checkpoint.N)
+	// Now add all of the stragglers to the logRange.
+	stragglersCount := int(uint64(cp.N) - logRange.End())
+	if stragglersCount > 0 {
+		stragglers, err := getStragglers(stragglersCount)
+		if err != nil {
+			return fmt.Errorf("failed to get stragglers: %w", err)
+		}
+		for i := 0; i < stragglersCount; i++ {
+			logRange.Append(stragglers[i], nil)
+		}
 	}
 
+	// Now check the logRange matches the checkpoint.
+	if logRange.End() != uint64(cp.N) {
+		return fmt.Errorf("calculation error, found %d leaves but was aiming for %d", logRange.End(), cp.N)
+	}
 	root, err := logRange.GetRootHash(nil)
 	if err != nil {
 		return fmt.Errorf("failed to get root hash: %v", err)
 	}
 	var rootHash tlog.Hash
 	copy(rootHash[:], root)
-	if rootHash != checkpoint.Hash {
-		return fmt.Errorf("log root mismatch at tree size %d; calculated %x, SumDB says %x", checkpoint.N, root, checkpoint.Hash[:])
+	if rootHash != cp.Hash {
+		return fmt.Errorf("log root mismatch at tree size %d; calculated %x, want %x", cp.N, root, cp.Hash[:])
 	}
 	return nil
 }
@@ -254,7 +326,7 @@ func (s *Service) CheckRootHash(ctx context.Context, checkpoint *tlog.Tree) erro
 // VerifyTiles checks that every tile calculated locally matches the result returned
 // by SumDB. This shouldn't be necessary if CheckRootHash is working, but this may be
 // useful to determine where any corruption has happened in the tree.
-func (s *Service) VerifyTiles(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	for level := 0; level <= s.getLevelsForLeafCount(checkpoint.N); level++ {
 		finishedLevel := false
 		offset := 0
@@ -286,7 +358,7 @@ func (s *Service) VerifyTiles(ctx context.Context, checkpoint *tlog.Tree) error 
 }
 
 // ProcessMetadata parses the leaf data and writes the semantic data into the DB.
-func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *tlog.Tree) error {
+func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *Checkpoint) error {
 	tileWidth := 1 << s.height
 	metadata := make([]Metadata, tileWidth)
 	// TODO: skip to head of metadata

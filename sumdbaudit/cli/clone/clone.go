@@ -57,6 +57,12 @@ func main() {
 
 	glog.Infof("Got SumDB checkpoint for %d entries. Downloading...", checkpoint.N)
 	s := audit.NewService(db, sumDB, *height)
+	golden := s.GoldenCheckpoint(ctx)
+	if golden != nil && golden.N >= checkpoint.N {
+		glog.Infof("nothing to do: latest SumDB size is %d and local size is %d", checkpoint.N, golden.N)
+		return
+	}
+
 	if err := s.CloneLeafTiles(ctx, checkpoint); err != nil {
 		glog.Exitf("failed to update leaves: %v", err)
 	}
@@ -65,7 +71,11 @@ func main() {
 	if err := s.HashTiles(ctx, checkpoint); err != nil {
 		glog.Exitf("HashTiles: %v", err)
 	}
-	glog.Infof("Hashes updated successfully. Checking root hash...")
+	glog.Infof("Hashes updated successfully. Checking consistency with previous checkpoint...")
+	if err := s.CheckConsistency(ctx); err != nil {
+		glog.Exitf("CheckConsistency: %v", err)
+	}
+	glog.Infof("Log consistent. Checking root hash with remote...")
 	if err := s.CheckRootHash(ctx, checkpoint); err != nil {
 		glog.Exitf("CheckRootHash: %v", err)
 	}

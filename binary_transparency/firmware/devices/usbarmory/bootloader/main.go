@@ -85,7 +85,7 @@ func main() {
 		panic(fmt.Sprintf("configuration error, %v\n", err))
 	}
 
-	if err := verifyIntegrity(proofPart, partition); err != nil {
+	if err := verifyIntegrity(proofPartition, partition); err != nil {
 		panic(fmt.Sprintf("invalid proof bundle: %v\n", err))
 	}
 
@@ -99,7 +99,7 @@ func main() {
 		log.Printf("armory-boot: no public key, skipping signature verification")
 	}
 
-	err = conf.Load()
+	err := conf.Load()
 
 	if err != nil {
 		panic(fmt.Sprintf("configuration error, %v\n", err))

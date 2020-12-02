@@ -80,6 +80,8 @@ func (c *Config) Load() (err error) {
 		return errors.New("must specify either unikernel or kernel")
 	}
 
+	var kernelPath string
+
 	switch {
 	case isKernel:
 		if kl != 2 {
@@ -89,19 +91,24 @@ func (c *Config) Load() (err error) {
 		if len(conf.DeviceTreeBlob) != 2 {
 			return errors.New("invalid dtb parameter size")
 		}
+
+		kernelPath = conf.Kernel[0]
+		c.kernelHash = conf.Kernel[1]
 	case isUnikernel:
 		if ul != 2 {
 			return errors.New("invalid unikernel parameter size")
 		}
+
+		kernelPath = conf.Unikernel[0]
+		c.kernelHash = conf.Unikernel[1]
 	}
 
 	c.Print()
 
-	c.kernelHash = conf.Kernel[1]
-	c.kernel, err = c.partition.ReadAll(conf.Kernel[0])
+	c.kernel, err = c.partition.ReadAll(kernelPath)
 
 	if err != nil {
-		return fmt.Errorf("invalid path %s, %v\n", conf.Kernel[0], err)
+		return fmt.Errorf("invalid path %s, %v\n", kernelPath, err)
 	}
 
 	if isUnikernel {

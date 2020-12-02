@@ -15,7 +15,6 @@
 package rom
 
 import (
-	"crypto/sha512"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/common"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
@@ -70,18 +70,13 @@ func ResetFromFlags() (Chain, error) {
 		return nil, fmt.Errorf("failed to read firmware: %w", err)
 	}
 
-	// measure firmware
-	hasher := sha512.New()
-	if _, err := hasher.Write([]byte("dummy")); err != nil {
-		return nil, fmt.Errorf("failed to write measurement domain prefix to hasher: %w", err)
+	fwMeasurement, err := common.ExpectedMeasurement(fw)
+	if err != nil {
+		return nil, fmt.Errorf("failed calculate measurement: %w", err)
 	}
-	if _, err := hasher.Write(fw); err != nil {
-		return nil, fmt.Errorf("failed to write firmware image to hasher: %w", err)
-	}
-	fwHash := hasher.Sum(nil)
 
 	// validate bundle
-	if err := verify.BundleForBoot(b, fwHash[:]); err != nil {
+	if err := verify.BundleForBoot(b, fwMeasurement[:]); err != nil {
 		return nil, fmt.Errorf("failed to verify bundle: %w", err)
 	}
 

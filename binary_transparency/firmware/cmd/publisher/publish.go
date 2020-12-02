@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -28,7 +29,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy"
+	dummy_common "github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/common"
 	"github.com/google/trillian-examples/binary_transparency/firmware/devices/usbarmory"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
@@ -127,9 +128,9 @@ func createManifestFromFlags() (api.FirmwareMetadata, []byte, error) {
 	case "armory":
 		measure = usbarmory.ExpectedMeasurement
 	case "dummy":
-		measure = dummy.ExpectedMeasurement
+		measure = dummy_common.ExpectedMeasurement
 	default:
-		glog.Exitf("--device must be one of: 'dummy', 'armory'")
+		return api.FirmwareMetadata{}, nil, errors.New("--device must be one of: 'dummy', 'armory'")
 	}
 
 	fw, err := ioutil.ReadFile(*binaryPath)

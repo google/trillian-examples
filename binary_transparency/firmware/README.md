@@ -149,7 +149,7 @@ The vendor is going to publish a new, legitimate, firmware now.
 * We're going to log a new "firmware" build, as the vendor would:
 
 ```bash
-go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./testdata/firmware/dummy_device/example.wasm --output_path=/tmp/update.ota
+go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./testdata/firmware/dummy_device/example.wasm --output_path=/tmp/update.ota --device=dummy
 ```
 
   This creates and submits a new firmware manifest to the log, waits for it to be
@@ -321,7 +321,7 @@ Let's have the hacker break into the firmware vendor's offices and
 add their modified manifest+firmware to the log...
 
 ```bash
-go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T23:00:00.00Z" --binary_path=./testdata/firmware/dummy_device/hacked.wasm --output_path=/tmp/bad_update.ota
+go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T23:00:00.00Z" --binary_path=./testdata/firmware/dummy_device/hacked.wasm --output_path=/tmp/bad_update.ota --device=dummy
 ```
 
 > :frog: However, notice that the `FT Monitor` has spotted the firmware!

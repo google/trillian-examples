@@ -85,17 +85,9 @@ func main() {
 		panic(fmt.Sprintf("configuration error, %v\n", err))
 	}
 
-	h, err := hashPartition(partition)
-	if err != nil {
-		panic(fmt.Sprintf("failed to hash kernelPart: %w\n", err))
+	if err := verifyIntegrity(proofPartition, partition); err != nil {
+		panic(fmt.Sprintf("invalid proof bundle: %v\n", err))
 	}
-	fmt.Printf("partition hash: 0x%x\n", h)
-
-	bundle, err := loadBundle(proofPartition)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to load proof bundle: %q", err))
-	}
-	fmt.Printf("loaded bundle: %v\n", bundle)
 
 	if len(PublicKeyStr) > 0 {
 		err := conf.Verify(defaultConfigPath+signatureSuffix, PublicKeyStr)
@@ -107,7 +99,7 @@ func main() {
 		log.Printf("armory-boot: no public key, skipping signature verification")
 	}
 
-	err = conf.Load()
+	err := conf.Load()
 
 	if err != nil {
 		panic(fmt.Sprintf("configuration error, %v\n", err))

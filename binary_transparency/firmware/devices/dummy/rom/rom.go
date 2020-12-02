@@ -15,7 +15,6 @@
 package rom
 
 import (
-	"crypto/sha512"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/common"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
@@ -65,16 +65,18 @@ func ResetFromFlags() (Chain, error) {
 		return nil, fmt.Errorf("failed to read transparency bundle: %w", err)
 	}
 
-	// TODO(al): measure firmware and check against manifest expected measurement.
-	// HACK: this should use the firmware measurement field, but it'll do for now.
 	fw, err := ioutil.ReadFile(fwFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read firmware: %w", err)
 	}
-	fwHash := sha512.Sum512(fw)
+
+	fwMeasurement, err := common.ExpectedMeasurement(fw)
+	if err != nil {
+		return nil, fmt.Errorf("failed calculate measurement: %w", err)
+	}
 
 	// validate bundle
-	if err := verify.BundleForBoot(b, fwHash[:]); err != nil {
+	if err := verify.BundleForBoot(b, fwMeasurement[:]); err != nil {
 		return nil, fmt.Errorf("failed to verify bundle: %w", err)
 	}
 

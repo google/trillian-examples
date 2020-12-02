@@ -67,7 +67,7 @@ SIZE=$(stat --format='%s' ${u})
 OVERHEAD=2560000
 let BLOCKS=(${SIZE}+${OVERHEAD})/1024
 
-mkfs.ext4 ${o} -q -b 1024 -L firmware ${BLOCKS}
+mkfs.ext4 ${o} -q -b 1024 -O ^has_journal -L firmware ${BLOCKS}
 fuse2fs -o fakeroot ${o} ${MNT}
 
 mkdir ${MNT}/boot
@@ -83,6 +83,7 @@ sed -- "s/@HASH@/${h}/" > ${MNT}/boot/armory-boot.conf <<EOF
 EOF
 
 fusermount -u ${MNT}
+tune2fs -O read-only ${o}
 unset MNT
 
 echo "Created image in ${o}:"

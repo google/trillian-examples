@@ -40,6 +40,7 @@ PUBLISH_TIMESTAMP_2="2020-11-24 10:15:00+00:00"
 banner "Logging initial firmware"
 go run ../cmd/publisher/ \
     --log_url="http://${FT_SERVER}" \
+    --device="dummy" \
     --binary_path="../testdata/firmware/dummy_device/example.wasm"  \
     --timestamp="${PUBLISH_TIMESTAMP_1}" \
     --revision=1 \
@@ -62,6 +63,7 @@ go run ../cmd/emulator/dummy/ \
 banner "Logging update firmware"
 go run ../cmd/publisher/ \
     --log_url="http://${FT_SERVER}" \
+    --device="dummy" \
     --binary_path="../testdata/firmware/dummy_device/example.wasm" \
     --timestamp="${PUBLISH_TIMESTAMP_2}" \
     --revision=2 \

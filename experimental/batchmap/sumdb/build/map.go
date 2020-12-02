@@ -25,6 +25,7 @@ import (
 
 	"github.com/apache/beam/sdks/go/pkg/beam"
 	"github.com/apache/beam/sdks/go/pkg/beam/io/databaseio"
+	beamlog "github.com/apache/beam/sdks/go/pkg/beam/log"
 	"github.com/apache/beam/sdks/go/pkg/beam/x/beamx"
 
 	"github.com/golang/glog"
@@ -117,6 +118,7 @@ func main() {
 	}
 
 	beam.Init()
+	beamlog.SetLogger(&BeamGLogger{InfoLogAtVerbosity: 2})
 	p, s := beam.NewPipelineWithRoot()
 	records := sumDB.beamSource(s.Scope("source"), startID, endID)
 	entries := beam.ParDo(s.Scope("mapentries"), &mapEntryFn{*treeID}, records)
@@ -244,4 +246,26 @@ func (m *sumDBMirror) getEntryMetadata() ([]byte, int64, error) {
 // beamSource returns a PCollection of Metadata, containing entries in range [start, end).
 func (m *sumDBMirror) beamSource(s beam.Scope, start, end int64) beam.PCollection {
 	return databaseio.Query(s, "sqlite3", m.dbString, fmt.Sprintf("SELECT * FROM leafMetadata WHERE id >= %d AND id < %d", start, end), reflect.TypeOf(Metadata{}))
+}
+
+// BeamGLogger allows Beam to log via the glog mechanism.
+// This is used to allow the very verbose logging output from Beam to be switched off.
+type BeamGLogger struct {
+	InfoLogAtVerbosity glog.Level
+}
+
+// Log logs.
+func (l *BeamGLogger) Log(ctx context.Context, sev beamlog.Severity, _ int, msg string) {
+	switch sev {
+	case beamlog.SevDebug:
+		glog.V(3).Info(msg)
+	case beamlog.SevInfo:
+		glog.V(l.InfoLogAtVerbosity).Info(msg)
+	case beamlog.SevError:
+		glog.Error(msg)
+	case beamlog.SevWarn:
+		glog.Warning(msg)
+	default:
+		glog.V(5).Infof("?? %s", msg)
+	}
 }

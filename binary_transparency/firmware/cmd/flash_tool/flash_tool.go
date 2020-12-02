@@ -145,7 +145,21 @@ func verifyUpdate(up api.UpdatePackage) error {
 	return nil
 }
 
+//checkConsistency checks that an update package is consistent with existing device package
 func checkConsistency(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) error {
-	// TODO(al): implement this
+	dc, err := dev.DeviceCheckpoint()
+	if err != nil {
+		return fmt.Errorf("failed to fetch the device checkpoint: %q", err)
+	}
+
+	if dc.TreeSize > 0 {
+		cp, err := c.GetConsistencyProof(api.GetConsistencyRequest{up.ProofBundle.Checkpoint.TreeSize, dc.TreeSize})
+		if err != nil {
+			return fmt.Errorf("failed to fetch consistency proof: %q", err)
+		}
+		if err := verify.BundleForConsistency(up.ProofBundle.Checkpoint, dc, cp.Proof); err != nil {
+			return fmt.Errorf("failed to verify proof bundle for consistency: %q", err)
+		}
+	}
 	return nil
 }

@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 )
 
 // BundleForUpdate checks that the manifest, checkpoint, and proofs in a bundle
@@ -60,7 +61,12 @@ func verifyBundle(b api.ProofBundle) (api.FirmwareMetadata, error) {
 	if err := json.Unmarshal(b.ManifestStatement, &fwStatement); err != nil {
 		return api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal FirmwareStatement: %w", err)
 	}
-	// TODO(al): check sig on fwStatement
+
+	// Verify the signature:
+	if err := crypto.VerifySignature(fwStatement.Metadata, fwStatement.Signature); err != nil {
+		return api.FirmwareMetadata{}, fmt.Errorf("failed to verify signature on FirmwareStatement: %w", err)
+	}
+
 	var fwMeta api.FirmwareMetadata
 	if err := json.Unmarshal(fwStatement.Metadata, &fwMeta); err != nil {
 		return api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal Metadata: %w", err)
@@ -73,4 +79,15 @@ func verifyBundle(b api.ProofBundle) (api.FirmwareMetadata, error) {
 		return api.FirmwareMetadata{}, fmt.Errorf("invalid inclusion proof in bundle: %w", err)
 	}
 	return fwMeta, nil
+}
+
+// BundleForConsistency checks for consistency between Bundle checkpoint,
+// and the checkpoint stored on the device
+func BundleForConsistency(bc api.LogCheckpoint, dc api.LogCheckpoint, cp [][]byte) error {
+	lv := NewLogVerifier()
+	if err := lv.VerifyConsistencyProof(int64(bc.TreeSize), int64(dc.TreeSize), bc.RootHash, dc.RootHash, cp); err != nil {
+		return fmt.Errorf("invalid consistency proof in bundle: %w", err)
+	}
+
+	return nil
 }

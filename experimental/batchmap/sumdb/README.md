@@ -19,20 +19,20 @@ So we're done, right?
 
 ### Remaining Trust
 Let's reframe the security goal of the log through the eyes of a client.
-What a client wants to believe when they find an entry committed to by the log is that *all clients will see the same hashes for the same module@version*.
+What a client wants to believe when they find an entry committed to by the log is that *all clients will see the same hashes for the same `module@version`*.
 
 Confirming that the entry is committed to by the log only meets this goal if the log does not have conflicting information in it.
-If the log ever contained entries that provided different hashes for the same module@version then the verification would still check out, but the security goal would not be met.
+If the log ever contained entries that provided different hashes for the same `module@version` then the verification would still check out, but the security goal would not be met.
 
 N.B. This is theoretical and has not happened; the whole of the SumDB log has been verified for duplicate entries and none have been found.
 A tool to perform this checking is provided in this repo: https://github.com/google/trillian-examples/tree/master/sumdbaudit, so go look for yourself if you're now worried!
 
-### Onto Maps
+### On to Maps
 
 Verifiable Maps are a far better data structure for committing to data that is logically key+value.
 A Map has only one value under a given key, and this value can be empty (thus it can even prove that there is no value at the key).
 
-In this scenario the key is the module@version, and the value is the hash.
+In this scenario the key is the `module@version`, and the value is the hash.
 There is actually a separate part of the key that has not been discussed, which is what is being hashed.
 Thus for each entry in the Go SumDB Log, there are two logical keys, e.g.
  * `github.com/google/trillian v1.3.11` - the hash of the zipped repository

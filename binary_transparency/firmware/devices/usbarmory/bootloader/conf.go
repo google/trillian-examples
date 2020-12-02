@@ -18,33 +18,55 @@ import (
 )
 
 const defaultConfigPath = "/boot/armory-boot.conf"
+const signatureSuffix = ".sig"
 
 var conf Config
 
-// Config tells the boot-loader what it should attempt to load and boot.
-//
-// The bootloader can load either a Linux kernel, or an ELF unikernel.
 type Config struct {
+	// Kernel is the path to a Linux kernel image.
+	Kernel []string `json:"kernel"`
+
+	// DeviceTreeBlob is the path to a Linux DTB file.
+	DeviceTreeBlob []string `json:"dtb"`
+
+	// CmdLine is the Linux kernel command-line parameters.
+	CmdLine string `json:"cmdline"`
+
 	// Unikernel is the path to an ELF unikernel image.
 	Unikernel []string `json:"unikernel"`
 
-	// Kernel is the path to a Linux kernel image.
-	Kernel         []string `json:"kernel"`
-	DeviceTreeBlob []string `json:"dtb"`
-	CmdLine        string   `json:"cmdline"`
+	partition *Partition
+	conf      []byte
 
-	conf []byte
+	kernel     []byte
+	kernelHash string
+
+	params     []byte
+	paramsHash string
+
+	elf bool
 }
 
-func (c *Config) Read(partition *Partition, configPath string) (err error) {
+func (c *Config) Init(p *Partition, configPath string) (err error) {
 	log.Printf("armory-boot: reading configuration at %s\n", configPath)
 
-	c.conf, err = partition.ReadAll(configPath)
+	c.partition = p
+	c.conf, err = p.ReadAll(configPath)
+
+	return
+}
+
+func (c *Config) Verify(sigPath string, pubKey string) (err error) {
+	sig, err := c.partition.ReadAll(sigPath)
 
 	if err != nil {
-		return
+		return fmt.Errorf("invalid signature path, %v", err)
 	}
 
+	return verifySignature(c.conf, sig, pubKey)
+}
+
+func (c *Config) Load() (err error) {
 	err = json.Unmarshal(c.conf, &c)
 
 	if err != nil {
@@ -58,6 +80,8 @@ func (c *Config) Read(partition *Partition, configPath string) (err error) {
 		return errors.New("must specify either unikernel or kernel")
 	}
 
+	var kernelPath string
+
 	switch {
 	case isKernel:
 		if kl != 2 {
@@ -67,29 +91,39 @@ func (c *Config) Read(partition *Partition, configPath string) (err error) {
 		if len(conf.DeviceTreeBlob) != 2 {
 			return errors.New("invalid dtb parameter size")
 		}
+
+		kernelPath = conf.Kernel[0]
+		c.kernelHash = conf.Kernel[1]
 	case isUnikernel:
 		if ul != 2 {
 			return errors.New("invalid unikernel parameter size")
 		}
-	default:
-		panic("armory-boot: config is neither for kernel nor unikernel")
+
+		kernelPath = conf.Unikernel[0]
+		c.kernelHash = conf.Unikernel[1]
 	}
 
 	c.Print()
 
-	return
-}
-
-func (c *Config) Verify(partition *Partition, sigPath string) (valid bool, err error) {
-	log.Println("armory-boot: verifying configuration signature")
-
-	sig, err := partition.ReadAll(sigPath)
+	c.kernel, err = c.partition.ReadAll(kernelPath)
 
 	if err != nil {
-		return false, fmt.Errorf("invalid signature path, %v", err)
+		return fmt.Errorf("invalid path %s, %v\n", kernelPath, err)
 	}
 
-	return verifySignature(c.conf, sig)
+	if isUnikernel {
+		c.elf = true
+		return
+	}
+
+	c.paramsHash = conf.DeviceTreeBlob[1]
+	c.params, err = c.partition.ReadAll(conf.DeviceTreeBlob[0])
+
+	if err != nil {
+		return fmt.Errorf("invalid path %s, %v\n", conf.DeviceTreeBlob[0], err)
+	}
+
+	return
 }
 
 func (c *Config) Print() {

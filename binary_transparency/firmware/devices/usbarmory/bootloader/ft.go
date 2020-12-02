@@ -78,8 +78,8 @@ func measureFirmware(p *Partition) ([]byte, error) {
 		return nil, fmt.Errorf("failed to seek: %w", err)
 	}
 
-	bs := uint64(1 << 16)
-	rc := make(chan []byte, 10)
+	bs := uint64(1 << 21)
+	rc := make(chan []byte, 5)
 	hc := make(chan []byte)
 
 	start := time.Now()
@@ -113,7 +113,7 @@ func measureFirmware(p *Partition) ([]byte, error) {
 		if n > bs {
 			n = bs
 		}
-		b := make([]byte, bs)
+		b := make([]byte, n)
 		bc, err := p.Read(b)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)

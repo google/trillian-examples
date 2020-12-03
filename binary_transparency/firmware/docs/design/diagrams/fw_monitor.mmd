@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant vendor as Firmware Vendor
+    participant log as Log Operator
+    participant monitor as Monitor
+    participant alert as Alert
+
+    activate log
+    activate monitor
+    rect rgba(255,80,80,0.1)
+    loop Forever
+
+        monitor ->>+ log: GetCheckpoint
+        log -->>- monitor: CheckpointResponse
+        monitor ->>+ log: GetConsistencyProof
+        log -->>- monitor: ConsistencyProof
+        log ->> log: Validate ConsistencyProof
+
+        rect rgba(0, 0, 0, 0.1)
+        loop For each new LogEntry e
+            monitor ->>+ log: GetEntry e
+            log -->>- monitor: Entry e
+            note right of monitor: <br> Monitor can verify locally each <br> entry for Inclusion
+            rect rgba(1, 0, 0, 0.1)
+                opt Badness detected
+                    monitor --X alert: Alert
+                end
+            end
+            rect rgba(0, 0, 0, 0.1)
+                opt Firmware from Vendor detected
+                    monitor --X vendor: Inform
+                end
+            end
+        end
+        end
+    end
+    end
+    deactivate monitor
+    deactivate log

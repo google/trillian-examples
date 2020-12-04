@@ -3,14 +3,11 @@ sequenceDiagram
     participant log as Log Operator
     participant update as Update Client
 
-
-
-
     rect rgba(80,80,80,0.1)
         note right of vendor: Create and log new firmware
-    
+
         vendor ->>+ vendor: Build new image
-        vendor ->>+ log: PublishFirmware(FW st., FW Image, log_id)
+        vendor ->>+ log: PublishFirmware
 
         log -->>- vendor: PublishFirmwareResponse 
         par Integrate
@@ -18,15 +15,15 @@ sequenceDiagram
         and Vendor awaits integration
             loop Await Inclusion
                 vendor ->>+ log: GetCheckpoint
-                log -->>- vendor: GetCheckpointResponse(tree_size, rootHash)
+                log -->>- vendor: GetCheckpointResponse
                 opt Log has grown
-                    vendor ->>+ log: GetInclusion(FW st, cp)
-                    log -->>- vendor: GetInclusionResponse(value, leaf_index, proof)
+                    vendor ->>+ log: GetInclusion
+                    log -->>- vendor: GetInclusionResponse
                 end
             end
         end
-        note right of vendor: <br>Firmware Vendor Creates <br> Update Package consisting of  <br> 1. FW Image 2.Bundle [FW st, LogCheckPoint,   Inclusion proof]  <br>
-                              
+        note right of vendor: <br>Firmware Vendor Creates <br> Update Package consisting of  <br> 1. Fw Image 2.Bundle [Fw st, LogCheckPoint,   Inclusion proof]  <br>
+
         vendor ->> vendor: Create Update Package
 
     end
@@ -36,4 +33,3 @@ sequenceDiagram
         vendor --X update: New update available
     deactivate vendor
     end
-

@@ -48,6 +48,7 @@ ft_prep_test() {
   ./ft_monitor  \
     --ftlog="http://${FT_SERVER}" \
     --poll_interval=200ms \
+    --keyword="H4x0r3d" \
     ${COMMON_FLAGS} > ${FT_MONITOR_LOG} 2>&1 &
   pid=$!
   FT_MONITOR_PID=${pid}
@@ -90,5 +91,26 @@ ft_stop_test() {
 }
 
 banner() {
-  echo "---[$1]----------------------------------------------"
+  echo -e "\x1b[1m---[\x1b[7m$1\x1b[m]----------------------------------------------\x1b[0m"
+}
+
+EXPECT_FAIL() {
+  set +e
+  want="${1}"
+  shift 1
+  output="$($* 2>&1)"
+  r=$?
+  if [ $r -eq 0 ]; then
+    echo "${output}"
+    echo "FAIL: Expected command to fail, but it returned success"
+    exit 1
+  fi
+  echo "${output}" | grep --color "${want}\|$"
+  if [ $? -ne 0 ]; then
+    echo "FAIL: Didn't find expected error message '${want}' in output: ${output}"
+    exit 2
+  fi
+
+  echo "PASS: command failed, and output contained expected string"
+  set -e
 }

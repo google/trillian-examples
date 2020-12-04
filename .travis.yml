@@ -1,6 +1,6 @@
 version: ~> 1.0
 os: linux
-dist: xenial
+dist: focal
 language: go
 go: "1.15.x"
 go_import_path: github.com/google/trillian-examples

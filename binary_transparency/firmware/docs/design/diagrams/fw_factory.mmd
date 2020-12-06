@@ -17,11 +17,9 @@ sequenceDiagram
         update ->> update: Trigger Update
 
         update ->> update: Verify
-            rect rgba(80,80,80,0.1)
-                alt Verification Flow
+        rect rgba(80,80,80,0.1)
         note right of update: <br> 1.Verify the signature on FW Manifest <br> 2.Compute STH from Fw Manifest Hash<br> & Inclusion proof from bundle <br>3.Verification succeeds when computed <br>STH matches STH_update from bundle
-                end
-            end
+        end
 
         activate update
         rect rgba(0,192,0,0.3)

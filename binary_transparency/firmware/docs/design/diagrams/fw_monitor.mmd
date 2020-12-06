@@ -6,7 +6,7 @@ sequenceDiagram
 
     activate log
     activate monitor
-    rect rgba(255,80,80,0.1)
+    rect rgba(255, 220, 200, 1)
         loop Forever
 
             monitor ->>+ log: GetCheckpoint
@@ -20,12 +20,12 @@ sequenceDiagram
                     monitor ->>+ log: GetEntry e
                     log -->>- monitor: Entry e
                     note right of monitor: <br> Monitor verifies Inclusion <br> of all entries locally
-                    rect rgba(1, 0, 0, 0.1)
+                    rect rgba(255,80,80,0.3)
                         opt Badness detected
                             monitor --X alert: Alert
                         end
                     end
-                    rect rgba(0, 0, 0, 0.1)
+                    rect rgba(255,80,80,0.3)
                         opt Firmware from Vendor detected
                             monitor --X vendor: Inform
                         end

@@ -48,6 +48,7 @@ ft_prep_test() {
   ./ft_monitor  \
     --ftlog="http://${FT_SERVER}" \
     --poll_interval=200ms \
+    --keyword="H4x0r3d" \
     ${COMMON_FLAGS} > ${FT_MONITOR_LOG} 2>&1 &
   pid=$!
   FT_MONITOR_PID=${pid}
@@ -90,5 +91,35 @@ ft_stop_test() {
 }
 
 banner() {
-  echo "---[$1]----------------------------------------------"
+  echo -e "\x1b[1m---[\x1b[7m$1\x1b[m]----------------------------------------------\x1b[0m"
+}
+
+# EXPECT_FAIL asserts that the passeed in command exits with a non-zero status and that the
+# stdout/stderr output it produces matches a given string.
+# Parameters:
+#   - The string to match (grep)
+#   - The command to execute, with any arguments as follow on parameters
+# Return:
+#   0 if the provided command fails and its output matches the given pattern
+#   1 if the provided command does not fail
+#   2 if the proivded command fails, but the output does not match the pattern
+EXPECT_FAIL() {
+  set +e
+  want="${1}"
+  shift 1
+  output="$($* 2>&1)"
+  r=$?
+  if [ $r -eq 0 ]; then
+    echo "${output}"
+    echo "FAIL: Expected command to fail, but it returned success"
+    exit 1
+  fi
+  echo "${output}" | grep --color "${want}\|$"
+  if [ $? -ne 0 ]; then
+    echo "FAIL: Didn't find expected error message '${want}' in output: ${output}"
+    exit 2
+  fi
+
+  echo "PASS: command failed, and output contained expected string"
+  set -e
 }

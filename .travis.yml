@@ -1,6 +1,6 @@
 version: ~> 1.0
 os: linux
-dist: xenial
+dist: focal
 language: go
 go: "1.15.x"
 go_import_path: github.com/google/trillian-examples
@@ -37,6 +37,10 @@ jobs:
     - name: "go mod tidy"
 
 install:
+  - mkdir bin
+  - export PATH=${PWD}/bin:${PATH}
+  - JQ_PLATFROM=$(case $TRAVIS_OS_NAME in "linux" ) echo "jq-linux64";; "osx" ) echo "jq-osx-amd64.dms";; esac)
+  - (cd bin && curl -L -O https://github.com/stedolan/jq/releases/download/jq-1.6/${JQ_PLATFROM} && mv ${JQ_PLATFROM} jq && chmod +x jq)
   - mkdir ../protoc
   - |
     (

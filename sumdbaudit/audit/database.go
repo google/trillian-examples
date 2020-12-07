@@ -30,6 +30,14 @@ type Metadata struct {
 	module, version, repoHash, modHash string
 }
 
+// Duplicate is used to report any number of module+version entries appearing more
+// than once.
+type Duplicate struct {
+	Module  string
+	Version string
+	Count   int
+}
+
 // Database provides read/write access to the local copy of the SumDB.
 type Database struct {
 	db *sql.DB
@@ -162,6 +170,28 @@ func (d *Database) SetTile(height, level, offset int, hashes []byte) error {
 	}
 	_, err := d.db.Exec("INSERT INTO tiles (height, level, offset, hashes) VALUES (?, ?, ?, ?)", height, level, offset, hashes)
 	return err
+}
+
+// Duplicates returns summaries of any module@version that appears more than once
+// in the log.
+func (d *Database) Duplicates() ([]Duplicate, error) {
+	var res []Duplicate
+	rows, err := d.db.Query("SELECT module, version, COUNT(*) cnt FROM leafMetadata GROUP BY module, version HAVING cnt > 1")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var module, version string
+		var count int
+		rows.Scan(&module, &version, &count)
+		res = append(res, Duplicate{
+			Module:  module,
+			Version: version,
+			Count:   count,
+		})
+	}
+	return res, nil
 }
 
 // SplitTile turns the blob that is the leaf hashes in a tile into separate hashes.

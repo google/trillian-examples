@@ -31,8 +31,7 @@ demonstrates how this can be used as a basis to verify its
 [Claims](https://github.com/google/trillian/blob/master/docs/claimantmodel/).
 The Claims checked by this clone & audit tool are:
  * SumDB Checkpoints/STHs properly commit to all of the data in the Log
- * Committed entries are never modified
- * The Log is append-only
+ * Committed entries are never modified; the Log is append-only
  * Each `module@version` appears at most once
 
 In addition to verifying the above Claims, the tool populates a SQLite database

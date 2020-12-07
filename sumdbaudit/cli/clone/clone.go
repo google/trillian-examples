@@ -97,7 +97,7 @@ func main() {
 		for _, d := range dups {
 			glog.Errorf("%d duplicates found for %s %s", d.Count, d.Module, d.Version)
 		}
-		glog.Exitf("Duplicate entries is a critical error")
+		glog.Exit("Duplicate entries is a critical error")
 	}
 	glog.Info("No duplicates found")
 

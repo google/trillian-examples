@@ -94,6 +94,15 @@ banner() {
   echo -e "\x1b[1m---[\x1b[7m$1\x1b[m]----------------------------------------------\x1b[0m"
 }
 
+# EXPECT_FAIL asserts that the passeed in command exits with a non-zero status and that the
+# stdout/stderr output it produces matches a given string.
+# Parameters:
+#   - The string to match (grep)
+#   - The command to execute, with any arguments as follow on parameters
+# Return:
+#   0 if the provided command fails and its output matches the given pattern
+#   1 if the provided command does not fail
+#   2 if the proivded command fails, but the output does not match the pattern
 EXPECT_FAIL() {
   set +e
   want="${1}"

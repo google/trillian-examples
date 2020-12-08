@@ -1,3 +1,7 @@
+' This is a common file with style related includes and defines in it.
+' It's intended to be !included by PlantUML diagrams elsewhere, whose
+' code resides in the docs which reference the diagrams.
+
 !include <tupadr3/common>
 !include <tupadr3/font-awesome-5/cogs>
 !include <tupadr3/font-awesome-5/eye>

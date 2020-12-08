@@ -130,7 +130,8 @@ the roles described in the claimant model above, these are shown in the
 following diagram:
 
 ![ov](./overview.svg)
-<div style="display: none">
+<details>
+<summary>Diagram source</summary>
 <!--
 This is an embedded PlantUML config for the overview diagram.
 If you change it, be sure to update the generated diagram by running `plantuml -tsvg  README.md`!
@@ -177,7 +178,7 @@ package "Observers" #OBS_COLOUR_2 {
 publisher -[dotted]----> update: Update available
 
 @enduml
-</div>
+</details>
 
 For clarity, the mapping of actors to the claimant model roles, along with
 software provided by the demo used to fulfil those roles, are listed explicitly

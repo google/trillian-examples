@@ -136,36 +136,7 @@ This is an embedded PlantUML config for the overview diagram.
 If you change it, be sure to update the generated diagram by running `plantuml -tsvg  README.md`!
 -->
 @startuml ov
-
-!include <tupadr3/common>
-!include <tupadr3/font-awesome-5/cogs>
-!include <tupadr3/font-awesome-5/eye>
-!include <tupadr3/font-awesome-5/file>
-!include <tupadr3/font-awesome-5/mobile_alt>
-!include <tupadr3/font-awesome-5/server>
-!include <tupadr3/font-awesome-5/sitemap>
-!include <tupadr3/font-awesome-5/user_tie>
-
-!includeurl https://raw.githubusercontent.com/ebbypeter/Archimate-PlantUML/master/Archimate.puml
-
-!define LOG_COLOUR_0 E0E3FF
-!define LOG_COLOUR_1 627AD0
-!define LOG_COLOUR_2 899BDC
-!define LOG_COLOUR_3 D8DEF3
-!define LOG_COLOUR_4 EBEEF9
-
-!define DEVICE_COLOUR_0 684488
-!define DEVICE_COLOUR_1 CDBADE
-!define DEVICE_COLOUR_2 E6DDEE
-
-!define VENDOR_COLOUR_0 5B254A
-!define VENDOR_COLOUR_1 D392BF
-!define VENDOR_COLOUR_2 E9C9DF
-
-!define OBS_COLOUR_0 892953
-!define OBS_COLOUR_1 E29DBB
-!define OBS_COLOUR_2 F3D8E4
-
+!include ./diagrams/puml/style.puml
 
 package "FT Log" #LOG_COLOUR_4 {
   FA5_SERVER(personality,FT Personality,rectangle,LOG_COLOUR_0) #LOG_COLOUR_2
@@ -207,9 +178,6 @@ publisher -[dotted]----> update: Update available
 
 @enduml
 </div>
-
-
-![overview diagram](./overview.svg)
 
 For clarity, the mapping of actors to the claimant model roles, along with
 software provided by the demo used to fulfil those roles, are listed explicitly

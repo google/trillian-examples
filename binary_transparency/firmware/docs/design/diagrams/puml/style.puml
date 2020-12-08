@@ -30,3 +30,5 @@
 !define OBS_COLOUR_0 892953
 !define OBS_COLOUR_1 E29DBB
 !define OBS_COLOUR_2 F3D8E4
+
+skinparam componentArrowThickness 2.5

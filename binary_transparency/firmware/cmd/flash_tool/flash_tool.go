@@ -140,17 +140,17 @@ func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.De
 		return fmt.Errorf("failed to fetch the device checkpoint: %w", err)
 	}
 
-	var proof [][]byte
+	var cp [][]byte
 	if dc.TreeSize > 0 {
-		cp, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: up.ProofBundle.Checkpoint.TreeSize, To: dc.TreeSize})
+		r, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: dc.TreeSize, To: up.ProofBundle.Checkpoint.TreeSize})
 		if err != nil {
 			return fmt.Errorf("failed to fetch consistency proof: %w", err)
 		}
-		proof = cp.Proof
+		cp = r.Proof
 	}
 
 	fwHash := sha512.Sum512(up.FirmwareImage)
-	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, proof); err != nil {
+	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cp); err != nil {
 		return fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
 	return nil

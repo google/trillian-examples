@@ -142,7 +142,7 @@ func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.De
 
 	var proof [][]byte
 	if dc.TreeSize > 0 {
-		cp, err := c.GetConsistencyProof(api.GetConsistencyRequest{up.ProofBundle.Checkpoint.TreeSize, dc.TreeSize})
+		cp, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: up.ProofBundle.Checkpoint.TreeSize, To: dc.TreeSize})
 		if err != nil {
 			return fmt.Errorf("failed to fetch consistency proof: %w", err)
 		}

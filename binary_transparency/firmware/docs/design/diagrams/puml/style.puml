@@ -31,4 +31,12 @@
 !define OBS_COLOUR_1 E29DBB
 !define OBS_COLOUR_2 F3D8E4
 
+!define FAIL FFDDDD
+!define SUCCESS DDFFDD
+
+
+!define PARTICIPANT_DEVICE_FLASH(_alias, _desc) participant  "<color:#DEVICE_COLOUR_0><$file>\n_desc" as _alias #DEVICE_COLOUR_2
+!define PARTICIPANT_DEVICE_BOOTLOADER(_alias, _desc) participant  "<color:#DEVICE_COLOUR_0><$mobile_alt>\n_desc" as _alias #DEVICE_COLOUR_2
+
+skinparam ParticipantPadding 60
 skinparam componentArrowThickness 2.5

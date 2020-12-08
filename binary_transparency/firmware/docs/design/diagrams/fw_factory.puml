@@ -1,0 +1,25 @@
+@startuml fw_factory
+!include ./puml/style.puml
+
+PARTICIPANT_VENDOR(vendor, "Firmware Vendor")
+PARTICIPANT_DEVICE_UPDATE(update, "Update Client")
+PARTICIPANT_DEVICE_FLASH(flash, "Device Flash")
+
+vendor o--> update: Firmware available
+
+...
+
+update -> update ++ : Verify
+
+note right
+# Verify the signature on FW manifest
+# Verify inclusion of manifest
+end note
+
+update -> update: Apply update
+alt #SUCCESS Verification successful
+    update -> flash ++: Write Firmware + Proof Bundle
+    return Write OK
+end
+
+@enduml

@@ -1,1 +1,604 @@
-<svg id="mermaid-1607087890510" width="100%" xmlns="http://www.w3.org/2000/svg" height="1180" style="max-width: 919.5px;" viewBox="-63.5 -10 919.5 1180"><rect x="-13.5" y="75" fill="rgba(80,80,80,0.1)" width="639.5" height="906" class="rect"></rect><style>#mermaid-1607087890510{font-family:"trebuchet ms",verdana,arial;font-size:16px;fill:#333;}#mermaid-1607087890510 .error-icon{fill:#552222;}#mermaid-1607087890510 .error-text{fill:#552222;stroke:#552222;}#mermaid-1607087890510 .edge-thickness-normal{stroke-width:2px;}#mermaid-1607087890510 .edge-thickness-thick{stroke-width:3.5px;}#mermaid-1607087890510 .edge-pattern-solid{stroke-dasharray:0;}#mermaid-1607087890510 .edge-pattern-dashed{stroke-dasharray:3;}#mermaid-1607087890510 .edge-pattern-dotted{stroke-dasharray:2;}#mermaid-1607087890510 .marker{fill:#333333;}#mermaid-1607087890510 .marker.cross{stroke:#333333;}#mermaid-1607087890510 svg{font-family:"trebuchet ms",verdana,arial;font-size:16px;}#mermaid-1607087890510 .actor{stroke:hsl(259.6261682243,59.7765363128%,87.9019607843%);fill:#ECECFF;}#mermaid-1607087890510 text.actor &gt; tspan{fill:black;stroke:none;}#mermaid-1607087890510 .actor-line{stroke:grey;}#mermaid-1607087890510 .messageLine0{stroke-width:1.5;stroke-dasharray:none;stroke:#333;}#mermaid-1607087890510 .messageLine1{stroke-width:1.5;stroke-dasharray:2,2;stroke:#333;}#mermaid-1607087890510 #arrowhead path{fill:#333;stroke:#333;}#mermaid-1607087890510 .sequenceNumber{fill:white;}#mermaid-1607087890510 #sequencenumber{fill:#333;}#mermaid-1607087890510 #crosshead path{fill:#333;stroke:#333;}#mermaid-1607087890510 .messageText{fill:#333;stroke:#333;}#mermaid-1607087890510 .labelBox{stroke:hsl(259.6261682243,59.7765363128%,87.9019607843%);fill:#ECECFF;}#mermaid-1607087890510 .labelText,#mermaid-1607087890510 .labelText &gt; tspan{fill:black;stroke:none;}#mermaid-1607087890510 .loopText,#mermaid-1607087890510 .loopText &gt; tspan{fill:black;stroke:none;}#mermaid-1607087890510 .loopLine{stroke-width:2px;stroke-dasharray:2,2;stroke:hsl(259.6261682243,59.7765363128%,87.9019607843%);fill:hsl(259.6261682243,59.7765363128%,87.9019607843%);}#mermaid-1607087890510 .note{stroke:#aaaa33;fill:#fff5ad;}#mermaid-1607087890510 .noteText,#mermaid-1607087890510 .noteText &gt; tspan{fill:black;stroke:none;}#mermaid-1607087890510 .activation0{fill:#f4f4f4;stroke:#666;}#mermaid-1607087890510 .activation1{fill:#f4f4f4;stroke:#666;}#mermaid-1607087890510 .activation2{fill:#f4f4f4;stroke:#666;}#mermaid-1607087890510:root{--mermaid-font-family:"trebuchet ms",verdana,arial;}#mermaid-1607087890510 sequence{fill:apa;}</style><g></g><g><line id="actor1770" x1="75" y1="5" x2="75" y2="1169" class="actor-line" stroke-width="0.5px" stroke="#999"></line><rect x="0" y="0" fill="#eaeaea" stroke="#666" width="150" height="65" rx="3" ry="3" class="actor"></rect><text x="75" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor" style="text-anchor: middle; font-size: 14px; font-weight: 400; font-family: Open-Sans, sans-serif;"><tspan x="75" dy="0">Firmware Vendor</tspan></text></g><g><line id="actor1771" x1="531" y1="5" x2="531" y2="1169" class="actor-line" stroke-width="0.5px" stroke="#999"></line><rect x="456" y="0" fill="#eaeaea" stroke="#666" width="150" height="65" rx="3" ry="3" class="actor"></rect><text x="531" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor" style="text-anchor: middle; font-size: 14px; font-weight: 400; font-family: Open-Sans, sans-serif;"><tspan x="531" dy="0">Log Operator</tspan></text></g><g><line id="actor1772" x1="731" y1="5" x2="731" y2="1169" class="actor-line" stroke-width="0.5px" stroke="#999"></line><rect x="656" y="0" fill="#eaeaea" stroke="#666" width="150" height="65" rx="3" ry="3" class="actor"></rect><text x="731" y="32.5" dominant-baseline="central" alignment-baseline="central" class="actor" style="text-anchor: middle; font-size: 14px; font-weight: 400; font-family: Open-Sans, sans-serif;"><tspan x="731" dy="0">Update Client</tspan></text></g><defs><marker id="arrowhead" refX="5" refY="2" markerWidth="6" markerHeight="4" orient="auto"><path d="M 0,0 V 4 L6,2 Z"></path></marker></defs><defs><marker id="crosshead" markerWidth="15" markerHeight="8" orient="auto" refX="16" refY="4"><path fill="black" stroke="#000000" stroke-width="1px" d="M 9,2 V 6 L16,4 Z" style="stroke-dasharray: 0, 0;"></path><path fill="none" stroke="#000000" stroke-width="1px" d="M 0,1 L 6,7 M 6,1 L 0,7" style="stroke-dasharray: 0, 0;"></path></marker></defs><defs><marker id="sequencenumber" refX="15" refY="15" markerWidth="60" markerHeight="40" orient="auto"><circle cx="15" cy="15" r="6"></circle></marker></defs><g><rect x="100" y="95" fill="#EDF2AE" stroke="#666" width="204" height="36" rx="0" ry="0" class="note"></rect><text x="202" y="100" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 14px; font-weight: 400;"><tspan x="202">Create and log new firmware</tspan></text></g><text x="75" y="146" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">Build new image</text><path d="M 75,179 C 135,169 135,209 75,199" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></path><g></g><text x="306" y="224" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">PublishFirmware</text><line x1="80" y1="257" x2="531" y2="257" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></line><g><rect x="526" y="259" fill="#EDF2AE" stroke="#666" width="10" height="46" rx="0" ry="0" class="activation0"></rect></g><text x="303" y="272" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">PublishFirmwareResponse</text><line x1="526" y1="305" x2="80" y2="305" class="messageLine1" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="531" y="365" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">Log integrates</text><path d="M 531,398 C 591,388 591,428 531,418" class="messageLine1" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></path><text x="306" y="533" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">GetCheckpoint</text><line x1="80" y1="566" x2="531" y2="566" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></line><g><rect x="526" y="568" fill="#EDF2AE" stroke="#666" width="10" height="46" rx="0" ry="0" class="activation0"></rect></g><text x="303" y="581" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">GetCheckpointResponse</text><line x1="526" y1="614" x2="80" y2="614" class="messageLine1" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><text x="306" y="674" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">GetInclusion</text><line x1="80" y1="707" x2="531" y2="707" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></line><g><rect x="526" y="709" fill="#EDF2AE" stroke="#666" width="10" height="46" rx="0" ry="0" class="activation0"></rect></g><text x="303" y="722" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">GetInclusionResponse</text><line x1="526" y1="755" x2="80" y2="755" class="messageLine1" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="stroke-dasharray: 3, 3; fill: none;"></line><g><line x1="60" y1="624" x2="546" y2="624" class="loopLine"></line><line x1="546" y1="624" x2="546" y2="765" class="loopLine"></line><line x1="60" y1="765" x2="546" y2="765" class="loopLine"></line><line x1="60" y1="624" x2="60" y2="765" class="loopLine"></line><polygon points="60,624 110,624 110,637 101.6,644 60,644" class="labelBox"></polygon><text x="85" y="637" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="labelText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">opt</text><text x="328" y="642" text-anchor="middle" class="loopText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;"><tspan x="328">[Log has grown]</tspan></text></g><g><line x1="50" y1="483" x2="556" y2="483" class="loopLine"></line><line x1="556" y1="483" x2="556" y2="775" class="loopLine"></line><line x1="50" y1="775" x2="556" y2="775" class="loopLine"></line><line x1="50" y1="483" x2="50" y2="775" class="loopLine"></line><polygon points="50,483 100,483 100,496 91.6,503 50,503" class="labelBox"></polygon><text x="75" y="496" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="labelText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">loop</text><text x="328" y="501" text-anchor="middle" class="loopText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;"><tspan x="328">[Await Inclusion]</tspan></text></g><g><line x1="40" y1="315" x2="616" y2="315" class="loopLine"></line><line x1="616" y1="315" x2="616" y2="785" class="loopLine"></line><line x1="40" y1="785" x2="616" y2="785" class="loopLine"></line><line x1="40" y1="315" x2="40" y2="785" class="loopLine"></line><line x1="40" y1="443" x2="616" y2="443" class="loopLine" style="stroke-dasharray: 3, 3;"></line><polygon points="40,315 90,315 90,328 81.6,335 40,335" class="labelBox"></polygon><text x="65" y="328" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="labelText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">par</text><text x="353" y="333" text-anchor="middle" class="loopText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;"><tspan x="353">[Integrate]</tspan></text><text x="328" y="461" text-anchor="middle" class="loopText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">[Vendor awaits integration]</text></g><g><rect x="100" y="795" fill="#EDF2AE" stroke="#666" width="386" height="68" rx="0" ry="0" class="note"></rect><text x="293" y="800" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 14px; font-weight: 400;"><tspan x="293"></tspan></text><text x="293" y="800" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 14px; font-weight: 400;"><tspan x="293">Firmware Vendor Creates </tspan></text><text x="293" y="816" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 14px; font-weight: 400;"><tspan x="293"> Update Package consisting of  </tspan></text><text x="293" y="832" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 14px; font-weight: 400;"><tspan x="293"> 1. Fw Image 2.Bundle [Fw st, LogCheckPoint,   Inclusion proof]  </tspan></text><text x="293" y="848" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="noteText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 14px; font-weight: 400;"><tspan x="293"></tspan></text></g><text x="80" y="878" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">Create Update Package</text><path d="M 80,911 C 140,901 140,941 80,931" class="messageLine0" stroke-width="2" stroke="none" marker-end="url(#arrowhead)" style="fill: none;"></path><g><rect x="75" y="1028" fill="#EDF2AE" stroke="#666" width="10" height="46" rx="0" ry="0" class="activation1"></rect></g><text x="408" y="1041" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="messageText" dy="1em" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">New update available</text><line x1="85" y1="1074" x2="731" y2="1074" class="messageLine1" stroke-width="2" stroke="none" marker-end="url(#crosshead)" style="stroke-dasharray: 3, 3; fill: none;"></line><g><line x1="60" y1="991" x2="741" y2="991" class="loopLine"></line><line x1="741" y1="991" x2="741" y2="1084" class="loopLine"></line><line x1="60" y1="1084" x2="741" y2="1084" class="loopLine"></line><line x1="60" y1="991" x2="60" y2="1084" class="loopLine"></line><polygon points="60,991 110,991 110,1004 101.6,1011 60,1011" class="labelBox"></polygon><text x="85" y="1004" text-anchor="middle" dominant-baseline="middle" alignment-baseline="middle" class="labelText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;">opt</text><text x="425.5" y="1009" text-anchor="middle" class="loopText" style="font-family: &quot;trebuchet ms&quot;, verdana, arial; font-size: 16px; font-weight: 400;"><tspan x="425.5">[Notify clients]</tspan></text></g><g><rect x="0" y="1104" fill="#eaeaea" stroke="#666" width="150" height="65" rx="3" ry="3" class="actor"></rect><text x="75" y="1136.5" dominant-baseline="central" alignment-baseline="central" class="actor" style="text-anchor: middle; font-size: 14px; font-weight: 400; font-family: Open-Sans, sans-serif;"><tspan x="75" dy="0">Firmware Vendor</tspan></text></g><g><rect x="456" y="1104" fill="#eaeaea" stroke="#666" width="150" height="65" rx="3" ry="3" class="actor"></rect><text x="531" y="1136.5" dominant-baseline="central" alignment-baseline="central" class="actor" style="text-anchor: middle; font-size: 14px; font-weight: 400; font-family: Open-Sans, sans-serif;"><tspan x="531" dy="0">Log Operator</tspan></text></g><g><rect x="656" y="1104" fill="#eaeaea" stroke="#666" width="150" height="65" rx="3" ry="3" class="actor"></rect><text x="731" y="1136.5" dominant-baseline="central" alignment-baseline="central" class="actor" style="text-anchor: middle; font-size: 14px; font-weight: 400; font-family: Open-Sans, sans-serif;"><tspan x="731" dy="0">Update Client</tspan></text></g></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="730px" preserveAspectRatio="none" style="width:921px;height:730px;" version="1.1" viewBox="0 0 921 730" width="921px" zoomAndPan="magnify"><defs><filter height="300%" id="f10ms4bvpakc06" width="300%" x="-1" y="-1"><feGaussianBlur result="blurOut" stdDeviation="2.0"/><feColorMatrix in="blurOut" result="blurOut2" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .4 0"/><feOffset dx="4.0" dy="4.0" in="blurOut2" result="blurOut3"/><feBlend in="SourceGraphic" in2="blurOut3" mode="normal"/></filter></defs><g><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="27.9688" style="stroke: #A80036; stroke-width: 1.0;" width="10" x="395" y="157.2344"/><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="27.9688" style="stroke: #A80036; stroke-width: 1.0;" width="10" x="395" y="342.2109"/><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="27.9688" style="stroke: #A80036; stroke-width: 1.0;" width="10" x="395" y="422.2813"/><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="247.0469" style="stroke: #000000; stroke-width: 2.0;" width="510" x="13" y="225.2031"/><rect fill="#FFFFFF" height="188.9453" style="stroke: none; stroke-width: 1.0;" width="510" x="13" y="283.3047"/><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="160.1406" style="stroke: #000000; stroke-width: 2.0;" width="490" x="23" y="305.1094"/><rect fill="#DDFFDD" filter="url(#f10ms4bvpakc06)" height="73.0703" style="stroke: #000000; stroke-width: 2.0;" width="470" x="33" y="385.1797"/><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="45.1016" style="stroke: #000000; stroke-width: 2.0;" width="711" x="33" y="580.2188"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="170" x2="170" y1="86.2969" y2="545.2188"/><line style="stroke: #A80036; stroke-width: 1.0; stroke-dasharray: 1.0,4.0;" x1="170" x2="170" y1="545.2188" y2="573.2188"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="170" x2="170" y1="573.2188" y2="642.3203"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="400" x2="400" y1="86.2969" y2="545.2188"/><line style="stroke: #A80036; stroke-width: 1.0; stroke-dasharray: 1.0,4.0;" x1="400" x2="400" y1="545.2188" y2="573.2188"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="400" x2="400" y1="573.2188" y2="642.3203"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="618" x2="618" y1="86.2969" y2="545.2188"/><line style="stroke: #A80036; stroke-width: 1.0; stroke-dasharray: 1.0,4.0;" x1="618" x2="618" y1="545.2188" y2="573.2188"/><line style="stroke: #A80036; stroke-width: 1.0;" x1="618" x2="618" y1="573.2188" y2="642.3203"/><rect fill="#E9C9DF" filter="url(#f10ms4bvpakc06)" height="78.2969" style="stroke: #A80036; stroke-width: 1.5;" width="130" x="103" y="3"/><image height="48" width="48" x="144" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAChUlEQVR4XtWYMUsEMRCF78/Y29tb2Al2ETvRyuIqCy1sRLARtLK4ShAbQbAQG0FsBG211Hb/hY8LhLl5k+xkdw/v4Kv2sjMvkzfJ5kbN+89CMeJH/0svQW+Tp6u905PN8eH6PjjfPro9vv5+/OCRfjoKeji72V3dCisbJpD4effKb3moFvT78oVisAgG1eLXW6kTBDWFwjCT8QUHKVMnyFkbCRaX4xSoEIQl4HweUFeOlsMrCEE5kxN0IgfM4RWEynMmPxwwh1cQOpnT+MGOxTFNvIKqmovxbwFeQZyjCn//L62gg7UdTuPHvxt5BeHg5DR+hjd1n7ZHQ3DAHF5BTY9G8xuoqRK0WEdHpMP2+Hx5z3EK1AnCXKvazb8fJuoERZx1qq1NpIsggGSFUmGPqPKNpKOgCD6csShIj5oBfGZgd+gsJdJL0DxYWkG4bcE3yqfY8Rg5BsuHRfSfG41HEFwi/St/Mg84eSOTBw4Gey5rJUGYGbeSDIqyqV+RVUaAzXlA2fVZQbnTVO11WCP5q7pHm8cfJlm4btuC4AMOFEF7q8EpqzpECxcVvJKrkyEIi8IhJGp8cpKySK7GEZ5YxBDUejKoxMlnajXZQArzbNGCWssTZhPLdVGT5oZQYIDK3rCg1mmF2cTSbfLLsGAgCbtbC2qdViSNVxNICcoGSvDHvxbE75gkG6n/Q1ICT6UDNaYW5KxzEDZSz9P/Cs5Kq420u6BoI2zl6nn0aW2cAQSFqY3UNh2JByo/NxlSEGxk/qGGvnMaKAwrKHcrghqngUKrh5rMcWiSG5l7bsLXEi3Iv/z9MY9YLajJWHVwsKzm95ohqJmaCS0dv1nngSmlJOgfWThBf1ju0owZLn8KAAAAAElFTkSuQmCC" y="10"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="116" x="110" y="70.9951">Firmware Vendor</text><rect fill="#E9C9DF" filter="url(#f10ms4bvpakc06)" height="78.2969" style="stroke: #A80036; stroke-width: 1.5;" width="130" x="103" y="641.3203"/><image height="48" width="48" x="144" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAChUlEQVR4XtWYMUsEMRCF78/Y29tb2Al2ETvRyuIqCy1sRLARtLK4ShAbQbAQG0FsBG211Hb/hY8LhLl5k+xkdw/v4Kv2sjMvkzfJ5kbN+89CMeJH/0svQW+Tp6u905PN8eH6PjjfPro9vv5+/OCRfjoKeji72V3dCisbJpD4effKb3moFvT78oVisAgG1eLXW6kTBDWFwjCT8QUHKVMnyFkbCRaX4xSoEIQl4HweUFeOlsMrCEE5kxN0IgfM4RWEynMmPxwwh1cQOpnT+MGOxTFNvIKqmovxbwFeQZyjCn//L62gg7UdTuPHvxt5BeHg5DR+hjd1n7ZHQ3DAHF5BTY9G8xuoqRK0WEdHpMP2+Hx5z3EK1AnCXKvazb8fJuoERZx1qq1NpIsggGSFUmGPqPKNpKOgCD6csShIj5oBfGZgd+gsJdJL0DxYWkG4bcE3yqfY8Rg5BsuHRfSfG41HEFwi/St/Mg84eSOTBw4Gey5rJUGYGbeSDIqyqV+RVUaAzXlA2fVZQbnTVO11WCP5q7pHm8cfJlm4btuC4AMOFEF7q8EpqzpECxcVvJKrkyEIi8IhJGp8cpKySK7GEZ5YxBDUejKoxMlnajXZQArzbNGCWssTZhPLdVGT5oZQYIDK3rCg1mmF2cTSbfLLsGAgCbtbC2qdViSNVxNICcoGSvDHvxbE75gkG6n/Q1ICT6UDNaYW5KxzEDZSz9P/Cs5Kq420u6BoI2zl6nn0aW2cAQSFqY3UNh2JByo/NxlSEGxk/qGGvnMaKAwrKHcrghqngUKrh5rMcWiSG5l7bsLXEi3Iv/z9MY9YLajJWHVwsKzm95ohqJmaCS0dv1nngSmlJOgfWThBf1ju0owZLn8KAAAAAElFTkSuQmCC" y="648.3203"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="116" x="110" y="709.3154">Firmware Vendor</text><rect fill="#899BDC" filter="url(#f10ms4bvpakc06)" height="78.2969" style="stroke: #A80036; stroke-width: 1.5;" width="62" x="367" y="3"/><image height="48" width="48" x="374" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAABpUlEQVR4Xu2XPUsDQRCG8/dtrKy0MIUIIghikUYLESQgaJNGkXAQRJAgiAgigr6wxzruO7tz2Sg5dOApwmbm9tmPm90brG3d9ooBN60WF7JwIYtKoc292eHxPMf+6IFTOlIjNDy4a2YfZS4nr5zYhRqhs4tnNmAwi5xrUiM0vnrh7hkXsnAhi38s1PG139hpONekRghD5+4TMIuc2IUaIbC+Pd09ug/cTN+DxMn5U2ipW6xApZBkcv0WhJY5wiIuZKELyS1iwnvIBPcF7jQrhAR+a36c3P1EEYoj/m3UJVaEYgLMsD9MquOxxNx7SahjqY19qCNmYqF3oQwLC8EjwH+poEbUxeMH/6sIrZYvodHpI45oBu3qULBAHAywEOpsoRhisTgejfIwboXwlLh1GOQkTy8XT+yqJB6KHCaJY26FZHlQSTooD6ChFwLTyTESjHApIfPSmAjh+5pjJC7kQil/Tmhc/PbjuoJqyWGSJL5ctxrxVdkKYUC5ScIth2+cqGO48nFwQD1lC5MqT9lWKHbD8KPLKRyzUPw3oT7gQhYuZNE7oU/XLtzLXsMq9gAAAABJRU5ErkJggg==" y="10"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="46" x="375" y="70.9951">FT Log</text><rect fill="#899BDC" filter="url(#f10ms4bvpakc06)" height="78.2969" style="stroke: #A80036; stroke-width: 1.5;" width="62" x="367" y="641.3203"/><image height="48" width="48" x="374" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAABpUlEQVR4Xu2XPUsDQRCG8/dtrKy0MIUIIghikUYLESQgaJNGkXAQRJAgiAgigr6wxzruO7tz2Sg5dOApwmbm9tmPm90brG3d9ooBN60WF7JwIYtKoc292eHxPMf+6IFTOlIjNDy4a2YfZS4nr5zYhRqhs4tnNmAwi5xrUiM0vnrh7hkXsnAhi38s1PG139hpONekRghD5+4TMIuc2IUaIbC+Pd09ug/cTN+DxMn5U2ipW6xApZBkcv0WhJY5wiIuZKELyS1iwnvIBPcF7jQrhAR+a36c3P1EEYoj/m3UJVaEYgLMsD9MquOxxNx7SahjqY19qCNmYqF3oQwLC8EjwH+poEbUxeMH/6sIrZYvodHpI45oBu3qULBAHAywEOpsoRhisTgejfIwboXwlLh1GOQkTy8XT+yqJB6KHCaJY26FZHlQSTooD6ChFwLTyTESjHApIfPSmAjh+5pjJC7kQil/Tmhc/PbjuoJqyWGSJL5ctxrxVdkKYUC5ScIth2+cqGO48nFwQD1lC5MqT9lWKHbD8KPLKRyzUPw3oT7gQhYuZNE7oU/XLtzLXsMq9gAAAABJRU5ErkJggg==" y="648.3203"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="46" x="375" y="709.3154">FT Log</text><rect fill="#E6DDEE" filter="url(#f10ms4bvpakc06)" height="78.2969" style="stroke: #A80036; stroke-width: 1.5;" width="107" x="563" y="3"/><image height="48" width="48" x="592.5" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAC40lEQVR4Xu2XMUsdQRDH/XDprVOnucbCKthaiQhCChsJBEwlaYQELAQrhYBWgoUQweZIlc+QH47OjTOze+s9fVoc/Hm8vZvd/e3M7OzeSv/n37vSSnz0tpqBxjQDjWlJQLdXf08OL7R5/fvONq2WAXSwc9x92EL8AQVtfNyjye/l6Y0zfgYQnVnWz2/n/J79umLR0SaKXkKTCiZn3woka3ICK1pGpX1FP/ZOnXETEE6OY6H9zaNo3NhX9OXzobNfCCgO54QLsbH2PCHo1mc0bSY1ATFKpEHba9+jsQr/lYzJPzeUMnkg5pa9IE3sGCiiqNZXd20esFxtuo68shO5xNIq8ATIegIshnbTl7T56asNhDjDATGgnYuV2Le6PwYg3OiMFhGLwbtEzXpCZmUim1hwW9YBqB6aCZK0KOWfqFiH6t2mSbOYgMa3IpdYA1C7e1hTe2TloIjPVbBOBILDnY6jXbp7IDJG04jpyS27V1ymD0B0q0yAS1w3kas0rosNBxCMr8cfr8jreLL2bttjkYajdFXow+4VxXW3yxfG9CCM3VSpkyoLGJUHiqOX4iXC+bFL3Dvt8kAxBHWgtJq/pIfSkKXZJ0prTOM9KdUAxCjp6F1WLUSV2yB57a6UdlW80vPb6QFIr70lsUvjBKk7VcRauhBByQTNLVm5LQQeqOQbNwF7iqSBvsW+u49dxYtd5vsHoDQ3F5TuhrhRVLFiDTlU6TZNclOr32rirXwAItKxw2RJLKCxlVPOMpevxNRm0pNtb01ZVj1nnWxWSTq7iW26xMTSTefrELuJ4TS06cngpB+gUji0+QJ36lSw2xunFeiVorzonbqi0iWr/l0GKw7TifmjcbHRxFW2IL0ikMidvhaxyw7KJqD4XSeKVSRVZXPEe0ETUP/4UYxvWSLifyNNybsi/RBQtQJNFkAaI1zFStzXvrN/daD+sTyCpQc+3gUuxqtfDtCzNAONaQYa0ww0pv/B0r0a+5z+GgAAAABJRU5ErkJggg==" y="10"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="93" x="570" y="70.9951">Update Client</text><rect fill="#E6DDEE" filter="url(#f10ms4bvpakc06)" height="78.2969" style="stroke: #A80036; stroke-width: 1.5;" width="107" x="563" y="641.3203"/><image height="48" width="48" x="592.5" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAAC40lEQVR4Xu2XMUsdQRDH/XDprVOnucbCKthaiQhCChsJBEwlaYQELAQrhYBWgoUQweZIlc+QH47OjTOze+s9fVoc/Hm8vZvd/e3M7OzeSv/n37vSSnz0tpqBxjQDjWlJQLdXf08OL7R5/fvONq2WAXSwc9x92EL8AQVtfNyjye/l6Y0zfgYQnVnWz2/n/J79umLR0SaKXkKTCiZn3woka3ICK1pGpX1FP/ZOnXETEE6OY6H9zaNo3NhX9OXzobNfCCgO54QLsbH2PCHo1mc0bSY1ATFKpEHba9+jsQr/lYzJPzeUMnkg5pa9IE3sGCiiqNZXd20esFxtuo68shO5xNIq8ATIegIshnbTl7T56asNhDjDATGgnYuV2Le6PwYg3OiMFhGLwbtEzXpCZmUim1hwW9YBqB6aCZK0KOWfqFiH6t2mSbOYgMa3IpdYA1C7e1hTe2TloIjPVbBOBILDnY6jXbp7IDJG04jpyS27V1ymD0B0q0yAS1w3kas0rosNBxCMr8cfr8jreLL2bttjkYajdFXow+4VxXW3yxfG9CCM3VSpkyoLGJUHiqOX4iXC+bFL3Dvt8kAxBHWgtJq/pIfSkKXZJ0prTOM9KdUAxCjp6F1WLUSV2yB57a6UdlW80vPb6QFIr70lsUvjBKk7VcRauhBByQTNLVm5LQQeqOQbNwF7iqSBvsW+u49dxYtd5vsHoDQ3F5TuhrhRVLFiDTlU6TZNclOr32rirXwAItKxw2RJLKCxlVPOMpevxNRm0pNtb01ZVj1nnWxWSTq7iW26xMTSTefrELuJ4TS06cngpB+gUji0+QJ36lSw2xunFeiVorzonbqi0iWr/l0GKw7TifmjcbHRxFW2IL0ikMidvhaxyw7KJqD4XSeKVSRVZXPEe0ETUP/4UYxvWSLifyNNybsi/RBQtQJNFkAaI1zFStzXvrN/daD+sTyCpQc+3gUuxqtfDtCzNAONaQYa0ww0pv/B0r0a+5z+GgAAAABJRU5ErkJggg==" y="648.3203"/><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="93" x="570" y="709.3154">Update Client</text><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="27.9688" style="stroke: #A80036; stroke-width: 1.0;" width="10" x="395" y="157.2344"/><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="27.9688" style="stroke: #A80036; stroke-width: 1.0;" width="10" x="395" y="342.2109"/><rect fill="#FFFFFF" filter="url(#f10ms4bvpakc06)" height="27.9688" style="stroke: #A80036; stroke-width: 1.0;" width="10" x="395" y="422.2813"/><line style="stroke: #000000; stroke-width: 2.5;" x1="170" x2="212" y1="116.2656" y2="116.2656"/><line style="stroke: #000000; stroke-width: 2.5;" x1="212" x2="212" y1="116.2656" y2="129.2656"/><line style="stroke: #000000; stroke-width: 2.5;" x1="171" x2="212" y1="129.2656" y2="129.2656"/><polygon fill="#000000" points="181,125.2656,171,129.2656,181,133.2656,177,129.2656" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="101" x="177" y="111.4355">Build new image</text><polygon fill="#000000" points="383,153.2344,393,157.2344,383,161.2344,387,157.2344" style="stroke: #000000; stroke-width: 1.0;"/><line style="stroke: #000000; stroke-width: 2.5;" x1="170" x2="389" y1="157.2344" y2="157.2344"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="102" x="177" y="152.4043">Publish firmware</text><polygon fill="#000000" points="181,181.2031,171,185.2031,181,189.2031,177,185.2031" style="stroke: #000000; stroke-width: 1.0;"/><line style="stroke: #000000; stroke-width: 2.5; stroke-dasharray: 2.0,2.0;" x1="175" x2="399" y1="185.2031" y2="185.2031"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="15" x="187" y="180.373">ok</text><path d="M13,225.2031 L83,225.2031 L83,232.2031 L73,242.2031 L13,242.2031 L13,225.2031 " fill="#EEEEEE" style="stroke: #000000; stroke-width: 1.0;"/><rect fill="none" height="247.0469" style="stroke: #000000; stroke-width: 2.0;" width="510" x="13" y="225.2031"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="25" x="28" y="238.27">par</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="69" x="98" y="237.4136">[Integrate]</text><path d="M528,230.2031 L528,330.2031 L909,330.2031 L909,240.2031 L899,230.2031 L528,230.2031 " fill="#FBFB77" filter="url(#f10ms4bvpakc06)" style="stroke: #A80036; stroke-width: 1.0;"/><path d="M899,230.2031 L899,240.2031 L909,240.2031 L899,230.2031 " fill="#FBFB77" style="stroke: #A80036; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="351" x="543" y="247.27">Firmware Vendor creates update package consisting of</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="12" x="679.5" y="262.4028">1.</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="62" x="695.5" y="262.4028">FW image</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="12" x="688.5" y="277.5356">2.</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="44" x="704.5" y="277.5356">Bundle</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="12" x="644" y="292.6685">1.</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="149" x="660" y="292.6685">FW statement/manifest</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="12" x="669.5" y="307.8013">2.</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="98" x="685.5" y="307.8013">Log Checkpoint</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="12" x="672.5" y="322.9341">3.</text><text fill="#000000" font-family="sans-serif" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="92" x="688.5" y="322.9341">Inclusion proof</text><line style="stroke: #000000; stroke-width: 2.5;" x1="400" x2="442" y1="262.3047" y2="262.3047"/><line style="stroke: #000000; stroke-width: 2.5;" x1="442" x2="442" y1="262.3047" y2="275.3047"/><line style="stroke: #000000; stroke-width: 2.5;" x1="401" x2="442" y1="275.3047" y2="275.3047"/><polygon fill="#000000" points="411,271.3047,401,275.3047,411,279.3047,407,275.3047" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="91" x="407" y="257.4746">Log integrates</text><line style="stroke: #000000; stroke-width: 1.0; stroke-dasharray: 2.0,2.0;" x1="13" x2="523" y1="284.3047" y2="284.3047"/><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="177" x="18" y="294.5151">[Vendor awaits integration]</text><path d="M23,305.1094 L100,305.1094 L100,312.1094 L90,322.1094 L23,322.1094 L23,305.1094 " fill="#EEEEEE" style="stroke: #000000; stroke-width: 1.0;"/><rect fill="none" height="160.1406" style="stroke: #000000; stroke-width: 2.0;" width="490" x="23" y="305.1094"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="32" x="38" y="318.1763">loop</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="108" x="115" y="317.3198">[Await Inclusion]</text><polygon fill="#000000" points="383,338.2109,393,342.2109,383,346.2109,387,342.2109" style="stroke: #000000; stroke-width: 1.0;"/><line style="stroke: #000000; stroke-width: 2.5;" x1="170" x2="389" y1="342.2109" y2="342.2109"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="92" x="177" y="337.3809">GetCheckpoint</text><polygon fill="#000000" points="181,366.1797,171,370.1797,181,374.1797,177,370.1797" style="stroke: #000000; stroke-width: 1.0;"/><line style="stroke: #000000; stroke-width: 2.5; stroke-dasharray: 2.0,2.0;" x1="175" x2="399" y1="370.1797" y2="370.1797"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="69" x="187" y="365.3496">checkpoint</text><path d="M33,385.1797 L103,385.1797 L103,392.1797 L93,402.1797 L33,402.1797 L33,385.1797 " fill="#EEEEEE" style="stroke: #000000; stroke-width: 1.0;"/><rect fill="none" height="73.0703" style="stroke: #000000; stroke-width: 2.0;" width="470" x="33" y="385.1797"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="25" x="48" y="398.2466">opt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="104" x="118" y="397.3901">[Log has grown]</text><polygon fill="#000000" points="383,418.2813,393,422.2813,383,426.2813,387,422.2813" style="stroke: #000000; stroke-width: 1.0;"/><line style="stroke: #000000; stroke-width: 2.5;" x1="170" x2="389" y1="422.2813" y2="422.2813"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="77" x="177" y="417.4512">GetInclusion</text><polygon fill="#000000" points="181,446.25,171,450.25,181,454.25,177,450.25" style="stroke: #000000; stroke-width: 1.0;"/><line style="stroke: #000000; stroke-width: 2.5; stroke-dasharray: 2.0,2.0;" x1="175" x2="399" y1="450.25" y2="450.25"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="92" x="187" y="445.4199">inclusion proof</text><line style="stroke: #000000; stroke-width: 2.5;" x1="170" x2="212" y1="524.2188" y2="524.2188"/><line style="stroke: #000000; stroke-width: 2.5;" x1="212" x2="212" y1="524.2188" y2="537.2188"/><line style="stroke: #000000; stroke-width: 2.5;" x1="171" x2="212" y1="537.2188" y2="537.2188"/><polygon fill="#000000" points="181,533.2188,171,537.2188,181,541.2188,177,537.2188" style="stroke: #000000; stroke-width: 1.0;"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="149" x="177" y="519.3887">Create update package</text><path d="M33,580.2188 L103,580.2188 L103,587.2188 L93,597.2188 L33,597.2188 L33,580.2188 " fill="#EEEEEE" style="stroke: #000000; stroke-width: 1.0;"/><rect fill="none" height="45.1016" style="stroke: #000000; stroke-width: 2.0;" width="711" x="33" y="580.2188"/><text fill="#000000" font-family="sans-serif" font-size="13" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="25" x="48" y="593.2856">opt</text><text fill="#000000" font-family="sans-serif" font-size="11" font-weight="bold" lengthAdjust="spacingAndGlyphs" textLength="95" x="118" y="592.4292">[Notify clients]</text><ellipse cx="618" cy="616.5703" fill="none" rx="4" ry="4" style="stroke: #000000; stroke-width: 1.5;"/><polygon fill="#000000" points="601,613.3203,611,617.3203,601,621.3203,605,617.3203" style="stroke: #000000; stroke-width: 1.0;"/><line style="stroke: #000000; stroke-width: 2.5; stroke-dasharray: 2.0,2.0;" x1="170" x2="607" y1="617.3203" y2="617.3203"/><text fill="#000000" font-family="sans-serif" font-size="12" lengthAdjust="spacingAndGlyphs" textLength="134" x="177" y="612.4902">New update available</text><!--MD5=[9faa6143cf5aa188a5164c580ab01761]
+@startuml fw_publish
+
+
+
+hide stereotype
+sprite $cogs [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000015000250000000
+0000000000000000000000000000000008FF822DFD300000
+000000000000003565410000000000003FFFFFFFFFD00000
+0000000000000DFFFFFF4000000000000DFFFFFFFF700000
+0000000000002FFFFFFF9000000000002FFFFFFFFFA00000
+0000000000002FFFFFFFA00000000004AFFFA46DFFF63000
+0000000000004FFFFFFFB0000000009FFFFB0001FFFFF300
+00000482003BFFFFFFFFFE70006700BFFFF60000DFFFF500
+00004FFF87FFFFFFFFFFFFFC6DFFB0BFFFF80000EFFFF400
+0001EFFFFFFFFFFFFFFFFFFFFFFFF739DFFF401AFFFB8000
+000BFFFFFFFFFFFFFFFFFFFFFFFFFF304FFFFFFFFFD00000
+004FFFFFFFFFFFFFFFFFFFFFFFFFFFB00CFFFFFFFF600000
+00BFFFFFFFFFFFFFDEFFFFFFFFFFFFF22FFFFFFFFFC00000
+00BFFFFFFFFFFD50002BFFFFFFFFFFF21DFFC77FFF800000
+001BFFFFFFFFE00000009FFFFFFFFE60007B1006A3000000
+00003EFFFFFF500000000EFFFFFF80000000000000000000
+00000DFFFFFF0000000009FFFFFF50000000000000000000
+00000FFFFFFE0000000006FFFFFF60000000000000000000
+00000EFFFFFE0000000007FFFFFF50000000000000000000
+00000DFFFFFF300000000CFFFFFF40000000000000000000
+0004CFFFFFFFC00000003FFFFFFFF8100003000120000000
+008FFFFFFFFFFA100003DFFFFFFFFFE105EF600CFB100000
+00CFFFFFFFFFFFE978CFFFFFFFFFFFF43FFFFFFFFFC00000
+007FFFFFFFFFFFFFFFFFFFFFFFFFFFE00EFFFFFFFF800000
+000EFFFFFFFFFFFFFFFFFFFFFFFFFF701EFFFFFFFF900000
+0005FFFFFFFFFFFFFFFFFFFFFFFFFC019FFFC78FFFF31000
+00008FFFEDFFFFFFFFFFFFFFCFFFE18FFFFC0003FFFFF200
+00000AE8009FFFFFFFFFFFD304CD30BFFFF60000DFFFF500
+000000000002AFFFFFFFE500000000BFFFF80000EFFFF400
+0000000000002FFFFFFFA0000000005CEFFE2008FFFDB100
+0000000000002FFFFFFFA000000000006FFFFCEFFFE00000
+0000000000001FFFFFFF8000000000000DFFFFFFFF600000
+00000000000004ABCCA80000000000002FFFFFFFFFB00000
+000000000000000000000000000000002EFFDAAFFFA00000
+00000000000000000000000000000000019E3008D6000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+
+skinparam folderBackgroundColor<<FA5 COGS>> White
+sprite $eye [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+00000000000000000369CDEFFEDB84100000000000000000
+0000000000000038EFFFFFFFFFFFFFFB6000000000000000
+0000000000003BFFFFFFFFFFFFFFFFFFFF81000000000000
+00000000002BFFFFFFFFFDB9ACFFFFFFFFFF700000000000
+0000000007FFFFFFFFF820000005CFFFFFFFFC2000000000
+00000000BFFFFFFFFC100000000006FFFFFFFFF400000000
+0000001CFFFFFFFFA0003ADFFC71003EFFFFFFFF60000000
+000001DFFFFFFFFC000004EFFFFF5004FFFFFFFFF6000000
+00000CFFFFFFFFF10000003FFFFFF7008FFFFFFFFF500000
+0000AFFFFFFFFF800000000DFFFFFF301FFFFFFFFFF30000
+0005FFFFFFFFFF203000000CFFFFFFC00AFFFFFFFFFD0000
+001EFFFFFFFFFD00A400001FFFFFFFF205FFFFFFFFFF8000
+009FFFFFFFFFFB00ED2001CFFFFFFFF602FFFFFFFFFFF100
+00CFFFFFFFFFF900FFFCCFFFFFFFFFF801FFFFFFFFFFF500
+00BFFFFFFFFFFA00FFFFFFFFFFFFFFF701FFFFFFFFFFF400
+005FFFFFFFFFFB00DFFFFFFFFFFFFFF503FFFFFFFFFFE000
+000BFFFFFFFFFF008FFFFFFFFFFFFFF107FFFFFFFFFF4000
+0001FFFFFFFFFF401FFFFFFFFFFFFF900CFFFFFFFFF90000
+00005FFFFFFFFFC006FFFFFFFFFFFD104FFFFFFFFFC00000
+000006FFFFFFFFF5008FFFFFFFFFD200CFFFFFFFFD100000
+0000008FFFFFFFFF2004DFFFFFF91009FFFFFFFFE2000000
+00000006FFFFFFFFE30003788510009FFFFFFFFC10000000
+000000004EFFFFFFFF80000000003CFFFFFFFFA000000000
+0000000001AFFFFFFFFE9420137CFFFFFFFFE50000000000
+000000000004DFFFFFFFFFFFFFFFFFFFFFF9100000000000
+00000000000005CFFFFFFFFFFFFFFFFFE810000000000000
+00000000000000017CFFFFFFFFFFFEA40000000000000000
+000000000000000000025689876410000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+
+skinparam folderBackgroundColor<<FA5 EYE>> White
+sprite $file [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000006CDDDDDDDDDDDDDDDD700AA10000000000000000
+00000003FFFFFFFFFFFFFFFFFF800CFD1000000000000000
+00000006FFFFFFFFFFFFFFFFFF800CFFD100000000000000
+00000006FFFFFFFFFFFFFFFFFF800CFFFD10000000000000
+00000006FFFFFFFFFFFFFFFFFF800CFFFFD1000000000000
+00000006FFFFFFFFFFFFFFFFFF800CFFFFFD100000000000
+00000006FFFFFFFFFFFFFFFFFF800CFFFFFFD10000000000
+00000006FFFFFFFFFFFFFFFFFF800CFFFFFFFD1000000000
+00000006FFFFFFFFFFFFFFFFFF800CFFFFFFFFD100000000
+00000006FFFFFFFFFFFFFFFFFF800CFFFFFFFFFB00000000
+00000006FFFFFFFFFFFFFFFFFF800BEEEEEEEEEE00000000
+00000006FFFFFFFFFFFFFFFFFF8000000000000000000000
+00000006FFFFFFFFFFFFFFFFFFC000000000000000000000
+00000006FFFFFFFFFFFFFFFFFFFB55555555555500000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000005FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF00000000
+00000001EFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF900000000
+000000000455555555555555555555555555553000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+
+skinparam folderBackgroundColor<<FA5 FILE>> White
+sprite $gavel [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+00000000000000000000000002BC40000000000000000000
+0000000000000000000000002EFFF5000000000000000000
+000000000000000000000002EFFFFF400000000000000000
+00000000000000000000002EFFFFFFE00000000000000000
+0000000000000000000002EFFFFFFFF00000000000000000
+000000000000000000002EFFFFFFFF600000000000000000
+00000000000000000002EFFFFFFFFF700000000000000000
+0000000000000000002EFFFFFFFFFFF70000000000000000
+000000000000000002EFFFFFFFFFFFFF7000000000000000
+00000000000000002EFFFFFFFFFFFFFFF700000000000000
+0000000000000002EFFFFFFFFFFFFFFFFF70000000000000
+000000000000001EFFFFFFFFFFFFFFFFFFF7000000000000
+000000000000005FFFFFFFFFFFFFFFFFFFFF700000000000
+000000000000003FFFFFFFFFFFFFFFFFFFFFF70000000000
+0000000000000007FFFFFFFFFFFFFFFFFFFFFF7037200000
+00000000000000007FFFCFFFFFFFFFFFFFFFFFFBFFF40000
+0000000000000000049409FFFFFFFFFFFFFFFFFFFFFF4000
+00000000000000000000009FFFFFFFFFFFFFFFFFFFFFF100
+00000000000000000000000AFFFFFFFFFFFFFFFFFFFFF400
+00000000000000000000000CFFFFFFFFFFFFFFFFFFFFE100
+0000000000000000000000CFFFFFFFFFFFFFFFFFFFFE3000
+000000000000000000000CFFFFFFFFFFFFFFFFFFFFE20000
+00000000000000000000CFFFFC19FFFFFFFFFFFFFE300000
+0000000000000000000CFFFFC1009FFFFFFFFFFFE3000000
+000000000000048400CFFFFC100009FFFFFFFFFE20000000
+0000000000009FFFACFFFFC1000006FFFFFFFFE200000000
+000000000009FFFFFFFFFC1000000FFFFFFFFE2000000000
+00000000009FFFFFFFFFC10000000FFFFFFFE20000000000
+0000000009FFFFFFFFFF1000000006FFFFFE200000000000
+000000009FFFFFFFFFFF80000000007FFFE2000000000000
+00000009FFFFFFFFFFFFF00000000006DC20000000000000
+0000009FFFFFFFFFFFFFF000000000000000000000000000
+000009FFFFFFFFFFFFFF8000000000000000000000000000
+00009FFFFFFFFFFFFFFA0000000000000000000000000000
+0009FFFFFFFFFFFFFFA00000000000000000000000000000
+006FFFFFFFFFFFFFFA000000000000000000000000000000
+00CFFFFFFFFFFFFFA0000000000000000000000000000000
+00BFFFFFFFFFFFFA00000000000000000000000000000000
+003FFFFFFFFFFFA000000000000000000000000000000000
+0004FFFFFFFFFA0000000000000000000000000000000000
+00004FFFFFFFA00000000000000000000000000000000000
+000004FFFFFA000000000000000000000000000000000000
+0000004FFF90000000000000000000000000000000000000
+000000014200000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+
+skinparam folderBackgroundColor<<FA5 GAVEL>> White
+sprite $mobile_alt [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+0000000000005BDDDDDDDDDDDDDDDDDDDDA2000000000000
+000000000009FFFFFFFFFFFFFFFFFFFFFFFF400000000000
+00000000003FFFFFFFFFFFFFFFFFFFFFFFFFE00000000000
+00000000009FFFFFFFFFFFFFFFFFFFFFFFFFF40000000000
+0000000000AFFFB333333333333333334EFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFF6000000000000000000BFFF50000000000
+0000000000AFFFD777777777777777778FFFF50000000000
+0000000000AFFFFFFFFFFFFFFFFFFFFFFFFFF50000000000
+0000000000AFFFFFFFFFFFFFFFFFFFFFFFFFF50000000000
+0000000000AFFFFFFFFFFFA56DFFFFFFFFFFF50000000000
+0000000000AFFFFFFFFFFA0000EFFFFFFFFFF50000000000
+0000000000AFFFFFFFFFF300008FFFFFFFFFF50000000000
+0000000000AFFFFFFFFFF400009FFFFFFFFFF50000000000
+0000000000AFFFFFFFFFFB0001EFFFFFFFFFF50000000000
+00000000007FFFFFFFFFFFC67EFFFFFFFFFFF20000000000
+00000000001EFFFFFFFFFFFFFFFFFFFFFFFFA00000000000
+000000000002DFFFFFFFFFFFFFFFFFFFFFFA000000000000
+000000000000035555555555555555555520000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+
+skinparam folderBackgroundColor<<FA5 MOBILE_ALT>> White
+sprite $server [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000012222222222222222222222222222222222222200000
+000BFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5000
+009FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF100
+00CFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFE64BFF948FFFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFF6000EC0009FFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFF3000DA0006FFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFA004FF200CFFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFFECFFFFCEFFFFF500
+00BFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF300
+004FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC000
+00039AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA70000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+00039AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA70000
+004FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC000
+00BFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF300
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFFECFFFFCEFFFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFA004FF201DFFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFF3000DA0006FFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFF6000EC0009FFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFE64BFF947FFFFF500
+00CFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF500
+009FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF100
+001BFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5000
+000012222222222222222222222222222222222222200000
+000000000000000000000000000000000000000000000000
+000012222222222222222222222222222222222222200000
+000BFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5000
+009FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF100
+00CFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFE64BFF948FFFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFF6000EC0009FFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFF3000DA0006FFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFA004FF200CFFFF500
+00DFFFFFFFFFFFFFFFFFFFFFFFFFFFFFECFFFFCEFFFFF500
+00BFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF300
+004FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC000
+00039AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA70000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+
+skinparam folderBackgroundColor<<FA5 SERVER>> White
+sprite $sitemap [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000377777777760000000000000000000
+000000000000000004FFFFFFFFFFFC000000000000000000
+00000000000000000AFFFFFFFFFFFF300000000000000000
+00000000000000000BFFFFFFFFFFFF300000000000000000
+00000000000000000BFFFFFFFFFFFF300000000000000000
+00000000000000000BFFFFFFFFFFFF300000000000000000
+00000000000000000BFFFFFFFFFFFF300000000000000000
+00000000000000000BFFFFFFFFFFFF300000000000000000
+00000000000000000BFFFFFFFFFFFF300000000000000000
+00000000000000000AFFFFFFFFFFFF200000000000000000
+000000000000000003FFFFFFFFFFFB000000000000000000
+0000000000000000001555EFF95530000000000000000000
+0000000000000000000000DFF60000000000000000000000
+0000000000000000000000DFF60000000000000000000000
+0000000000000000000000DFF60000000000000000000000
+0000000155555555555555EFF95555555555555400000000
+0000005FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC0000000
+000000EFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6000000
+000000FFFEDDDDDDDDDDDDFFFEDDDDDDDDDDDDFFF9000000
+000000FFF2000000000000DFF6000000000000AFF9000000
+000000FFF2000000000000DFF6000000000000AFF9000000
+000000FFF2000000000000DFF6000000000000AFF9000000
+000000222000000000000012200000000000001221000000
+000000000000000000000000000000000000000000000000
+0008BBBBBBB810000006BBBBBBB920000004ABBBBBBA3000
+009FFFFFFFFFA000005FFFFFFFFFD000002FFFFFFFFFF100
+00DFFFFFFFFFF000009FFFFFFFFFF200006FFFFFFFFFF500
+00DFFFFFFFFFF00000AFFFFFFFFFF200007FFFFFFFFFF500
+00DFFFFFFFFFF00000AFFFFFFFFFF200007FFFFFFFFFF500
+00DFFFFFFFFFF00000AFFFFFFFFFF200007FFFFFFFFFF500
+00DFFFFFFFFFF00000AFFFFFFFFFF200007FFFFFFFFFF500
+00DFFFFFFFFFF00000AFFFFFFFFFF200007FFFFFFFFFF500
+00DFFFFFFFFFF00000AFFFFFFFFFF200007FFFFFFFFFF500
+00BFFFFFFFFFD000008FFFFFFFFFF000005FFFFFFFFFF300
+002DFFFFFFFE4000001CFFFFFFFF6000000AFFFFFFFF9000
+000011111110000000000111111000000000011111100000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+
+skinparam folderBackgroundColor<<FA5 SITEMAP>> White
+sprite $user_tie [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+0000000000000000000049BCCA7200000000000000000000
+0000000000000000006EFFFFFFFFB3000000000000000000
+00000000000000001CFFFFFFFFFFFF700000000000000000
+0000000000000001EFFFFFFFFFFFFFF80000000000000000
+000000000000000CFFFFFFFFFFFFFFFF6000000000000000
+000000000000007FFFFFFFFFFFFFFFFFF100000000000000
+00000000000001FFFFFFFFFFFFFFFFFFF900000000000000
+00000000000006FFFFFFFFFFFFFFFFFFFF00000000000000
+0000000000000BFFFFFFFFFFFFFFFFFFFF40000000000000
+0000000000000EFFFFFFFFFFFFFFFFFFFF70000000000000
+0000000000000FFFFFFFFFFFFFFFFFFFFF80000000000000
+0000000000000FFFFFFFFFFFFFFFFFFFFF80000000000000
+0000000000000DFFFFFFFFFFFFFFFFFFFF60000000000000
+0000000000000AFFFFFFFFFFFFFFFFFFFF40000000000000
+00000000000006FFFFFFFFFFFFFFFFFFFE00000000000000
+00000000000000EFFFFFFFFFFFFFFFFFF800000000000000
+000000000000007FFFFFFFFFFFFFFFFFF100000000000000
+000000000000000BFFFFFFFFFFFFFFFF5000000000000000
+0000000000000001DFFFFFFFFFFFFFF70000000000000000
+00000000000000000BFFFFFFFFFFFF500000000000000000
+0000000000000000005DFFFFFFFFA1000000000000000000
+0000000000000000000037ABB96100000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000025500008888888500016400000000000000
+000000000007DFFF0000AFFFFFF30006FFFA300000000000
+0000000004DFFFFF30002FFFFFA00009FFFFFA1000000000
+000000006FFFFFFF700008FFFF20000EFFFFFFD200000000
+00000005FFFFFFFFB00000EFF800001FFFFFFFFE10000000
+0000003FFFFFFFFFF00000AFF300006FFFFFFFFFB0000000
+000000BFFFFFFFFFF30000DFF700009FFFFFFFFFF5000000
+000003FFFFFFFFFFF70001FFFB0000DFFFFFFFFFFD000000
+000009FFFFFFFFFFFB0005FFFE0001FFFFFFFFFFFF200000
+00000DFFFFFFFFFFFF0009FFFF2006FFFFFFFFFFFF600000
+00000FFFFFFFFFFFFF300CFFFF6009FFFFFFFFFFFF800000
+00001FFFFFFFFFFFFF700FFFFF900DFFFFFFFFFFFFA00000
+00001FFFFFFFFFFFFFB04FFFFFD01FFFFFFFFFFFFFB00000
+00001FFFFFFFFFFFFFF08FFFFFF16FFFFFFFFFFFFFB00000
+00001FFFFFFFFFFFFFF3CFFFFFF59FFFFFFFFFFFFFB00000
+00001FFFFFFFFFFFFFF7FFFFFFF9DFFFFFFFFFFFFFA00000
+00000EFFFFFFFFFFFFFEFFFFFFFEFFFFFFFFFFFFFF700000
+000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE100000
+0000008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD3000000
+000000014555555555555555555555555555555300000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+
+skinparam folderBackgroundColor<<FA5 USER_TIE>> White
+
+
+
+skinparam defaultTextAlignment center
+skinparam wrapWidth 400
+skinparam maxMessageSize 150
+skinparam StereotypeAlignment right
+
+skinparam Arrow {
+    Color #000000
+    FontColor #000000
+    FontSize 12
+}
+skinparam Folder<<grouping>> {
+    Shadowing true
+    StereotypeFontSize 0
+    FontColor #444444
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam Folder<<group>> {
+    Shadowing true
+    StereotypeFontSize 0
+    FontColor #444444
+    BackgroundColor lightgrey
+}
+skinparam rectangle<<boundary>> {
+    Shadowing false
+    StereotypeFontSize 0
+    FontColor #444444
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam node {
+  StereotypeAlignment right
+}
+skinparam cloud {
+  StereotypeAlignment right
+}
+skinparam frame {
+  StereotypeAlignment right
+}
+skinparam archimate {
+  StereotypeAlignment right
+  RoundCorner<<strategy-capability>> 25
+  RoundCorner<<strategy-course-of-action>> 25
+  RoundCorner<<strategy-value-stream>> 25
+  RoundCorner<<business-process>> 25
+  RoundCorner<<business-event>> 25
+  RoundCorner<<business-function>> 25
+  RoundCorner<<business-interaction>> 25
+  RoundCorner<<business-event>> 25
+  RoundCorner<<business-service>> 25
+  RoundCorner<<application-function>> 25
+  RoundCorner<<application-interaction>> 25
+  RoundCorner<<application-process>> 25
+  RoundCorner<<application-event>> 25
+  RoundCorner<<application-service>> 25
+  RoundCorner<<technology-function>> 25
+  RoundCorner<<technology-process>> 25
+  RoundCorner<<technology-interaction>> 25
+  RoundCorner<<technology-event>> 25
+  RoundCorner<<technology-infra-service>> 25
+  RoundCorner<<implementation-workpackage>> 25
+  RoundCorner<<implementation-event>> 25
+  DiagonalCorner<<motivation-stakeholder>> 12
+  DiagonalCorner<<motivation-driver>> 12
+  DiagonalCorner<<motivation-assessment>> 12
+  DiagonalCorner<<motivation-goal>> 12
+  DiagonalCorner<<motivation-outcome>> 12
+  DiagonalCorner<<motivation-principle>> 12
+  DiagonalCorner<<motivation-requirement>> 12
+  DiagonalCorner<<motivation-constraint>> 12
+}
+skinparam usecase {
+  BorderColor #000000
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+skinparam ParticipantPadding 60
+skinparam componentArrowThickness 2.5
+
+participant  "<color:#5B254A><$user_tie>\nFirmware Vendor" as vendor #E9C9DF
+participant  "<color:#E0E3FF><$sitemap>\nFT Log" as log #899BDC
+participant  "<color:#684488><$cogs>\nUpdate Client" as update #E6DDEE
+
+note right
+Create and log new firmware
+end note
+
+vendor -> vendor: Build new image
+vendor -> log ++: Publish firmware
+return ok
+
+|||
+
+par Integrate
+    log -> log: Log integrates
+else Vendor awaits integration
+    loop Await Inclusion
+        vendor -> log ++: GetCheckpoint
+        return checkpoint
+        opt #DDFFDD Log has grown
+            vendor -> log ++: GetInclusion
+            return inclusion proof
+        end
+    end
+end
+note right
+    Firmware Vendor creates update package consisting of
+    # FW image
+    # Bundle
+    ## FW statement/manifest
+    ## Log Checkpoint
+    ## Inclusion proof
+endnote
+
+|||
+
+vendor -> vendor: Create update package
+
+...
+
+opt Notify clients
+    vendor - ->o update: New update available
+end
+
+@enduml
+
+PlantUML version 1.2020.02(Sun Mar 01 10:22:07 GMT 2020)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Java Version: 11.0.9+11-post-Debian-1deb10u1
+Operating System: Linux
+Default Encoding: UTF-8
+Language: en
+Country: US
+--></g></svg>

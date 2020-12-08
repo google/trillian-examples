@@ -1,0 +1,34 @@
+@startuml fw_bootloader
+!include ./puml/style.puml
+
+PARTICIPANT_DEVICE_BOOTLOADER(bootloader, "Device Bootloader")
+PARTICIPANT_DEVICE_FLASH(flash, "Device Flash")
+
+note right
+    Cold boot
+endnote
+activate bootloader
+bootloader -> flash ++ : Read ProofBundle
+return ProofBundle
+bootloader -> bootloader: Verify ProofBundle
+alt #FAIL ProofBundle invalid
+    bootloader -->> bootloader: HaltAndReportError
+else #FAIL Signature mismatch
+    bootloader -->> bootloader: HaltAndReportError
+else #FAIL Inclusion invalid
+    bootloader -->> bootloader: HaltAndReportError
+else #SUCCESS Bundle valid
+end
+
+bootloader -> flash ++ : Measure firmware
+return Firmware Measurement
+
+bootloader -> bootloader: Verify measurement
+alt #FAIL Measurement incorrect
+    bootloader -->> bootloader: HaltAndReportError
+else #SUCCESS Measurement valid
+end
+
+bootloader -> bootloader: Chain to firmware
+
+@enduml

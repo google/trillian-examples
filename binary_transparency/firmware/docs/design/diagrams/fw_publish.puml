@@ -1,0 +1,49 @@
+@startuml fw_publish
+!include ./puml/style.puml
+
+PARTICIPANT_VENDOR(vendor, "Firmware Vendor")
+PARTICIPANT_LOG(log, "FT Log")
+PARTICIPANT_DEVICE_UPDATE(update, "Update Client")
+
+note right
+Create and log new firmware
+end note
+
+vendor -> vendor: Build new image
+vendor -> log ++: Publish firmware
+return ok
+
+|||
+
+par Integrate
+    log -> log: Log integrates
+else Vendor awaits integration
+    loop Await Inclusion
+        vendor -> log ++: GetCheckpoint
+        return checkpoint
+        opt #SUCCESS Log has grown
+            vendor -> log ++: GetInclusion
+            return inclusion proof
+        end
+    end
+end
+note right
+    Firmware Vendor creates update package consisting of
+    # FW image
+    # Bundle
+    ## FW statement/manifest
+    ## Log Checkpoint
+    ## Inclusion proof
+endnote
+
+|||
+
+vendor -> vendor: Create update package
+
+...
+
+opt Notify clients
+    vendor -->o update: New update available
+end
+
+@enduml

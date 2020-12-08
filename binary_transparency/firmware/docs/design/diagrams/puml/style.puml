@@ -6,6 +6,7 @@
 !include <tupadr3/font-awesome-5/cogs>
 !include <tupadr3/font-awesome-5/eye>
 !include <tupadr3/font-awesome-5/file>
+!include <tupadr3/font-awesome-5/gavel>
 !include <tupadr3/font-awesome-5/mobile_alt>
 !include <tupadr3/font-awesome-5/server>
 !include <tupadr3/font-awesome-5/sitemap>
@@ -31,4 +32,22 @@
 !define OBS_COLOUR_1 E29DBB
 !define OBS_COLOUR_2 F3D8E4
 
+!define ARBITER_COLOUR_0 6E1111
+!define ARBITER_COLOUR_1 E76565
+!define ARBITER_COLOUR_2 F1A7A7
+
+!define FAIL FFDDDD
+!define SUCCESS DDFFDD
+!define WARNING FFDD80
+
+
+!define PARTICIPANT_DEVICE_BOOTLOADER(_alias, _desc) participant  "<color:#DEVICE_COLOUR_0><$mobile_alt>\n_desc" as _alias #DEVICE_COLOUR_2
+!define PARTICIPANT_DEVICE_FLASH(_alias, _desc) participant  "<color:#DEVICE_COLOUR_0><$file>\n_desc" as _alias #DEVICE_COLOUR_2
+!define PARTICIPANT_DEVICE_UPDATE(_alias, _desc) participant  "<color:#DEVICE_COLOUR_0><$cogs>\n_desc" as _alias #DEVICE_COLOUR_2
+!define PARTICIPANT_VENDOR(_alias, _desc) participant  "<color:#VENDOR_COLOUR_0><$user_tie>\n_desc" as _alias #VENDOR_COLOUR_2
+!define PARTICIPANT_LOG(_alias, _desc) participant  "<color:#LOG_COLOUR_0><$sitemap>\n_desc" as _alias #LOG_COLOUR_2
+!define PARTICIPANT_MONITOR(_alias, _desc) participant  "<color:#OBS_COLOUR_0><$eye>\n_desc" as _alias #OBS_COLOUR_2
+!define PARTICIPANT_ARBITER(_alias, _desc) participant  "<color:#ARBITER_COLOUR_0><$gavel>\n_desc" as _alias #ARBITER_COLOUR_2
+
+skinparam ParticipantPadding 60
 skinparam componentArrowThickness 2.5

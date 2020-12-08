@@ -129,7 +129,55 @@ The design for the demo consists of a number of different entities which play
 the roles described in the claimant model above, these are shown in the
 following diagram:
 
-![overview diagram](./overview.svg)
+![ov](./overview.svg)
+<div style="display: none">
+<!--
+This is an embedded PlantUML config for the overview diagram.
+If you change it, be sure to update the generated diagram by running `plantuml -tsvg  README.md`!
+-->
+@startuml overview
+!include ./diagrams/puml/style.puml
+
+package "FT Log" #LOG_COLOUR_4 {
+  FA5_SERVER(personality,FT Personality,rectangle,LOG_COLOUR_0) #LOG_COLOUR_2
+  FA5_FILE(cas,Firmware\nImages,database,LOG_COLOUR_0) #LOG_COLOUR_2
+  personality -right-> cas
+
+  package "Trillian" #LOG_COLOUR_3 {
+    FA5_SITEMAP(log,Log,rectangle,LOG_COLOUR_0) #LOG_COLOUR_1
+    FA5_FILE(metadata,Firmware\nmetadata,database,LOG_COLOUR_0) #LOG_COLOUR_1
+    log -right-> metadata
+  }
+
+  personality -down-> log
+}
+
+package "Firmware Vendor" #VENDOR_COLOUR_2 {
+  FA5_USER_TIE(publisher,Firmware Publisher,rectangle,VENDOR_COLOUR_0) #VENDOR_COLOUR_1
+  FA5_EYE(vendor_monitor,Firmware Vendor Monitor,rectangle,VENDOR_COLOUR_0) #VENDOR_COLOUR_1
+
+  publisher -right--> personality: Publish firmware
+  vendor_monitor -right----> personality: Observe firmware
+}
+
+package "Device" #DEVICE_COLOUR_2 {
+  FA5_COGS(update,Update client,rectangle,DEVICE_COLOUR_0) #DEVICE_COLOUR_1
+  FA5_MOBILE_ALT(device,Device,rectangle,DEVICE_COLOUR_0) #DEVICE_COLOUR_1
+
+  update -down-> device: Update
+  update -right----> personality: Verify consistency
+}
+
+package "Observers" #OBS_COLOUR_2 {
+  FA5_EYE(monitor,FT Monitor,rectangle,OBS_COLOUR_0) #OBS_COLOUR_1
+
+  monitor -down----> personality: Observe firmware
+}
+
+publisher -[dotted]----> update: Update available
+
+@enduml
+</div>
 
 For clarity, the mapping of actors to the claimant model roles, along with
 software provided by the demo used to fulfil those roles, are listed explicitly

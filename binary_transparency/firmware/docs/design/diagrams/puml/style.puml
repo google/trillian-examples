@@ -1,0 +1,34 @@
+' This is a common file with style related includes and defines in it.
+' It's intended to be !included by PlantUML diagrams elsewhere, whose
+' code resides in the docs which reference the diagrams.
+
+!include <tupadr3/common>
+!include <tupadr3/font-awesome-5/cogs>
+!include <tupadr3/font-awesome-5/eye>
+!include <tupadr3/font-awesome-5/file>
+!include <tupadr3/font-awesome-5/mobile_alt>
+!include <tupadr3/font-awesome-5/server>
+!include <tupadr3/font-awesome-5/sitemap>
+!include <tupadr3/font-awesome-5/user_tie>
+
+!includeurl https://raw.githubusercontent.com/ebbypeter/Archimate-PlantUML/master/Archimate.puml
+
+!define LOG_COLOUR_0 E0E3FF
+!define LOG_COLOUR_1 627AD0
+!define LOG_COLOUR_2 899BDC
+!define LOG_COLOUR_3 D8DEF3
+!define LOG_COLOUR_4 EBEEF9
+
+!define DEVICE_COLOUR_0 684488
+!define DEVICE_COLOUR_1 CDBADE
+!define DEVICE_COLOUR_2 E6DDEE
+
+!define VENDOR_COLOUR_0 5B254A
+!define VENDOR_COLOUR_1 D392BF
+!define VENDOR_COLOUR_2 E9C9DF
+
+!define OBS_COLOUR_0 892953
+!define OBS_COLOUR_1 E29DBB
+!define OBS_COLOUR_2 F3D8E4
+
+skinparam componentArrowThickness 2.5

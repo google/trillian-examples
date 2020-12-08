@@ -1,0 +1,50 @@
+@startuml fw_flash_tool
+!include ./puml/style.puml
+
+PARTICIPANT_VENDOR(vendor, "Firmware Vendor")
+PARTICIPANT_DEVICE_UPDATE(update, "Update Client")
+PARTICIPANT_DEVICE_FLASH(flash, "Device Flash")
+PARTICIPANT_LOG(log, "FT Log")
+
+vendor o--> update: Firmware update available
+
+...
+
+group Verify bundle
+    update -> update: Verify bundle
+    note right
+    # Verify signatures
+    # Verify manifest inclusion proof
+    # Verify firmware image Hash
+    endnote
+
+    alt #FAIL Invalid Bundle
+    update -> update: Abort update
+    else #SUCCESS OK
+    end
+end
+
+|||
+
+group Verify consistency
+    update -> flash ++ : Fetch previous STH
+    return STH_old
+
+    update -> log ++: GetConsistencyProof
+    return consistency proof
+
+    update -> update: Verify consistency
+    alt #FAIL Invalid consistency
+    update -> update: Abort update
+    else #SUCCESS OK
+    end
+end
+
+|||
+
+group Update flash
+    update -> flash ++: Write Firmware + Proof Bundle
+    return Write OK
+end
+
+@enduml

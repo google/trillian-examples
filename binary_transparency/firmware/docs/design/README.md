@@ -129,13 +129,13 @@ The design for the demo consists of a number of different entities which play
 the roles described in the claimant model above, these are shown in the
 following diagram:
 
-![ov](./ov.svg)
+![ov](./overview.svg)
 <div style="display: none">
 <!--
 This is an embedded PlantUML config for the overview diagram.
 If you change it, be sure to update the generated diagram by running `plantuml -tsvg  README.md`!
 -->
-@startuml ov
+@startuml overview
 !include ./diagrams/puml/style.puml
 
 package "FT Log" #LOG_COLOUR_4 {

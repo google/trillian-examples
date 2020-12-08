@@ -28,7 +28,7 @@ import (
 // BundleForUpdate checks that the manifest, checkpoint, and proofs in a bundle
 // are all self-consistent, and that the provided firmware image hash matches
 // the one in the bundle. It also checks consistency proof between update log point
-// and device log point (for non zero device tree size).
+// and device log point(for non zero device tree size).
 func BundleForUpdate(b api.ProofBundle, fwHash []byte, dc api.LogCheckpoint, cProof [][]byte) error {
 	fwMeta, err := verifyBundle(b)
 	if err != nil {

@@ -41,9 +41,8 @@ func BundleForUpdate(b api.ProofBundle, fwHash []byte, dc api.LogCheckpoint, cPr
 	// Verify the consistency proof between device and bundle checkpoint
 	if dc.TreeSize > 0 {
 		lv := NewLogVerifier()
-		if err := lv.VerifyConsistencyProof(int64(b.Checkpoint.TreeSize), int64(dc.TreeSize), b.Checkpoint.RootHash, dc.RootHash, cProof); err != nil {
+		if err := lv.VerifyConsistencyProof(int64(dc.TreeSize), int64(b.Checkpoint.TreeSize), dc.RootHash, b.Checkpoint.RootHash, cProof); err != nil {
 			return fmt.Errorf("failed verification of consistency proof %w", err)
-
 		}
 	}
 	return nil

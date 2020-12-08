@@ -129,6 +129,86 @@ The design for the demo consists of a number of different entities which play
 the roles described in the claimant model above, these are shown in the
 following diagram:
 
+![ov](./ov.svg)
+<div style="display: none">
+<!--
+This is an embedded PlantUML config for the overview diagram.
+If you change it, be sure to update the generated diagram by running `plantuml -tsvg  README.md`!
+-->
+@startuml ov
+
+!include <tupadr3/common>
+!include <tupadr3/font-awesome-5/cogs>
+!include <tupadr3/font-awesome-5/eye>
+!include <tupadr3/font-awesome-5/file>
+!include <tupadr3/font-awesome-5/mobile_alt>
+!include <tupadr3/font-awesome-5/server>
+!include <tupadr3/font-awesome-5/sitemap>
+!include <tupadr3/font-awesome-5/user_tie>
+
+!includeurl https://raw.githubusercontent.com/ebbypeter/Archimate-PlantUML/master/Archimate.puml
+
+!define LOG_COLOUR_0 E0E3FF
+!define LOG_COLOUR_1 627AD0
+!define LOG_COLOUR_2 899BDC
+!define LOG_COLOUR_3 D8DEF3
+!define LOG_COLOUR_4 EBEEF9
+
+!define DEVICE_COLOUR_0 684488
+!define DEVICE_COLOUR_1 CDBADE
+!define DEVICE_COLOUR_2 E6DDEE
+
+!define VENDOR_COLOUR_0 5B254A
+!define VENDOR_COLOUR_1 D392BF
+!define VENDOR_COLOUR_2 E9C9DF
+
+!define OBS_COLOUR_0 892953
+!define OBS_COLOUR_1 E29DBB
+!define OBS_COLOUR_2 F3D8E4
+
+
+package "FT Log" #LOG_COLOUR_4 {
+  FA5_SERVER(personality,FT Personality,rectangle,LOG_COLOUR_0) #LOG_COLOUR_2
+  FA5_FILE(cas,Firmware\nImages,database,LOG_COLOUR_0) #LOG_COLOUR_2
+  personality -right-> cas
+
+  package "Trillian" #LOG_COLOUR_3 {
+    FA5_SITEMAP(log,Log,rectangle,LOG_COLOUR_0) #LOG_COLOUR_1
+    FA5_FILE(metadata,Firmware\nmetadata,database,LOG_COLOUR_0) #LOG_COLOUR_1
+    log -right-> metadata
+  }
+
+  personality -down-> log
+}
+
+package "Firmware Vendor" #VENDOR_COLOUR_2 {
+  FA5_USER_TIE(publisher,Firmware Publisher,rectangle,VENDOR_COLOUR_0) #VENDOR_COLOUR_1
+  FA5_EYE(vendor_monitor,Firmware Vendor Monitor,rectangle,VENDOR_COLOUR_0) #VENDOR_COLOUR_1
+
+  publisher -right--> personality: Publish firmware
+  vendor_monitor -right----> personality: Observe firmware
+}
+
+package "Device" #DEVICE_COLOUR_2 {
+  FA5_COGS(update,Update client,rectangle,DEVICE_COLOUR_0) #DEVICE_COLOUR_1
+  FA5_MOBILE_ALT(device,Device,rectangle,DEVICE_COLOUR_0) #DEVICE_COLOUR_1
+
+  update -down-> device: Update
+  update -right----> personality: Verify consistency
+}
+
+package "Observers" #OBS_COLOUR_2 {
+  FA5_EYE(monitor,FT Monitor,rectangle,OBS_COLOUR_0) #OBS_COLOUR_1
+
+  monitor -down----> personality: Observe firmware
+}
+
+publisher -[dotted]----> update: Update available
+
+@enduml
+</div>
+
+
 ![overview diagram](./overview.svg)
 
 For clarity, the mapping of actors to the claimant model roles, along with

@@ -27,9 +27,10 @@ import (
 const (
 	goldenUpdate        = `{"FirmwareImage":"RmlybXdhcmUgaW1hZ2U=","ProofBundle":{"ManifestStatement":"eyJNZXRhZGF0YSI6ImV5SkVaWFpwWTJWSlJDSTZJbVIxYlcxNUlpd2lSbWx5YlhkaGNtVlNaWFpwYzJsdmJpSTZNU3dpUm1seWJYZGhjbVZKYldGblpWTklRVFV4TWlJNkltZ3ZTblpLTURVeE1GZE5Ua05hZG1wWFQwTXdVMUZxTDFKUFJHVXpLMGh6Uld0dE5HMUhUbnBWVEhSd1lXVlVhblkyU2xrcmQzSTBlVk51Vm5aNVJqVXdZa055TVhSd2NYZERiMEZvWm5CeFFscHNNbUpSUFQwaUxDSkZlSEJsWTNSbFpFWnBjbTEzWVhKbFRXVmhjM1Z5WlcxbGJuUWlPaUkyZEZWWGVYbHJlbmRtYjI5dVIzVm5ibVl4WkV3clkyZGtObUpGVjFWb2IyeEJUbUZFVERoS1dVdFhkR1J0VUdORlpWbDJaMDgyYmsxeUwwbE1aMWRRWTFWWloyZDJRVUZ5Y25SaFUwSnRZVzQxU0RSTFp6MDlJaXdpUW5WcGJHUlVhVzFsYzNSaGJYQWlPaUl5TURJd0xURXdMVEV3VkRFMU9qTXdPakl3TGpFd1dpSjkiLCJTaWduYXR1cmUiOiJFaXBNMXRMdjF4cnJMSHZEdC80VDFHUG9KV3hBYlExMmhiMkZTOWQ1cDhsbjBKeWJJZFBieVBPWTVYMXozbVBUV0VnMnp1VTB1aWs0VmQwNW84dmM1cGRPZEFTSHlCeDA5RXBhT0NjTWVxSW9SRm90N3lvVUVDdUxkZHBCNEw4aWlEZ3Vibnk1Tk8zaTkzTjNFcnBUclN0b1ZqWjd1ZnZRd082SWg4aWpQZTVTY0o5TG1zQjBMRkZKeUIvQVNnYXcyeE9NWDVnMjlxSzR5UWNBak11WlE3b25ITG95Z09pK2pWUy92akJ0SEVxcXQ1RVU3dU9NdVJVSitqOFYva25yWUJya2hMNEVqWW9SZFNKTnZ6azVpMDRrdGNWLzJQb1NBR2RqSi9rejMrUG1idStXUjRRMVZMcng2bzBaVFNRMi94dXR2K1d2K0lmQXFOdDB0QldoWnc9PSJ9","Checkpoint":{"TreeSize":5,"RootHash":"4E7J8K809jeqeg1oiTIz+5zfMItqZqUBFR0jySa3H/M=","TimestampNanos":1607450738111506088},"InclusionProof":{"Value":null,"LeafIndex":4,"Proof":["KFh4IVeIwbsvbWyz2QHVCXXyjWTRDqusRa0ZEjS2fls="]}}}`
 	goldenFirmwareImage = `Firmware image`
-	// b64 is a base64 encoded string for ExpectedMeasurement field inside ManifestStatement.
-	// For the dummy device, this is SHA512("dummy"||img)
-	b64 = "6tUWyykzwfoonGugnf1dL+cgd6bEWUholANaDL8JYKWtdmPcEeYvgO6nMr/ILgWPcUYggvAArrtaSBman5H4Kg=="
+	// goldenFirmwareHashB64 is a base64 encoded string for ExpectedMeasurement field inside ManifestStatement.
+	// For the dummy device, this is SHA512("dummy"||img), where img is the base64 decoded bytes from
+	// goldenUpdate.FirmwareImage
+	goldenFirmwareHashB64 = "6tUWyykzwfoonGugnf1dL+cgd6bEWUholANaDL8JYKWtdmPcEeYvgO6nMr/ILgWPcUYggvAArrtaSBman5H4Kg=="
 )
 
 func TestBundleForUpdate(t *testing.T) {
@@ -86,7 +87,7 @@ func TestBundleForBoot(t *testing.T) {
 	}{
 		{
 			desc:        "all good",
-			measurement: []byte(b64Decode(t, b64)),
+			measurement: []byte(b64Decode(t, goldenFirmwareHashB64)),
 		}, {
 			desc:        "bad image hash",
 			measurement: []byte("this is wrong"),

@@ -1,0 +1,89 @@
+timeout: 1800s
+options:
+  machineType: N1_HIGHCPU_8
+  volumes:
+  - name: go-modules
+    path: /go
+  env:
+  - GO111MODULE=on
+  - GOPROXY=https://proxy.golang.org
+  - PROJECT_ROOT=github.com/google/trillian-examples
+  - GOPATH=/go
+
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '--tag=gcr.io/$PROJECT_ID/testbase', '-f', './integration/Dockerfile', '.']
+
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'install'
+  args:
+  - '-exc'
+  - |
+    # googleapis is not Go code, but it's required for .pb.go regeneration because of API dependencies.
+    git clone --depth=1 https://github.com/googleapis/googleapis.git "$$GOPATH/src/github.com/googleapis/googleapis"
+
+    export TRILLIAN_PATH="$(go list -f '{{.Dir}}' github.com/google/trillian)"
+    for i in log_server log_signer; do
+      docker pull gcr.io/$PROJECT_ID/$$i:latest
+    done
+    docker-compose -f $${TRILLIAN_PATH}/examples/deployment/docker-compose.yml up -d mysql trillian-log-server trillian-log-signer
+
+- name: gcr.io/$PROJECT_ID/testbase
+  id: 'go-get-proto'
+  args: ['go', 'get', 'github.com/golang/protobuf/proto']
+  waitFor: ['install']
+
+- name: gcr.io/$PROJECT_ID/testbase
+  id: 'go-get-proto-gen'
+  args: ['go', 'get', 'github.com/golang/protobuf/protoc-gen-go']
+  waitFor: ['install']
+
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'presubmit'
+  args:
+    - '-exc'
+    - |
+      ./scripts/presubmit.sh
+      # Check re-generation didn't change anything.
+      echo "Checking that generated files are the same as checked-in versions."
+      git diff --  --exit-code
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'presubmit-with-coverage'
+  args:
+    - '-exc'
+    - |
+      ./scripts/presubmit.sh --coverage
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'gossip-integration-test'
+  args:
+    - '-exc'
+    - |
+      export PATH=/bin:/usr/bin:/workspace/bin:/go/protoc/bin:/usr/local/go/bin
+      ./gossip/integration/gossip_test.sh
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'firmware-integration-test'
+  args:
+    - '-exc'
+    - |
+      export PATH=/bin:/usr/bin:/workspace/bin:/go/protoc/bin:/usr/local/go/bin
+      ./binary_transparency/firmware/integration/ft_test.sh
+  # Don't run integration tests in parallel until we've removed the resetDB step
+  waitFor: ['gossip-integration-test']
+
+images:
+ - 'gcr.io/$PROJECT_ID/db_server'
+ - 'gcr.io/$PROJECT_ID/log_server'
+ - 'gcr.io/$PROJECT_ID/log_signer'
+ - 'gcr.io/$PROJECT_ID/testbase'
+

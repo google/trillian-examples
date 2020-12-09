@@ -97,9 +97,8 @@ func (s *Service) Sync(ctx context.Context, checkpoint *Checkpoint) error {
 	if err := s.checkRootHash(ctx, checkpoint); err != nil {
 		return fmt.Errorf("checkRootHash: %w", err)
 	}
-	s.localDB.SetGoldenCheckpoint(checkpoint)
 	glog.V(1).Infof("Log sync and verification complete")
-	return nil
+	return s.localDB.SetGoldenCheckpoint(checkpoint)
 }
 
 // ProcessMetadata parses the leaf data and writes the semantic data into the DB.

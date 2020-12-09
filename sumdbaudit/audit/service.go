@@ -97,6 +97,7 @@ func (s *Service) Sync(ctx context.Context, checkpoint *Checkpoint) error {
 	if err := s.checkRootHash(ctx, checkpoint); err != nil {
 		return fmt.Errorf("checkRootHash: %w", err)
 	}
+	s.localDB.SetGoldenCheckpoint(checkpoint)
 	glog.V(1).Infof("Log sync and verification complete")
 	return nil
 }
@@ -352,7 +353,7 @@ func (s *Service) checkRootHash(ctx context.Context, checkpoint *Checkpoint) err
 	if err != nil {
 		return fmt.Errorf("local log does not match the SumDB checkpoint: %w", err)
 	}
-	return s.localDB.SetGoldenCheckpoint(checkpoint)
+	return nil
 }
 
 // checkCheckpoint ensures that the local log matches the commitment in the given checkpoint.

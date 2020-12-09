@@ -84,20 +84,21 @@ func (s *Service) Sync(ctx context.Context, checkpoint *Checkpoint) error {
 	if err := s.cloneLeafTiles(ctx, checkpoint); err != nil {
 		return fmt.Errorf("cloneLeafTiles: %w", err)
 	}
-	glog.Infof("Updated leaves to latest checkpoint (tree size %d). Calculating hashes...", checkpoint.N)
+	glog.V(1).Infof("Updated leaves to latest checkpoint (tree size %d). Calculating hashes...", checkpoint.N)
 
 	if err := s.hashTiles(ctx, checkpoint); err != nil {
 		return fmt.Errorf("hashTiles: %w", err)
 	}
-	glog.Infof("Hashes updated successfully. Checking consistency with previous checkpoint...")
+	glog.V(1).Infof("Hashes updated successfully. Checking consistency with previous checkpoint...")
 	if err := s.checkConsistency(ctx); err != nil {
 		return fmt.Errorf("checkConsistency: %w", err)
 	}
-	glog.Infof("Log consistent. Checking root hash with remote...")
+	glog.V(1).Infof("Log consistent. Checking root hash with remote...")
 	if err := s.checkRootHash(ctx, checkpoint); err != nil {
 		return fmt.Errorf("checkRootHash: %w", err)
 	}
-	return nil
+	glog.V(1).Infof("Log sync and verification complete")
+	return s.localDB.SetGoldenCheckpoint(checkpoint)
 }
 
 // ProcessMetadata parses the leaf data and writes the semantic data into the DB.
@@ -351,7 +352,7 @@ func (s *Service) checkRootHash(ctx context.Context, checkpoint *Checkpoint) err
 	if err != nil {
 		return fmt.Errorf("local log does not match the SumDB checkpoint: %w", err)
 	}
-	return s.localDB.SetGoldenCheckpoint(checkpoint)
+	return nil
 }
 
 // checkCheckpoint ensures that the local log matches the commitment in the given checkpoint.

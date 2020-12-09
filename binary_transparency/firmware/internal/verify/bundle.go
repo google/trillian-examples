@@ -22,12 +22,14 @@ import (
 	"fmt"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 )
 
 // BundleForUpdate checks that the manifest, checkpoint, and proofs in a bundle
 // are all self-consistent, and that the provided firmware image hash matches
-// the one in the bundle.
-func BundleForUpdate(b api.ProofBundle, fwHash []byte) error {
+// the one in the bundle. It also checks consistency proof between update log point
+// and device log point (for non zero device tree size).
+func BundleForUpdate(b api.ProofBundle, fwHash []byte, dc api.LogCheckpoint, cProof [][]byte) error {
 	fwMeta, err := verifyBundle(b)
 	if err != nil {
 		return err
@@ -35,6 +37,13 @@ func BundleForUpdate(b api.ProofBundle, fwHash []byte) error {
 
 	if got, want := fwHash, fwMeta.FirmwareImageSHA512; !bytes.Equal(got, want) {
 		return fmt.Errorf("firmware update image hash does not match metadata (0x%x != 0x%x)", got, want)
+	}
+	// Verify the consistency proof between device and bundle checkpoint
+	if dc.TreeSize > 0 {
+		lv := NewLogVerifier()
+		if err := lv.VerifyConsistencyProof(int64(dc.TreeSize), int64(b.Checkpoint.TreeSize), dc.RootHash, b.Checkpoint.RootHash, cProof); err != nil {
+			return fmt.Errorf("failed verification of consistency proof %w", err)
+		}
 	}
 	return nil
 }
@@ -60,7 +69,11 @@ func verifyBundle(b api.ProofBundle) (api.FirmwareMetadata, error) {
 	if err := json.Unmarshal(b.ManifestStatement, &fwStatement); err != nil {
 		return api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal FirmwareStatement: %w", err)
 	}
-	// TODO(al): check sig on fwStatement
+	// Verify the statement signature:
+	if err := crypto.VerifySignature(fwStatement.Metadata, fwStatement.Signature); err != nil {
+		return api.FirmwareMetadata{}, fmt.Errorf("failed to verify signature on FirmwareStatement: %w", err)
+	}
+
 	var fwMeta api.FirmwareMetadata
 	if err := json.Unmarshal(fwStatement.Metadata, &fwMeta); err != nil {
 		return api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal Metadata: %w", err)

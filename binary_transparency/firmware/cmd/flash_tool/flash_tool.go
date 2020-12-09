@@ -87,12 +87,8 @@ func main() {
 		}
 	}
 
-	if err := verifyUpdate(up); err != nil {
+	if err := verifyUpdate(c, up, dev); err != nil {
 		fatal(fmt.Sprintf("Failed to validate update: %q", err))
-	}
-
-	if err := checkConsistency(c, up, dev); err != nil {
-		fatal(fmt.Sprintf("Failed to validate update consistency with device state: %q", err))
 	}
 
 	glog.Info("Update verified, about to apply to device...")
@@ -126,26 +122,36 @@ func readUpdateFileFromFlags() (api.UpdatePackage, error) {
 func checkSignature(up api.UpdatePackage) error {
 	stmt := api.FirmwareStatement{}
 	if err := json.NewDecoder(bytes.NewReader(up.ProofBundle.ManifestStatement)).Decode(&stmt); err != nil {
-		return fmt.Errorf("failed to decode firmware statement: %q", err)
+		return fmt.Errorf("failed to decode firmware statement: %w", err)
 	}
 
 	//Verify the signature:
 	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
-		return fmt.Errorf("firmware signature verification failed reason %q", err)
+		return fmt.Errorf("firmware signature verification failed reason %w", err)
 	}
 	return nil
 }
 
 // verifyUpdate checks that an update package is self-consistent.
-func verifyUpdate(up api.UpdatePackage) error {
-	fwHash := sha512.Sum512(up.FirmwareImage)
-	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:]); err != nil {
-		return fmt.Errorf("failed to verify proof bundle: %q", err)
+func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) error {
+	// Get the consistency proof for the bundle
+	dc, err := dev.DeviceCheckpoint()
+	if err != nil {
+		return fmt.Errorf("failed to fetch the device checkpoint: %w", err)
 	}
-	return nil
-}
 
-func checkConsistency(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) error {
-	// TODO(al): implement this
+	var cp [][]byte
+	if dc.TreeSize > 0 {
+		r, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: dc.TreeSize, To: up.ProofBundle.Checkpoint.TreeSize})
+		if err != nil {
+			return fmt.Errorf("failed to fetch consistency proof: %w", err)
+		}
+		cp = r.Proof
+	}
+
+	fwHash := sha512.Sum512(up.FirmwareImage)
+	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cp); err != nil {
+		return fmt.Errorf("failed to verify proof bundle: %w", err)
+	}
 	return nil
 }

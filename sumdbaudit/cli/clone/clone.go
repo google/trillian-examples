@@ -34,7 +34,6 @@ var (
 )
 
 // Clones the leaves of the SumDB into the local database and verifies the result.
-// This does not perform any checks on the leaf data to look for inconsistent claims.
 // If this returns successfully, it means that all leaf data in the DB matches that
 // contained in the SumDB.
 func main() {

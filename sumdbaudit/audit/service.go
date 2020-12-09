@@ -82,20 +82,20 @@ func (s *Service) GoldenCheckpoint(ctx context.Context) *Checkpoint {
 // remote SumDB is repaired.
 func (s *Service) Sync(ctx context.Context, checkpoint *Checkpoint) error {
 	if err := s.cloneLeafTiles(ctx, checkpoint); err != nil {
-		return fmt.Errorf("cloneLeafTiles: %v", err)
+		return fmt.Errorf("cloneLeafTiles: %w", err)
 	}
 	glog.Infof("Updated leaves to latest checkpoint (tree size %d). Calculating hashes...", checkpoint.N)
 
 	if err := s.hashTiles(ctx, checkpoint); err != nil {
-		return fmt.Errorf("hashTiles: %v", err)
+		return fmt.Errorf("hashTiles: %w", err)
 	}
 	glog.Infof("Hashes updated successfully. Checking consistency with previous checkpoint...")
 	if err := s.checkConsistency(ctx); err != nil {
-		return fmt.Errorf("checkConsistency: %v", err)
+		return fmt.Errorf("checkConsistency: %w", err)
 	}
 	glog.Infof("Log consistent. Checking root hash with remote...")
 	if err := s.checkRootHash(ctx, checkpoint); err != nil {
-		return fmt.Errorf("checkRootHash: %v", err)
+		return fmt.Errorf("checkRootHash: %w", err)
 	}
 	return nil
 }

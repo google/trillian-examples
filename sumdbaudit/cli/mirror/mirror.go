@@ -64,7 +64,7 @@ func main() {
 			glog.Infof("syncing to latest SumDB size %d", head.N)
 			s.Sync(ctx, head)
 			if *unpack {
-				glog.V(1).Infof("processing metadata", head.N)
+				glog.V(1).Infof("processing metadata")
 				if err := s.ProcessMetadata(ctx, head); err != nil {
 					glog.Exitf("ProcessMetadata: %v", err)
 				}

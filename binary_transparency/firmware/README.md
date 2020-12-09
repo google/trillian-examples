@@ -96,7 +96,7 @@ transparency has made this attack much more expensive.
 
 During the demo flow you will open several different terminals. It's far easier to use a terminal
 that supports tabs in order to do this. The terminals simply make your life easier as different
-logical activities will be performed in each one.
+logical actors have their own terminals in which to perform their actions.
 
 Prerequisites:
 * Install Docker and docker-compose

@@ -34,7 +34,6 @@ var (
 )
 
 // Clones the leaves of the SumDB into the local database and verifies the result.
-// This does not perform any checks on the leaf data to look for inconsistent claims.
 // If this returns successfully, it means that all leaf data in the DB matches that
 // contained in the SumDB.
 func main() {
@@ -66,23 +65,10 @@ func main() {
 		}
 	}
 
-	if err := s.CloneLeafTiles(ctx, checkpoint); err != nil {
-		glog.Exitf("failed to update leaves: %v", err)
+	if err := s.Sync(ctx, checkpoint); err != nil {
+		glog.Exitf("failed to Sync: %v", err)
 	}
-	glog.Infof("Updated leaves to latest checkpoint (tree size %d). Calculating hashes...", checkpoint.N)
-
-	if err := s.HashTiles(ctx, checkpoint); err != nil {
-		glog.Exitf("HashTiles: %v", err)
-	}
-	glog.Infof("Hashes updated successfully. Checking consistency with previous checkpoint...")
-	if err := s.CheckConsistency(ctx); err != nil {
-		glog.Exitf("CheckConsistency: %v", err)
-	}
-	glog.Infof("Log consistent. Checking root hash with remote...")
-	if err := s.CheckRootHash(ctx, checkpoint); err != nil {
-		glog.Exitf("CheckRootHash: %v", err)
-	}
-	glog.Infof("Cloned successfully. Tree size is %d, hash is %x (%s). Processing data...", checkpoint.N, checkpoint.Hash[:], checkpoint.Hash)
+	glog.Infof("Cloned successfully. Tree size is %d, hash is %x (%s). Processing leaf metadata...", checkpoint.N, checkpoint.Hash[:], checkpoint.Hash)
 
 	if err := s.ProcessMetadata(ctx, checkpoint); err != nil {
 		glog.Exitf("ProcessMetadata: %v", err)

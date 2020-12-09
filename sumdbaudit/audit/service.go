@@ -72,10 +72,107 @@ func (s *Service) GoldenCheckpoint(ctx context.Context) *Checkpoint {
 	return golden
 }
 
-// CloneLeafTiles copies the leaf data from the SumDB into the local database.
+// Sync brings the local sqlite database up to date with the latest full tiles published
+// in the remote SumDB and committed to by the provided checkpoint. It checks that the
+// previous golden checkpoint is consistent with the new data, and that the checkpoint
+// passed in commits to the new data which was fetched.
+// This method is not atomic. If any of the verification checks fail then the database
+// will be updated with whatever was fetched. This means that there will be an audit
+// trail, but it could mean that the local DB needs to be started from scratch if the
+// remote SumDB is repaired.
+func (s *Service) Sync(ctx context.Context, checkpoint *Checkpoint) error {
+	if err := s.cloneLeafTiles(ctx, checkpoint); err != nil {
+		return fmt.Errorf("cloneLeafTiles: %w", err)
+	}
+	glog.Infof("Updated leaves to latest checkpoint (tree size %d). Calculating hashes...", checkpoint.N)
+
+	if err := s.hashTiles(ctx, checkpoint); err != nil {
+		return fmt.Errorf("hashTiles: %w", err)
+	}
+	glog.Infof("Hashes updated successfully. Checking consistency with previous checkpoint...")
+	if err := s.checkConsistency(ctx); err != nil {
+		return fmt.Errorf("checkConsistency: %w", err)
+	}
+	glog.Infof("Log consistent. Checking root hash with remote...")
+	if err := s.checkRootHash(ctx, checkpoint); err != nil {
+		return fmt.Errorf("checkRootHash: %w", err)
+	}
+	return nil
+}
+
+// ProcessMetadata parses the leaf data and writes the semantic data into the DB.
+func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *Checkpoint) error {
+	tileWidth := 1 << s.height
+	metadata := make([]Metadata, tileWidth)
+	// TODO: skip to head of metadata
+	for offset := 0; offset < int(checkpoint.N/int64(tileWidth)); offset++ {
+		leafOffset := int64(offset) * int64(tileWidth)
+		hashes, err := s.localDB.Leaves(leafOffset, tileWidth)
+		if err != nil {
+			return err
+		}
+		for i, h := range hashes {
+			leafID := leafOffset + int64(i)
+
+			lines := strings.Split(string(h), "\n")
+			tokens := strings.Split(lines[0], " ")
+			module, version, repoHash := tokens[0], tokens[1], tokens[2]
+			tokens = strings.Split(lines[1], " ")
+			if got, want := tokens[0], module; got != want {
+				return fmt.Errorf("mismatched module names at %d: (%s, %s)", leafID, got, want)
+			}
+			if got, want := tokens[1][:len(version)], version; got != want {
+				return fmt.Errorf("mismatched version names at %d: (%s, %s)", leafID, got, want)
+			}
+			modHash := tokens[2]
+
+			metadata[i] = Metadata{module, version, repoHash, modHash}
+		}
+		if err := s.localDB.SetLeafMetadata(ctx, leafOffset, metadata); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// VerifyTiles checks that every tile calculated locally matches the result returned
+// by SumDB. This shouldn't be necessary if checkRootHash is working, but this may be
+// useful to determine where any corruption has happened in the tree.
+func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error {
+	for level := 0; level <= s.getLevelsForLeafCount(checkpoint.N); level++ {
+		finishedLevel := false
+		offset := 0
+		for !finishedLevel {
+			localHashes, err := s.localDB.Tile(s.height, level, offset)
+			if err != nil {
+				if err == sql.ErrNoRows {
+					finishedLevel = true
+					continue
+				}
+				return fmt.Errorf("failed to get tile hashes: %v", err)
+			}
+			sumDBHashes, err := s.sumDB.TileHashes(level, offset)
+			if err != nil {
+				return fmt.Errorf("failed to get tile hashes: %v", err)
+			}
+
+			for i := 0; i < 1<<s.height; i++ {
+				var lHash tlog.Hash
+				copy(lHash[:], localHashes[i])
+				if sumDBHashes[i] != lHash {
+					return fmt.Errorf("found mismatched hash at L=%d, O=%d, leaf=%d\n\tlocal : %x\n\tremote: %x", level, offset, i, sumDBHashes[i][:], localHashes[i])
+				}
+			}
+			offset++
+		}
+	}
+	return nil
+}
+
+// cloneLeafTiles copies the leaf data from the SumDB into the local database.
 // It only copies whole tiles, which means that some stragglers may not be
 // copied locally.
-func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *Checkpoint) error {
+func (s *Service) cloneLeafTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	head, err := s.localDB.Head()
 	if err != nil {
 		switch err.(type) {
@@ -156,13 +253,13 @@ func (s *Service) CloneLeafTiles(ctx context.Context, checkpoint *Checkpoint) er
 	return nil
 }
 
-// HashTiles performs a full recalculation of all the tiles using the data from
+// hashTiles performs a full recalculation of all the tiles using the data from
 // the leaves table. Any hashes that no longer match what was previously stored
 // will cause an error. Any new hashes will be filled in.
 // The results of the hashing are stored in the local DB.
 // This could be replaced by something more incremental if the performance is
 // unnacceptable. While the SumDB is still reasonably small, this is fine as is.
-func (s *Service) HashTiles(ctx context.Context, checkpoint *Checkpoint) error {
+func (s *Service) hashTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	tileWidth := 1 << s.height
 	tileCount := int(checkpoint.N / int64(tileWidth))
 
@@ -194,11 +291,11 @@ func (s *Service) HashTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	return nil
 }
 
-// CheckConsistency checks that the downloaded and hashed tiles are consistent with
+// checkConsistency checks that the downloaded and hashed tiles are consistent with
 // the previously fetched Golden Checkpoint. Any previously fetched tiles are checked
-// by HashTiles, so this is only really checking that any stragglers transiently acquired
+// by hashTiles, so this is only really checking that any stragglers transiently acquired
 // when verifying the Golden Checkpoint made it into the completed tile unchanged.
-func (s *Service) CheckConsistency(ctx context.Context) error {
+func (s *Service) checkConsistency(ctx context.Context) error {
 	golden, err := s.localDB.GoldenCheckpoint(s.sumDB.ParseCheckpointNote)
 	if err != nil {
 		switch err.(type) {
@@ -218,7 +315,7 @@ func (s *Service) CheckConsistency(ctx context.Context) error {
 	}
 	if golden.N > head {
 		// This can happen if SumDB hasn't committed to any new complete tiles since the
-		// last run of the auditor. Any changes in tile hashes will be caught by HashTiles
+		// last run of the auditor. Any changes in tile hashes will be caught by hashTiles
 		// so skipping the consistency check is safer than it appears.
 		glog.Infof("golden STH is at size %d but local log only has %d entries; consistency check skipped", golden.N, head)
 		return nil
@@ -234,10 +331,10 @@ func (s *Service) CheckConsistency(ctx context.Context) error {
 	return nil
 }
 
-// CheckRootHash calculates the root hash from the locally generated tiles, and then
+// checkRootHash calculates the root hash from the locally generated tiles, and then
 // appends any stragglers from the SumDB, returning an error if this calculation
 // fails or the result does not match that in the checkpoint provided.
-func (s *Service) CheckRootHash(ctx context.Context, checkpoint *Checkpoint) error {
+func (s *Service) checkRootHash(ctx context.Context, checkpoint *Checkpoint) error {
 	err := s.checkCheckpoint(checkpoint, func(stragglerCount int) ([][]byte, error) {
 		stragglerTileOffset := int(checkpoint.N / (1 << s.height))
 		stragglers, err := s.sumDB.PartialLeavesAtOffset(stragglerTileOffset, stragglerCount)
@@ -319,75 +416,6 @@ func (s *Service) checkCheckpoint(cp *Checkpoint, getStragglers func(stragglerCo
 	copy(rootHash[:], root)
 	if rootHash != cp.Hash {
 		return fmt.Errorf("log root mismatch at tree size %d; calculated %x, want %x", cp.N, root, cp.Hash[:])
-	}
-	return nil
-}
-
-// VerifyTiles checks that every tile calculated locally matches the result returned
-// by SumDB. This shouldn't be necessary if CheckRootHash is working, but this may be
-// useful to determine where any corruption has happened in the tree.
-func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error {
-	for level := 0; level <= s.getLevelsForLeafCount(checkpoint.N); level++ {
-		finishedLevel := false
-		offset := 0
-		for !finishedLevel {
-			localHashes, err := s.localDB.Tile(s.height, level, offset)
-			if err != nil {
-				if err == sql.ErrNoRows {
-					finishedLevel = true
-					continue
-				}
-				return fmt.Errorf("failed to get tile hashes: %v", err)
-			}
-			sumDBHashes, err := s.sumDB.TileHashes(level, offset)
-			if err != nil {
-				return fmt.Errorf("failed to get tile hashes: %v", err)
-			}
-
-			for i := 0; i < 1<<s.height; i++ {
-				var lHash tlog.Hash
-				copy(lHash[:], localHashes[i])
-				if sumDBHashes[i] != lHash {
-					return fmt.Errorf("found mismatched hash at L=%d, O=%d, leaf=%d\n\tlocal : %x\n\tremote: %x", level, offset, i, sumDBHashes[i][:], localHashes[i])
-				}
-			}
-			offset++
-		}
-	}
-	return nil
-}
-
-// ProcessMetadata parses the leaf data and writes the semantic data into the DB.
-func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *Checkpoint) error {
-	tileWidth := 1 << s.height
-	metadata := make([]Metadata, tileWidth)
-	// TODO: skip to head of metadata
-	for offset := 0; offset < int(checkpoint.N/int64(tileWidth)); offset++ {
-		leafOffset := int64(offset) * int64(tileWidth)
-		hashes, err := s.localDB.Leaves(leafOffset, tileWidth)
-		if err != nil {
-			return err
-		}
-		for i, h := range hashes {
-			leafID := leafOffset + int64(i)
-
-			lines := strings.Split(string(h), "\n")
-			tokens := strings.Split(lines[0], " ")
-			module, version, repoHash := tokens[0], tokens[1], tokens[2]
-			tokens = strings.Split(lines[1], " ")
-			if got, want := tokens[0], module; got != want {
-				return fmt.Errorf("mismatched module names at %d: (%s, %s)", leafID, got, want)
-			}
-			if got, want := tokens[1][:len(version)], version; got != want {
-				return fmt.Errorf("mismatched version names at %d: (%s, %s)", leafID, got, want)
-			}
-			modHash := tokens[2]
-
-			metadata[i] = Metadata{module, version, repoHash, modHash}
-		}
-		if err := s.localDB.SetLeafMetadata(ctx, leafOffset, metadata); err != nil {
-			return err
-		}
 	}
 	return nil
 }

@@ -16,12 +16,10 @@ package main
 
 import (
 	"context"
+	"flag"
 	"time"
 
-	"flag"
-
 	"github.com/golang/glog"
-
 	"github.com/google/trillian-examples/sumdbaudit/audit"
 	_ "github.com/mattn/go-sqlite3"
 )

@@ -1,7 +1,7 @@
 Firmware Transparency
 =====================
 
-This directory contains a description of how to apply transparency patterns and
+This directory contains a demonstration of applying transparency patterns and
 principles to the problem of firmware updates.  In particular it will focus on
 making firmware updates for a small compute platform discoverable.
 
@@ -31,7 +31,7 @@ before allowing them to be installed.
 
 Even in this _best case_, how do we know that the signed firmware is not
 faulty, or even malicious?  What if the signing identity used to assert
-authenticity if the firmware is somehow used to sign unintended updates
+authenticity of the firmware is somehow used to sign unintended updates
 (whether through outright compromise as in the
 [Realtek identity used to sign the Stuxnet worm](https://arstechnica.com/information-technology/2017/11/evasive-code-signed-malware-flourished-before-stuxnet-and-still-does/),
 or, perhaps, more subtly via some form of insider risk - be it malicious or
@@ -56,21 +56,18 @@ to analyse them.
 
 ### Outline
 
-> :warning: **This is work-in-progress and liable to change!**
-
 The goal is to have a system where firmware updates can not be {installed/booted}
-unless they have been made discoverable through being logged.
-
+unless they have been made discoverable via a verifiable log.
 
  - [X] Define a [claimant model](https://github.com/google/trillian/tree/master/docs/claimantmodel)
        description: [FT Claimant Model](./docs/design/README.md#claimant-model)
- - [ ] Specify/document a system architecture for that model.
+ - [X] Specify/document a system architecture for that model.
  - [X] Come up with some metadata format: [FirmwareMetadata](./api/firmware_metadata.go)
  - [X] Build a simple personality around that format.
  - [X] Extend personality to also store firmware images.
- - [x] Build a simple tool to create metadata given a "boot" image (e.g. Linux
+ - [X] Build a simple tool to create metadata given a "boot" image (e.g. Linux
      Kernel, WASM binary, etc.), and log it via the personality.
- - [x] Figure out a way to package the metadata with the bootable image.
+ - [X] Figure out a way to package the metadata with the bootable image.
  - [X] Build a noddy "device" emulator which enforces logging requirements, and refuses to boot
        an image unless all of the following are true:
     - [X] the metadata is present.
@@ -82,8 +79,8 @@ unless they have been made discoverable through being logged.
        unless all of the boot-time requirements above are satisfied, in
        addition to requesting and validating a valid consistency proof between
        the previously seen STH and the new STH.
- - [x] Flash stores "proof bundle" on device for validation at boot time.
- - [x] Build simple monitor to tail the log and dump info from meta-data in realtime.
+ - [X] Flash stores "proof bundle" on device for validation at boot time.
+ - [X] Build simple monitor to tail the log and dump info from meta-data in realtime.
  - [X] Monitor is extended to validate firmware images hash
 
 Planned future enhancements:
@@ -92,12 +89,21 @@ Planned future enhancements:
 
 Running the Demo
 ----------------
+In running this demo you will take on the role of several different actors within the ecosystem
+to see how making firmware discoverable works in practice. You will then take the role of an
+attacker trying to install malicious code onto a device, and see how the application of
+transparency has made this attack much more expensive.
+
+During the demo flow you will open several different terminals. It's far easier to use a terminal
+that supports tabs in order to do this. The terminals simply make your life easier as different
+logical actors have their own terminals in which to perform their actions.
+
 Prerequisites:
 * Install Docker and docker-compose
 * Install Go (1.15+)
 * Checkout:
-  * This repo (FT)
   * [Trillian](https://github.com/google/trillian)
+  * [Firmware Transparency (trillian-examples)](https://github.com/google/trillian-examples)
 
 #### Terminal 1 - Trillian:
 * Open terminal in root of `trillian` git repo, run:

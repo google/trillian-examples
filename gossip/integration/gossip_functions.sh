@@ -1,25 +1,20 @@
 # Functions for setting up Gossip personalities for integration tests
 # Requires github.com/google/trillian/integration/functions.sh
 
-declare -a HUB_SERVER_PIDS
-HUB_SERVERS=
 HUB_CFG=
 PROMETHEUS_CFGDIR=
 
 # gossip_prep_test prepares a set of running processes for a Gossip test.
 # Parameters:
-#   - number of log servers to run
-#   - number of log signers to run
-#   - number of Gossip Hub personality instances to run
 #   - Gossip Hub template config file (optional: if not present, a new config is created)
+#   - TRILLIAN_LOG_RPC  : host:port of a Trillian log RPC server
 # Populates:
-#  - HUB_SERVERS         : list of HTTP addresses (comma separated)
-#  - HUB_SERVER_1        : first HTTP address
-#  - HUB_METRICS_SERVERS : list of HTTP addresses (comma separated) serving metrics
-#  - HUB_SERVER_PIDS     : bash array of Gossip Hub server pids
-#  - HUB_CFG             : Hub config file
-#  - SRC_PRIV_KEYS       : list of source private key files (space separated), if new config created
-#  - SRC_PRIV_KEY_LIST   : list of source private key files (comma separated), if new config created
+#  - HUB_SERVER         : list of HTTP addresses (comma separated)
+#  - HUB_METRICS_SERVER : list of HTTP addresses (comma separated) serving metrics
+#  - HUB_SERVER_PID     : bash array of Gossip Hub server pids
+#  - HUB_CFG            : Hub config file
+#  - SRC_PRIV_KEYS      : list of source private key files (space separated), if new config created
+#  - SRC_PRIV_KEY_LIST  : list of source private key files (comma separated), if new config created
 # in addition to the variables populated by Trillian's log_prep_test.
 # If etcd and Prometheus are configured, it also populates:
 #  - ETCDISCOVER_PID   : pid of etcd service watcher
@@ -27,38 +22,25 @@ PROMETHEUS_CFGDIR=
 #  - PROMETHEUS_CFGDIR : Prometheus configuration directory
 gossip_prep_test() {
   # Default to one of everything.
-  local log_server_count=${1:-1}
-  local log_signer_count=${2:-1}
-  local hub_server_count=${3:-1}
   local hub_cfg_template=${4}
-
-  echo "Launching core Trillian log components"
-  log_prep_test "${log_server_count}" "${log_signer_count}"
 
   echo "Building Hub personality code"
   go build ${GOFLAGS} github.com/google/trillian-examples/gossip/hub/hub_server
 
   echo "Provisioning logs for Gossip Hub"
-  gossip_provision "${RPC_SERVER_1}" "${hub_cfg_template}"
+  gossip_provision "${TRILLIAN_LOG_RPC}" "${hub_cfg_template}"
 
   echo "Launching Gossip Hub personalities"
-  for ((i=0; i < hub_server_count; i++)); do
     local port=$(pick_unused_port)
-    HUB_SERVERS="${HUB_SERVERS},localhost:${port}"
+    HUB_SERVER="localhost:${port}"
     local metrics_port=$(pick_unused_port ${port})
-    HUB_METRICS_SERVERS="${HUB_METRICS_SERVERS},localhost:${metrics_port}"
-    if [[ $i -eq 0 ]]; then
-      HUB_SERVER_1="localhost:${port}"
-    fi
+    HUB_METRICS_SERVER="localhost:${metrics_port}"
 
     echo "Starting Gossip Hub server on localhost:${port}, metrics on localhost:${metrics_port}"
-    ./hub_server ${ETCD_OPTS} --hub_config="${HUB_CFG}" --log_rpc_server="${RPC_SERVERS}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" &
+    ./hub_server ${ETCD_OPTS} --hub_config="${HUB_CFG}" --log_rpc_server="${TRILLIAN_LOG_RPC}" --http_endpoint="localhost:${port}" --metrics_endpoint="localhost:${metrics_port}" &
     pid=$!
-    HUB_SERVER_PIDS+=(${pid})
+    HUB_SERVER_PID=(${pid})
     wait_for_server_startup ${port}
-  done
-  HUB_SERVERS="${HUB_SERVERS:1}"
-  HUB_METRICS_SERVERS="${HUB_METRICS_SERVERS:1}"
 
   if [[ ! -z "${ETCD_OPTS}" ]]; then
     echo "Registered HTTP endpoints"
@@ -94,8 +76,8 @@ gossip_prep_test() {
 #   - Gossip Hub template config file (optional: if not present, a new config is created)
 # Populates:
 #   - HUB_CFG : configuration file for Gossip test
-#  - SRC_PRIV_KEYS       : list of source log private key files (space separated), if new config created
-#  - SRC_PRIV_KEY_LIST   : list of source log private key files (comma separated), if new config created
+#   - SRC_PRIV_KEYS       : list of source log private key files (space separated), if new config created
+#   - SRC_PRIV_KEY_LIST   : list of source log private key files (comma separated), if new config created
 gossip_provision() {
   local admin_server="$1"
   local hub_cfg_template="$2"
@@ -158,8 +140,7 @@ gossip_stop_test() {
   if [[ "${ETCDISCOVER_PID}" != "" ]]; then
     pids+=" ${ETCDISCOVER_PID}"
   fi
-  echo "Stopping Gossip Hub server (pids ${HUB_SERVER_PIDS[@]})"
-  pids+=" ${HUB_SERVER_PIDS[@]}"
+  echo "Stopping Gossip Hub server (pid ${HUB_SERVER_PID})"
+  pids+=" ${HUB_SERVER_PID}"
   kill_pid ${pids}
-  log_stop_test
 }

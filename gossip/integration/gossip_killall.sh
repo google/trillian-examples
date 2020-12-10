@@ -1,8 +1,6 @@
 #!/bin/bash
-# Kill all gossip/trillian related processes.
+# Kill all gossip related processes.
 killall $@ hub_server
-killall $@ trillian_log_server
-killall $@ trillian_log_signer
 killall $@ gosmin
 killall $@ goshawk
 if [[ -x "${ETCD_DIR}/etcd" ]]; then

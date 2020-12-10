@@ -1,0 +1,108 @@
+timeout: 600s
+options:
+  machineType: N1_HIGHCPU_8
+  volumes:
+  - name: go-modules
+    path: /go
+  env:
+  - GO111MODULE=on
+  - GOPROXY=https://proxy.golang.org
+  - PROJECT_ROOT=github.com/google/trillian-examples
+  - GOPATH=/go
+
+steps:
+# First build a "testbase" docker image which contains most of the tools we need for the later steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '--tag=gcr.io/$PROJECT_ID/testbase', '-f', './integration/Dockerfile', '.']
+
+# prepare spins up an ephemeral trillian instance for testing use.
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'prepare'
+  args:
+  - '-exc'
+  - |
+    # googleapis is not Go code, but it's required for .pb.go regeneration because of API dependencies.
+    git clone --depth=1 https://github.com/googleapis/googleapis.git "$$GOPATH/src/github.com/googleapis/googleapis"
+
+    # Use latest versions of Trillian docker images built by the Trillian CI cloudbuilders.
+    docker pull gcr.io/$PROJECT_ID/log_server:latest
+    docker tag gcr.io/$PROJECT_ID/log_server:latest deployment_trillian-log-server
+    docker pull gcr.io/$PROJECT_ID/log_signer:latest
+    docker tag gcr.io/$PROJECT_ID/log_signer:latest deployment_trillian-log-signer
+
+    # Bring up an ephemeral trillian instance using the docker-compose config in the Trillian repo:
+    export TRILLIAN_PATH="$(go list -f '{{.Dir}}' github.com/google/trillian)"
+
+    # We need to fix up Trillian's docker-compose to connect to the CloudBuild network to that tests can use it:
+    echo -e "networks:\n      default:\n        external:\n          name: cloudbuild" >> $${TRILLIAN_PATH}/examples/deployment/docker-compose.yml
+
+    docker-compose -f $${TRILLIAN_PATH}/examples/deployment/docker-compose.yml pull mysql trillian-log-server trillian-log-signer
+    docker-compose -f $${TRILLIAN_PATH}/examples/deployment/docker-compose.yml up -d mysql trillian-log-server trillian-log-signer
+
+# Install proto related bits
+- name: gcr.io/$PROJECT_ID/testbase
+  id: 'go-get-proto'
+  args: ['go', 'get', 'github.com/golang/protobuf/proto']
+  waitFor: ['prepare']
+- name: gcr.io/$PROJECT_ID/testbase
+  id: 'go-get-proto-gen'
+  args: ['go', 'get', 'github.com/golang/protobuf/protoc-gen-go']
+  waitFor: ['prepare']
+
+# Run the presubmit tests
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'presubmit'
+  args:
+    - '-exc'
+    - |
+      ./scripts/presubmit.sh
+      # Check re-generation didn't change anything.
+      echo "Checking that generated files are the same as checked-in versions."
+      git diff --  --exit-code
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+# Run the presubmit tests with coverage enabled in parallel
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'presubmit-with-coverage'
+  args:
+    - '-exc'
+    - |
+      ./scripts/presubmit.sh --coverage
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+- name: 'gcr.io/cloud-builders/curl'
+  entrypoint: bash
+  args: ['-c', 'bash <(curl -s https://codecov.io/bash)']
+  env:
+  - 'VCS_COMMIT_ID=$COMMIT_SHA'
+  - 'VCS_BRANCH_NAME=$BRANCH_NAME'
+  - 'VCS_PULL_REQUEST=$_PR_NUMBER'
+  - 'CI_BUILD_ID=$BUILD_ID'
+  - 'CODECOV_TOKEN=$_CODECOV_TOKEN' # _CODECOV_TOKEN is specified in the cloud build trigger
+  waitFor: ['presubmit-with-coverage']
+
+# Run the gossip integration test
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'gossip-integration-test'
+  args:
+    - '-exc'
+    - |
+      export PATH=/bin:/usr/bin:/workspace/bin:/go/protoc/bin:/usr/local/go/bin
+      export TRILLIAN_LOG_RPC="deployment_trillian-log-server_1:8090"
+      ./gossip/integration/gossip_test.sh
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+# Run the FT integration test
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'firmware-integration-test'
+  args:
+    - '-exc'
+    - |
+      export PATH=/bin:/usr/bin:/workspace/bin:/go/protoc/bin:/usr/local/go/bin
+      export TRILLIAN_LOG_RPC="deployment_trillian-log-server_1:8090"
+      ./binary_transparency/firmware/integration/ft_test.sh
+  waitFor: ['go-get-proto', 'go-get-proto-gen']

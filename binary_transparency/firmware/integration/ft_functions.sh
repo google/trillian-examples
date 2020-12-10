@@ -1,12 +1,11 @@
 # Functions for setting up FT personalities for integration tests
 # Requires github.com/google/trillian/integration/functions.sh
 
-declare -a FT_SERVER_PIDS
-FT_SERVERS=
 
 # ft_prep_test prepares a set of running processes for a FT test.
 # Parameters:
 #  - COMMON_FLAGS      : shared flags to pass to every job, e.g. logging flags, etc.
+#  - TRILLIAN_LOG_RPC  : hostname:port of a Trillian log RPC server
 # Populates:
 #  - FT_SERVER         : personality HTTP address
 #  - FT_SERVER_PID     : FT personality pid
@@ -15,14 +14,11 @@ FT_SERVERS=
 #  - FT_CAS_DB         : FT CAS datbase file
 # in addition to the variables populated by Trillian's log_prep_test.
 ft_prep_test() {
-  echo "Launching core Trillian log components"
-  log_prep_test
-
   echo "building personality code"
   go build ${goflags} github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality
 
   echo "Provisioning logs for FT "
-  ft_provision "${RPC_SERVER_1}"
+  ft_provision "${TRILLIAN_LOG_RPC}"
 
   echo "Launching FT personality"
   local port=$(pick_unused_port)
@@ -30,7 +26,7 @@ ft_prep_test() {
 
   echo "Starting FT server on localhost:${port}, metrics on localhost:${metrics_port}"
   ./ft_personality \
-     --trillian="${RPC_SERVERS}" \
+     --trillian="${TRILLIAN_LOG_RPC}" \
      --listen="localhost:${port}" \
      --tree_id=${tree_id} \
      --cas_db_file=${ft_cas} \
@@ -87,7 +83,6 @@ ft_stop_test() {
   echo "Stopping FT server (pids ${FT_SERVER_PID})"
   pids+=" ${FT_SERVER_PID}"
   kill_pid ${pids}
-  log_stop_test
 }
 
 banner() {

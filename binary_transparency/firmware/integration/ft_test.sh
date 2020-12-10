@@ -6,6 +6,9 @@ INTEGRATION_DIR="$( cd "$( dirname "$0" )" && pwd )"
 
 COMMON_FLAGS="-v 2 --alsologtostderr"
 
+# Trillian must already be running
+[ -z ${TRILLIAN_LOG_RPC+x} ] && TRILLIAN_LOG_RPC="localhost:8090"
+
 ft_prep_test
 
 function cleanup {
@@ -23,8 +26,6 @@ MALWARE_UPDATE_FILE=$(mktemp /tmp/malware-update-XXXXX.json)
 
 # Cleanup for the Trillian components
 TO_DELETE="${TO_DELETE} ${ETCD_DB_DIR}"
-TO_KILL+=(${LOG_SIGNER_PIDS[@]})
-TO_KILL+=(${RPC_SERVER_PIDS[@]})
 TO_KILL+=(${ETCD_PID})
 
 # Cleanup for the personality

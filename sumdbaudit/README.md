@@ -114,7 +114,8 @@ At the time of writing this setup uses almost 600MB of storage for the database.
 
 If you want to have the `leafMetadata` table populated then you can add an extra argument
 to the service definition.
-In the `ExecStart` line above, add `-unpack` and then restart the `sumdbmirror` service.
+In the `ExecStart` line above, add `-unpack` and then restart the `sumdbmirror` service
+(`sudo systemctl daemon-reload && sudo systemctl restart sumdbmirror`).
 When it next updates tiles this table will be populated.
 This will use more CPU and around 60% more disk.
 

@@ -5,9 +5,6 @@ language: go
 go: "1.15.x"
 go_import_path: github.com/google/trillian-examples
 
-services:
-  - mysql
-
 cache:
   directories:
     - "$HOME/gopath/pkg/mod"
@@ -57,9 +54,20 @@ install:
 
 before_script:
   - |
-    RESETDB="$(go list -f '{{.Dir}}' github.com/google/trillian)/scripts/resetdb.sh"
-    chmod +x $RESETDB
-    $RESETDB --force
+    # Use latest versions of Trillian docker images built by the Trillian CI cloudbuilders.
+    export PROJECT_ID=trillian-opensource-ci
+    docker pull gcr.io/$PROJECT_ID/log_server:latest
+    docker tag gcr.io/$PROJECT_ID/log_server:latest deployment_trillian-log-server
+    docker pull gcr.io/$PROJECT_ID/log_signer:latest
+    docker tag gcr.io/$PROJECT_ID/log_signer:latest deployment_trillian-log-signer
+
+    # Bring up an ephemeral trillian instance using the docker-compose config in the Trillian repo:
+    export TRILLIAN_PATH="$(go list -f '{{.Dir}}' github.com/google/trillian)"
+
+    docker-compose -f ${TRILLIAN_PATH}/examples/deployment/docker-compose.yml pull mysql trillian-log-server trillian-log-signer
+    docker-compose -f ${TRILLIAN_PATH}/examples/deployment/docker-compose.yml up -d mysql trillian-log-server trillian-log-signer
+
+    export TRILLIAN_LOG_RPC="localhost:8090"
 
 script:
   - set -e

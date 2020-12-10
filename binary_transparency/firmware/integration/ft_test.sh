@@ -108,6 +108,21 @@ echo "new hash ${malware_hash}"
 mv ${DEVICE_STATE}/bundle.json ${DEVICE_STATE}/bundle.json.orig
 # This beastly jq command unpacks the nested json structures and replaces just the fimware measurement with the one from our hacked firmware:
 jq --arg hacked ${malware_hash} -c '.ManifestStatement=(.ManifestStatement|@base64d|fromjson|.Metadata=(.Metadata|@base64d|fromjson|.ExpectedFirmwareMeasurement=$hacked|tojson|@base64)|tojson|@base64)' ${DEVICE_STATE}/bundle.json.orig > ${DEVICE_STATE}/bundle.json
+EXPECT_FAIL "failed to verify signature" \
+    go run ../cmd/emulator/dummy/ \
+        --dummy_storage_dir="${DEVICE_STATE}" \
+        ${COMMON_FLAGS}
+
+
+####################
+banner "Fiddle with installed firmware & manifest and try to boot device"
+HACKED_FIRMWARE=../testdata/firmware/dummy_device/hacked.wasm
+cp -v ${HACKED_FIRMWARE} ${DEVICE_STATE}/firmware.bin
+malware_hash=$(sha512sum ${DEVICE_STATE}/firmware.bin | awk '{print $1}' | xxd -r -p | base64 -w 0 )
+echo "new hash ${malware_hash}"
+mv ${DEVICE_STATE}/bundle.json ${DEVICE_STATE}/bundle.json.orig
+# This beastly jq command unpacks the nested json structures and replaces just the fimware measurement with the one from our hacked firmware:
+jq --arg hacked ${malware_hash} -c '.ManifestStatement=(.ManifestStatement|@base64d|fromjson|.Metadata=(.Metadata|@base64d|fromjson|.ExpectedFirmwareMeasurement=$hacked|tojson|@base64)|tojson|@base64)' ${DEVICE_STATE}/bundle.json.orig > ${DEVICE_STATE}/bundle.json
 EXPECT_FAIL "invalid inclusion proof in bundle" \
     go run ../cmd/emulator/dummy/ \
         --dummy_storage_dir="${DEVICE_STATE}" \

@@ -109,9 +109,9 @@ EXPECT_FAIL() {
     echo "FAIL: Expected command to fail, but it returned success"
     exit 1
   fi
-  echo "${output}" | grep --color "${want}\|$"
+  echo "${output}" | grep --color "${want}"
   if [ $? -ne 0 ]; then
-    echo "FAIL: Didn't find expected error message '${want}' in output: ${output}"
+    echo "FAIL: Didn't find expected error message '${want}' in output:\n${output}"
     exit 2
   fi
 

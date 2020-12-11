@@ -83,6 +83,13 @@ steps:
   - 'CODECOV_TOKEN=$_CODECOV_TOKEN' # _CODECOV_TOKEN is specified in the cloud build trigger
   waitFor: ['presubmit-with-coverage']
 
+# Test the USB Armory code as best we can
+- name: gcr.io/$PROJECT_ID/testbase
+  id: 'usbarmory'
+  entrypoint: 'bash'
+  args: ['-exc', './binary_transparency/firmware/integration/ft_usbarmory_test.sh']
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
 # Run the gossip integration test
 - name: gcr.io/$PROJECT_ID/testbase
   entrypoint: 'bash'

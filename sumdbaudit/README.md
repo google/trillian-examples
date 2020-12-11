@@ -127,6 +127,11 @@ This requires a local clone of the SumDB Log to be available. For this to be of 
 real value, it should be running against a database which is regularly being updated
 by the `mirror` service described above.
 
+Note that the witness is missing features (outlined below) in order to be used in an
+untrusted environment. This witness implementation is useful only in a trusted domain
+where the correct operation of the witness is implicit. This precludes being run as
+a general service on the Web, but is still useful within a household or organization.
+
 A client which successfully checks its checkpoints with a witness can ensure that if
 there is a "split view" of the SumDB Log, then it is on the same side of the split as
 the witness. If this witness is also verifying the claims of the log, then the client
@@ -177,3 +182,6 @@ sqlite3 ~/sum.db 'SELECT module, COUNT(*) cnt FROM leafMetadata GROUP BY module 
 * Only parse and process new leaves.
 * Support other SQL databases, e.g. MySQL
   * This should be trivial to support in code, but sqlite was picked for simplicity of admin for a demo
+* Witness should return detailed responses
+  * In the event of an inconsistency, both Checkpoints notes should be serialized and returned
+  * Consistency should return a proof that the tree is consistent with the witnesses Golden Checkpoint

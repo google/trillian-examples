@@ -81,6 +81,7 @@ func (s *server) checkConsistency(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// TODO(mhutchinson): Synthesize and return a proof of consistency with Golden CP.
 	w.Header().Set("Content-Type", "application/json")
 }
 

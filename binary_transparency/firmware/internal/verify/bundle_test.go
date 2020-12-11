@@ -34,7 +34,7 @@ const (
 
 func TestBundleForUpdate(t *testing.T) {
 	var dc api.LogCheckpoint
-	var proof [][]byte
+	proof := func(from, to uint64) ([][]byte, error) { return [][]byte{}, nil }
 
 	for _, test := range []struct {
 		desc    string

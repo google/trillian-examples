@@ -25,11 +25,14 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 )
 
+// ConsistencyProofFunc is a function which returns a consistency proof between two tree sizes.
+type ConsistencyProofFunc func(from, to uint64) ([][]byte, error)
+
 // BundleForUpdate checks that the manifest, checkpoint, and proofs in a bundle
 // are all self-consistent, and that the provided firmware image hash matches
 // the one in the bundle. It also checks consistency proof between update log point
 // and device log point (for non zero device tree size).
-func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cProof [][]byte) error {
+func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc ConsistencyProofFunc) error {
 	proofBundle, fwMeta, err := verifyBundle(bundleRaw)
 	if err != nil {
 		return err
@@ -38,6 +41,12 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cProof [][]
 	if got, want := fwHash, fwMeta.FirmwareImageSHA512; !bytes.Equal(got, want) {
 		return fmt.Errorf("firmware update image hash does not match metadata (0x%x != 0x%x)", got, want)
 	}
+
+	cProof, err := cpFunc(dc.TreeSize, proofBundle.Checkpoint.TreeSize)
+	if err != nil {
+		return fmt.Errorf("cpFunc failed: %q", err)
+	}
+
 	// Verify the consistency proof between device and bundle checkpoint
 	if dc.TreeSize > 0 {
 		lv := NewLogVerifier()

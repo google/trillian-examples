@@ -3,14 +3,12 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"time"
 
 	"github.com/f-secure-foundry/tamago/soc/imx6/dcp"
-	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
@@ -33,9 +31,9 @@ func init() {
 //     match the value expected by the firmware manifest
 //   - TODO(al): check signatures.
 func verifyIntegrity(proof, firmware *Partition) error {
-	bundle, err := loadBundle(proof)
+	rawBundle, err := proof.ReadAll(bundlePath)
 	if err != nil {
-		return fmt.Errorf("failed to load proof bundle: %w", err)
+		return fmt.Errorf("failed to read bundle: %w", err)
 	}
 
 	h, err := measureFirmware(firmware)
@@ -44,24 +42,10 @@ func verifyIntegrity(proof, firmware *Partition) error {
 	}
 	fmt.Printf("firmware partition hash: 0x%x\n", h)
 
-	if err := verify.BundleForBoot(bundle, h); err != nil {
+	if err := verify.BundleForBoot(rawBundle, h); err != nil {
 		return fmt.Errorf("failed to verify bundle: %w", err)
 	}
 	return nil
-}
-
-// loadBundle loads the proof bundle from the proof partition.
-func loadBundle(p *Partition) (api.ProofBundle, error) {
-	f, err := p.ReadAll(bundlePath)
-	if err != nil {
-		return api.ProofBundle{}, fmt.Errorf("failed to read bundle: %w", err)
-	}
-
-	var bundle api.ProofBundle
-	if err := json.Unmarshal(f, &bundle); err != nil {
-		return api.ProofBundle{}, fmt.Errorf("invalid bundle: %w", err)
-	}
-	return bundle, nil
 }
 
 // measureFirmware returns the firmware measurement hash for the firmware

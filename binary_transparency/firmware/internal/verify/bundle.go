@@ -29,8 +29,8 @@ import (
 // are all self-consistent, and that the provided firmware image hash matches
 // the one in the bundle. It also checks consistency proof between update log point
 // and device log point (for non zero device tree size).
-func BundleForUpdate(b api.ProofBundle, fwHash []byte, dc api.LogCheckpoint, cProof [][]byte) error {
-	fwMeta, err := verifyBundle(b)
+func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cProof [][]byte) error {
+	proofBundle, fwMeta, err := verifyBundle(bundleRaw)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func BundleForUpdate(b api.ProofBundle, fwHash []byte, dc api.LogCheckpoint, cPr
 	// Verify the consistency proof between device and bundle checkpoint
 	if dc.TreeSize > 0 {
 		lv := NewLogVerifier()
-		if err := lv.VerifyConsistencyProof(int64(dc.TreeSize), int64(b.Checkpoint.TreeSize), dc.RootHash, b.Checkpoint.RootHash, cProof); err != nil {
+		if err := lv.VerifyConsistencyProof(int64(dc.TreeSize), int64(proofBundle.Checkpoint.TreeSize), dc.RootHash, proofBundle.Checkpoint.RootHash, cProof); err != nil {
 			return fmt.Errorf("failed verification of consistency proof %w", err)
 		}
 	}
@@ -51,8 +51,8 @@ func BundleForUpdate(b api.ProofBundle, fwHash []byte, dc api.LogCheckpoint, cPr
 // BundleForBoot checks that the manifest, checkpoint, and proofs in a bundle
 // are all self-consistent, and that the provided firmware measurement matches
 // the one expected by the bundle.
-func BundleForBoot(b api.ProofBundle, measurement []byte) error {
-	fwMeta, err := verifyBundle(b)
+func BundleForBoot(bundleRaw, measurement []byte) error {
+	_, fwMeta, err := verifyBundle(bundleRaw)
 	if err != nil {
 		return err
 	}
@@ -63,27 +63,34 @@ func BundleForBoot(b api.ProofBundle, measurement []byte) error {
 	return nil
 }
 
-// verifyBundle verifies the self-consistency of a proof bundle.
-func verifyBundle(b api.ProofBundle) (api.FirmwareMetadata, error) {
+// verifyBundle parses a proof bundle and verifies its self-consistency.
+func verifyBundle(bundleRaw []byte) (api.ProofBundle, api.FirmwareMetadata, error) {
+	var pb api.ProofBundle
+	if err := json.Unmarshal(bundleRaw, &pb); err != nil {
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to parse proof bundle: %w", err)
+	}
+
+	// TODO(al): check Checkpoint signature
+
 	var fwStatement api.FirmwareStatement
-	if err := json.Unmarshal(b.ManifestStatement, &fwStatement); err != nil {
-		return api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal FirmwareStatement: %w", err)
+	if err := json.Unmarshal(pb.ManifestStatement, &fwStatement); err != nil {
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal FirmwareStatement: %w", err)
 	}
 	// Verify the statement signature:
 	if err := crypto.VerifySignature(fwStatement.Metadata, fwStatement.Signature); err != nil {
-		return api.FirmwareMetadata{}, fmt.Errorf("failed to verify signature on FirmwareStatement: %w", err)
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to verify signature on FirmwareStatement: %w", err)
+	}
+
+	lh := HashLeaf(pb.ManifestStatement)
+	lv := NewLogVerifier()
+	if err := lv.VerifyInclusionProof(int64(pb.InclusionProof.LeafIndex), int64(pb.Checkpoint.TreeSize), pb.InclusionProof.Proof, pb.Checkpoint.RootHash, lh); err != nil {
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("invalid inclusion proof in bundle: %w", err)
 	}
 
 	var fwMeta api.FirmwareMetadata
 	if err := json.Unmarshal(fwStatement.Metadata, &fwMeta); err != nil {
-		return api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal Metadata: %w", err)
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal Metadata: %w", err)
 	}
 
-	lh := HashLeaf(b.ManifestStatement)
-	lv := NewLogVerifier()
-
-	if err := lv.VerifyInclusionProof(int64(b.InclusionProof.LeafIndex), int64(b.Checkpoint.TreeSize), b.InclusionProof.Proof, b.Checkpoint.RootHash, lh); err != nil {
-		return api.FirmwareMetadata{}, fmt.Errorf("invalid inclusion proof in bundle: %w", err)
-	}
-	return fwMeta, nil
+	return pb, fwMeta, nil
 }

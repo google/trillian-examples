@@ -15,16 +15,13 @@
 package rom
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/common"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
@@ -60,7 +57,7 @@ func ResetFromFlags() (Chain, error) {
 	fwFile := filepath.Clean(filepath.Join(*dummyDirectory, firmwarePath))
 	bundleFile := filepath.Clean(filepath.Join(*dummyDirectory, bundlePath))
 
-	b, err := readAndParseBundle(bundleFile)
+	bundleRaw, err := ioutil.ReadFile(bundleFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read transparency bundle: %w", err)
 	}
@@ -76,35 +73,14 @@ func ResetFromFlags() (Chain, error) {
 	}
 
 	// validate bundle
-	if err := verify.BundleForBoot(b, fwMeasurement[:]); err != nil {
+	if err := verify.BundleForBoot(bundleRaw, fwMeasurement[:]); err != nil {
 		return nil, fmt.Errorf("failed to verify bundle: %w", err)
 	}
 
-	var stmt api.FirmwareStatement
-	if err := json.Unmarshal(b.ManifestStatement, &stmt); err != nil {
-		return nil, fmt.Errorf("error parsing firmware metadata: %w", err)
-	}
-	// TODO(al): check signature on checkpoints when they're added.
-	// verify the signature
-	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
-		return nil, fmt.Errorf("failed to verify signature: %w", err)
-	}
-	// boot
-	glog.Infof("Prepared to boot %s", stmt.Metadata)
+	glog.Info("Bundle verification passed, prepared to boot")
+
 	boot1 := func() error {
 		return bootWasm("main", fw)
 	}
 	return boot1, nil
-}
-
-func readAndParseBundle(bundleFile string) (api.ProofBundle, error) {
-	bundleRaw, err := ioutil.ReadFile(bundleFile)
-	if err != nil {
-		return api.ProofBundle{}, fmt.Errorf("failed to read transparency bundle: %w", err)
-	}
-	var pb api.ProofBundle
-	if err := json.Unmarshal(bundleRaw, &pb); err != nil {
-		return api.ProofBundle{}, fmt.Errorf("failed to parse proof bundle file: %w", err)
-	}
-	return pb, nil
 }

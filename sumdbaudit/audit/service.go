@@ -34,6 +34,26 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// CheckpointTooFresh is returned when a consistency proof is requested for a
+// checkpoint that is larger than the currently synced size.
+type CheckpointTooFresh struct {
+	RequestedSize, MaxSize int64
+}
+
+func (e CheckpointTooFresh) Error() string {
+	return fmt.Sprintf("requested checkpoint is at size %d but local log only has %d entries", e.RequestedSize, e.MaxSize)
+}
+
+// InconsistentCheckpoints is returned when a consistency proof cannot be found
+// between two checkpoints.
+type InconsistentCheckpoints struct {
+	A, B *Checkpoint
+}
+
+func (e InconsistentCheckpoints) Error() string {
+	return fmt.Sprintf("checkpoints at size %d (%x) and size %d (%x) are inconsistent", e.A.N, e.A.Hash, e.B.N, e.B.Hash)
+}
+
 // Service has all the operations required for an auditor to verifiably clone
 // the remote SumDB.
 type Service struct {
@@ -136,6 +156,52 @@ func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *Checkpoint) e
 	return nil
 }
 
+// CheckConsistency checks that the given checkpoint is consistent with the state
+// downloaded and committed to by the current Golden Checkpoint. If the given
+// checkpoint is too recent then a CheckpointTooFresh error will be returned. If
+// the checkpoint is inconsistent with the golden checkpoint then the error will
+// be of type InconsistentCheckpoints.
+func (s *Service) CheckConsistency(ctx context.Context, checkpoint *Checkpoint) error {
+	golden, err := s.localDB.GoldenCheckpoint(s.ParseCheckpointNote)
+	if err != nil {
+		return fmt.Errorf("failed to query for golden checkpoint: %w", err)
+	}
+	if bytes.Equal(checkpoint.Raw, golden.Raw) {
+		// This is easy and possibly common, so handle it as a special case.
+		return nil
+	}
+	head, err := s.localDB.Head()
+	if err != nil {
+		return fmt.Errorf("cannot find head of local log: %w", err)
+	}
+	if checkpoint.N > head {
+		// If we wanted to, we _could_ check consistency for checkpoints that
+		// are larger than this, but it would require querying the log. For the
+		// sake of a tight design, we will only try to perform checks for data
+		// which we have entirely locally.
+		return CheckpointTooFresh{
+			RequestedSize: checkpoint.N,
+			MaxSize:       head}
+	}
+
+	err = s.checkCheckpoint(checkpoint, func(stragglerCount int) ([][]byte, error) {
+		stragglerTileOffset := int(checkpoint.N / (1 << s.height))
+		return s.localDB.Tile(s.height, 0, stragglerTileOffset)
+	})
+	if err != nil {
+		return InconsistentCheckpoints{
+			A: golden,
+			B: checkpoint,
+		}
+	}
+	return nil
+}
+
+// ParseCheckpointNote parses the raw checkpoint.
+func (s *Service) ParseCheckpointNote(raw []byte) (*Checkpoint, error) {
+	return s.sumDB.ParseCheckpointNote(raw)
+}
+
 // VerifyTiles checks that every tile calculated locally matches the result returned
 // by SumDB. This shouldn't be necessary if checkRootHash is working, but this may be
 // useful to determine where any corruption has happened in the tree.
@@ -150,11 +216,11 @@ func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error
 					finishedLevel = true
 					continue
 				}
-				return fmt.Errorf("failed to get tile hashes: %v", err)
+				return fmt.Errorf("failed to get tile hashes: %w", err)
 			}
 			sumDBHashes, err := s.sumDB.TileHashes(level, offset)
 			if err != nil {
-				return fmt.Errorf("failed to get tile hashes: %v", err)
+				return fmt.Errorf("failed to get tile hashes: %w", err)
 			}
 
 			for i := 0; i < 1<<s.height; i++ {
@@ -181,7 +247,7 @@ func (s *Service) cloneLeafTiles(ctx context.Context, checkpoint *Checkpoint) er
 			glog.Infof("failed to find head of database, assuming empty and starting from scratch: %v", err)
 			head = -1
 		default:
-			return fmt.Errorf("failed to query for head of local log: %v", err)
+			return fmt.Errorf("failed to query for head of local log: %w", err)
 		}
 	}
 	if checkpoint.N < head {
@@ -287,7 +353,7 @@ func (s *Service) hashTiles(ctx context.Context, checkpoint *Checkpoint) error {
 		roots = outRoots
 	}
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("failed to hash: %v", err)
+		return fmt.Errorf("failed to hash: %w", err)
 	}
 	return nil
 }
@@ -307,12 +373,12 @@ func (s *Service) checkConsistency(ctx context.Context) error {
 			glog.Warning("Failed to find golden checkpoint!")
 			return nil
 		default:
-			return fmt.Errorf("failed to query for golden checkpoint: %v", err)
+			return fmt.Errorf("failed to query for golden checkpoint: %w", err)
 		}
 	}
 	head, err := s.localDB.Head()
 	if err != nil {
-		return fmt.Errorf("cannot find head of local log: %v", err)
+		return fmt.Errorf("cannot find head of local log: %w", err)
 	}
 	if golden.N > head {
 		// This can happen if SumDB hasn't committed to any new complete tiles since the
@@ -411,7 +477,7 @@ func (s *Service) checkCheckpoint(cp *Checkpoint, getStragglers func(stragglerCo
 	}
 	root, err := logRange.GetRootHash(nil)
 	if err != nil {
-		return fmt.Errorf("failed to get root hash: %v", err)
+		return fmt.Errorf("failed to get root hash: %w", err)
 	}
 	var rootHash tlog.Hash
 	copy(rootHash[:], root)
@@ -447,7 +513,7 @@ func (s *Service) hashLeafTile(offset int) ([][]byte, error) {
 
 	leaves, err := s.localDB.Leaves(int64(tileWidth)*int64(offset), tileWidth)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get leaves from DB: %v", err)
+		return nil, fmt.Errorf("failed to get leaves from DB: %w", err)
 	}
 	res := make([][]byte, tileWidth)
 	leafHashes := make([]byte, tileWidth*HashLenBytes)

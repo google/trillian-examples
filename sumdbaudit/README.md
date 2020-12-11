@@ -79,7 +79,7 @@ sudo mv mirror /usr/local/bin/sumdbmirror
 
 # Create a user to run the service that has no login
 sudo useradd -M sumdb
-sudo usermod -L usermod -s /bin/false sumdb
+sudo usermod -L -s /bin/false sumdb
 
 # Create a directory to store the sqlite database
 sudo mkdir /var/cache/sumdb

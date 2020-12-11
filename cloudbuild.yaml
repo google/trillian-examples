@@ -13,7 +13,16 @@ options:
 steps:
 # First build a "testbase" docker image which contains most of the tools we need for the later steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '--tag=gcr.io/$PROJECT_ID/testbase', '-f', './integration/Dockerfile', '.']
+  entrypoint: 'bash'
+  args: ['-c', 'docker pull gcr.io/$PROJECT_ID/testbase:latest || exit 0']
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', 'gcr.io/$PROJECT_ID/testbase:latest',
+    '--cache-from', 'gcr.io/$PROJECT_ID/testbase:latest',
+    '-f', './integration/Dockerfile',
+    '.'
+  ]
 
 # prepare spins up an ephemeral trillian instance for testing use.
 - name: gcr.io/$PROJECT_ID/testbase
@@ -83,6 +92,13 @@ steps:
   - 'CODECOV_TOKEN=$_CODECOV_TOKEN' # _CODECOV_TOKEN is specified in the cloud build trigger
   waitFor: ['presubmit-with-coverage']
 
+# Test the USB Armory code as best we can
+- name: gcr.io/$PROJECT_ID/testbase
+  id: 'usbarmory'
+  entrypoint: 'bash'
+  args: ['-exc', './binary_transparency/firmware/integration/ft_usbarmory_test.sh']
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
 # Run the gossip integration test
 - name: gcr.io/$PROJECT_ID/testbase
   entrypoint: 'bash'
@@ -106,3 +122,6 @@ steps:
       export TRILLIAN_LOG_RPC="deployment_trillian-log-server_1:8090"
       ./binary_transparency/firmware/integration/ft_test.sh
   waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+images:
+  - 'gcr.io/$PROJECT_ID/testbase:latest'

@@ -19,12 +19,12 @@
 // to the specified output file.
 //
 // Usage:
-//   go run ./cmd/hacker/modify_bundle/ --logtostderr --device=[dummy,usbarmory] --binary=/path/to/new/firmware/image --input=/path/to/bundle.json --output=/path/to/bundle.json
-//
-// The first time you use this tool there will be no prior firmware metadata
-// stored on the device and the tool will fail.  In this case, use the --force
-// flag to apply the update anyway thereby creating the metadata.
-// Subsequent invocations should then work without needing the --force flag.package main
+//   go run ./cmd/hacker/modify_bundle/ \
+//      --logtostderr \
+//      --device=[dummy,usbarmory] \
+//      --binary=/path/to/new/firmware/image \
+//      --input=/path/to/bundle.json \
+//      --output=/path/to/bundle.json
 package main
 
 import (
@@ -51,6 +51,10 @@ var (
 func main() {
 	flag.Parse()
 
+	if len(*binaryPath) == 0 {
+		glog.Exit("Must specify --binary flag.")
+	}
+
 	bundleRaw, err := ioutil.ReadFile(*input)
 	if err != nil {
 		glog.Exitf("Failed to read transparency bundle %q: %q", *input, err)
@@ -68,32 +72,31 @@ func main() {
 		glog.Exitf("Failed to parse FirmwareMetadata: %q", err)
 	}
 
-	if len(*binaryPath) > 0 {
-		var measure func([]byte) ([]byte, error)
-		switch *deviceID {
-		case "armory":
-			measure = usbarmory.ExpectedMeasurement
-		case "dummy":
-			measure = dummy_common.ExpectedMeasurement
-		default:
-			glog.Exit("--device must be one of: 'dummy', 'armory'")
-		}
-
-		fw, err := ioutil.ReadFile(*binaryPath)
-		if err != nil {
-			glog.Exitf("Failed to read %q: %q", *binaryPath, err)
-		}
-
-		h := sha512.Sum512(fw)
-
-		m, err := measure(fw)
-		if err != nil {
-			glog.Exitf("Failed to calculate expected measurement for firmware: %q", err)
-		}
-
-		fm.ExpectedFirmwareMeasurement = m
-		fm.FirmwareImageSHA512 = h[:]
+	var measure func([]byte) ([]byte, error)
+	switch *deviceID {
+	case "armory":
+		measure = usbarmory.ExpectedMeasurement
+	case "dummy":
+		measure = dummy_common.ExpectedMeasurement
+	default:
+		glog.Exit("--device must be one of: 'dummy', 'armory'")
 	}
+
+	fw, err := ioutil.ReadFile(*binaryPath)
+	if err != nil {
+		glog.Exitf("Failed to read %q: %q", *binaryPath, err)
+	}
+
+	h := sha512.Sum512(fw)
+
+	m, err := measure(fw)
+	if err != nil {
+		glog.Exitf("Failed to calculate expected measurement for firmware: %q", err)
+	}
+
+	fm.ExpectedFirmwareMeasurement = m
+	fm.FirmwareImageSHA512 = h[:]
+
 	rawMeta, err := json.Marshal(fm)
 	if err != nil {
 		glog.Exitf("Failed to marshal FirmwareMetadata: %q", err)

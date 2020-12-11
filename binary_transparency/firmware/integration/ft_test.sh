@@ -103,11 +103,16 @@ EXPECT_FAIL "firmware measurement does not match" \
 banner "Replace installed firmware, update manifest hash, and try to boot device"
 HACKED_FIRMWARE=../testdata/firmware/dummy_device/hacked.wasm
 cp -v ${HACKED_FIRMWARE} ${DEVICE_STATE}/firmware.bin
-malware_hash=$(sha512sum ${DEVICE_STATE}/firmware.bin | awk '{print $1}' | xxd -r -p | base64 -w 0 )
-echo "new hash ${malware_hash}"
-mv ${DEVICE_STATE}/bundle.json ${DEVICE_STATE}/bundle.json.orig
-# This beastly jq command unpacks the nested json structures and replaces just the fimware measurement with the one from our hacked firmware:
-jq --arg hacked ${malware_hash} -c '.ManifestStatement=(.ManifestStatement|@base64d|fromjson|.Metadata=(.Metadata|@base64d|fromjson|.ExpectedFirmwareMeasurement=$hacked|tojson|@base64)|tojson|@base64)' ${DEVICE_STATE}/bundle.json.orig > ${DEVICE_STATE}/bundle.json
+# Now update the bundle file with correct measurements for the hacked firmware,
+# although we're pretending we don't have the private key for signing the modified
+# statement in this test:
+go run ../cmd/hacker/modify_bundle \
+    --device="dummy" \
+    --input ${DEVICE_STATE}/bundle.json \
+    --binary ${DEVICE_STATE}/firmware.bin \
+    --output ${DEVICE_STATE}/bundle.json  \
+    --sign=false \
+    ${COMMON_FLAGS}
 EXPECT_FAIL "failed to verify signature" \
     go run ../cmd/emulator/dummy/ \
         --dummy_storage_dir="${DEVICE_STATE}" \
@@ -118,12 +123,13 @@ banner "Replace installed firmware, update manifest hash, sign, and try to boot 
 HACKED_FIRMWARE=../testdata/firmware/dummy_device/hacked.wasm
 cp -v ${HACKED_FIRMWARE} ${DEVICE_STATE}/firmware.bin
 # Now update the bundle file with correct measurements for the hacked firmware,
-# and sign the manifest with a "stolen" key.
+# but this time we WILL sign the manifest with a "stolen" key.
 go run ../cmd/hacker/modify_bundle \
     --device="dummy" \
     --input ${DEVICE_STATE}/bundle.json \
     --binary ${DEVICE_STATE}/firmware.bin \
     --output ${DEVICE_STATE}/bundle.json  \
+    --sign=true \
     ${COMMON_FLAGS}
 EXPECT_FAIL "invalid inclusion proof in bundle" \
     go run ../cmd/emulator/dummy/ \

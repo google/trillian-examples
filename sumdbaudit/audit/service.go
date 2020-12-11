@@ -164,7 +164,7 @@ func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *Checkpoint) e
 func (s *Service) CheckConsistency(ctx context.Context, checkpoint *Checkpoint) error {
 	golden, err := s.localDB.GoldenCheckpoint(s.ParseCheckpointNote)
 	if err != nil {
-		return fmt.Errorf("failed to query for golden checkpoint: %v", err)
+		return fmt.Errorf("failed to query for golden checkpoint: %w", err)
 	}
 	if bytes.Equal(checkpoint.Raw, golden.Raw) {
 		// This is easy and possibly common, so handle it as a special case.
@@ -172,7 +172,7 @@ func (s *Service) CheckConsistency(ctx context.Context, checkpoint *Checkpoint) 
 	}
 	head, err := s.localDB.Head()
 	if err != nil {
-		return fmt.Errorf("cannot find head of local log: %v", err)
+		return fmt.Errorf("cannot find head of local log: %w", err)
 	}
 	if checkpoint.N > head {
 		// If we wanted to, we _could_ check consistency for checkpoints that
@@ -216,11 +216,11 @@ func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error
 					finishedLevel = true
 					continue
 				}
-				return fmt.Errorf("failed to get tile hashes: %v", err)
+				return fmt.Errorf("failed to get tile hashes: %w", err)
 			}
 			sumDBHashes, err := s.sumDB.TileHashes(level, offset)
 			if err != nil {
-				return fmt.Errorf("failed to get tile hashes: %v", err)
+				return fmt.Errorf("failed to get tile hashes: %w", err)
 			}
 
 			for i := 0; i < 1<<s.height; i++ {
@@ -247,7 +247,7 @@ func (s *Service) cloneLeafTiles(ctx context.Context, checkpoint *Checkpoint) er
 			glog.Infof("failed to find head of database, assuming empty and starting from scratch: %v", err)
 			head = -1
 		default:
-			return fmt.Errorf("failed to query for head of local log: %v", err)
+			return fmt.Errorf("failed to query for head of local log: %w", err)
 		}
 	}
 	if checkpoint.N < head {
@@ -353,7 +353,7 @@ func (s *Service) hashTiles(ctx context.Context, checkpoint *Checkpoint) error {
 		roots = outRoots
 	}
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("failed to hash: %v", err)
+		return fmt.Errorf("failed to hash: %w", err)
 	}
 	return nil
 }
@@ -373,12 +373,12 @@ func (s *Service) checkConsistency(ctx context.Context) error {
 			glog.Warning("Failed to find golden checkpoint!")
 			return nil
 		default:
-			return fmt.Errorf("failed to query for golden checkpoint: %v", err)
+			return fmt.Errorf("failed to query for golden checkpoint: %w", err)
 		}
 	}
 	head, err := s.localDB.Head()
 	if err != nil {
-		return fmt.Errorf("cannot find head of local log: %v", err)
+		return fmt.Errorf("cannot find head of local log: %w", err)
 	}
 	if golden.N > head {
 		// This can happen if SumDB hasn't committed to any new complete tiles since the
@@ -477,7 +477,7 @@ func (s *Service) checkCheckpoint(cp *Checkpoint, getStragglers func(stragglerCo
 	}
 	root, err := logRange.GetRootHash(nil)
 	if err != nil {
-		return fmt.Errorf("failed to get root hash: %v", err)
+		return fmt.Errorf("failed to get root hash: %w", err)
 	}
 	var rootHash tlog.Hash
 	copy(rootHash[:], root)
@@ -513,7 +513,7 @@ func (s *Service) hashLeafTile(offset int) ([][]byte, error) {
 
 	leaves, err := s.localDB.Leaves(int64(tileWidth)*int64(offset), tileWidth)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get leaves from DB: %v", err)
+		return nil, fmt.Errorf("failed to get leaves from DB: %w", err)
 	}
 	res := make([][]byte, tileWidth)
 	leafHashes := make([]byte, tileWidth*HashLenBytes)

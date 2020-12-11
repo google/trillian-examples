@@ -43,11 +43,11 @@ func main() {
 	}
 	db, err := audit.NewDatabase(*db)
 	if err != nil {
-		glog.Exitf("failed to open DB: %v", err)
+		glog.Exitf("Failed to open DB: %v", err)
 	}
 	err = db.Init()
 	if err != nil {
-		glog.Exitf("failed to init DB: %v", err)
+		glog.Exitf("Failed to init DB: %v", err)
 	}
 	sumDB := audit.NewSumDB(*height, *vkey)
 	s := audit.NewService(db, sumDB, *height)
@@ -55,23 +55,23 @@ func main() {
 	for {
 		head, err := sumDB.LatestCheckpoint()
 		if err != nil {
-			glog.Exitf("failed to get latest checkpoint: %s", err)
+			glog.Exitf("Failed to get latest checkpoint: %s", err)
 		}
 		golden := s.GoldenCheckpoint(ctx)
 		if golden != nil && golden.N >= head.N {
-			glog.Infof("nothing to do: latest SumDB size is %d and local size is %d", head.N, golden.N)
+			glog.Infof("Nothing to do: latest SumDB size is %d and local size is %d", head.N, golden.N)
 		} else {
-			glog.Infof("syncing to latest SumDB size %d", head.N)
+			glog.Infof("Syncing to latest SumDB size %d", head.N)
 			s.Sync(ctx, head)
 			if *unpack {
-				glog.V(1).Infof("processing metadata")
+				glog.V(1).Infof("Processing metadata")
 				if err := s.ProcessMetadata(ctx, head); err != nil {
 					glog.Exitf("ProcessMetadata: %v", err)
 				}
 			}
 		}
 
-		glog.V(1).Infof("sleeping for %v", *interval)
+		glog.V(1).Infof("Sleeping for %v", *interval)
 		time.Sleep(*interval)
 	}
 }

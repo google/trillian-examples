@@ -164,21 +164,31 @@ Created image in /tmp/armory.ext4:
 
 ```
 
-For now, this image can be written to the target partition using the following commands:
+This image can be written to the target partition using the following commands:
 
 ```bash
 # first, log the image
 $ go run ./cmd/publisher/ --logtostderr --binary_path /tmp/armory.ext4 --output_path /tmp/update.ota --device="armory"
 
 # then flash the device firmware
+$ sudo $(which go) ./cmd/flash_tool \
+    --logtostderr \
+    --device=armory \
+    --update_file /tmp/update.ota \
+    --armory_proof_mount_point /path/to/mounted/proof/partition
+    --armory_unikernel_dev /dev/mysdcard3
+
+```
+<details>
+<summary>Alternative approach using regular shell commands</summary>
+Alternatively, if you prefer to see what's going on, you can currently achieve a similar goal with the following
 $ sudo dd if=/tmp/armory.ext of=/dev/my_sdcard3 bs=1M conf=fsync
 
 # finally, copy over the proof bundle (assumes /dev/my_sdcard2 is mounted on /mnt/proof)
 $ jq .ProofBundle /tmp/update.ota > /tmp/bundle.proof
 $ sudo mv /tmp/bundle.proof /mnt/proof/bundle.json
 ```
-
-TODO(al): consider updating `flash_tool` with support for writing these images.
+</details>
 
 ### Linux
 

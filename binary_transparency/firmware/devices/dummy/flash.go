@@ -82,11 +82,7 @@ func (d Device) ApplyUpdate(u api.UpdatePackage) error {
 	fwFile := filepath.Join(*dummyDirectory, firmwarePath)
 	bundleFile := filepath.Join(*dummyDirectory, bundlePath)
 
-	proof, err := json.Marshal(u.ProofBundle)
-	if err != nil {
-		return fmt.Errorf("failed to marshal proof bundle: %q", err)
-	}
-	if err := ioutil.WriteFile(bundleFile, proof, os.ModePerm); err != nil {
+	if err := ioutil.WriteFile(bundleFile, u.ProofBundle, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to write proof bundle to %q: %q", bundleFile, err)
 	}
 

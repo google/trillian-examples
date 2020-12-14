@@ -99,14 +99,19 @@ func main() {
 
 	if len(*outputPath) > 0 {
 		glog.Infof("Creating update package file %q...", *outputPath)
-
-		bundle := api.UpdatePackage{
-			FirmwareImage: fw,
-			ProofBundle: api.ProofBundle{
+		pb, err := json.Marshal(
+			api.ProofBundle{
 				ManifestStatement: js,
 				Checkpoint:        cp,
 				InclusionProof:    ip,
-			},
+			})
+		if err != nil {
+			glog.Exitf("Failed to marshal ProofBundle: %q", err)
+		}
+
+		bundle := api.UpdatePackage{
+			FirmwareImage: fw,
+			ProofBundle:   pb,
 		}
 
 		f, err := os.OpenFile(*outputPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)

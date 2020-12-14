@@ -26,7 +26,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha512"
 	"encoding/json"
 	"errors"
@@ -40,7 +39,6 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
 	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
@@ -71,10 +69,6 @@ func main() {
 		glog.Exitf("Failed to read update package file: %q", err)
 	}
 	// TODO(al): check signature on checkpoints when they're added.
-	// Verify Signature on the manifest statement
-	if err := checkSignature(up); err != nil {
-		glog.Exitf("Manifest/signature verification failed: %q", err)
-	}
 
 	var dev devices.Device
 	dev, err = dummy.NewFromFlags()
@@ -119,19 +113,6 @@ func readUpdateFileFromFlags() (api.UpdatePackage, error) {
 	return up, nil
 }
 
-func checkSignature(up api.UpdatePackage) error {
-	stmt := api.FirmwareStatement{}
-	if err := json.NewDecoder(bytes.NewReader(up.ProofBundle.ManifestStatement)).Decode(&stmt); err != nil {
-		return fmt.Errorf("failed to decode firmware statement: %w", err)
-	}
-
-	//Verify the signature:
-	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
-		return fmt.Errorf("firmware signature verification failed reason %w", err)
-	}
-	return nil
-}
-
 // verifyUpdate checks that an update package is self-consistent.
 func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) error {
 	// Get the consistency proof for the bundle
@@ -140,17 +121,20 @@ func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.De
 		return fmt.Errorf("failed to fetch the device checkpoint: %w", err)
 	}
 
-	var cp [][]byte
-	if dc.TreeSize > 0 {
-		r, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: dc.TreeSize, To: up.ProofBundle.Checkpoint.TreeSize})
-		if err != nil {
-			return fmt.Errorf("failed to fetch consistency proof: %w", err)
+	cpFunc := func(from, to uint64) ([][]byte, error) {
+		var cp [][]byte
+		if dc.TreeSize > 0 {
+			r, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: from, To: to})
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch consistency proof: %w", err)
+			}
+			cp = r.Proof
 		}
-		cp = r.Proof
+		return cp, nil
 	}
 
 	fwHash := sha512.Sum512(up.FirmwareImage)
-	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cp); err != nil {
+	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc); err != nil {
 		return fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
 	return nil

@@ -12,22 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This package is the entrypoint for the Firmware Transparency monitor.
+// Package impl is the implementation of the Firmware Transparency monitor.
 // The monitor follows the growth of the Firmware Transparency log server,
 // inspects new firmware metadata as it appears, and prints out a short
 // summary.
 //
 // TODO(al): Extend monitor to verify claims.
-//
-// Start the monitor using:
-// go run ./cmd/ft_monitor/main.go --logtostderr -v=2 --ftlog=http://localhost:8000/
-package main
+package impl
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha512"
 	"encoding/json"
-	"flag"
+	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -40,26 +39,26 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
-var (
-	ftLog        = flag.String("ftlog", "http://localhost:8000", "Base URL of FT Log server")
-	pollInterval = flag.Duration("poll_interval", 5*time.Second, "Duration to wait between polling for new entries")
-	keyWord      = flag.String("keyword", "trojan", "Example keyword for malware")
-)
+// MonitorOpts encapsulates options for running the monitor.
+type MonitorOpts struct {
+	LogURL       string
+	PollInterval time.Duration
+	Keyword      string
+}
 
-func main() {
-	flag.Parse()
+func Main(ctx context.Context, opts MonitorOpts) error {
 
-	if len(*ftLog) == 0 {
-		glog.Exit("ftlog is required")
+	if len(opts.LogURL) == 0 {
+		return errors.New("log URL is required")
 	}
 
-	ftURL, err := url.Parse(*ftLog)
+	ftURL, err := url.Parse(opts.LogURL)
 	if err != nil {
-		glog.Exitf("Failed to parse FT log URL: %q", err)
+		return fmt.Errorf("failed to parse FT log URL: %w", err)
 	}
 
-	glog.Infof("Monitoring FT log %q...", *ftLog)
-	ticker := time.NewTicker(*pollInterval)
+	glog.Infof("Monitoring FT log %q...", opts.LogURL)
+	ticker := time.NewTicker(opts.PollInterval)
 
 	c := client.ReadonlyClient{LogURL: ftURL}
 	var latestCP api.LogCheckpoint
@@ -68,12 +67,18 @@ func main() {
 
 	// Parse the input keywords as regular expression
 	var ftKeywords []*regexp.Regexp
-	for _, k := range strings.Fields(*keyWord) {
+	for _, k := range strings.Fields(opts.Keyword) {
 		ftKeywords = append(ftKeywords, regexp.MustCompile(k))
 	}
 
 	for {
-		<-ticker.C
+		select {
+		case <-ticker.C:
+			//
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+
 		cp, err := c.GetCheckpoint()
 		if err != nil {
 			glog.Warningf("Failed to update LogCheckpoint: %q", err)
@@ -174,4 +179,5 @@ func main() {
 
 		latestCP = *cp
 	}
+	// unreachable
 }

@@ -15,7 +15,6 @@
 package rom
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -23,10 +22,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/common"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
-)
-
-var (
-	dummyDirectory = flag.String("dummy_storage_dir", "/tmp/dummy_device", "Directory path of the dummy device's state storage")
 )
 
 const (
@@ -37,7 +32,7 @@ const (
 // Chain represents the next stage in the boot process.
 type Chain func() error
 
-// ResetFromFlags is intended to emulate the early stage boot process of a device.
+// Reset is intended to emulate the early stage boot process of a device.
 //
 // It's separate from the device emulator code to highlight that the process of
 // verifying the local firmware/proofs/etc. could be done on-device at
@@ -48,14 +43,14 @@ type Chain func() error
 // process by checking once and leveraging properties of the hardware.
 //
 // Returns the first link in the boot chain as a func.
-func ResetFromFlags() (Chain, error) {
+func Reset(storagePath string) (Chain, error) {
 	glog.Info("----RESET----")
 	glog.Info("Powering up bananas, configuring Romulans, feeding the watchdogs")
 
-	glog.Infof("Configuring flash and loading FT artifacts from %q...", *dummyDirectory)
+	glog.Infof("Configuring flash and loading FT artifacts from %q...", storagePath)
 
-	fwFile := filepath.Clean(filepath.Join(*dummyDirectory, firmwarePath))
-	bundleFile := filepath.Clean(filepath.Join(*dummyDirectory, bundlePath))
+	fwFile := filepath.Clean(filepath.Join(storagePath, firmwarePath))
+	bundleFile := filepath.Clean(filepath.Join(storagePath, bundlePath))
 
 	bundleRaw, err := ioutil.ReadFile(bundleFile)
 	if err != nil {

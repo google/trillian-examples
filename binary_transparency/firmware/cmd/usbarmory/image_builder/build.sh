@@ -68,6 +68,7 @@ OVERHEAD=2560000
 let BLOCKS=(${SIZE}+${OVERHEAD})/1024
 
 mkfs.ext4 ${o} -q -b 1024 -O ^has_journal -L firmware ${BLOCKS}
+tune2fs -O ^metadata_csum,^64bit ${o}
 fuse2fs -o fakeroot ${o} ${MNT}
 
 mkdir ${MNT}/boot

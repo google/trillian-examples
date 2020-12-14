@@ -25,7 +25,7 @@ endif
 APP := armory-boot
 GOENV := GO_EXTLINK_ENABLED=0 CGO_ENABLED=0 GOOS=tamago GOARM=7 GOARCH=arm
 TEXT_START := 0x90010000 # ramStart (defined in imx6/imx6ul/memory.go) + 0x10000
-GOFLAGS := -tags ${BUILD_TAGS} -ldflags "-s -w -T $(TEXT_START) -E _rt0_arm_tamago -R 0x1000 -X 'main.Build=${BUILD}' -X 'main.Revision=${REV}' -X 'main.Boot=${BOOT}' -X 'main.StartKernel=${START_KERNEL}' -X 'main.StartProof=${START_PROOF}' -X 'main.PublicKeyStr=${PUBLIC_KEY}'"
+GOFLAGS := -tags "${BUILD_TAGS}" -ldflags "-s -w -T $(TEXT_START) -E _rt0_arm_tamago -R 0x1000 -X 'main.Build=${BUILD}' -X 'main.Revision=${REV}' -X 'main.Boot=${BOOT}' -X 'main.StartKernel=${START_KERNEL}' -X 'main.StartProof=${START_PROOF}' -X 'main.PublicKeyStr=${PUBLIC_KEY}'"
 
 .PHONY: clean
 

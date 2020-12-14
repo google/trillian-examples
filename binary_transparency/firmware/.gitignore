@@ -1,7 +1,7 @@
-ft_personality
-ft_monitor
-flash_tool
-createtree
-trillian_log_server
-trillian_log_signer
+./ft_personality$
+./ft_monitor$
+./flash_tool$
+./createtree$
+./trillian_log_server$
+./trillian_log_signer$
 

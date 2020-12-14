@@ -1,6 +1,4 @@
 # This Dockerfile builds a base image for the CloudBuild integration testing.
-# It just extends a golang/linux base image with a few extra tools which the
-# tests need.
 FROM ubuntu as testbase
 
 WORKDIR /testbase
@@ -9,7 +7,7 @@ ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
 ENV GO111MODULE=on
 
-RUN apt-get update && apt-get -y install curl default-mysql-client docker-compose lsof unzip wget xxd
+RUN apt-get update && apt-get -y install curl docker-compose lsof unzip wget xxd
 
 RUN curl -sfL https://golang.org/dl/go1.15.6.linux-amd64.tar.gz | tar -xzf - -C /usr/local
 

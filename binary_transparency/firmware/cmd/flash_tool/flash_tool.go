@@ -38,11 +38,13 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
 	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy"
+	armory_flash "github.com/google/trillian-examples/binary_transparency/firmware/devices/usbarmory/flash"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
 var (
+	deviceID  = flag.String("device", "", "One of [dummy, armory]")
 	logURL     = flag.String("log_url", "http://localhost:8000", "Base URL of the log HTTP API")
 	updateFile = flag.String("update_file", "", "File path to read the update package from")
 	force      = flag.Bool("force", false, "Ignore errors and force update")
@@ -71,13 +73,20 @@ func main() {
 	// TODO(al): check signature on checkpoints when they're added.
 
 	var dev devices.Device
-	dev, err = dummy.NewFromFlags()
+	switch *deviceID {
+	case "armory":
+		dev, err = armory_flash.NewFromFlags()
+	case "dummy":
+		dev, err = dummy.NewFromFlags()
+	default:
+		glog.Exit("--device must be one of: 'dummy', 'armory'")
+	}
 	if err != nil {
 		switch t := err.(type) {
 		case devices.ErrNeedsInit:
 			fatal(fmt.Sprintf("Device needs to be force initialised: %q", err))
 		default:
-			fatal(fmt.Sprintf("Failed to open dummy device: %q", t))
+			fatal(fmt.Sprintf("Failed to open device: %q", t))
 		}
 	}
 

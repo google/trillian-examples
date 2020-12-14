@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/allegro/bigcache v1.2.1 // indirect
-	github.com/apache/beam v2.24.0+incompatible
+	github.com/apache/beam v2.26.0+incompatible
 	github.com/benlaurie/gds-registers v0.0.0-20180214133647-6355673a9585
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/cenkalti/backoff/v4 v4.1.0

@@ -17,19 +17,15 @@ package flash
 
 import (
 	"encoding/json"
-	"flag"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
-)
-
-var (
-	proofDir  = flag.String("armory_proof_mount_point", "", "Mount point for armory SD card proof partition")
-	fwDevPath = flag.String("armory_unikernel_dev", "", "Raw block device on which to store firmware")
 )
 
 const (
@@ -49,19 +45,28 @@ type Device struct {
 
 var _ devices.Device = Device{}
 
-// NewFromFlags creates a new usbarmory device instance using data from flags.
-func NewFromFlags() (*Device, error) {
-	dStat, err := os.Stat(*proofDir)
+// New creates a new usbarmory device instance.
+//
+// storage is a comma separated string with the format:
+// <proof_mount_point_path>,<firmware_block_device>
+func New(storage string) (*Device, error) {
+	bits := strings.Split(storage, ",")
+	if len(bits) != 2 {
+		return nil, errors.New("storage should be '<proof mount point path>,<firmware block device path>'")
+	}
+	proofDir, fwDevPath := bits[0], bits[1]
+
+	dStat, err := os.Stat(proofDir)
 	if err != nil {
-		return nil, fmt.Errorf("unable to stat --armory_proof_mount_point %q: %w", *proofDir, err)
+		return nil, fmt.Errorf("unable to stat %q: %w", proofDir, err)
 	}
 	if !dStat.Mode().IsDir() {
-		return nil, fmt.Errorf("--armory_proof_mount_point %q is not a directory", *proofDir)
+		return nil, fmt.Errorf("%q is not a directory", proofDir)
 	}
 
 	d := &Device{
-		fwDevPath:  filepath.Clean(*fwDevPath),
-		bundlePath: filepath.Clean(filepath.Join(*proofDir, bundlePath)),
+		fwDevPath:  filepath.Clean(fwDevPath),
+		bundlePath: filepath.Clean(filepath.Join(proofDir, bundlePath)),
 	}
 
 	f, err := os.OpenFile(d.bundlePath, os.O_RDONLY, os.ModePerm)

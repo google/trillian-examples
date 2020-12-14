@@ -198,7 +198,7 @@ in the last step).
    > In both of these cases, you can use the `--force` flag on the `flash_tool`.
 
    ```bash
-   go run ./cmd/flash_tool/ --logtostderr --update_file=/tmp/update.ota --dummy_storage_dir=/tmp/dummy_device  # --force if it's the first time
+   go run ./cmd/flash_tool/ --logtostderr --update_file=/tmp/update.ota --device_storage=/tmp/dummy_device  # --force if it's the first time
    ```
 
 2. Boot the device.

@@ -54,6 +54,7 @@ go run ../cmd/publisher/ \
 ####################
 banner "Force flashing device (init)"
 go run ../cmd/flash_tool/ \
+    --device=dummy \
     --log_url="http://${FT_SERVER}" \
     --update_file="${UPDATE_FILE}" \
     --dummy_storage_dir="${DEVICE_STATE}" \
@@ -80,6 +81,7 @@ go run ../cmd/publisher/ \
 ####################
 banner "Flashing device (update)"
 go run ../cmd/flash_tool/ \
+    --device=dummy \
     --log_url="http://${FT_SERVER}" \
     --update_file="${UPDATE_FILE}" \
     --dummy_storage_dir="${DEVICE_STATE}" \
@@ -148,6 +150,7 @@ go run ../cmd/publisher/ \
     ${COMMON_FLAGS}
 
 go run ../cmd/flash_tool/ \
+    --device=dummy \
     --log_url="http://${FT_SERVER}" \
     --update_file="${MALWARE_UPDATE_FILE}" \
     --dummy_storage_dir="${DEVICE_STATE}" \

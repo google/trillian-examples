@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"time"
@@ -53,9 +54,14 @@ func writeWrongMethodResponse(rw *http.ResponseWriter, allowed string) {
 	(*rw).WriteHeader(http.StatusMethodNotAllowed)
 }
 
+// errTmpl is used to escape error body text to avoid reflection attacks.
+var errTmpl = template.Must(template.New("error").Parse(`<div>{{.msg}}</div>`))
+
 func writeErrorResponse(rw *http.ResponseWriter, status int, body string) {
 	(*rw).WriteHeader(status)
-	(*rw).Write([]byte(body))
+	errTmpl.Execute(*rw, map[string]interface{}{
+		"msg": body,
+	})
 }
 
 // HandleSCTFeedback handles requests POSTed to .../sct-feedback.

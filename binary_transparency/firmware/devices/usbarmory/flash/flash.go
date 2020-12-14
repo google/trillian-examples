@@ -28,20 +28,19 @@ import (
 )
 
 var (
-	proofDir = flag.String("armory_proof_mount_point", "", "Mount point for armory SD card proof partition")
+	proofDir  = flag.String("armory_proof_mount_point", "", "Mount point for armory SD card proof partition")
 	fwDevPath = flag.String("armory_unikernel_dev", "", "Raw block device on which to store firmware")
 )
 
 const (
 	// bundlePath is the filename within the proof partition where the armory
 	// expects to fund the proof bundle.
-	bundlePath   = "bundle.json"
+	bundlePath = "bundle.json"
 )
 
 // Device represents the flash storage for the unsarmory.
 type Device struct {
-
-	fwDevPath string
+	fwDevPath  string
 	bundlePath string
 
 	// bundle holds all the update data except the firmware image.
@@ -61,7 +60,7 @@ func NewFromFlags() (*Device, error) {
 	}
 
 	d := &Device{
-		fwDevPath: filepath.Clean(*fwDevPath),
+		fwDevPath:  filepath.Clean(*fwDevPath),
 		bundlePath: filepath.Clean(filepath.Join(*proofDir, bundlePath)),
 	}
 

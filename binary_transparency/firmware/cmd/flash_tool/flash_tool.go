@@ -44,7 +44,7 @@ import (
 )
 
 var (
-	deviceID  = flag.String("device", "", "One of [dummy, armory]")
+	deviceID   = flag.String("device", "", "One of [dummy, armory]")
 	logURL     = flag.String("log_url", "http://localhost:8000", "Base URL of the log HTTP API")
 	updateFile = flag.String("update_file", "", "File path to read the update package from")
 	force      = flag.Bool("force", false, "Ignore errors and force update")

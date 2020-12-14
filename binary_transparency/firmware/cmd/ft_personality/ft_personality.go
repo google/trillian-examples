@@ -21,19 +21,11 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"flag"
-	"net/http"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/cas"
-	ih "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/http"
-	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
-	"github.com/gorilla/mux"
-
-	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
-	_ "github.com/mattn/go-sqlite3"               // Load drivers for sqlite3
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/impl"
 )
 
 var (
@@ -52,48 +44,14 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
-
-	if *treeID < 0 {
-		glog.Exitf("tree_id is required")
+	if err := impl.Main(ctx, impl.PersonalityOpts{
+		ListenAddr:     *listenAddr,
+		ConnectTimeout: *connectTimeout,
+		TrillianAddr:   *trillianAddr,
+		TreeID:         *treeID,
+		CASFile:        *casDBFile,
+		STHRefresh:     *sthRefresh,
+	}); err != nil {
+		glog.Exit(err.Error())
 	}
-	if *casDBFile == "" {
-		glog.Exitf("cas_db_file is required")
-	}
-
-	glog.Infof("Connecting to local DB at %q", *casDBFile)
-	db, err := sql.Open("sqlite3", *casDBFile)
-	if err != nil {
-		glog.Exitf("failed to connect to DB: %q", err)
-	}
-	cas, err := cas.NewBinaryStorage(db)
-	if err != nil {
-		glog.Exitf("failed to connect CAS to DB: %q", err)
-	}
-
-	glog.Infof("Connecting to Trillian Log...")
-	tclient, err := trillian.NewClient(ctx, *connectTimeout, *trillianAddr, *treeID)
-	if err != nil {
-		glog.Exitf("failed to connect to Trillian: %v", err)
-	}
-	defer tclient.Close()
-
-	// Periodically sync the golden STH in the background.
-	go func() {
-		for ctx.Err() == nil {
-			if err := tclient.UpdateRoot(ctx); err != nil {
-				glog.Warningf("error updating STH: %v", err)
-			}
-
-			select {
-			case <-ctx.Done():
-			case <-time.After(*sthRefresh):
-			}
-		}
-	}()
-
-	glog.Infof("Starting FT personality server...")
-	srv := ih.NewServer(tclient, cas)
-	r := mux.NewRouter()
-	srv.RegisterHandlers(r)
-	glog.Fatal(http.ListenAndServe(*listenAddr, r))
 }

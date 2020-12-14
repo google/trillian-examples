@@ -14,7 +14,7 @@ import (
 	"log"
 
 	"github.com/f-secure-foundry/tamago/arm"
-	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
+	usbarmory "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 	"github.com/f-secure-foundry/tamago/soc/imx6"
 	"github.com/f-secure-foundry/tamago/soc/imx6/rngb"
 )

@@ -17,7 +17,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
+	usbarmory "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 	"github.com/f-secure-foundry/tamago/soc/imx6"
 )
 

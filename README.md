@@ -1,5 +1,11 @@
 # Trillian examples
 
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/google/trillian-examples.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/google/trillian-examples/alerts/)
+[![codecov](https://codecov.io/gh/google/trillian-examples/branch/master/graph/badge.svg?token=4dyZLULlDJ)](https://codecov.io/gh/google/trillian-examples)
+[![GoDoc](https://godoc.org/github.com/google/trillian?status.svg)](https://godoc.org/github.com/google/trillian-examples)
+[![Slack Status](https://img.shields.io/badge/Slack-Chat-blue.svg)](https://gtrillian.slack.com/)
+
+
 This repository contains example applications built on top of
 [Trillian][], showing that it's possible to apply
 Transparency concepts to problems other than

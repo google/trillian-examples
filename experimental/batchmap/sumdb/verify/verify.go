@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian/experimental/batchmap/tilepb"
+	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/coniks"
 
@@ -139,7 +139,7 @@ func checkInclusion(tiledb *mapdb.TileDB, rev int, key, value string) ([]byte, e
 		needLeafPath := needPath[len(tile.Path):]
 
 		// Identify the leaf we need, and convert all leaves to the format needed for hashing.
-		var leaf *tilepb.TileLeaf
+		var leaf *batchmap.TileLeaf
 		hs2Leaves := make([]*merkle.HStar2LeafHash, len(tile.Leaves))
 		for j, l := range tile.Leaves {
 			if bytes.Equal(l.Path, needLeafPath) {
@@ -179,8 +179,8 @@ func checkInclusion(tiledb *mapdb.TileDB, rev int, key, value string) ([]byte, e
 }
 
 // getTilesForKey loads the tiles on the path from the root to the given leaf.
-func getTilesForKey(tiledb *mapdb.TileDB, rev int, key []byte) ([]*tilepb.Tile, error) {
-	tiles := make([]*tilepb.Tile, *prefixStrata+1)
+func getTilesForKey(tiledb *mapdb.TileDB, rev int, key []byte) ([]*batchmap.Tile, error) {
+	tiles := make([]*batchmap.Tile, *prefixStrata+1)
 	for i := 0; i <= *prefixStrata; i++ {
 		tilePath := key[0:i]
 		tile, err := tiledb.Tile(rev, tilePath)
@@ -193,7 +193,7 @@ func getTilesForKey(tiledb *mapdb.TileDB, rev int, key []byte) ([]*tilepb.Tile, 
 }
 
 // toHStar2 converts a TileLeaf into the equivalent structure for HStar2.
-func toHStar2(prefix []byte, l *tilepb.TileLeaf) *merkle.HStar2LeafHash {
+func toHStar2(prefix []byte, l *batchmap.TileLeaf) *merkle.HStar2LeafHash {
 	// In hstar2 all paths need to be 256 bit (32 bytes)
 	leafIndexBs := make([]byte, 32)
 	copy(leafIndexBs, prefix)

@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto"
 	"database/sql"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"reflect"
@@ -29,10 +30,8 @@ import (
 	"github.com/apache/beam/sdks/go/pkg/beam/x/beamx"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 
 	"github.com/google/trillian/experimental/batchmap"
-	"github.com/google/trillian/experimental/batchmap/tilepb"
 	"github.com/google/trillian/merkle/coniks"
 
 	"github.com/google/trillian-examples/experimental/batchmap/sumdb/mapdb"
@@ -174,12 +173,12 @@ type mapEntryFn struct {
 	TreeID int64
 }
 
-func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*tilepb.Entry)) {
+func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*batchmap.Entry)) {
 	h := hash.New()
 	h.Write([]byte(fmt.Sprintf("%s %s/go.mod", m.Module, m.Version)))
 	modKey := h.Sum(nil)
 
-	emit(&tilepb.Entry{
+	emit(&batchmap.Entry{
 		HashKey:   modKey,
 		HashValue: coniks.Default.HashLeaf(fn.TreeID, modKey, []byte(m.ModHash)),
 	})
@@ -188,7 +187,7 @@ func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*tilepb.Entry)) {
 	h.Write([]byte(fmt.Sprintf("%s %s", m.Module, m.Version)))
 	repoKey := h.Sum(nil)
 
-	emit(&tilepb.Entry{
+	emit(&batchmap.Entry{
 		HashKey:   repoKey,
 		HashValue: coniks.Default.HashLeaf(fn.TreeID, repoKey, []byte(m.RepoHash)),
 	})
@@ -198,8 +197,8 @@ type toMapDatabaseRowFn struct {
 	Revision int
 }
 
-func (fn *toMapDatabaseRowFn) ProcessElement(ctx context.Context, t *tilepb.Tile) (MapTile, error) {
-	bs, err := proto.Marshal(t)
+func (fn *toMapDatabaseRowFn) ProcessElement(ctx context.Context, t *batchmap.Tile) (MapTile, error) {
+	bs, err := json.Marshal(t)
 	if err != nil {
 		return MapTile{}, err
 	}
@@ -210,10 +209,12 @@ func (fn *toMapDatabaseRowFn) ProcessElement(ctx context.Context, t *tilepb.Tile
 	}, nil
 }
 
-func fromDatabaseRowFn(t MapTile) *tilepb.Tile {
-	var res tilepb.Tile
-	proto.Unmarshal(t.Tile, &res)
-	return &res
+func fromDatabaseRowFn(t MapTile) (*batchmap.Tile, error) {
+	var res batchmap.Tile
+	if err := json.Unmarshal(t.Tile, &res); err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 type sumDBMirror struct {

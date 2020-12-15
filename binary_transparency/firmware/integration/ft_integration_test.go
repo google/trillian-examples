@@ -61,30 +61,27 @@ func TestFTIntegration(t *testing.T) {
 		t.Skip("--trillian flag unset, skipping test")
 	}
 
-	// Set up storage
 	tmpDir := t.TempDir()
 	updatePath := filepath.Join(tmpDir, "update.ota")
 	devStoragePath := filepath.Join(tmpDir, "dummy_device")
-	if err := os.MkdirAll(devStoragePath, 0755); err != nil {
-		t.Fatalf("Failed to create device storage dir %q: %q", devStoragePath, err)
-	}
+	setupDeviceStorage(t, devStoragePath)
 
-	ctx := context.Background()
-	if deadline, ok := t.Deadline(); ok {
-		ctxD, c := context.WithDeadline(context.Background(), deadline)
-		ctx = ctxD
-		defer c()
-	}
+	ctx, cancel := testContext(t)
+	defer cancel()
+
 	tree := createTree(ctx, t)
 
 	// TODO(al): make this dynamic
 	pListen := "localhost:43563"
 	pAddr := fmt.Sprintf("http://%s", pListen)
 
+	pErrChan := make(chan error)
+
 	go func() {
 		if err := runPersonality(ctx, t, pListen, tree.TreeId); err != nil {
-			t.Fatalf("Failed to run personality: %q", err)
+			pErrChan <- err
 		}
+		close(pErrChan)
 	}()
 
 	// TODO(al): make this wait until the personality is listening
@@ -214,18 +211,20 @@ func TestFTIntegration(t *testing.T) {
 		}, {
 			desc: "Log malware, device boots, but monitor sees all!",
 			step: func() error {
-				matchedChan := make(chan bool)
-				// Start up the monitor:
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
 
+				// Start up the monitor:
+				mErrChan := make(chan error, 1)
+				matchedChan := make(chan bool, 1)
+				mCtx, mCancel := context.WithCancel(context.Background())
+				defer mCancel()
 				go func() {
-					if err := runMonitor(ctx, t, pAddr, "H4x0r3d", func(idx uint64, fw api.FirmwareMetadata) {
+					if err := runMonitor(mCtx, t, pAddr, "H4x0r3d", func(idx uint64, fw api.FirmwareMetadata) {
 						t.Logf("Found malware firmware @%d", idx)
 						matchedChan <- true
 					}); err != nil && err != context.Canceled {
-						t.Fatalf("Failed to run FT monitor: %q", err)
+						mErrChan <- err
 					}
+					close(mErrChan)
 				}()
 
 				// Log malware fw:
@@ -258,15 +257,8 @@ func TestFTIntegration(t *testing.T) {
 					t.Fatalf("Failed to boot device with logged malware: %q", err)
 				}
 
-				foundMalware := false
-				select {
-				case <-time.After(30 * time.Second):
-					//
-				case <-matchedChan:
-					foundMalware = true
-				}
-
-				if !foundMalware {
+				// Wait and see if the monitor spots the malware
+				if foundMalware := chanNotEmptyAfter(matchedChan, 30*time.Second); !foundMalware {
 					t.Fatal("Monitor didn't spot logged malware")
 				}
 
@@ -288,6 +280,27 @@ func TestFTIntegration(t *testing.T) {
 			// TODO(al): output matching
 		})
 	}
+}
+
+// chanNotEmptyAfter return true if c contains at least one message
+// before duration elapses.
+func chanNotEmptyAfter(c <-chan bool, d time.Duration) bool {
+	select {
+	case <-time.After(d):
+		//
+	case <-c:
+		return true
+	}
+	return false
+}
+
+func testContext(t *testing.T) (context.Context, func()) {
+	ctx := context.Background()
+	c := func() {}
+	if deadline, ok := t.Deadline(); ok {
+		ctx, c = context.WithDeadline(context.Background(), deadline)
+	}
+	return ctx, c
 }
 
 func createTree(ctx context.Context, t *testing.T) *trillian.Tree {
@@ -331,6 +344,13 @@ func createTree(ctx context.Context, t *testing.T) *trillian.Tree {
 	}
 	t.Logf("Created tree ID %d", tree.TreeId)
 	return tree
+}
+
+func setupDeviceStorage(t *testing.T, devStoragePath string) {
+	t.Helper()
+	if err := os.MkdirAll(devStoragePath, 0755); err != nil {
+		t.Fatalf("Failed to create device storage dir %q: %q", devStoragePath, err)
+	}
 }
 
 func runPersonality(ctx context.Context, t *testing.T, serverAddr string, treeID int64) error {

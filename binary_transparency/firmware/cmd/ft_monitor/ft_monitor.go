@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_monitor/impl"
 )
 
@@ -45,6 +46,9 @@ func main() {
 		LogURL:       *ftLog,
 		PollInterval: *pollInterval,
 		Keyword:      *keyWord,
+		Matched: func(idx uint64, fw api.FirmwareMetadata) {
+			glog.Warningf("Malware detected at log index %d, in firmware: %v", idx, fw)
+		},
 	}); err != nil {
 		glog.Exitf(err.Error())
 	}

@@ -39,11 +39,16 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
+// MatchFunc is the signature of a function which can be called by the monitor
+// to signal when it's found a keyword match in a logged entry.
+type MatchFunc func(index uint64, fw api.FirmwareMetadata)
+
 // MonitorOpts encapsulates options for running the monitor.
 type MonitorOpts struct {
 	LogURL       string
 	PollInterval time.Duration
 	Keyword      string
+	Matched      MatchFunc
 }
 
 func Main(ctx context.Context, opts MonitorOpts) error {
@@ -153,7 +158,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 			//Search for specific keywords inside firmware image
 			for _, m := range ftKeywords {
 				if m.Match(image) {
-					glog.Warningf("Malware detected matched pattern %s", m)
+					opts.Matched(idx, meta)
 				}
 			}
 		}

@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -e
-. $(go list -f '{{.Dir}}' github.com/google/trillian)/integration/functions.sh
 INTEGRATION_DIR="$( cd "$( dirname "$0" )" && pwd )"
-. "${INTEGRATION_DIR}"/ft_functions.sh
 
-cd binary_transparency/firmware
+banner() {
+  echo -e "\x1b[1m---[\x1b[7m$1\x1b[m]----------------------------------------------\x1b[0m"
+}
+
+cd ${INTEGRATION_DIR}/..
 
 (
     banner "Build armory bootloader"

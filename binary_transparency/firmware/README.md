@@ -263,33 +263,16 @@ dummy_emu.go:41] ROM: "failed to verify bundle: firmware measurement does not ma
 
 #### Terminal 666 - The Hacker :shipit::computer:
 
-On the `dummy_device` the firmware measurement is simply the `SHA512` of the
-firmware image. For our `hacked.wasm` image, that's:
+We need to update the manifest on the device with the correct measurement for our hacked firmware.
+Run the following command:
 
 ```bash
-sha512sum testdata/firmware/dummy_device/hacked.wasm
-
-efb19feba9ea0e0d5de73ac16d8aa9c4ceb092ecd13eab5548f49a61e85c367a2f2c8ce1eb36b67e1407148406705e67663dc5b6d3f05a45475f6e4a2b69e285  testdata/firmware/dummy_device/hacked.wasm
-```
-
-For what we're going to do, we'll need that in base64:
-
-```bash
-echo "efb19feba9ea0e0d5de73ac16d8aa9c4ceb092ecd13eab5548f49a61e85c367a2f2c8ce1eb36b67e1407148406705e67663dc5b6d3f05a45475f6e4a2b69e285" |
-      xxd -r -p |
-      base64 -w 0
-
-77Gf66nqDg1d5zrBbYqpxM6wkuzRPqtVSPSaYehcNnovLIzh6za2fhQHFIQGcF5nZj3FttPwWkVHX25KK2nihQ==
-```
-
-Now we're going to patch that hash into the `bundle.json` file on the device:
-```bash
-export HACKED_SHA512="77Gf66nqDg1d5zrBbYqpxM6wkuzRPqtVSPSaYehcNnovLIzh6za2fhQHFIQGcF5nZj3FttPwWkVHX25KK2nihQ=="
-
-mv /tmp/dummy_device/bundle.json /tmp/dummy_device/bundle.json.orig
-
-# This beastly jq command unpacks the nested json structures and replaces just the fimware measurement with the one from our hacked firmware:
-jq --arg hacked ${HACKED_SHA512} -c '.ManifestStatement=(.ManifestStatement|@base64d|fromjson|.Metadata=(.Metadata|@base64d|fromjson|.ExpectedFirmwareMeasurement=$hacked|tojson|@base64)|tojson|@base64)' /tmp/dummy_device/bundle.json.orig > /tmp/dummy_device/bundle.json
+go run ./cmd/hacker/modify_bundle \
+   --device dummy \
+   --binary ./testdata/firmware/dummy_device/hacked.wasm \
+   --input /tmp/dummy_device/bundle.json \
+   --output /tmp/dummy_device/bundle.json \
+   --sign=false
 ```
 
 Let's watch as the device owner turns on their device in the next step...
@@ -304,6 +287,39 @@ go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
 
 and _again_, even though the device now gets past the firmware measurement check
 we should see that the device still refuses to boot, with an error similar to:
+
+```
+F1215 17:47:06.449540 1724707 dummy_emu.go:41] ROM: "failed to verify bundle: failed to verify signature on FirmwareStatement: failed to verify signature crypto/rsa: verification error"
+exit status 1
+```
+
+#### Terminal 666 - The Hacker :shipit::computer:
+
+Ok, this time we'll "steal" the key and use it to sign our malicious firmware.
+This is equivalent to the status-quo today.
+
+Run the following command:
+
+```bash
+go run ./cmd/hacker/modify_bundle \
+   --device dummy \
+   --binary ./testdata/firmware/dummy_device/hacked.wasm \
+   --input /tmp/dummy_device/bundle.json \
+   --output /tmp/dummy_device/bundle.json \
+   --sign=true
+```
+
+Let's watch as the device owner turns on their device in the next step...
+
+#### Terminal 5 - Device owner
+
+Start the device:
+
+```bash
+go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
+```
+
+We've got past the signature check, but now there's another error:
 
 ```
 dummy_emu.go:41] ROM: "failed to verify bundle: invalid inclusion proof in bundle: calculated root:\n[202 202 214 35 92 129 74 43 92 63 27 232 69 79 93 26 187 86 24 174 32 49 53 19 122 252 252 241 139 226 122 79]\n does not match expected root:\n[186 61 229 40 73 60 245 168 87 2 6 107 225 25 186 169 85 12 74 158 126 168 255 168 27 149 245 138 27 211 67 234]"

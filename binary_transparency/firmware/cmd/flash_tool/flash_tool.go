@@ -26,125 +26,30 @@
 package main
 
 import (
-	"crypto/sha512"
-	"encoding/json"
-	"errors"
 	"flag"
-	"fmt"
-	"net/url"
-	"os"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
-	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy"
-	armory_flash "github.com/google/trillian-examples/binary_transparency/firmware/devices/usbarmory/flash"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/impl"
 )
 
 var (
-	deviceID   = flag.String("device", "", "One of [dummy, armory]")
-	logURL     = flag.String("log_url", "http://localhost:8000", "Base URL of the log HTTP API")
-	updateFile = flag.String("update_file", "", "File path to read the update package from")
-	force      = flag.Bool("force", false, "Ignore errors and force update")
+	deviceID      = flag.String("device", "", "One of [dummy, armory]")
+	logURL        = flag.String("log_url", "http://localhost:8000", "Base URL of the log HTTP API")
+	updateFile    = flag.String("update_file", "", "File path to read the update package from")
+	force         = flag.Bool("force", false, "Ignore errors and force update")
+	deviceStorage = flag.String("device_storage", "", "Storage description string for selected device")
 )
-
-func fatal(msg string) {
-	if !*force {
-		glog.Exit(msg)
-	}
-	glog.Warning(msg)
-}
 
 func main() {
 	flag.Parse()
 
-	logURL, err := url.Parse(*logURL)
-	if err != nil {
-		glog.Exitf("log_url is invalid: %v", err)
+	if err := impl.Main(impl.FlashOpts{
+		DeviceID:      *deviceID,
+		LogURL:        *logURL,
+		UpdateFile:    *updateFile,
+		Force:         *force,
+		DeviceStorage: *deviceStorage,
+	}); err != nil {
+		glog.Exit(err.Error())
 	}
-	c := &client.ReadonlyClient{LogURL: logURL}
-
-	up, err := readUpdateFileFromFlags()
-	if err != nil {
-		glog.Exitf("Failed to read update package file: %q", err)
-	}
-	// TODO(al): check signature on checkpoints when they're added.
-
-	var dev devices.Device
-	switch *deviceID {
-	case "armory":
-		dev, err = armory_flash.NewFromFlags()
-	case "dummy":
-		dev, err = dummy.NewFromFlags()
-	default:
-		glog.Exit("--device must be one of: 'dummy', 'armory'")
-	}
-	if err != nil {
-		switch t := err.(type) {
-		case devices.ErrNeedsInit:
-			fatal(fmt.Sprintf("Device needs to be force initialised: %q", err))
-		default:
-			fatal(fmt.Sprintf("Failed to open device: %q", t))
-		}
-	}
-
-	if err := verifyUpdate(c, up, dev); err != nil {
-		fatal(fmt.Sprintf("Failed to validate update: %q", err))
-	}
-
-	glog.Info("Update verified, about to apply to device...")
-
-	if err := dev.ApplyUpdate(up); err != nil {
-		glog.Exitf("Failed to apply update to device: %q", err)
-	}
-
-	glog.Info("Update applied.")
-
-}
-
-func readUpdateFileFromFlags() (api.UpdatePackage, error) {
-	if len(*updateFile) == 0 {
-		return api.UpdatePackage{}, errors.New("must specify update_file")
-	}
-
-	f, err := os.OpenFile(*updateFile, os.O_RDONLY, os.ModePerm)
-	if err != nil {
-		glog.Exitf("Failed to open update package file %q: %q", *updateFile, err)
-	}
-	defer f.Close()
-
-	var up api.UpdatePackage
-	if err := json.NewDecoder(f).Decode(&up); err != nil {
-		glog.Exitf("Failed to parse update package file: %q", err)
-	}
-	return up, nil
-}
-
-// verifyUpdate checks that an update package is self-consistent.
-func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) error {
-	// Get the consistency proof for the bundle
-	dc, err := dev.DeviceCheckpoint()
-	if err != nil {
-		return fmt.Errorf("failed to fetch the device checkpoint: %w", err)
-	}
-
-	cpFunc := func(from, to uint64) ([][]byte, error) {
-		var cp [][]byte
-		if dc.TreeSize > 0 {
-			r, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: from, To: to})
-			if err != nil {
-				return nil, fmt.Errorf("failed to fetch consistency proof: %w", err)
-			}
-			cp = r.Proof
-		}
-		return cp, nil
-	}
-
-	fwHash := sha512.Sum512(up.FirmwareImage)
-	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc); err != nil {
-		return fmt.Errorf("failed to verify proof bundle: %w", err)
-	}
-	return nil
 }

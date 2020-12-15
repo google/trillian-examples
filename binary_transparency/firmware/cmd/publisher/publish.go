@@ -17,22 +17,11 @@ package main
 
 import (
 	"context"
-	"crypto/sha512"
-	"encoding/json"
-	"errors"
 	"flag"
-	"fmt"
-	"io/ioutil"
-	"net/url"
-	"os"
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	dummy_common "github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/common"
-	"github.com/google/trillian-examples/binary_transparency/firmware/devices/usbarmory"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/publisher/impl"
 )
 
 var (
@@ -48,137 +37,17 @@ var (
 
 func main() {
 	flag.Parse()
-
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
-	logURL, err := url.Parse(*logURL)
-	if err != nil {
-		glog.Exitf("logURL is invalid: %v", err)
+	if err := impl.Main(ctx, impl.PublishOpts{
+		LogURL:     *logURL,
+		DeviceID:   *deviceID,
+		Revision:   *revision,
+		BinaryPath: *binaryPath,
+		Timestamp:  *timestamp,
+		OutputPath: *outputPath,
+	}); err != nil {
+		glog.Exitf(err.Error())
 	}
-
-	metadata, fw, err := createManifestFromFlags()
-	if err != nil {
-		glog.Exitf("Failed to create manifest: %v", err)
-	}
-
-	glog.Infof("Measurement: %x", metadata.ExpectedFirmwareMeasurement)
-
-	js, err := createStatementJSON(metadata)
-	if err != nil {
-		glog.Exitf("Failed to marshal statement: %v", err)
-	}
-
-	c := &client.SubmitClient{
-		ReadonlyClient: &client.ReadonlyClient{
-			LogURL: logURL,
-		},
-	}
-
-	initialCP, err := c.GetCheckpoint()
-	if err != nil {
-		glog.Exitf("Failed to get a pre-submission checkpoint from log: %q", err)
-	}
-
-	glog.Info("Submitting entry...")
-	if err := c.PublishFirmware(js, fw); err != nil {
-		glog.Exitf("Couldn't submit statement: %v", err)
-	}
-
-	glog.Info("Successfully submitted entry, waiting for inclusion...")
-	cp, consistency, ip, err := client.AwaitInclusion(ctx, c.ReadonlyClient, *initialCP, js)
-	if err != nil {
-		glog.Errorf("Failed while waiting for inclusion: %v", err)
-		glog.Warningf("Failed checkpoint: %s", cp)
-		glog.Warningf("Failed consistency proof: %x", consistency)
-		glog.Warningf("Failed inclusion proof: %x", ip)
-		glog.Exit("Bailing.")
-	}
-
-	glog.Infof("Successfully logged %s", js)
-
-	if len(*outputPath) > 0 {
-		glog.Infof("Creating update package file %q...", *outputPath)
-		pb, err := json.Marshal(
-			api.ProofBundle{
-				ManifestStatement: js,
-				Checkpoint:        cp,
-				InclusionProof:    ip,
-			})
-		if err != nil {
-			glog.Exitf("Failed to marshal ProofBundle: %q", err)
-		}
-
-		bundle := api.UpdatePackage{
-			FirmwareImage: fw,
-			ProofBundle:   pb,
-		}
-
-		f, err := os.OpenFile(*outputPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-		if err != nil {
-			glog.Exitf("Failed to create output package file %q: %q", *outputPath, err)
-		}
-		defer f.Close()
-
-		if err := json.NewEncoder(f).Encode(bundle); err != nil {
-			glog.Exitf("Failed to encode output package JSON: %q", err)
-		}
-		glog.Infof("Successfully created update package file %q", *outputPath)
-	}
-}
-
-func createManifestFromFlags() (api.FirmwareMetadata, []byte, error) {
-	var measure func([]byte) ([]byte, error)
-	switch *deviceID {
-	case "armory":
-		measure = usbarmory.ExpectedMeasurement
-	case "dummy":
-		measure = dummy_common.ExpectedMeasurement
-	default:
-		return api.FirmwareMetadata{}, nil, errors.New("--device must be one of: 'dummy', 'armory'")
-	}
-
-	fw, err := ioutil.ReadFile(*binaryPath)
-	if err != nil {
-		return api.FirmwareMetadata{}, nil, fmt.Errorf("failed to read %q: %w", *binaryPath, err)
-	}
-
-	h := sha512.Sum512(fw)
-
-	m, err := measure(fw)
-	if err != nil {
-		return api.FirmwareMetadata{}, nil, fmt.Errorf("failed to calculate expected measurement for firmware: %w", err)
-	}
-
-	buildTime := *timestamp
-	if buildTime == "" {
-		buildTime = time.Now().Format(time.RFC3339)
-	}
-	metadata := api.FirmwareMetadata{
-		DeviceID:                    *deviceID,
-		FirmwareRevision:            *revision,
-		FirmwareImageSHA512:         h[:],
-		ExpectedFirmwareMeasurement: m,
-		BuildTimestamp:              buildTime,
-	}
-
-	return metadata, fw, nil
-}
-
-func createStatementJSON(m api.FirmwareMetadata) ([]byte, error) {
-	js, err := json.Marshal(m)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
-	}
-	sig, err := crypto.SignMessage(js)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate signature: %w", err)
-	}
-
-	statement := api.FirmwareStatement{
-		Metadata:  js,
-		Signature: sig,
-	}
-
-	return json.Marshal(statement)
 }

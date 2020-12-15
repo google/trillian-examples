@@ -57,7 +57,7 @@ go run ../cmd/flash_tool/ \
     --device=dummy \
     --log_url="http://${FT_SERVER}" \
     --update_file="${UPDATE_FILE}" \
-    --dummy_storage_dir="${DEVICE_STATE}" \
+    --device_storage="${DEVICE_STATE}" \
     --force \
     ${COMMON_FLAGS}
 
@@ -84,7 +84,7 @@ go run ../cmd/flash_tool/ \
     --device=dummy \
     --log_url="http://${FT_SERVER}" \
     --update_file="${UPDATE_FILE}" \
-    --dummy_storage_dir="${DEVICE_STATE}" \
+    --device_storage="${DEVICE_STATE}" \
     ${COMMON_FLAGS}
 
 ####################
@@ -153,7 +153,7 @@ go run ../cmd/flash_tool/ \
     --device=dummy \
     --log_url="http://${FT_SERVER}" \
     --update_file="${MALWARE_UPDATE_FILE}" \
-    --dummy_storage_dir="${DEVICE_STATE}" \
+    --device_storage="${DEVICE_STATE}" \
     ${COMMON_FLAGS}
 
 set +e # hacked firmware exits with status 0x1337

@@ -34,8 +34,10 @@ import (
 	"github.com/google/trillian/crypto/sigpb"
 	"google.golang.org/grpc"
 
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	i_emu "github.com/google/trillian-examples/binary_transparency/firmware/cmd/emulator/dummy/impl"
 	i_flash "github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/impl"
+	i_monitor "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_monitor/impl"
 	i_personality "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/impl"
 	i_modify "github.com/google/trillian-examples/binary_transparency/firmware/cmd/hacker/modify_bundle/impl"
 	i_publish "github.com/google/trillian-examples/binary_transparency/firmware/cmd/publisher/impl"
@@ -89,9 +91,9 @@ func TestFTIntegration(t *testing.T) {
 	<-time.After(5 * time.Second)
 
 	for _, step := range []struct {
-		desc    string
-		step    func() error
-		wantErr bool
+		desc       string
+		step       func() error
+		wantErrMsg string
 	}{
 		{
 			desc: "Log initial firmware",
@@ -153,8 +155,8 @@ func TestFTIntegration(t *testing.T) {
 				})
 			},
 		}, {
-			desc:    "Replace FW, boot device",
-			wantErr: true,
+			desc:       "Replace FW, boot device",
+			wantErrMsg: "firmware measurement does not match",
 			step: func() error {
 				if err := copyFile(HackedFirmware, filepath.Join(devStoragePath, "firmware.bin")); err != nil {
 					t.Fatalf("Failed to overwrite stored firmware: %q", err)
@@ -165,8 +167,8 @@ func TestFTIntegration(t *testing.T) {
 				})
 			},
 		}, {
-			desc:    "Replace FW, update hash (but not sign), and boot",
-			wantErr: true,
+			desc:       "Replace FW, update hash (but not sign), and boot",
+			wantErrMsg: "failed to verify signature",
 			step: func() error {
 				if err := copyFile(HackedFirmware, filepath.Join(devStoragePath, "firmware.bin")); err != nil {
 					t.Fatalf("Failed to overwrite stored firmware: %q", err)
@@ -187,8 +189,8 @@ func TestFTIntegration(t *testing.T) {
 				})
 			},
 		}, {
-			desc:    "Replace FW, update hash, sign manifest, and boot",
-			wantErr: true,
+			desc:       "Replace FW, update hash, sign manifest, and boot",
+			wantErrMsg: "invalid inclusion proof in bundle",
 			step: func() error {
 				if err := copyFile(HackedFirmware, filepath.Join(devStoragePath, "firmware.bin")); err != nil {
 					t.Fatalf("Failed to overwrite stored firmware: %q", err)
@@ -212,6 +214,20 @@ func TestFTIntegration(t *testing.T) {
 		}, {
 			desc: "Log malware, device boots, but monitor sees all!",
 			step: func() error {
+				matchedChan := make(chan bool)
+				// Start up the monitor:
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				go func() {
+					if err := runMonitor(ctx, t, pAddr, "H4x0r3d", func(idx uint64, fw api.FirmwareMetadata) {
+						t.Logf("Found malware firmware @%d", idx)
+						matchedChan <- true
+					}); err != nil && err != context.Canceled {
+						t.Fatalf("Failed to run FT monitor: %q", err)
+					}
+				}()
+
 				// Log malware fw:
 				if err := i_publish.Main(ctx, i_publish.PublishOpts{
 					LogURL:     pAddr,
@@ -236,19 +252,34 @@ func TestFTIntegration(t *testing.T) {
 				}
 
 				// Booting should also succeed:
-				return i_emu.Main(i_emu.EmulatorOpts{
+				if err := i_emu.Main(i_emu.EmulatorOpts{
 					DeviceStorage: devStoragePath,
-				})
+				}); err != nil {
+					t.Fatalf("Failed to boot device with logged malware: %q", err)
+				}
 
-				// TODO(al): run monitor and verify it saw the malware
+				foundMalware := false
+				select {
+				case <-time.After(30 * time.Second):
+					//
+				case <-matchedChan:
+					foundMalware = true
+				}
+
+				if !foundMalware {
+					t.Fatal("Monitor didn't spot logged malware")
+				}
+
+				return nil
 			},
 		},
 	} {
 		t.Run(step.desc, func(t *testing.T) {
+			wantErr := len(step.wantErrMsg) > 0
 			err := step.step()
-			if step.wantErr && err == nil {
+			if wantErr && err == nil {
 				t.Fatal("Want error, got no error")
-			} else if !step.wantErr && err != nil {
+			} else if !wantErr && err != nil {
 				t.Fatalf("Want no error, got %q", err)
 			}
 			if err != nil {
@@ -303,6 +334,7 @@ func createTree(ctx context.Context, t *testing.T) *trillian.Tree {
 }
 
 func runPersonality(ctx context.Context, t *testing.T, serverAddr string, treeID int64) error {
+
 	t.Helper()
 	r := t.TempDir()
 
@@ -313,6 +345,21 @@ func runPersonality(ctx context.Context, t *testing.T, serverAddr string, treeID
 		TrillianAddr:   *trillianAddr,
 		ConnectTimeout: 10 * time.Second,
 		STHRefresh:     time.Second,
+	})
+	if err != http.ErrServerClosed {
+		return err
+	}
+	return nil
+}
+
+func runMonitor(ctx context.Context, t *testing.T, serverAddr string, pattern string, matched i_monitor.MatchFunc) error {
+	t.Helper()
+
+	err := i_monitor.Main(ctx, i_monitor.MonitorOpts{
+		LogURL:       serverAddr,
+		PollInterval: 1 * time.Second,
+		Keyword:      "H4x0r3d",
+		Matched:      matched,
 	})
 	if err != http.ErrServerClosed {
 		return err

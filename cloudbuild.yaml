@@ -89,18 +89,6 @@ steps:
   args: ['-exc', './binary_transparency/firmware/integration/ft_usbarmory_test.sh']
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
-# Run the gossip integration test
-- name: gcr.io/$PROJECT_ID/testbase
-  entrypoint: 'bash'
-  id: 'gossip-integration-test'
-  args:
-    - '-exc'
-    - |
-      export PATH=/bin:/usr/bin:/workspace/bin:/go/protoc/bin:/usr/local/go/bin
-      export TRILLIAN_LOG_RPC="deployment_trillian-log-server_1:8090"
-      ./gossip/integration/gossip_test.sh
-  waitFor: ['go-get-proto', 'go-get-proto-gen']
-
 # Run the FT integration test
 - name: gcr.io/$PROJECT_ID/testbase
   entrypoint: 'bash'

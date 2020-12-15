@@ -21,9 +21,6 @@ Currently the examples here are:
    Trillian Log, and then replays the transactions contained in the blocks
    into a Trillian Map of SHA256(Account ID) -> Balance.
 
- * [gossip](gossip): An implementation of a Gossip Hub, which is a transparent
-   append-only Log that is intended to hold signed material from other Logs.
-
  * [registers](registers): A tutorial for building Trillian apps showing the
    use of logs and maps and serving the results to clients.
 

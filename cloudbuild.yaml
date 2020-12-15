@@ -81,16 +81,6 @@ steps:
     - |
       ./scripts/presubmit.sh --coverage
   waitFor: ['go-get-proto', 'go-get-proto-gen']
-- name: 'gcr.io/cloud-builders/curl'
-  entrypoint: bash
-  args: ['-c', 'bash <(curl -s https://codecov.io/bash)']
-  env:
-  - 'VCS_COMMIT_ID=$COMMIT_SHA'
-  - 'VCS_BRANCH_NAME=$BRANCH_NAME'
-  - 'VCS_PULL_REQUEST=$_PR_NUMBER'
-  - 'CI_BUILD_ID=$BUILD_ID'
-  - 'CODECOV_TOKEN=$_CODECOV_TOKEN' # _CODECOV_TOKEN is specified in the cloud build trigger
-  waitFor: ['presubmit-with-coverage']
 
 # Test the USB Armory code as best we can
 - name: gcr.io/$PROJECT_ID/testbase
@@ -122,6 +112,18 @@ steps:
       export TRILLIAN_LOG_RPC="deployment_trillian-log-server_1:8090"
       ./binary_transparency/firmware/integration/ft_test.sh
   waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+# Submit coverage results
+- name: 'gcr.io/cloud-builders/curl'
+  entrypoint: bash
+  args: ['-c', 'bash <(curl -s https://codecov.io/bash)']
+  env:
+  - 'VCS_COMMIT_ID=$COMMIT_SHA'
+  - 'VCS_BRANCH_NAME=$BRANCH_NAME'
+  - 'VCS_PULL_REQUEST=$_PR_NUMBER'
+  - 'CI_BUILD_ID=$BUILD_ID'
+  - 'CODECOV_TOKEN=$_CODECOV_TOKEN' # _CODECOV_TOKEN is specified in the cloud build trigger
+  waitFor: ['presubmit-with-coverage', 'firmware-integration-test']
 
 images:
   - 'gcr.io/$PROJECT_ID/testbase:latest'

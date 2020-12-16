@@ -25,10 +25,11 @@ services:
       - sqlite-data:/var/cache/sumdb
     command: [
       "--alsologtostderr",
-      "--db=/var/cache/sumdb/mirror.db"
+      "--db=/var/cache/sumdb/mirror.db",
+      "--listen=:8080"
     ]
     ports:
-     - "8080:8000"
+     - "8080:8080"
     restart: always
     depends_on:
       - mirror

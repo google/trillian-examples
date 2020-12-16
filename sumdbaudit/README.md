@@ -159,6 +159,15 @@ curl -i http://localhost:8080/checkConsistency/`base64 -i ~/go/pkg/sumdb/sum.gol
 curl -i http://localhost:8080/checkConsistency/`curl https://sum.golang.org/latest | base64`
 ```
 
+### Using Docker
+
+The witness can be started along with the mirror using `docker-compose`.
+The following command will mirror the log and provide a witness on port `8080` when the initial
+sync completes:
+```bash
+docker-compose -f sumdbaudit/docker/docker-compose.yml up --build
+```
+
 ## Querying the database
 The number of leaves downloaded can be queried:
 ```bash

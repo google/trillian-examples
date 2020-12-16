@@ -1,0 +1,34 @@
+version: "3.9"
+
+# TODO(mhutchinson): This file-based sharing should be replaced with a
+# client/server DB running in its own container.
+volumes:
+  sqlite-data:
+
+services:
+  mirror:
+    build: 
+      context: ../..
+      dockerfile: ./sumdbaudit/docker/mirror/Dockerfile
+    volumes:
+      - sqlite-data:/var/cache/sumdb
+    command: [
+      "--alsologtostderr",
+      "--db=/var/cache/sumdb/mirror.db"
+    ]
+    restart: always
+  witness:
+    build: 
+      context: ../..
+      dockerfile: ./sumdbaudit/docker/witness/Dockerfile
+    volumes:
+      - sqlite-data:/var/cache/sumdb
+    command: [
+      "--alsologtostderr",
+      "--db=/var/cache/sumdb/mirror.db"
+    ]
+    ports:
+     - "8080:8000"
+    restart: always
+    depends_on:
+      - mirror

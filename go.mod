@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/allegro/bigcache v1.2.1 // indirect
-	github.com/apache/beam v2.24.0+incompatible
+	github.com/apache/beam v2.26.0+incompatible
 	github.com/benlaurie/gds-registers v0.0.0-20180214133647-6355673a9585
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/cenkalti/backoff/v4 v4.1.0
@@ -20,7 +20,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/google/certificate-transparency-go v1.0.22-0.20200708065856-b8561831ac3c
 	github.com/google/go-cmp v0.5.4
-	github.com/google/trillian v1.3.12-0.20201112151559-1e07d2420b67
+	github.com/google/trillian v1.3.12-0.20201215145105-2d8ad208164e
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/kr/text v0.2.0 // indirect

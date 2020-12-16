@@ -16,12 +16,12 @@ package mapdb
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/google/trillian/experimental/batchmap/tilepb"
+	"github.com/google/trillian/experimental/batchmap"
 )
 
 // NoRevisionsFound is returned when the DB appears valid but has no revisions in it.
@@ -83,19 +83,13 @@ func (d *TileDB) LatestRevision() (rev int, logroot []byte, count int64, err err
 }
 
 // Tile gets the tile at the given path in the given revision of the map.
-func (d *TileDB) Tile(revision int, path []byte) (*tilepb.Tile, error) {
+func (d *TileDB) Tile(revision int, path []byte) (*batchmap.Tile, error) {
 	var bs []byte
-	var err error
-	if len(path) == 0 {
-		err = d.db.QueryRow("SELECT tile FROM tiles WHERE revision=? AND path IS NULL", revision).Scan(&bs)
-	} else {
-		err = d.db.QueryRow("SELECT tile FROM tiles WHERE revision=? AND path=?", revision, path).Scan(&bs)
-	}
-	if err != nil {
+	if err := d.db.QueryRow("SELECT tile FROM tiles WHERE revision=? AND path=?", revision, path).Scan(&bs); err != nil {
 		return nil, err
 	}
-	tile := &tilepb.Tile{}
-	if err := proto.Unmarshal(bs, tile); err != nil {
+	tile := &batchmap.Tile{}
+	if err := json.Unmarshal(bs, tile); err != nil {
 		return nil, fmt.Errorf("failed to parse tile at revision=%d, path=%x: %v", revision, path, err)
 	}
 	return tile, nil

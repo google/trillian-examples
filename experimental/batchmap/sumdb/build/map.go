@@ -49,6 +49,7 @@ var (
 	count             = flag.Int64("count", -1, "The total number of entries starting from the beginning of the SumDB to use, or -1 to use all")
 	batchSize         = flag.Int("write_batch_size", 250, "Number of tiles to write per batch")
 	incrementalUpdate = flag.Bool("incremental_update", false, "If set the map tiles from the previous revision will be updated with the delta, otherwise this will build the map from scratch each time.")
+	buildVersionList  = flag.Bool("build_version_list", false, "If set then the map will also contain a mapping for each module to a log committing to its list of versions.")
 )
 
 func init() {
@@ -59,6 +60,9 @@ func init() {
 func main() {
 	flag.Parse()
 
+	if *buildVersionList && *incrementalUpdate {
+		glog.Exitf("Unsupported: build_version_list cannot be used with incremental_update")
+	}
 	// Connect to where we will read from and write to.
 	sumDB, err := newSumDBMirrorFromFlags()
 	if err != nil {
@@ -104,6 +108,10 @@ func main() {
 	p, s := beam.NewPipelineWithRoot()
 	records := sumDB.beamSource(s.Scope("source"), startID, endID)
 	entries := pipeline.CreateEntries(s, *treeID, records)
+
+	if *buildVersionList {
+		entries = beam.Flatten(s, entries, pipeline.MakeVersionList(s, records))
+	}
 
 	var allTiles beam.PCollection
 	if *incrementalUpdate {

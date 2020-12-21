@@ -42,13 +42,6 @@ type Metadata struct {
 	ModHash  string
 }
 
-// MapTile is the schema format of the Map database to allow for databaseio writing.
-type MapTile struct {
-	Revision int
-	Path     []byte
-	Tile     []byte
-}
-
 // CreateEntries converts the PCollection<Metadata> into a PCollection<Entry> that will be
 // committed to by the map.
 func CreateEntries(s beam.Scope, treeID int64, records beam.PCollection) beam.PCollection {

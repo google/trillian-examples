@@ -52,7 +52,8 @@ var (
 )
 
 func init() {
-	beam.RegisterType(reflect.TypeOf((*toMapDatabaseRowFn)(nil)).Elem())
+	beam.RegisterType(reflect.TypeOf((*tileToDBRowFn)(nil)).Elem())
+	beam.RegisterFunction(tileFromDBRowFn)
 }
 
 func main() {
@@ -107,8 +108,8 @@ func main() {
 	var allTiles beam.PCollection
 	if *incrementalUpdate {
 		glog.Infof("Updating revision %d with range [%d, %d)", lastMapRev, startID, endID)
-		mapTiles := databaseio.Query(s, "sqlite3", *mapDBString, fmt.Sprintf("SELECT * FROM tiles WHERE revision=%d", lastMapRev), reflect.TypeOf(pipeline.MapTile{}))
-		allTiles, err = batchmap.Update(s, beam.ParDo(s, fromDatabaseRowFn, mapTiles), entries, *treeID, hash, *prefixStrata)
+		mapTiles := databaseio.Query(s, "sqlite3", *mapDBString, fmt.Sprintf("SELECT * FROM tiles WHERE revision=%d", lastMapRev), reflect.TypeOf(MapTile{}))
+		allTiles, err = batchmap.Update(s, beam.ParDo(s, tileFromDBRowFn, mapTiles), entries, *treeID, hash, *prefixStrata)
 	} else {
 		glog.Infof("Creating new map revision from range [0, %d)", endID)
 		allTiles, err = batchmap.Create(s, entries, *treeID, hash, *prefixStrata)
@@ -117,7 +118,7 @@ func main() {
 		glog.Exitf("Failed to create pipeline: %q", err)
 	}
 
-	rows := beam.ParDo(s.Scope("convertoutput"), &toMapDatabaseRowFn{Revision: rev}, allTiles)
+	rows := beam.ParDo(s.Scope("convertoutput"), &tileToDBRowFn{Revision: rev}, allTiles)
 	databaseio.WriteWithBatchSize(s.Scope("sink"), *batchSize, "sqlite3", *mapDBString, "tiles", []string{}, rows)
 
 	// All of the above constructs the pipeline but doesn't run it. Now we run it.
@@ -151,23 +152,30 @@ func sinkFromFlags() (*mapdb.TileDB, int, error) {
 	return tiledb, rev, nil
 }
 
-type toMapDatabaseRowFn struct {
+// MapTile is the schema format of the Map database to allow for databaseio writing.
+type MapTile struct {
+	Revision int
+	Path     []byte
+	Tile     []byte
+}
+
+type tileToDBRowFn struct {
 	Revision int
 }
 
-func (fn *toMapDatabaseRowFn) ProcessElement(ctx context.Context, t *batchmap.Tile) (pipeline.MapTile, error) {
+func (fn *tileToDBRowFn) ProcessElement(ctx context.Context, t *batchmap.Tile) (MapTile, error) {
 	bs, err := json.Marshal(t)
 	if err != nil {
-		return pipeline.MapTile{}, err
+		return MapTile{}, err
 	}
-	return pipeline.MapTile{
+	return MapTile{
 		Revision: fn.Revision,
 		Path:     t.Path,
 		Tile:     bs,
 	}, nil
 }
 
-func fromDatabaseRowFn(t pipeline.MapTile) (*batchmap.Tile, error) {
+func tileFromDBRowFn(t MapTile) (*batchmap.Tile, error) {
 	var res batchmap.Tile
 	if err := json.Unmarshal(t.Tile, &res); err != nil {
 		return nil, err

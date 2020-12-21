@@ -55,6 +55,8 @@ var (
 func init() {
 	beam.RegisterType(reflect.TypeOf((*tileToDBRowFn)(nil)).Elem())
 	beam.RegisterFunction(tileFromDBRowFn)
+
+	beam.RegisterType(reflect.TypeOf((*logToDBRowFn)(nil)).Elem())
 }
 
 func main() {
@@ -110,9 +112,11 @@ func main() {
 	entries := pipeline.CreateEntries(s, *treeID, records)
 
 	if *buildVersionList {
-		// TODO(mhutchinson): The logs returned as this second arg should be persisted.
-		logEntries, _ := pipeline.MakeVersionLogs(s, records)
+		logEntries, logs := pipeline.MakeVersionLogs(s, records)
 		entries = beam.Flatten(s, entries, logEntries)
+
+		rows := beam.ParDo(s, &logToDBRowFn{rev}, logs)
+		databaseio.WriteWithBatchSize(s.Scope("sinkLogs"), *batchSize, "sqlite3", *mapDBString, "logs", []string{}, rows)
 	}
 
 	var allTiles beam.PCollection
@@ -160,6 +164,29 @@ func sinkFromFlags() (*mapdb.TileDB, int, error) {
 
 	}
 	return tiledb, rev, nil
+}
+
+// LogDBRow adapts ModuleVersionLog to the schema format of the Map database to allow for databaseio writing.
+type LogDBRow struct {
+	Revision int
+	Module   string
+	Leaves   []byte
+}
+
+type logToDBRowFn struct {
+	Revision int
+}
+
+func (fn *logToDBRowFn) ProcessElement(ctx context.Context, l *pipeline.ModuleVersionLog) (LogDBRow, error) {
+	bs, err := json.Marshal(l.Versions)
+	if err != nil {
+		return LogDBRow{}, err
+	}
+	return LogDBRow{
+		Revision: fn.Revision,
+		Module:   l.Module,
+		Leaves:   bs,
+	}, nil
 }
 
 // MapTile is the schema format of the Map database to allow for databaseio writing.

@@ -55,12 +55,16 @@ func (d *TileDB) Init() error {
 	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS tiles (revision INTEGER, path BLOB, tile BLOB, PRIMARY KEY (revision, path))"); err != nil {
 		return err
 	}
+	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS logs (module TEXT, revision INTEGER, leaves BLOB, PRIMARY KEY (module, revision))"); err != nil {
+		return err
+	}
 	return nil
 }
 
 // NextWriteRevision gets the revision that the next generation of the map should be written at.
 func (d *TileDB) NextWriteRevision() (int, error) {
 	var rev sql.NullInt32
+	// TODO(mhutchinson): This should be updated to include the max of "tiles" or "logs".
 	if err := d.db.QueryRow("SELECT MAX(revision) FROM tiles").Scan(&rev); err != nil {
 		return 0, fmt.Errorf("failed to get max revision: %v", err)
 	}

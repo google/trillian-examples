@@ -14,7 +14,8 @@ import (
 )
 
 func init() {
-	beam.RegisterType(reflect.TypeOf((*makeVersionListFn)(nil)).Elem())
+	beam.RegisterFunction(makeModuleVersionLogFn)
+	beam.RegisterType(reflect.TypeOf((*moduleLogHashFn)(nil)).Elem())
 }
 
 // ModuleVersionLog represents the versions found for a single
@@ -33,14 +34,15 @@ type ModuleVersionLog struct {
 // ModuleVersionLog.
 func MakeVersionLogs(s beam.Scope, metadata beam.PCollection) (beam.PCollection, beam.PCollection) {
 	keyed := beam.ParDo(s, func(m Metadata) (string, Metadata) { return m.Module, m }, metadata)
-	return beam.ParDo2(s, &makeVersionListFn{}, beam.GroupByKey(s, keyed))
+	logs := beam.ParDo(s, makeModuleVersionLogFn, beam.GroupByKey(s, keyed))
+	return beam.ParDo(s, &moduleLogHashFn{}, logs), logs
 }
 
-type makeVersionListFn struct {
+type moduleLogHashFn struct {
 	rf *compact.RangeFactory
 }
 
-func (fn *makeVersionListFn) Setup() {
+func (fn *moduleLogHashFn) Setup() {
 	fn.rf = &compact.RangeFactory{
 		Hash: func(left, right []byte) []byte {
 			// There is no particular need for using this hash function, but it was convenient.
@@ -53,7 +55,27 @@ func (fn *makeVersionListFn) Setup() {
 	}
 }
 
-func (fn *makeVersionListFn) ProcessElement(module string, metadata func(*Metadata) bool, emitEntry func(*batchmap.Entry), emitLog func(*ModuleVersionLog)) error {
+func (fn *moduleLogHashFn) ProcessElement(log *ModuleVersionLog) (*batchmap.Entry, error) {
+	logRange := fn.rf.NewEmptyRange(0)
+	for _, v := range log.Versions {
+		h := hash.New()
+		h.Write([]byte(v))
+		logRange.Append(h.Sum(nil), nil)
+	}
+	logRoot, err := logRange.GetRootHash(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create log for %q: %v", log.Module, err)
+	}
+	h := hash.New()
+	h.Write([]byte(log.Module))
+
+	return &batchmap.Entry{
+		HashKey:   h.Sum(nil),
+		HashValue: logRoot,
+	}, nil
+}
+
+func makeModuleVersionLogFn(module string, metadata func(*Metadata) bool) (*ModuleVersionLog, error) {
 	// We need to ensure ordering by ID in the original log for stability.
 
 	// First build up a map from ID to version.
@@ -71,32 +93,13 @@ func (fn *makeVersionListFn) ProcessElement(module string, metadata func(*Metada
 	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 
 	// Now iterate the map in the right order to build the log.
-	logRange := fn.rf.NewEmptyRange(0)
 	versions := make([]string, 0, len(keys))
 	for _, id := range keys {
-		v := mm[id]
-		versions = append(versions, v)
-		h := hash.New()
-		h.Write([]byte(v))
-		logRange.Append(h.Sum(nil), nil)
+		versions = append(versions, mm[id])
 	}
 
-	// Construct the map entry for this module version log.
-	logRoot, err := logRange.GetRootHash(nil)
-	if err != nil {
-		return fmt.Errorf("failed to create log for %q: %v", module, err)
-	}
-	h := hash.New()
-	h.Write([]byte(module))
-
-	emitEntry(&batchmap.Entry{
-		HashKey:   h.Sum(nil),
-		HashValue: logRoot,
-	})
-	emitLog(
-		&ModuleVersionLog{
-			Module:   module,
-			Versions: versions,
-		})
-	return nil
+	return &ModuleVersionLog{
+		Module:   module,
+		Versions: versions,
+	}, nil
 }

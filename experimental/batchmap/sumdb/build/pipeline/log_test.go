@@ -24,25 +24,27 @@ import (
 	"github.com/google/trillian/experimental/batchmap"
 )
 
-func TestMakeVersionList(t *testing.T) {
+func TestMakeVersionLogs(t *testing.T) {
 	tests := []struct {
 		name     string
 		metadata []Metadata
 
-		wantCount int
-		wantRoot  string
+		wantCount    int
+		wantRoot     string
+		wantVersions []string
 	}{
 		{
 			name: "single module single metadata",
 			metadata: []Metadata{
 				{
 					Module:  "foo",
-					Version: "1",
+					Version: "v0.0.1",
 					ID:      1,
 				},
 			},
-			wantCount: 1,
-			wantRoot:  "18d27566bd1ac66b2332d8c54ad43f7bb22079c906d05f491f3f07a28d5c6990",
+			wantCount:    1,
+			wantRoot:     "26fd79084956a63e4b7f1899b889258865696ec84917d171aa41d710d44f8df0",
+			wantVersions: []string{"v0.0.1"},
 		},
 		{
 			name: "single module two metadata (in order)",
@@ -58,8 +60,9 @@ func TestMakeVersionList(t *testing.T) {
 					ID:      2,
 				},
 			},
-			wantCount: 1,
-			wantRoot:  "fb687ea3931784e44d6c432af406a57e4ebc35cb53a8833569f6dfa086ebee93",
+			wantCount:    1,
+			wantRoot:     "fb687ea3931784e44d6c432af406a57e4ebc35cb53a8833569f6dfa086ebee93",
+			wantVersions: []string{"1", "2"},
 		},
 		{
 			name: "single module two metadata (out of order)",
@@ -75,8 +78,9 @@ func TestMakeVersionList(t *testing.T) {
 					ID:      1,
 				},
 			},
-			wantCount: 1,
-			wantRoot:  "fb687ea3931784e44d6c432af406a57e4ebc35cb53a8833569f6dfa086ebee93",
+			wantCount:    1,
+			wantRoot:     "fb687ea3931784e44d6c432af406a57e4ebc35cb53a8833569f6dfa086ebee93",
+			wantVersions: []string{"1", "2"},
 		},
 		{
 			name: "two modules",
@@ -102,12 +106,17 @@ func TestMakeVersionList(t *testing.T) {
 			p, s := beam.NewPipelineWithRoot()
 			metadata := beam.CreateList(s, test.metadata)
 
-			entries := MakeVersionList(s, metadata)
+			entries, logs := MakeVersionLogs(s, metadata)
 
 			passert.Count(s, entries, "entries", test.wantCount)
+			passert.Count(s, logs, "logs", test.wantCount)
 			if len(test.wantRoot) > 0 {
 				roots := beam.ParDo(s, func(e *batchmap.Entry) string { return fmt.Sprintf("%x", e.HashValue) }, entries)
 				passert.Equals(s, roots, test.wantRoot)
+			}
+			if len(test.wantVersions) > 0 {
+				versions := beam.ParDo(s, func(l *ModuleVersionLog) []string { return l.Versions }, logs)
+				passert.Equals(s, versions, test.wantVersions)
 			}
 			err := ptest.Run(p)
 			if err != nil {

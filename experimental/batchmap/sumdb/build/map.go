@@ -110,7 +110,9 @@ func main() {
 	entries := pipeline.CreateEntries(s, *treeID, records)
 
 	if *buildVersionList {
-		entries = beam.Flatten(s, entries, pipeline.MakeVersionList(s, records))
+		// TODO(mhutchinson): The logs returned as this second arg should be persisted.
+		logEntries, _ := pipeline.MakeVersionLogs(s, records)
+		entries = beam.Flatten(s, entries, logEntries)
 	}
 
 	var allTiles beam.PCollection

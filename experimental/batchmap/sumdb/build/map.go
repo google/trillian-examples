@@ -32,8 +32,8 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/google/trillian/experimental/batchmap"
-	"github.com/google/trillian/merkle/coniks"
 
+	"github.com/google/trillian-examples/experimental/batchmap/sumdb/build/pipeline"
 	"github.com/google/trillian-examples/experimental/batchmap/sumdb/mapdb"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -49,33 +49,22 @@ var (
 	count             = flag.Int64("count", -1, "The total number of entries starting from the beginning of the SumDB to use, or -1 to use all")
 	batchSize         = flag.Int("write_batch_size", 250, "Number of tiles to write per batch")
 	incrementalUpdate = flag.Bool("incremental_update", false, "If set the map tiles from the previous revision will be updated with the delta, otherwise this will build the map from scratch each time.")
+	buildVersionList  = flag.Bool("build_version_list", false, "If set then the map will also contain a mapping for each module to a log committing to its list of versions.")
 )
 
 func init() {
-	beam.RegisterType(reflect.TypeOf((*mapEntryFn)(nil)).Elem())
-	beam.RegisterType(reflect.TypeOf((*toMapDatabaseRowFn)(nil)).Elem())
-}
+	beam.RegisterType(reflect.TypeOf((*tileToDBRowFn)(nil)).Elem())
+	beam.RegisterFunction(tileFromDBRowFn)
 
-// Metadata is the audit.Metadata object with the addition of an ID field.
-// It must map to the scheme of the leafMetadata table.
-type Metadata struct {
-	ID       int64
-	Module   string
-	Version  string
-	RepoHash string
-	ModHash  string
-}
-
-// MapTile is the schema format of the Map database to allow for databaseio writing.
-type MapTile struct {
-	Revision int
-	Path     []byte
-	Tile     []byte
+	beam.RegisterType(reflect.TypeOf((*logToDBRowFn)(nil)).Elem())
 }
 
 func main() {
 	flag.Parse()
 
+	if *buildVersionList && *incrementalUpdate {
+		glog.Exitf("Unsupported: build_version_list cannot be used with incremental_update")
+	}
 	// Connect to where we will read from and write to.
 	sumDB, err := newSumDBMirrorFromFlags()
 	if err != nil {
@@ -120,13 +109,21 @@ func main() {
 	beamlog.SetLogger(&BeamGLogger{InfoLogAtVerbosity: 2})
 	p, s := beam.NewPipelineWithRoot()
 	records := sumDB.beamSource(s.Scope("source"), startID, endID)
-	entries := beam.ParDo(s.Scope("mapentries"), &mapEntryFn{*treeID}, records)
+	entries := pipeline.CreateEntries(s, *treeID, records)
+
+	if *buildVersionList {
+		logEntries, logs := pipeline.MakeVersionLogs(s, *treeID, records)
+		entries = beam.Flatten(s, entries, logEntries)
+
+		rows := beam.ParDo(s, &logToDBRowFn{rev}, logs)
+		databaseio.WriteWithBatchSize(s.Scope("sinkLogs"), *batchSize, "sqlite3", *mapDBString, "logs", []string{}, rows)
+	}
 
 	var allTiles beam.PCollection
 	if *incrementalUpdate {
 		glog.Infof("Updating revision %d with range [%d, %d)", lastMapRev, startID, endID)
 		mapTiles := databaseio.Query(s, "sqlite3", *mapDBString, fmt.Sprintf("SELECT * FROM tiles WHERE revision=%d", lastMapRev), reflect.TypeOf(MapTile{}))
-		allTiles, err = batchmap.Update(s, beam.ParDo(s, fromDatabaseRowFn, mapTiles), entries, *treeID, hash, *prefixStrata)
+		allTiles, err = batchmap.Update(s, beam.ParDo(s, tileFromDBRowFn, mapTiles), entries, *treeID, hash, *prefixStrata)
 	} else {
 		glog.Infof("Creating new map revision from range [0, %d)", endID)
 		allTiles, err = batchmap.Create(s, entries, *treeID, hash, *prefixStrata)
@@ -135,7 +132,7 @@ func main() {
 		glog.Exitf("Failed to create pipeline: %q", err)
 	}
 
-	rows := beam.ParDo(s.Scope("convertoutput"), &toMapDatabaseRowFn{Revision: rev}, allTiles)
+	rows := beam.ParDo(s.Scope("convertoutput"), &tileToDBRowFn{Revision: rev}, allTiles)
 	databaseio.WriteWithBatchSize(s.Scope("sink"), *batchSize, "sqlite3", *mapDBString, "tiles", []string{}, rows)
 
 	// All of the above constructs the pipeline but doesn't run it. Now we run it.
@@ -169,35 +166,41 @@ func sinkFromFlags() (*mapdb.TileDB, int, error) {
 	return tiledb, rev, nil
 }
 
-type mapEntryFn struct {
-	TreeID int64
+// LogDBRow adapts ModuleVersionLog to the schema format of the Map database to allow for databaseio writing.
+type LogDBRow struct {
+	Revision int
+	Module   string
+	Leaves   []byte
 }
 
-func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*batchmap.Entry)) {
-	h := hash.New()
-	h.Write([]byte(fmt.Sprintf("%s %s/go.mod", m.Module, m.Version)))
-	modKey := h.Sum(nil)
-
-	emit(&batchmap.Entry{
-		HashKey:   modKey,
-		HashValue: coniks.Default.HashLeaf(fn.TreeID, modKey, []byte(m.ModHash)),
-	})
-
-	h = hash.New()
-	h.Write([]byte(fmt.Sprintf("%s %s", m.Module, m.Version)))
-	repoKey := h.Sum(nil)
-
-	emit(&batchmap.Entry{
-		HashKey:   repoKey,
-		HashValue: coniks.Default.HashLeaf(fn.TreeID, repoKey, []byte(m.RepoHash)),
-	})
-}
-
-type toMapDatabaseRowFn struct {
+type logToDBRowFn struct {
 	Revision int
 }
 
-func (fn *toMapDatabaseRowFn) ProcessElement(ctx context.Context, t *batchmap.Tile) (MapTile, error) {
+func (fn *logToDBRowFn) ProcessElement(ctx context.Context, l *pipeline.ModuleVersionLog) (LogDBRow, error) {
+	bs, err := json.Marshal(l.Versions)
+	if err != nil {
+		return LogDBRow{}, err
+	}
+	return LogDBRow{
+		Revision: fn.Revision,
+		Module:   l.Module,
+		Leaves:   bs,
+	}, nil
+}
+
+// MapTile is the schema format of the Map database to allow for databaseio writing.
+type MapTile struct {
+	Revision int
+	Path     []byte
+	Tile     []byte
+}
+
+type tileToDBRowFn struct {
+	Revision int
+}
+
+func (fn *tileToDBRowFn) ProcessElement(ctx context.Context, t *batchmap.Tile) (MapTile, error) {
 	bs, err := json.Marshal(t)
 	if err != nil {
 		return MapTile{}, err
@@ -209,7 +212,7 @@ func (fn *toMapDatabaseRowFn) ProcessElement(ctx context.Context, t *batchmap.Ti
 	}, nil
 }
 
-func fromDatabaseRowFn(t MapTile) (*batchmap.Tile, error) {
+func tileFromDBRowFn(t MapTile) (*batchmap.Tile, error) {
 	var res batchmap.Tile
 	if err := json.Unmarshal(t.Tile, &res); err != nil {
 		return nil, err
@@ -246,7 +249,7 @@ func (m *sumDBMirror) getEntryMetadata() ([]byte, int64, error) {
 
 // beamSource returns a PCollection of Metadata, containing entries in range [start, end).
 func (m *sumDBMirror) beamSource(s beam.Scope, start, end int64) beam.PCollection {
-	return databaseio.Query(s, "sqlite3", m.dbString, fmt.Sprintf("SELECT * FROM leafMetadata WHERE id >= %d AND id < %d", start, end), reflect.TypeOf(Metadata{}))
+	return databaseio.Query(s, "sqlite3", m.dbString, fmt.Sprintf("SELECT * FROM leafMetadata WHERE id >= %d AND id < %d", start, end), reflect.TypeOf(pipeline.Metadata{}))
 }
 
 // BeamGLogger allows Beam to log via the glog mechanism.

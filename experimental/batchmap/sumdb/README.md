@@ -44,6 +44,26 @@ See the implementation of `mapEntryFn` in `build/map.go` for the implementation 
 
 A client that verifies inclusion of a key in a Verifiable Map can thus be satisfied that every client with the same map root will see the same hashes for any key they look up.
 
+#### Experimental++: Adding Logs of module versions to the map
+
+Providing the `--build_version_list` flag to the map builder will add an extra set of entries to the map.
+In addition to two entries for each `module@version`, this mode will add one entry for each `module` to the map.
+The value for each of these keys is a log root hash, and this log is constructed from all of the `version`s found for the module.
+The list of versions are recorded in the `logs` table of the map DB.
+
+This addition allows module developers to use the map to cheaply and verifiably check the list of all versions used for their module.
+Without this data being in the map, the only verifiable way to do this is to download the whole of the SumDB log.
+
+#### Verifying the map
+
+A verifiable map can be verified by constructing an equivalent map.
+The map root is determinstic given:
+ * The number of entries from the input log to consume
+ * The map functions (i.e. which key/values are extracted from the input log)
+ * The same hashing/salt functions
+
+Given this information, another party would detect any false construction if the map root they calculate is different than the one provided by the map operator.
+
 ## Running
 
 ### Building

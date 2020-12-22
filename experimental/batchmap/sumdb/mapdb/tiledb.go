@@ -110,3 +110,16 @@ func (d *TileDB) WriteRevision(rev int, logCheckpoint []byte, count int64) error
 	}
 	return nil
 }
+
+// Versions gets the log of versions for the given module in the given map revision.
+func (d *TileDB) Versions(revision int, module string) ([]string, error) {
+	var bs []byte
+	if err := d.db.QueryRow("SELECT leaves FROM logs WHERE revision=? AND module=?", revision, module).Scan(&bs); err != nil {
+		return nil, err
+	}
+	var versions []string
+	if err := json.Unmarshal(bs, &versions); err != nil {
+		return nil, fmt.Errorf("failed to parse tile at revision=%d, path=%x: %v", revision, module, err)
+	}
+	return versions, nil
+}

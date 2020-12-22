@@ -112,7 +112,7 @@ func main() {
 	entries := pipeline.CreateEntries(s, *treeID, records)
 
 	if *buildVersionList {
-		logEntries, logs := pipeline.MakeVersionLogs(s, records)
+		logEntries, logs := pipeline.MakeVersionLogs(s, *treeID, records)
 		entries = beam.Flatten(s, entries, logEntries)
 
 		rows := beam.ParDo(s, &logToDBRowFn{rev}, logs)

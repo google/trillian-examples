@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/compact"
+	"github.com/google/trillian/merkle/coniks"
 
 	"golang.org/x/mod/sumdb/tlog"
 )
@@ -46,13 +47,15 @@ type ModuleVersionLog struct {
 // module. This method returns two PCollections: the first is of type Entry
 // and is the key/value data to include in the map, the second is of type
 // ModuleVersionLog.
-func MakeVersionLogs(s beam.Scope, metadata beam.PCollection) (beam.PCollection, beam.PCollection) {
+func MakeVersionLogs(s beam.Scope, treeID int64, metadata beam.PCollection) (beam.PCollection, beam.PCollection) {
 	keyed := beam.ParDo(s, func(m Metadata) (string, Metadata) { return m.Module, m }, metadata)
 	logs := beam.ParDo(s, makeModuleVersionLogFn, beam.GroupByKey(s, keyed))
-	return beam.ParDo(s, &moduleLogHashFn{}, logs), logs
+	return beam.ParDo(s, &moduleLogHashFn{TreeID: treeID}, logs), logs
 }
 
 type moduleLogHashFn struct {
+	TreeID int64
+
 	rf *compact.RangeFactory
 }
 
@@ -82,10 +85,11 @@ func (fn *moduleLogHashFn) ProcessElement(log *ModuleVersionLog) (*batchmap.Entr
 	}
 	h := hash.New()
 	h.Write([]byte(log.Module))
+	logKey := h.Sum(nil)
 
 	return &batchmap.Entry{
 		HashKey:   h.Sum(nil),
-		HashValue: logRoot,
+		HashValue: coniks.Default.HashLeaf(fn.TreeID, logKey, logRoot),
 	}, nil
 }
 

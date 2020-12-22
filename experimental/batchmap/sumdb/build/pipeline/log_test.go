@@ -24,6 +24,8 @@ import (
 	"github.com/google/trillian/experimental/batchmap"
 )
 
+const treeID = 12345
+
 func TestMakeVersionLogs(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -43,7 +45,7 @@ func TestMakeVersionLogs(t *testing.T) {
 				},
 			},
 			wantCount:    1,
-			wantRoot:     "26fd79084956a63e4b7f1899b889258865696ec84917d171aa41d710d44f8df0",
+			wantRoot:     "8656af15c0a3a4cde60b2d370f3b902618ef4959726a265d5ee51dcf16f4db6f",
 			wantVersions: []string{"v0.0.1"},
 		},
 		{
@@ -61,7 +63,7 @@ func TestMakeVersionLogs(t *testing.T) {
 				},
 			},
 			wantCount:    1,
-			wantRoot:     "fb687ea3931784e44d6c432af406a57e4ebc35cb53a8833569f6dfa086ebee93",
+			wantRoot:     "d6c627acd99922885984336b3b6168ea026cc09bf708e2fffaad423b225d738d",
 			wantVersions: []string{"1", "2"},
 		},
 		{
@@ -79,7 +81,7 @@ func TestMakeVersionLogs(t *testing.T) {
 				},
 			},
 			wantCount:    1,
-			wantRoot:     "fb687ea3931784e44d6c432af406a57e4ebc35cb53a8833569f6dfa086ebee93",
+			wantRoot:     "d6c627acd99922885984336b3b6168ea026cc09bf708e2fffaad423b225d738d",
 			wantVersions: []string{"1", "2"},
 		},
 		{
@@ -106,7 +108,7 @@ func TestMakeVersionLogs(t *testing.T) {
 			p, s := beam.NewPipelineWithRoot()
 			metadata := beam.CreateList(s, test.metadata)
 
-			entries, logs := MakeVersionLogs(s, metadata)
+			entries, logs := MakeVersionLogs(s, treeID, metadata)
 
 			passert.Count(s, entries, "entries", test.wantCount)
 			passert.Count(s, logs, "logs", test.wantCount)

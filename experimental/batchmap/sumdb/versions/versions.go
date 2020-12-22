@@ -19,6 +19,7 @@ import (
 	"crypto"
 	"flag"
 	"fmt"
+	"regexp"
 
 	"github.com/golang/glog"
 	"golang.org/x/mod/sumdb/tlog"
@@ -37,6 +38,7 @@ var (
 	mapDB        = flag.String("map_db", "", "sqlite DB containing the map tiles.")
 	treeID       = flag.Int64("tree_id", 12345, "The ID of the tree. Used as a salt in hashing.")
 	prefixStrata = flag.Int("prefix_strata", 2, "The number of strata of 8-bit strata before the final strata.")
+	showAll      = flag.Bool("all", false, "Only release versions are shown by default, but this will also show ephemeral versions.")
 )
 
 func main() {
@@ -89,9 +91,19 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to verify inclusion: %v", err)
 	}
+
+	releaseRegex := regexp.MustCompile(`^v\d+.\d+.\d+$`)
 	var versionString string
+	var skipped int
 	for _, v := range versions {
-		versionString = fmt.Sprintf("%s\n * %s", versionString, v)
+		if *showAll || releaseRegex.MatchString(v) {
+			versionString = fmt.Sprintf("%s\n * %s", versionString, v)
+		} else {
+			skipped++
+		}
+	}
+	if skipped > 0 {
+		versionString = fmt.Sprintf("%s\n(%d omitted version)", versionString, skipped)
 	}
 	glog.Infof("Verified versions for %q in map with root %x: %s", *module, mr, versionString)
 }

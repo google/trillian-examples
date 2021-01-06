@@ -18,8 +18,20 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
 	"time"
+
+	"github.com/golang/glog"
+
+	// While flags are defined in this file, the drivers can be imported here.
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
+)
+
+var (
+	sqliteFile = flag.String("sqlite_file", "", "database file location for local SumDB instance")
+	mysqlURI   = flag.String("mysql_uri", "", "URL of a MySQL database for the local SumDB instance")
 )
 
 // NoDataFound is returned when the DB appears valid but has no data in it.
@@ -43,16 +55,35 @@ type Database struct {
 	db *sql.DB
 }
 
-// NewDatabase creates a Database using a file at the given location.
-// If the file doesn't exist it will be created.
-func NewDatabase(location string) (*Database, error) {
-	db, err := sql.Open("sqlite3", location)
-	if err != nil {
-		return nil, err
+// NewDatabaseFromFlags creates a database from the flags defined in this file.
+// TODO(mhutchinson): This feels ugly to define flags not in the main method.
+func NewDatabaseFromFlags() (*Database, error) {
+	useSqlite := len(*sqliteFile) > 0
+	useMysql := len(*mysqlURI) > 0
+	if useSqlite == useMysql {
+		return nil, errors.New("exactly one of sqlite_file or mysql_uri must be provided")
 	}
+	var dbConn *sql.DB
+	var err error
+	if useSqlite {
+		dbConn, err = sql.Open("sqlite3", *sqliteFile)
+	} else {
+		// An alternative to providing a single URI is to have flags for individual components and
+		// assemble the URI: https://godoc.org/github.com/go-sql-driver/mysql#Config.FormatDSN
+		dbConn, err = sql.Open("mysql", *mysqlURI)
+	}
+	if err != nil {
+		glog.Exitf("Failed to open DB: %v", err)
+	}
+	return NewDatabase(dbConn)
+}
+
+// NewDatabase creates a Database using the given database connection.
+// This has been tested with sqlite and MariaDB.
+func NewDatabase(db *sql.DB) (*Database, error) {
 	return &Database{
 		db: db,
-	}, nil
+	}, db.Ping()
 }
 
 // Init creates the database tables if needed.
@@ -66,7 +97,7 @@ func (d *Database) Init() error {
 	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS checkpoints (datetime TIMESTAMP PRIMARY KEY, checkpoint BLOB)"); err != nil {
 		return err
 	}
-	_, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leafMetadata (id INTEGER PRIMARY KEY, module TEXT, version TEXT, repohash TEXT, modhash TEXT)")
+	_, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leafMetadata (id INTEGER PRIMARY KEY, module BLOB, version BLOB, repohash BLOB, modhash BLOB)")
 	return err
 }
 

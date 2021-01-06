@@ -22,13 +22,11 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/google/trillian-examples/sumdbaudit/audit"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
 	height = flag.Int("h", 8, "tile height")
 	vkey   = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
-	db     = flag.String("db", "./sum.db", "database file location (will be created if it doesn't exist)")
 	extraV = flag.Bool("x", false, "performs additional checks on each tile hashes")
 	force  = flag.Bool("f", false, "forces the auditor to run even if no new data is available")
 )
@@ -40,10 +38,11 @@ func main() {
 	ctx := context.Background()
 	flag.Parse()
 
-	db, err := audit.NewDatabase(*db)
+	db, err := audit.NewDatabaseFromFlags()
 	if err != nil {
-		glog.Exitf("failed to open DB: %v", err)
+		glog.Exitf("Failed to open DB: %v", err)
 	}
+
 	err = db.Init()
 	if err != nil {
 		glog.Exitf("failed to init DB: %v", err)

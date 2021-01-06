@@ -59,7 +59,7 @@ This tool does **not** check any of the following:
 The following command will download all entries and store them in the database
 file provided:
 ```bash
-go run github.com/google/trillian-examples/sumdbaudit/cli/clone -db ~/sum.db -alsologtostderr -v=2
+go run github.com/google/trillian-examples/sumdbaudit/cli/clone -sqlite_file ~/sum.db -alsologtostderr -v=2
 ```
 This will take some time to complete on the first run. Latency and bandwidth
 between the auditor and SumDB will be a large factor, but for illustrative
@@ -96,7 +96,7 @@ After=network.target
 [Service]
 Type=simple
 User=sumdb
-ExecStart=/usr/local/bin/sumdbmirror -db /var/cache/sumdb/mirror.db -alsologtostderr -v=1
+ExecStart=/usr/local/bin/sumdbmirror -sqlite_file /var/cache/sumdb/mirror.db -alsologtostderr -v=1
 
 [Install]
 WantedBy=multi-user.target
@@ -139,7 +139,7 @@ is safe in relying on the data within (providing it trusts the verifer!).
 
 The service can be started with the command (assuming `~/sum.db` is the database):
 ```bash
-go run ./sumdbaudit/cli/witness -listen :8080 -db ~/sum.db -v=1 -alsologtostderr
+go run ./sumdbaudit/cli/witness -listen :8080 -sqlite_file ~/sum.db -v=1 -alsologtostderr
 ```
 
 This can be set up as a Linux service in much the same way as the `mirror` above.
@@ -167,6 +167,20 @@ sync completes:
 ```bash
 docker-compose -f sumdbaudit/docker/docker-compose.yml up --build
 ```
+
+### Using a client/server database
+
+The instructions above are for setting this up using sqlite with its storage on the local filesystem.
+To set this up using MariaDB, the database can be provisioned by logging into the instance as root user and running the following:
+
+```bash
+CREATE DATABASE sumdb;
+CREATE USER 'sumdb'@localhost IDENTIFIED BY 'letmein';
+GRANT ALL PRIVILEGES ON sumdb.* TO 'sumdb'@localhost;
+FLUSH PRIVILEGES;
+```
+
+Once set up, change the `sqlite_file` flag above for `mysql_uri` with a connection string like `'sumdb:letmein@tcp(127.0.0.1:3306)/sumdb?parseTime=true'`.
 
 ## Querying the database
 The number of leaves downloaded can be queried:

@@ -203,8 +203,6 @@ sqlite3 ~/sum.db 'SELECT module, COUNT(*) cnt FROM leafMetadata GROUP BY module 
   be up to 2^height leaves missing from the database.
   These stragglers should be stored if the root hash checks out.
 * Only parse and process new leaves.
-* Support other SQL databases, e.g. MySQL
-  * This should be trivial to support in code, but sqlite was picked for simplicity of admin for a demo
 * Witness should return detailed responses
   * In the event of an inconsistency, both Checkpoints notes should be serialized and returned
   * Consistency should return a proof that the tree is consistent with the witnesses Golden Checkpoint

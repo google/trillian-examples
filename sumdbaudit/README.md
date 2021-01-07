@@ -202,7 +202,6 @@ sqlite3 ~/sum.db 'SELECT module, COUNT(*) cnt FROM leafMetadata GROUP BY module 
 * This only downloads complete tiles, which means that at any point there could
   be up to 2^height leaves missing from the database.
   These stragglers should be stored if the root hash checks out.
-* Only parse and process new leaves.
 * Witness should return detailed responses
   * In the event of an inconsistency, both Checkpoints notes should be serialized and returned
   * Consistency should return a proof that the tree is consistent with the witnesses Golden Checkpoint

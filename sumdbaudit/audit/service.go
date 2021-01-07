@@ -125,8 +125,22 @@ func (s *Service) Sync(ctx context.Context, checkpoint *Checkpoint) error {
 func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *Checkpoint) error {
 	tileWidth := 1 << s.height
 	metadata := make([]Metadata, tileWidth)
-	// TODO: skip to head of metadata
-	for offset := 0; offset < int(checkpoint.N/int64(tileWidth)); offset++ {
+
+	latest, err := s.localDB.MaxLeafMetadata(ctx)
+	var firstTile int64
+	if err != nil {
+		switch err.(type) {
+		case NoDataFound:
+			glog.Infof("failed to find head of Leaf Metadata, assuming empty and starting from scratch: %v", err)
+			firstTile = 0
+		default:
+			return fmt.Errorf("MaxLeafMetadata(): %w", err)
+		}
+	} else {
+		firstTile = (latest + 1) / int64(tileWidth)
+	}
+
+	for offset := firstTile; offset < checkpoint.N/int64(tileWidth); offset++ {
 		leafOffset := int64(offset) * int64(tileWidth)
 		hashes, err := s.localDB.Leaves(leafOffset, tileWidth)
 		if err != nil {

@@ -183,6 +183,19 @@ func (d *Database) SetLeafMetadata(ctx context.Context, start int64, metadata []
 	return tx.Commit()
 }
 
+// MaxLeafMetadata gets the ID of the last entry in the leafMetadata table.
+// If there is no data, then NoDataFound error is returned.
+func (d *Database) MaxLeafMetadata(ctx context.Context) (int64, error) {
+	var head sql.NullInt64
+	if err := d.db.QueryRow("SELECT MAX(id) AS head FROM leafMetadata").Scan(&head); err != nil {
+		return 0, fmt.Errorf("failed to get max metadata: %v", err)
+	}
+	if head.Valid {
+		return head.Int64, nil
+	}
+	return 0, NoDataFound(errors.New("no data found"))
+}
+
 // Tile gets the leaf hashes for the given tile, or returns an error.
 func (d *Database) Tile(height, level, offset int) ([][]byte, error) {
 	var res []byte

@@ -14,7 +14,7 @@ services:
       - sqlite-data:/var/cache/sumdb
     command: [
       "--alsologtostderr",
-      "--db=/var/cache/sumdb/mirror.db"
+      "--sqlite_file=/var/cache/sumdb/mirror.db"
     ]
     restart: always
   witness:
@@ -25,7 +25,7 @@ services:
       - sqlite-data:/var/cache/sumdb
     command: [
       "--alsologtostderr",
-      "--db=/var/cache/sumdb/mirror.db",
+      "--sqlite_file=/var/cache/sumdb/mirror.db",
       "--listen=:8080"
     ]
     ports:

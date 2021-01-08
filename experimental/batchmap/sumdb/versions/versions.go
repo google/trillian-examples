@@ -38,7 +38,7 @@ var (
 	mapDB        = flag.String("map_db", "", "sqlite DB containing the map tiles.")
 	treeID       = flag.Int64("tree_id", 12345, "The ID of the tree. Used as a salt in hashing.")
 	prefixStrata = flag.Int("prefix_strata", 2, "The number of strata of 8-bit strata before the final strata.")
-	showAll      = flag.Bool("all", false, "Only release versions are shown by default, but this will also show ephemeral versions.")
+	showAll      = flag.Bool("all", false, "Only release versions are shown by default, but setting this flag will also show ephemeral versions.")
 )
 
 func main() {
@@ -103,7 +103,7 @@ func main() {
 		}
 	}
 	if skipped > 0 {
-		versionString = fmt.Sprintf("%s\n(%d omitted version)", versionString, skipped)
+		versionString = fmt.Sprintf("%s\n(%d omitted non-release versions)", versionString, skipped)
 	}
 	glog.Infof("Verified versions for %q in map with root %x: %s", *module, mr, versionString)
 }

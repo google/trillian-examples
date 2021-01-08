@@ -21,13 +21,11 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/sumdbaudit/audit"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
 	height   = flag.Int("h", 8, "tile height")
 	vkey     = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
-	db       = flag.String("db", "", "database file location (will be created if it doesn't exist)")
 	unpack   = flag.Bool("unpack", false, "if provided then the leafMetadata table will be populated by parsing the raw leaf data")
 	interval = flag.Duration("interval", 5*time.Minute, "how long to wait between runs")
 )
@@ -38,10 +36,7 @@ func main() {
 	ctx := context.Background()
 	flag.Parse()
 
-	if len(*db) == 0 {
-		glog.Exit("db must be provided")
-	}
-	db, err := audit.NewDatabase(*db)
+	db, err := audit.NewDatabaseFromFlags()
 	if err != nil {
 		glog.Exitf("Failed to open DB: %v", err)
 	}

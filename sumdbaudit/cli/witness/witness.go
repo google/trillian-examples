@@ -26,13 +26,11 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/sumdbaudit/audit"
 	"github.com/gorilla/mux"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 var (
 	height = flag.Int("h", 8, "tile height")
 	vkey   = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
-	db     = flag.String("db", "", "database file location (will be created if it doesn't exist)")
 
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
 )
@@ -88,13 +86,9 @@ func (s *server) checkConsistency(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 
-	if len(*db) == 0 {
-		glog.Exit("db must be provided")
-	}
-
-	db, err := audit.NewDatabase(*db)
+	db, err := audit.NewDatabaseFromFlags()
 	if err != nil {
-		glog.Exitf("failed to open DB: %v", err)
+		glog.Exitf("Failed to open DB: %v", err)
 	}
 
 	sumDB := audit.NewSumDB(*height, *vkey)

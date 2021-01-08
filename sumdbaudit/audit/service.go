@@ -383,9 +383,8 @@ func (s *Service) checkConsistency(ctx context.Context) error {
 			// storage is a new feature).
 			glog.Warning("Failed to find golden checkpoint!")
 			return nil
-		} else {
-			return fmt.Errorf("failed to query for golden checkpoint: %w", err)
 		}
+		return fmt.Errorf("failed to query for golden checkpoint: %w", err)
 	}
 	head, err := s.localDB.Head()
 	if err != nil {

@@ -129,11 +129,10 @@ func (s *Service) ProcessMetadata(ctx context.Context, checkpoint *Checkpoint) e
 	latest, err := s.localDB.MaxLeafMetadata(ctx)
 	var firstTile int64
 	if err != nil {
-		switch err.(type) {
-		case NoDataFound:
+		if err == ErrNoDataFound {
 			glog.Infof("failed to find head of Leaf Metadata, assuming empty and starting from scratch: %v", err)
 			firstTile = 0
-		default:
+		} else {
 			return fmt.Errorf("MaxLeafMetadata(): %w", err)
 		}
 	} else {
@@ -256,11 +255,10 @@ func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error
 func (s *Service) cloneLeafTiles(ctx context.Context, checkpoint *Checkpoint) error {
 	head, err := s.localDB.Head()
 	if err != nil {
-		switch err.(type) {
-		case NoDataFound:
+		if err == ErrNoDataFound {
 			glog.Infof("failed to find head of database, assuming empty and starting from scratch: %v", err)
 			head = -1
-		default:
+		} else {
 			return fmt.Errorf("failed to query for head of local log: %w", err)
 		}
 	}
@@ -379,14 +377,13 @@ func (s *Service) hashTiles(ctx context.Context, checkpoint *Checkpoint) error {
 func (s *Service) checkConsistency(ctx context.Context) error {
 	golden, err := s.localDB.GoldenCheckpoint(s.sumDB.ParseCheckpointNote)
 	if err != nil {
-		switch err.(type) {
-		case NoDataFound:
+		if err == ErrNoDataFound {
 			// TODO(mhutchinson): This should fail hard later. Making tolerant for now
 			// so that previous databases can be cheaply upgraded (golden checkpoint
 			// storage is a new feature).
 			glog.Warning("Failed to find golden checkpoint!")
 			return nil
-		default:
+		} else {
 			return fmt.Errorf("failed to query for golden checkpoint: %w", err)
 		}
 	}

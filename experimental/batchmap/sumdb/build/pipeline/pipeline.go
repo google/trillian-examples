@@ -107,7 +107,7 @@ func (b *MapBuilder) Update(s beam.Scope, lastTiles beam.PCollection, provenance
 
 	startID := provenance.Entries
 	if startID >= endID {
-		return tiles, InputLogMetadata{}, fmt.Errorf("startID >= endID (%d > %d)", startID, endID)
+		return tiles, InputLogMetadata{}, fmt.Errorf("startID (%d) >= endID (%d)", startID, endID)
 	}
 
 	records := b.source.Entries(s.Scope("source"), startID, endID)

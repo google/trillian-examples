@@ -34,8 +34,8 @@ var (
 	mysqlURI   = flag.String("mysql_uri", "", "URL of a MySQL database for the local SumDB instance")
 )
 
-// NoDataFound is returned when the DB appears valid but has no data in it.
-type NoDataFound = error
+// ErrNoDataFound is returned when the DB appears valid but has no data in it.
+var ErrNoDataFound = errors.New("no data found")
 
 // Metadata is the semantic data that is contained within the leaves of the log.
 type Metadata struct {
@@ -110,7 +110,7 @@ func (d *Database) Head() (int64, error) {
 	if head.Valid {
 		return head.Int64, nil
 	}
-	return 0, NoDataFound(errors.New("no data found"))
+	return 0, ErrNoDataFound
 }
 
 // GoldenCheckpoint gets the latest checkpoint, using the provided function to parse the note data.
@@ -121,7 +121,7 @@ func (d *Database) GoldenCheckpoint(parse func([]byte) (*Checkpoint, error)) (*C
 		return nil, fmt.Errorf("failed to get latest checkpoint: %w", err)
 	}
 	if !datetime.Valid {
-		return nil, NoDataFound(errors.New("no data found"))
+		return nil, ErrNoDataFound
 	}
 	return parse(data)
 }
@@ -181,6 +181,19 @@ func (d *Database) SetLeafMetadata(ctx context.Context, start int64, metadata []
 		tx.Exec("INSERT INTO leafMetadata (id, module, version, repohash, modhash) VALUES (?, ?, ?, ?, ?)", midx, m.module, m.version, m.repoHash, m.modHash)
 	}
 	return tx.Commit()
+}
+
+// MaxLeafMetadata gets the ID of the last entry in the leafMetadata table.
+// If there is no data, then ErrNoDataFound error is returned.
+func (d *Database) MaxLeafMetadata(ctx context.Context) (int64, error) {
+	var head sql.NullInt64
+	if err := d.db.QueryRow("SELECT MAX(id) AS head FROM leafMetadata").Scan(&head); err != nil {
+		return 0, fmt.Errorf("failed to get max metadata: %v", err)
+	}
+	if head.Valid {
+		return head.Int64, nil
+	}
+	return 0, ErrNoDataFound
 }
 
 // Tile gets the leaf hashes for the given tile, or returns an error.

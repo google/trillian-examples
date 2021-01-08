@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package pipeline contains Beam pipeline library functions for the SumDB
-// verifiable map.
 package pipeline
 
 import (

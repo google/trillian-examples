@@ -1,35 +1,41 @@
 version: "3.9"
 
-# TODO(mhutchinson): This file-based sharing should be replaced with a
-# client/server DB running in its own container.
-volumes:
-  sqlite-data:
-
 services:
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: sumdb
+      MYSQL_USER: sumdb
+      MYSQL_PASSWORD: letmein
+
   mirror:
     build: 
       context: ../..
       dockerfile: ./sumdbaudit/docker/mirror/Dockerfile
-    volumes:
-      - sqlite-data:/var/cache/sumdb
     command: [
       "--alsologtostderr",
-      "--db=/var/cache/sumdb/mirror.db"
+      "--v=2",
+      "--mysql_uri=sumdb:letmein@tcp(db:3306)/sumdb?parseTime=true",
     ]
     restart: always
+    depends_on:
+      - db
+
   witness:
     build: 
       context: ../..
       dockerfile: ./sumdbaudit/docker/witness/Dockerfile
-    volumes:
-      - sqlite-data:/var/cache/sumdb
     command: [
       "--alsologtostderr",
-      "--db=/var/cache/sumdb/mirror.db",
+      "--v=2",
+      "--mysql_uri=sumdb:letmein@tcp(db:3306)/sumdb?parseTime=true",
       "--listen=:8080"
     ]
     ports:
      - "8080:8080"
     restart: always
     depends_on:
+      - db
       - mirror

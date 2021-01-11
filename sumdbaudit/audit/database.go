@@ -105,6 +105,9 @@ func (d *Database) Init() error {
 func (d *Database) Head() (int64, error) {
 	var head sql.NullInt64
 	if err := d.db.QueryRow("SELECT MAX(id) AS head FROM leaves").Scan(&head); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrNoDataFound
+		}
 		return 0, fmt.Errorf("failed to get max revision: %v", err)
 	}
 	if head.Valid {
@@ -118,6 +121,9 @@ func (d *Database) GoldenCheckpoint(parse func([]byte) (*Checkpoint, error)) (*C
 	var datetime sql.NullTime
 	var data []byte
 	if err := d.db.QueryRow("SELECT datetime, checkpoint FROM checkpoints ORDER BY datetime DESC LIMIT 1").Scan(&datetime, &data); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoDataFound
+		}
 		return nil, fmt.Errorf("failed to get latest checkpoint: %w", err)
 	}
 	if !datetime.Valid {
@@ -188,6 +194,9 @@ func (d *Database) SetLeafMetadata(ctx context.Context, start int64, metadata []
 func (d *Database) MaxLeafMetadata(ctx context.Context) (int64, error) {
 	var head sql.NullInt64
 	if err := d.db.QueryRow("SELECT MAX(id) AS head FROM leafMetadata").Scan(&head); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrNoDataFound
+		}
 		return 0, fmt.Errorf("failed to get max metadata: %v", err)
 	}
 	if head.Valid {
@@ -201,6 +210,9 @@ func (d *Database) Tile(height, level, offset int) ([][]byte, error) {
 	var res []byte
 	err := d.db.QueryRow("SELECT hashes FROM tiles WHERE height=? AND level=? AND offset=?", height, level, offset).Scan(&res)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoDataFound
+		}
 		return nil, err
 	}
 	return SplitTile(res, height), nil

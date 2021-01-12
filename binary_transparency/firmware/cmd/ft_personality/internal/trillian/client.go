@@ -21,10 +21,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trees"
+
 	"github.com/golang/glog"
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
-	"github.com/google/trillian/types"
 	tt "github.com/google/trillian/types"
 	"google.golang.org/grpc"
 )
@@ -35,16 +36,16 @@ type Client struct {
 
 	logID      int64
 	client     trillian.TrillianLogClient
-	golden     types.LogRootV1
+	golden     tt.LogRootV1
 	goldenLock sync.Mutex
 	updateLock sync.Mutex
 	done       func()
 }
 
-// NewClient returns a new client that will read/write to the given treeID at
+// NewClient returns a new client that will read/write to its tree using
 // the Trillian gRPC API URL provided, with the given timeout for connections.
 // The Client returned should have Close called by the owner when done.
-func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeID int64) (*Client, error) {
+func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeStorage *trees.TreeStorage) (*Client, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, logAddr, grpc.WithInsecure(), grpc.WithBlock())
@@ -52,13 +53,9 @@ func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeI
 		return nil, fmt.Errorf("did not connect to trillian on %v: %v", logAddr, err)
 	}
 
-	// N.B. Using the admin interface from the personality is not good practice for
-	// a production system. This simply allows a convenient way of getting the tree
-	// for the sake of getting the FT demo up and running.
-	admin := trillian.NewTrillianAdminClient(conn)
-	tree, err := admin.GetTree(ctx, &trillian.GetTreeRequest{TreeId: treeID})
+	tree, err := treeStorage.EnsureTree(ctx, conn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tree %d: %v", treeID, err)
+		return nil, fmt.Errorf("failed to get/create tree: %v", err)
 	}
 	glog.Infof("Got tree %v", tree)
 
@@ -78,7 +75,7 @@ func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeI
 
 	client := &Client{
 		LogVerifier: v,
-		logID:       treeID,
+		logID:       tree.TreeId,
 		client:      log,
 		golden:      golden,
 		done:        func() { conn.Close() },
@@ -104,7 +101,7 @@ func (c *Client) AddFirmwareManifest(ctx context.Context, data []byte) error {
 
 // Root returns the most recent root seen by this client.
 // Use UpdateRoot() to update this client's view of the latest root.
-func (c *Client) Root() *types.LogRootV1 {
+func (c *Client) Root() *tt.LogRootV1 {
 	c.goldenLock.Lock()
 	defer c.goldenLock.Unlock()
 
@@ -134,7 +131,7 @@ func (c *Client) UpdateRoot(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var newRoot types.LogRootV1
+	var newRoot tt.LogRootV1
 	if err := newRoot.UnmarshalBinary(resp.GetSignedLogRoot().LogRoot); err != nil {
 		return err
 	}

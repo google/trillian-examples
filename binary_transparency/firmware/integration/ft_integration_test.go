@@ -26,14 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/google/trillian"
-	"github.com/google/trillian/client"
-	"github.com/google/trillian/client/rpcflags"
-	"github.com/google/trillian/crypto/keyspb"
-	"github.com/google/trillian/crypto/sigpb"
-	"google.golang.org/grpc"
-
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	i_emu "github.com/google/trillian-examples/binary_transparency/firmware/cmd/emulator/dummy/impl"
 	i_flash "github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/impl"
@@ -69,8 +61,6 @@ func TestFTIntegration(t *testing.T) {
 	ctx, cancel := testContext(t)
 	defer cancel()
 
-	tree := createTree(ctx, t)
-
 	// TODO(al): make this dynamic
 	pListen := "localhost:43563"
 	pAddr := fmt.Sprintf("http://%s", pListen)
@@ -78,7 +68,7 @@ func TestFTIntegration(t *testing.T) {
 	pErrChan := make(chan error)
 
 	go func() {
-		if err := runPersonality(ctx, t, pListen, tree.TreeId); err != nil {
+		if err := runPersonality(ctx, t, pListen); err != nil {
 			pErrChan <- err
 		}
 		close(pErrChan)
@@ -303,49 +293,6 @@ func testContext(t *testing.T) (context.Context, func()) {
 	return ctx, c
 }
 
-func createTree(ctx context.Context, t *testing.T) *trillian.Tree {
-	t.Helper()
-	ctr := &trillian.CreateTreeRequest{
-		Tree: &trillian.Tree{
-			TreeState:          trillian.TreeState_ACTIVE,
-			TreeType:           trillian.TreeType_LOG,
-			HashStrategy:       trillian.HashStrategy_RFC6962_SHA256,
-			HashAlgorithm:      sigpb.DigitallySigned_SHA256,
-			SignatureAlgorithm: sigpb.DigitallySigned_ECDSA,
-			DisplayName:        "FT integration test",
-			Description:        "FT integration test log",
-			MaxRootDuration:    ptypes.DurationProto(time.Hour),
-		},
-		KeySpec: &keyspb.Specification{
-			Params: &keyspb.Specification_EcdsaParams{
-				EcdsaParams: &keyspb.Specification_ECDSA{},
-			},
-		},
-	}
-
-	dialOpts, err := rpcflags.NewClientDialOptionsFromFlags()
-	if err != nil {
-		t.Fatalf("Failed to determine dial options: %v", err)
-	}
-
-	conn, err := grpc.Dial(*trillianAddr, dialOpts...)
-	if err != nil {
-		t.Fatalf("Failed to dial %v: %v", *trillianAddr, err)
-	}
-	defer conn.Close()
-
-	adminClient := trillian.NewTrillianAdminClient(conn)
-	mapClient := trillian.NewTrillianMapClient(conn)
-	logClient := trillian.NewTrillianLogClient(conn)
-
-	tree, err := client.CreateAndInitTree(ctx, ctr, adminClient, mapClient, logClient)
-	if err != nil {
-		t.Fatalf("Failed to create tree: %v", err)
-	}
-	t.Logf("Created tree ID %d", tree.TreeId)
-	return tree
-}
-
 func setupDeviceStorage(t *testing.T, devStoragePath string) {
 	t.Helper()
 	if err := os.MkdirAll(devStoragePath, 0755); err != nil {
@@ -353,14 +300,13 @@ func setupDeviceStorage(t *testing.T, devStoragePath string) {
 	}
 }
 
-func runPersonality(ctx context.Context, t *testing.T, serverAddr string, treeID int64) error {
+func runPersonality(ctx context.Context, t *testing.T, serverAddr string) error {
 
 	t.Helper()
 	r := t.TempDir()
 
 	err := i_personality.Main(ctx, i_personality.PersonalityOpts{
 		ListenAddr:     serverAddr,
-		TreeID:         treeID,
 		CASFile:        filepath.Join(r, "ft-cas.db"),
 		TrillianAddr:   *trillianAddr,
 		ConnectTimeout: 10 * time.Second,

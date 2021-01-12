@@ -28,6 +28,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/cas"
 	ih "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/http"
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trees"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
 	"github.com/gorilla/mux"
 
@@ -38,7 +39,6 @@ import (
 // PersonalityOpts encapsulates options for running an FT personality.
 type PersonalityOpts struct {
 	ListenAddr     string
-	TreeID         int64
 	CASFile        string
 	TrillianAddr   string
 	ConnectTimeout time.Duration
@@ -46,9 +46,6 @@ type PersonalityOpts struct {
 }
 
 func Main(ctx context.Context, opts PersonalityOpts) error {
-	if opts.TreeID < 0 {
-		return errors.New("tree ID is required")
-	}
 	if len(opts.CASFile) == 0 {
 		return errors.New("CAS file is required")
 	}
@@ -63,8 +60,12 @@ func Main(ctx context.Context, opts PersonalityOpts) error {
 		return fmt.Errorf("failed to connect CAS to DB: %w", err)
 	}
 
+	// TODO(mhutchinson): This is putting the tree config in the CAS DB.
+	// This isn't unreasonable, but it does make the naming misleading now.
+	treeStorage := trees.NewTreeStorage(db)
+
 	glog.Infof("Connecting to Trillian Log...")
-	tclient, err := trillian.NewClient(ctx, opts.ConnectTimeout, opts.TrillianAddr, opts.TreeID)
+	tclient, err := trillian.NewClient(ctx, opts.ConnectTimeout, opts.TrillianAddr, treeStorage)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Trillian: %w", err)
 	}

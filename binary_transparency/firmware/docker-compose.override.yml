@@ -1,0 +1,26 @@
+version: "3.9"
+
+# This expects to be run as an override of trillian's example docker deployment.
+# See the README in the main directory for instructions.
+# This won't scale to multiple replicas without much more work.
+
+services:
+  personality:
+    build: 
+      context: ../../../trillian-examples
+      dockerfile: ./binary_transparency/firmware/cmd/ft_personality/Dockerfile
+    command: [
+      "--alsologtostderr",
+      "--v=2",
+      "--listen=:8000",
+      "--trillian=trillian-log-server:8090",
+      "--connect_timeout=30s",
+      "--cas_db_file=/opt/ft.db"
+    ]
+    ports:
+     - "8000:8000"
+    restart: always
+    depends_on:
+      - mysql
+      - trillian-log-server
+      - trillian-log-signer

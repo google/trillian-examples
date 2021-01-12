@@ -57,7 +57,9 @@ func main() {
 			glog.Infof("Nothing to do: latest SumDB size is %d and local size is %d", head.N, golden.N)
 		} else {
 			glog.Infof("Syncing to latest SumDB size %d", head.N)
-			s.Sync(ctx, head)
+			if err := s.Sync(ctx, head); err != nil {
+				glog.Exitf("Sync: %v", err)
+			}
 			if *unpack {
 				glog.V(1).Infof("Processing metadata")
 				if err := s.ProcessMetadata(ctx, head); err != nil {

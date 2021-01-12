@@ -22,7 +22,6 @@ package audit
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -225,7 +224,7 @@ func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error
 		for !finishedLevel {
 			localHashes, err := s.localDB.Tile(s.height, level, offset)
 			if err != nil {
-				if err == sql.ErrNoRows {
+				if err == ErrNoDataFound {
 					finishedLevel = true
 					continue
 				}
@@ -500,7 +499,7 @@ func (s *Service) checkCheckpoint(cp *Checkpoint, getStragglers func(stragglerCo
 func (s *Service) hashLeafLevel(tileCount int, roots chan<- *compact.Range) error {
 	for offset := 0; offset < tileCount; offset++ {
 		hashes, err := s.localDB.Tile(s.height, 0, offset)
-		if err == sql.ErrNoRows {
+		if err == ErrNoDataFound {
 			hashes, err = s.hashLeafTile(offset)
 		}
 		if err != nil {
@@ -543,7 +542,7 @@ func (s *Service) hashUpperLevel(level, tileCount int, in <-chan *compact.Range,
 	for offset := 0; offset < tileCount; offset++ {
 		dbTileHashes, err := s.localDB.Tile(s.height, level, offset)
 		found := true
-		if err == sql.ErrNoRows {
+		if err == ErrNoDataFound {
 			found = false
 			err = nil
 		}

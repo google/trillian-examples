@@ -45,7 +45,7 @@ func TestMakeVersionLogs(t *testing.T) {
 				},
 			},
 			wantCount:    1,
-			wantRoot:     "8656af15c0a3a4cde60b2d370f3b902618ef4959726a265d5ee51dcf16f4db6f",
+			wantRoot:     "ab0fa665851a47dec50ff0a51e7dfbab747ff5a548dcfcc7bde213b571a8e6ae",
 			wantVersions: []string{"v0.0.1"},
 		},
 		{
@@ -63,7 +63,7 @@ func TestMakeVersionLogs(t *testing.T) {
 				},
 			},
 			wantCount:    1,
-			wantRoot:     "d6c627acd99922885984336b3b6168ea026cc09bf708e2fffaad423b225d738d",
+			wantRoot:     "7fadb0db3926ec36f4028452856670df932eacba6f624ed82284c4a63adc5f73",
 			wantVersions: []string{"1", "2"},
 		},
 		{
@@ -81,7 +81,7 @@ func TestMakeVersionLogs(t *testing.T) {
 				},
 			},
 			wantCount:    1,
-			wantRoot:     "d6c627acd99922885984336b3b6168ea026cc09bf708e2fffaad423b225d738d",
+			wantRoot:     "7fadb0db3926ec36f4028452856670df932eacba6f624ed82284c4a63adc5f73",
 			wantVersions: []string{"1", "2"},
 		},
 		{

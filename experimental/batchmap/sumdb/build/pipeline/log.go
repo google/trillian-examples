@@ -75,9 +75,8 @@ func (fn *moduleLogHashFn) Setup() {
 func (fn *moduleLogHashFn) ProcessElement(log *ModuleVersionLog) (*batchmap.Entry, error) {
 	logRange := fn.rf.NewEmptyRange(0)
 	for _, v := range log.Versions {
-		h := hash.New()
-		h.Write([]byte(v))
-		logRange.Append(h.Sum(nil), nil)
+		h := tlog.RecordHash([]byte(v))
+		logRange.Append(h[:], nil)
 	}
 	logRoot, err := logRange.GetRootHash(nil)
 	if err != nil {

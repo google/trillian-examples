@@ -67,7 +67,6 @@ func main() {
 
 	rf := &compact.RangeFactory{
 		// This needs to be the same function used in the log construction.
-		// TODO(mhutchinson): change this (and the generation code) to apply domain separation prefix to leaves.
 		Hash: func(left, right []byte) []byte {
 			var lHash, rHash tlog.Hash
 			copy(lHash[:], left)
@@ -78,9 +77,8 @@ func main() {
 	}
 	logRange := rf.NewEmptyRange(0)
 	for _, v := range versions {
-		h := hash.New()
-		h.Write([]byte(v))
-		logRange.Append(h.Sum(nil), nil)
+		h := tlog.RecordHash([]byte(v))
+		logRange.Append(h[:], nil)
 	}
 	logRoot, err := logRange.GetRootHash(nil)
 	if err != nil {

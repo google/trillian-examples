@@ -44,6 +44,10 @@ func NewTreeStorage(db *sql.DB) *TreeStorage {
 
 // EnsureTree gets the tree for this personality, creating it if necessary.
 // Takes a connection to Trillian to use for initialization.
+// This is only safe in a single-replica deployment. In a real production setup
+// this provisioning would likely be done by a human ahead of time, or if this
+// style of automatic deployment was required then some kind of locking would
+// be required to ensure that only one log was created and used by all frontends.
 func (s *TreeStorage) EnsureTree(ctx context.Context, conn grpc.ClientConnInterface) (*trillian.Tree, error) {
 	if err := s.init(); err != nil {
 		return nil, err

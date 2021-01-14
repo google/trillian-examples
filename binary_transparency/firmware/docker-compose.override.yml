@@ -1,4 +1,4 @@
-version: "3.9"
+version: "3.1"
 
 # This expects to be run as an override of trillian's example docker deployment.
 # See the README in the main directory for instructions.

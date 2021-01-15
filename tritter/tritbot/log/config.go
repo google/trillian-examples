@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	tc "github.com/google/trillian/client"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/google/trillian/merkle/rfc6962/hasher"
 )
 
 // TreeVerifier returns a verifier configured for the log.
@@ -32,7 +32,7 @@ func TreeVerifier() (*tc.LogVerifier, error) {
 		return nil, fmt.Errorf("failed to load Trillian public key: %v", err)
 	}
 
-	return tc.NewLogVerifier(rfc6962.DefaultHasher, *pk, crypto.SHA256), nil
+	return tc.NewLogVerifier(hasher.DefaultHasher, *pk, crypto.SHA256), nil
 }
 
 func getTrillianPK() (*crypto.PublicKey, error) {

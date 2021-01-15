@@ -21,7 +21,7 @@ import (
 
 	"github.com/apache/beam/sdks/go/pkg/beam"
 	"github.com/google/trillian/experimental/batchmap"
-	"github.com/google/trillian/merkle/coniks"
+	"github.com/google/trillian/merkle/coniks/hasher"
 )
 
 func init() {
@@ -57,7 +57,7 @@ func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*batchmap.Entry)) {
 
 	emit(&batchmap.Entry{
 		HashKey:   modKey,
-		HashValue: coniks.Default.HashLeaf(fn.TreeID, modKey, []byte(m.ModHash)),
+		HashValue: hasher.Default.HashLeaf(fn.TreeID, modKey, []byte(m.ModHash)),
 	})
 
 	h = hash.New()
@@ -66,6 +66,6 @@ func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*batchmap.Entry)) {
 
 	emit(&batchmap.Entry{
 		HashKey:   repoKey,
-		HashValue: coniks.Default.HashLeaf(fn.TreeID, repoKey, []byte(m.RepoHash)),
+		HashValue: hasher.Default.HashLeaf(fn.TreeID, repoKey, []byte(m.RepoHash)),
 	})
 }

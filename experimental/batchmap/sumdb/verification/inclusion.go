@@ -24,7 +24,7 @@ import (
 
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle"
-	"github.com/google/trillian/merkle/coniks"
+	"github.com/google/trillian/merkle/coniks/hasher"
 )
 
 // TileFetch gets the tile at the specified path in the given map revision.
@@ -63,7 +63,7 @@ func (v *MapVerifier) CheckInclusion(rev int, key string, value []byte) ([]byte,
 	h.Write([]byte(key))
 	keyPath := h.Sum(nil)
 
-	expectedValueHash := coniks.Default.HashLeaf(v.treeID, keyPath, value)
+	expectedValueHash := hasher.Default.HashLeaf(v.treeID, keyPath, value)
 
 	// Read the tiles required for this check from disk.
 	tiles, err := v.getTilesForKey(rev, keyPath)
@@ -77,7 +77,7 @@ func (v *MapVerifier) CheckInclusion(rev int, key string, value []byte) ([]byte,
 	// 3) Check the computed root matches that reported in the tile
 	// 4) Check this root value is the key/value of the tile above.
 	// 5) Rinse and repeat until we reach the tree root.
-	hs2 := merkle.NewHStar2(v.treeID, coniks.Default)
+	hs2 := merkle.NewHStar2(v.treeID, hasher.Default)
 	needPath, needValue := keyPath, expectedValueHash
 
 	for i := v.prefixStrata; i >= 0; i-- {

@@ -105,36 +105,18 @@ Prerequisites:
   * [Trillian](https://github.com/google/trillian)
   * [Firmware Transparency (trillian-examples)](https://github.com/google/trillian-examples)
 
-#### Terminal 1 - Trillian:
-* Open terminal in root of `trillian` git repo, run:
+#### Terminal 1 - Set up Services:
+* Open terminal in a directory that you're happy to check out code to:
 
 ```bash
-export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"
-docker-compose -f examples/deployment/docker-compose.yml up trillian-log-server trillian-log-signer
+git checkout https://github.com/google/trillian
+git checkout https://github.com/google/trillian-examples
+docker-compose -f trillian/examples/deployment/docker-compose.yml -f trillian-examples/binary_transparency/firmware/docker-compose.override.yml up -d personality
 ```
 
-#### Terminal 1½ - Provision Log Tree:
-* Run the following command to create a new tree inside Trillian, this only needs to be done once:
+Trillian and the FT server will start in the background and provision a new log.
 
-```bash
-go run github.com/google/trillian/cmd/createtree --admin_server=localhost:8090
-```
-
-Record the tree ID that is returned by the command above, it will be referred to
-as $TREE_ID by subsequent commands:
-
-#### Terminal 2 - FT Personality:
-* Open a terminal in the `binary_transparency/firmware` directory.
-* A file is needed to hold the CAS DB which will back the log, this file
-  needs to be available for the duration of this log, so writing to '/tmp'
-  is considered risky. Choose a file path and add as below.
-
-```bash
-export CAS_DB_FILE='/full/path/to/file.db'
-go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID --cas_db_file=${CAS_DB_FILE}
-```
-
-#### Terminal 3 - FT monitor
+#### Terminal 2 - FT monitor
 > The monitor "tails" the log, fetching each of the added entries and checking
 > for inconsistencies in the structure and unexpected or malicious entries.
 
@@ -148,7 +130,7 @@ and consider that any binary containing that string is a bad one.
 go run ./cmd/ft_monitor/ --logtostderr --keyword="H4x0r3d"
 ```
 
-#### Terminal 4 - Firmware Vendor
+#### Terminal 3 - Firmware Vendor
 The vendor is going to publish a new, legitimate, firmware now.
 
 * cd to the root of `binary_transparency/firmware` for the following steps:
@@ -170,7 +152,7 @@ go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:3
   > known-good build.  If they spot something _unexpected_ then they're
   > now aware that there is a problem which needs investigation...
 
-#### Terminal 5 - Device owner
+#### Terminal 4 - Device owner
 Through the power of scripted narrative, the owner of the target device now
 has a firmware update to install (we'll re-use the `/tmp/update.ota` file created
 in the last step).
@@ -238,7 +220,7 @@ echo "mwuhahahaha :eyes:"
 
 Let's watch as the device owner turns on their device in the next step...
 
-#### Terminal 5 - Device owner
+#### Terminal 4 - Device owner
 The device owner wants to use their device, however, unbeknownst to them it's
 been HACKED!
 
@@ -277,7 +259,7 @@ go run ./cmd/hacker/modify_bundle \
 
 Let's watch as the device owner turns on their device in the next step...
 
-#### Terminal 5 - Device owner
+#### Terminal 4 - Device owner
 
 Start the device:
 
@@ -311,7 +293,7 @@ go run ./cmd/hacker/modify_bundle \
 
 Let's watch as the device owner turns on their device in the next step...
 
-#### Terminal 5 - Device owner
+#### Terminal 4 - Device owner
 
 Start the device:
 

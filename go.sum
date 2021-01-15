@@ -341,7 +341,6 @@ github.com/google/pprof v0.0.0-20200507031123-427632fa3b1c/go.mod h1:ZgVRPoUq/hf
 github.com/google/renameio v0.1.0/go.mod h1:KWCgfxg9yswjAJkECMjeO8J8rahYeXnNhOm40UhjYkI=
 github.com/google/trillian v1.3.10 h1:Qcn4HEWdQka7ioLtJO4Umo1UwpvVZdejktNtjhnPGGk=
 github.com/google/trillian v1.3.10/go.mod h1:VmfwqXyIzUSuO0hNdtTrT57/MtixlNcdU7egfnkmhA4=
-github.com/google/trillian v1.3.11 h1:pPzJPkK06mvXId1LHEAJxIegGgHzzp/FUnycPYfoCMI=
 github.com/google/trillian v1.3.12-0.20210114154553-c92fa63aaa6c h1:uOBp84qJ1qL5VMpmugBk+NE6WATBkIlMvfKYXXEmz5Y=
 github.com/google/trillian v1.3.12-0.20210114154553-c92fa63aaa6c/go.mod h1:NGtgsTbdz6KnkoUbULx/jk3LMFAqyXtudeAls4vG5H8=
 github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=

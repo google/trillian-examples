@@ -165,7 +165,13 @@ The witness can be started along with the mirror using `docker-compose`.
 The following command will mirror the log and provide a witness on port `8080` when the initial
 sync completes:
 ```bash
-docker-compose -f sumdbaudit/docker/docker-compose.yml up --build
+docker-compose -f sumdbaudit/docker/docker-compose.yml up -d
+```
+
+If using a Raspberry Pi, the above command will fail because no suitable MariaDB image can be
+installed. Instead, use this command to install an image that works:
+```bash
+docker-compose -f sumdbaudit/docker/docker-compose.yml -f sumdbaudit/docker/docker-compose.rpi.yml up -d
 ```
 
 ### Using a client/server database

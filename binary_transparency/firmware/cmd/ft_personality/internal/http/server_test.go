@@ -168,7 +168,7 @@ func TestAddFirmware(t *testing.T) {
 			mt := NewMockTrillian(ctrl)
 			server := NewServer(mt, FakeCAS{})
 
-			mt.EXPECT().AddFirmwareManifest(gomock.Any(), gomock.Eq([]byte(test.wantManifest))).
+			mt.EXPECT().AddSignedStatement(gomock.Any(), gomock.Eq([]byte(test.wantManifest))).
 				Return(test.trillianErr)
 
 			r := mux.NewRouter()

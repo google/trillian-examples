@@ -19,6 +19,8 @@ import "fmt"
 const (
 	// HTTPAddFirmware is the path of the URL to publish a firmware entry.
 	HTTPAddFirmware = "ft/v0/add-firmware"
+	// HTTPAddAnnotationMalware is the path of the URL to publish annotations about malware scans.
+	HTTPAddAnnotationMalware = "ft/v0/add-annotation-malware"
 	// HTTPGetConsistency is the path of the URL to get a consistency proof between log roots.
 	HTTPGetConsistency = "ft/v0/get-consistency"
 	// HTTPGetInclusion is the path of the URL to get inclusion proofs for entries in the log.

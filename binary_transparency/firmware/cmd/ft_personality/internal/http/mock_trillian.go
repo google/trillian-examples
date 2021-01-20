@@ -5,10 +5,9 @@ package http
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	types "github.com/google/trillian/types"
+	reflect "reflect"
 )
 
 // MockTrillian is a mock of Trillian interface
@@ -34,18 +33,18 @@ func (m *MockTrillian) EXPECT() *MockTrillianMockRecorder {
 	return m.recorder
 }
 
-// AddFirmwareManifest mocks base method
-func (m *MockTrillian) AddFirmwareManifest(arg0 context.Context, arg1 []byte) error {
+// AddSignedStatement mocks base method
+func (m *MockTrillian) AddSignedStatement(arg0 context.Context, arg1 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddFirmwareManifest", arg0, arg1)
+	ret := m.ctrl.Call(m, "AddSignedStatement", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddFirmwareManifest indicates an expected call of AddFirmwareManifest
-func (mr *MockTrillianMockRecorder) AddFirmwareManifest(arg0, arg1 interface{}) *gomock.Call {
+// AddSignedStatement indicates an expected call of AddSignedStatement
+func (mr *MockTrillianMockRecorder) AddSignedStatement(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFirmwareManifest", reflect.TypeOf((*MockTrillian)(nil).AddFirmwareManifest), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSignedStatement", reflect.TypeOf((*MockTrillian)(nil).AddSignedStatement), arg0, arg1)
 }
 
 // ConsistencyProof mocks base method

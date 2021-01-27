@@ -82,7 +82,7 @@ func NewServer(c Trillian, cas CAS) *Server {
 }
 
 // addFirmware handles requests to log new firmware images.
-// It expects a mime/multipart POST consisting of FirmwareStatement and then firmware bytes.
+// It expects a mime/multipart POST consisting of SignedStatement and then firmware bytes.
 func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	statement, image, err := parseAddFirmwareRequest(r)
 	if err != nil {
@@ -90,21 +90,25 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stmt := api.FirmwareStatement{}
+	stmt := api.SignedStatement{}
 	if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
 		http.Error(w, fmt.Sprintf("failed to decode statement: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
 
 	// Verify the signature:
-	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
+	if err := crypto.VerifySignature(stmt.Type, stmt.Statement, stmt.Signature); err != nil {
 		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
+		return
+	}
+	if stmt.Type != api.FirmwareMetadataType {
+		http.Error(w, fmt.Sprintf("Expected statement type %q, but got %q", api.FirmwareMetadataType, stmt.Type), http.StatusBadRequest)
 		return
 	}
 
 	// Parse the firmware metadata:
 	var meta api.FirmwareMetadata
-	if err := json.Unmarshal(stmt.Metadata, &meta); err != nil {
+	if err := json.Unmarshal(stmt.Statement, &meta); err != nil {
 		http.Error(w, fmt.Sprintf("failed to unmarshal metadata: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
@@ -128,7 +132,7 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-// parseAddFirmwareRequest returns the bytes for the FirmwareStatement, and the firmware image respectively.
+// parseAddFirmwareRequest returns the bytes for the SignedStatement, and the firmware image respectively.
 func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
 	h := r.Header["Content-Type"]
 	if len(h) == 0 {
@@ -355,8 +359,12 @@ func (s *Server) addAnnotationMalware(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO(mhutchinson): This only works if the signer is the firmware publisher. Support more public keys.
-	if err := crypto.VerifySignature(ss.Statement, ss.Signature); err != nil {
+	if err := crypto.VerifySignature(ss.Type, ss.Statement, ss.Signature); err != nil {
 		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
+		return
+	}
+	if ss.Type != api.MalwareStatementType {
+		http.Error(w, fmt.Sprintf("expected statement type %q, but got %q", api.MalwareStatementType, ss.Type), http.StatusBadRequest)
 		return
 	}
 

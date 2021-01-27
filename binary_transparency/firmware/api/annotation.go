@@ -14,18 +14,29 @@
 
 package api
 
+// Enum values for the different types of statement.
+const (
+	FirmwareMetadataType    byte = 'f'
+	MalwareStatementType    byte = 'm'
+	RevocationStatementType byte = 'r'
+)
+
 // SignedStatement is a Statement signed by the Claimant.
 type SignedStatement struct {
+	// Type is one of the statement types from above, and indicates what
+	// Statement should be interpreted as.
+	Type byte
 	// The serialised Claim in json form.
 	// This is one of MalwareStatement or BuildStatement.
 	// TODO(mhutchinson): Add an enum for Statement type?
 	Statement []byte
 
-	// Signature is the bytestream of the signature over the Statement.
+	// Signature is the bytestream of the signature over (Type || Statement).
 	Signature []byte
 }
 
 // FirmwareID is a pointer to a firmware version.
+// It will be a SignedStatement of type FirmwareMetadataType.
 // TODO(mhutchinson): This could be simplified to just LeafHash or extended to have Revision.
 type FirmwareID struct {
 	LogIndex int64
@@ -34,7 +45,7 @@ type FirmwareID struct {
 
 // MalwareStatement is an annotation about malware checks in a firmware version.
 type MalwareStatement struct {
-	// FirmwareID is the FirmwareStatement in the log being annotated.
+	// FirmwareID is the SignedStatement in the log being annotated.
 	FirmwareID FirmwareID
 
 	// Good is a crude signal of goodness.
@@ -42,12 +53,10 @@ type MalwareStatement struct {
 	Good bool
 }
 
-// BuildStatement is an annotation about build checks for a firmware version.
-type BuildStatement struct {
-	// FirmwareID is the FirmwareStatement in the log being annotated.
+// RevocationStatement is an annotation that marks a build as revoked.
+// This statement simply being present for a build marks it as revoked.
+// There is no way to unrevoke something; this can be done by re-releasing it.
+type RevocationStatement struct {
+	// FirmwareID is the SignedStatement in the log being annotated.
 	FirmwareID FirmwareID
-
-	// Reproducible is true if this annotator reproduced the build.
-	// TODO(mhutchinson): MVP for reasonable fields.
-	Reproducible bool
 }

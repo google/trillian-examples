@@ -79,10 +79,14 @@ func getPublicKey() (*rsa.PublicKey, error) {
 }
 
 //SignMessage is used to sign the Statement
-func SignMessage(msg []byte) ([]byte, error) {
+func SignMessage(stype byte, msg []byte) ([]byte, error) {
+	bs := make([]byte, len(msg)+1)
+	bs[0] = stype
+	copy(bs[1:], msg)
+
 	// Before signing, we need to hash the message
 	// The hash is what we actually sign
-	h := sha512.Sum512(msg)
+	h := sha512.Sum512(bs)
 
 	// Get the required key for signing
 	key, err := getPrivateKey()
@@ -98,15 +102,19 @@ func SignMessage(msg []byte) ([]byte, error) {
 }
 
 //VerifySignature is used to verify the incoming message
-func VerifySignature(msg []byte, signature []byte) error {
+func VerifySignature(stype byte, stmt []byte, signature []byte) error {
 	// Get the required key for signing
 	key, err := getPublicKey()
 	if err != nil {
 		return fmt.Errorf("public key fetch failed %v", err)
 	}
+	bs := make([]byte, len(stmt)+1)
+	bs[0] = stype
+	copy(bs[1:], stmt)
+
 	// Before verify, we need to hash the message
 	// The hash is what we actually verify
-	h := sha512.Sum512(msg)
+	h := sha512.Sum512(bs)
 
 	if err = rsa.VerifyPSS(key, crypto.SHA512, h[:], signature, nil); err != nil {
 		return fmt.Errorf("failed to verify signature %v", err)

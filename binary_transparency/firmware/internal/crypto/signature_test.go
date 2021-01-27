@@ -15,6 +15,8 @@ package crypto
 
 import (
 	"testing"
+
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
 func TestSignatureRoundTrip(t *testing.T) {
@@ -37,14 +39,14 @@ func TestSignatureRoundTrip(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			msg := []byte(test.signbody)
-			sign, err := SignMessage(msg)
+			sign, err := SignMessage(api.FirmwareMetadataType, msg)
 			if err != nil {
 				t.Fatalf("failed to marshal statement: %v", err)
 			}
 
 			// Now Verify the signature
 			msg = []byte(test.verifbody)
-			err = VerifySignature(msg, sign)
+			err = VerifySignature('f', msg, sign)
 			switch {
 			case err != nil && !test.wantErr:
 				t.Fatalf("Got unexpected error %q", err)

@@ -18,16 +18,36 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"flag"
 	"fmt"
 	"time"
+
+	"github.com/golang/glog"
+
+	// While flags are defined in this file, the drivers can be imported here.
+	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-// NoDataFound is returned when the DB appears valid but has no data in it.
-type NoDataFound = error
+var (
+	sqliteFile = flag.String("sqlite_file", "", "database file location for local SumDB instance")
+	mysqlURI   = flag.String("mysql_uri", "", "URL of a MySQL database for the local SumDB instance")
+)
+
+// ErrNoDataFound is returned when the DB appears valid but has no data in it.
+var ErrNoDataFound = errors.New("no data found")
 
 // Metadata is the semantic data that is contained within the leaves of the log.
 type Metadata struct {
 	module, version, repoHash, modHash string
+}
+
+// Duplicate is used to report any number of module+version entries appearing more
+// than once.
+type Duplicate struct {
+	Module  string
+	Version string
+	Count   int
 }
 
 // Database provides read/write access to the local copy of the SumDB.
@@ -35,16 +55,35 @@ type Database struct {
 	db *sql.DB
 }
 
-// NewDatabase creates a Database using a file at the given location.
-// If the file doesn't exist it will be created.
-func NewDatabase(location string) (*Database, error) {
-	db, err := sql.Open("sqlite3", location)
-	if err != nil {
-		return nil, err
+// NewDatabaseFromFlags creates a database from the flags defined in this file.
+// TODO(mhutchinson): This feels ugly to define flags not in the main method.
+func NewDatabaseFromFlags() (*Database, error) {
+	useSqlite := len(*sqliteFile) > 0
+	useMysql := len(*mysqlURI) > 0
+	if useSqlite == useMysql {
+		return nil, errors.New("exactly one of sqlite_file or mysql_uri must be provided")
 	}
+	var dbConn *sql.DB
+	var err error
+	if useSqlite {
+		dbConn, err = sql.Open("sqlite3", *sqliteFile)
+	} else {
+		// An alternative to providing a single URI is to have flags for individual components and
+		// assemble the URI: https://godoc.org/github.com/go-sql-driver/mysql#Config.FormatDSN
+		dbConn, err = sql.Open("mysql", *mysqlURI)
+	}
+	if err != nil {
+		glog.Exitf("Failed to open DB: %v", err)
+	}
+	return NewDatabase(dbConn)
+}
+
+// NewDatabase creates a Database using the given database connection.
+// This has been tested with sqlite and MariaDB.
+func NewDatabase(db *sql.DB) (*Database, error) {
 	return &Database{
 		db: db,
-	}, nil
+	}, db.Ping()
 }
 
 // Init creates the database tables if needed.
@@ -58,7 +97,7 @@ func (d *Database) Init() error {
 	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS checkpoints (datetime TIMESTAMP PRIMARY KEY, checkpoint BLOB)"); err != nil {
 		return err
 	}
-	_, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leafMetadata (id INTEGER PRIMARY KEY, module TEXT, version TEXT, repohash TEXT, modhash TEXT)")
+	_, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leafMetadata (id INTEGER PRIMARY KEY, module BLOB, version BLOB, repohash BLOB, modhash BLOB)")
 	return err
 }
 
@@ -66,12 +105,15 @@ func (d *Database) Init() error {
 func (d *Database) Head() (int64, error) {
 	var head sql.NullInt64
 	if err := d.db.QueryRow("SELECT MAX(id) AS head FROM leaves").Scan(&head); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrNoDataFound
+		}
 		return 0, fmt.Errorf("failed to get max revision: %v", err)
 	}
 	if head.Valid {
 		return head.Int64, nil
 	}
-	return 0, NoDataFound(errors.New("no data found"))
+	return 0, ErrNoDataFound
 }
 
 // GoldenCheckpoint gets the latest checkpoint, using the provided function to parse the note data.
@@ -79,10 +121,13 @@ func (d *Database) GoldenCheckpoint(parse func([]byte) (*Checkpoint, error)) (*C
 	var datetime sql.NullTime
 	var data []byte
 	if err := d.db.QueryRow("SELECT datetime, checkpoint FROM checkpoints ORDER BY datetime DESC LIMIT 1").Scan(&datetime, &data); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoDataFound
+		}
 		return nil, fmt.Errorf("failed to get latest checkpoint: %w", err)
 	}
 	if !datetime.Valid {
-		return nil, NoDataFound(errors.New("no data found"))
+		return nil, ErrNoDataFound
 	}
 	return parse(data)
 }
@@ -144,11 +189,30 @@ func (d *Database) SetLeafMetadata(ctx context.Context, start int64, metadata []
 	return tx.Commit()
 }
 
+// MaxLeafMetadata gets the ID of the last entry in the leafMetadata table.
+// If there is no data, then ErrNoDataFound error is returned.
+func (d *Database) MaxLeafMetadata(ctx context.Context) (int64, error) {
+	var head sql.NullInt64
+	if err := d.db.QueryRow("SELECT MAX(id) AS head FROM leafMetadata").Scan(&head); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrNoDataFound
+		}
+		return 0, fmt.Errorf("failed to get max metadata: %v", err)
+	}
+	if head.Valid {
+		return head.Int64, nil
+	}
+	return 0, ErrNoDataFound
+}
+
 // Tile gets the leaf hashes for the given tile, or returns an error.
 func (d *Database) Tile(height, level, offset int) ([][]byte, error) {
 	var res []byte
 	err := d.db.QueryRow("SELECT hashes FROM tiles WHERE height=? AND level=? AND offset=?", height, level, offset).Scan(&res)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrNoDataFound
+		}
 		return nil, err
 	}
 	return SplitTile(res, height), nil
@@ -162,6 +226,28 @@ func (d *Database) SetTile(height, level, offset int, hashes []byte) error {
 	}
 	_, err := d.db.Exec("INSERT INTO tiles (height, level, offset, hashes) VALUES (?, ?, ?, ?)", height, level, offset, hashes)
 	return err
+}
+
+// Duplicates returns summaries of any module@version that appears more than once
+// in the log.
+func (d *Database) Duplicates() ([]Duplicate, error) {
+	var res []Duplicate
+	rows, err := d.db.Query("SELECT module, version, COUNT(*) cnt FROM leafMetadata GROUP BY module, version HAVING cnt > 1")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var module, version string
+		var count int
+		rows.Scan(&module, &version, &count)
+		res = append(res, Duplicate{
+			Module:  module,
+			Version: version,
+			Count:   count,
+		})
+	}
+	return res, nil
 }
 
 // SplitTile turns the blob that is the leaf hashes in a tile into separate hashes.

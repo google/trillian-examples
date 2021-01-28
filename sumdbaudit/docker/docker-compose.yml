@@ -1,0 +1,41 @@
+version: "3.1"
+
+services:
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: sumdb
+      MYSQL_USER: sumdb
+      MYSQL_PASSWORD: letmein
+
+  mirror:
+    build: 
+      context: ../..
+      dockerfile: ./sumdbaudit/docker/mirror/Dockerfile
+    command: [
+      "--alsologtostderr",
+      "--v=2",
+      "--mysql_uri=sumdb:letmein@tcp(db:3306)/sumdb?parseTime=true",
+    ]
+    restart: always
+    depends_on:
+      - db
+
+  witness:
+    build: 
+      context: ../..
+      dockerfile: ./sumdbaudit/docker/witness/Dockerfile
+    command: [
+      "--alsologtostderr",
+      "--v=2",
+      "--mysql_uri=sumdb:letmein@tcp(db:3306)/sumdb?parseTime=true",
+      "--listen=:8080"
+    ]
+    ports:
+     - "8080:8080"
+    restart: always
+    depends_on:
+      - db
+      - mirror

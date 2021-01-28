@@ -1,7 +1,7 @@
 Firmware Transparency
 =====================
 
-This directory contains a description of how to apply transparency patterns and
+This directory contains a demonstration of applying transparency patterns and
 principles to the problem of firmware updates.  In particular it will focus on
 making firmware updates for a small compute platform discoverable.
 
@@ -31,7 +31,7 @@ before allowing them to be installed.
 
 Even in this _best case_, how do we know that the signed firmware is not
 faulty, or even malicious?  What if the signing identity used to assert
-authenticity if the firmware is somehow used to sign unintended updates
+authenticity of the firmware is somehow used to sign unintended updates
 (whether through outright compromise as in the
 [Realtek identity used to sign the Stuxnet worm](https://arstechnica.com/information-technology/2017/11/evasive-code-signed-malware-flourished-before-stuxnet-and-still-does/),
 or, perhaps, more subtly via some form of insider risk - be it malicious or
@@ -56,21 +56,18 @@ to analyse them.
 
 ### Outline
 
-> :warning: **This is work-in-progress and liable to change!**
-
 The goal is to have a system where firmware updates can not be {installed/booted}
-unless they have been made discoverable through being logged.
-
+unless they have been made discoverable via a verifiable log.
 
  - [X] Define a [claimant model](https://github.com/google/trillian/tree/master/docs/claimantmodel)
        description: [FT Claimant Model](./docs/design/README.md#claimant-model)
- - [ ] Specify/document a system architecture for that model.
+ - [X] Specify/document a system architecture for that model.
  - [X] Come up with some metadata format: [FirmwareMetadata](./api/firmware_metadata.go)
  - [X] Build a simple personality around that format.
  - [X] Extend personality to also store firmware images.
- - [x] Build a simple tool to create metadata given a "boot" image (e.g. Linux
+ - [X] Build a simple tool to create metadata given a "boot" image (e.g. Linux
      Kernel, WASM binary, etc.), and log it via the personality.
- - [x] Figure out a way to package the metadata with the bootable image.
+ - [X] Figure out a way to package the metadata with the bootable image.
  - [X] Build a noddy "device" emulator which enforces logging requirements, and refuses to boot
        an image unless all of the following are true:
     - [X] the metadata is present.
@@ -82,8 +79,8 @@ unless they have been made discoverable through being logged.
        unless all of the boot-time requirements above are satisfied, in
        addition to requesting and validating a valid consistency proof between
        the previously seen STH and the new STH.
- - [x] Flash stores "proof bundle" on device for validation at boot time.
- - [x] Build simple monitor to tail the log and dump info from meta-data in realtime.
+ - [X] Flash stores "proof bundle" on device for validation at boot time.
+ - [X] Build simple monitor to tail the log and dump info from meta-data in realtime.
  - [X] Monitor is extended to validate firmware images hash
 
 Planned future enhancements:
@@ -92,43 +89,34 @@ Planned future enhancements:
 
 Running the Demo
 ----------------
+In running this demo you will take on the role of several different actors within the ecosystem
+to see how making firmware discoverable works in practice. You will then take the role of an
+attacker trying to install malicious code onto a device, and see how the application of
+transparency has made this attack much more expensive.
+
+During the demo flow you will open several different terminals. It's far easier to use a terminal
+that supports tabs in order to do this. The terminals simply make your life easier as different
+logical actors have their own terminals in which to perform their actions.
+
 Prerequisites:
 * Install Docker and docker-compose
 * Install Go (1.15+)
 * Checkout:
-  * This repo (FT)
   * [Trillian](https://github.com/google/trillian)
+  * [Firmware Transparency (trillian-examples)](https://github.com/google/trillian-examples)
 
-#### Terminal 1 - Trillian:
-* Open terminal in root of `trillian` git repo, run:
-
-```bash
-export MYSQL_ROOT_PASSWORD="$(openssl rand -hex 16)"
-docker-compose -f examples/deployment/docker-compose.yml up trillian-log-server trillian-log-signer
-```
-
-#### Terminal 1½ - Provision Log Tree:
-* Run the following command to create a new tree inside Trillian, this only needs to be done once:
+#### Terminal 1 - Set up Services:
+* Open terminal in a directory that you're happy to check out code to:
 
 ```bash
-go run github.com/google/trillian/cmd/createtree --admin_server=localhost:8090
+git checkout https://github.com/google/trillian
+git checkout https://github.com/google/trillian-examples
+docker-compose -f trillian/examples/deployment/docker-compose.yml -f trillian-examples/binary_transparency/firmware/docker-compose.override.yml up -d personality
 ```
 
-Record the tree ID that is returned by the command above, it will be referred to
-as $TREE_ID by subsequent commands:
+Trillian and the FT server will start in the background and provision a new log.
 
-#### Terminal 2 - FT Personality:
-* Open a terminal in the `binary_transparency/firmware` directory.
-* A file is needed to hold the CAS DB which will back the log, this file
-  needs to be available for the duration of this log, so writing to '/tmp'
-  is considered risky. Choose a file path and add as below.
-
-```bash
-export CAS_DB_FILE='/full/path/to/file.db'
-go run ./cmd/ft_personality/main.go --logtostderr -v=2 --tree_id=$TREE_ID --cas_db_file=${CAS_DB_FILE}
-```
-
-#### Terminal 3 - FT monitor
+#### Terminal 2 - FT monitor
 > The monitor "tails" the log, fetching each of the added entries and checking
 > for inconsistencies in the structure and unexpected or malicious entries.
 
@@ -142,14 +130,14 @@ and consider that any binary containing that string is a bad one.
 go run ./cmd/ft_monitor/ --logtostderr --keyword="H4x0r3d"
 ```
 
-#### Terminal 4 - Firmware Vendor
+#### Terminal 3 - Firmware Vendor
 The vendor is going to publish a new, legitimate, firmware now.
 
 * cd to the root of `binary_transparency/firmware` for the following steps:
 * We're going to log a new "firmware" build, as the vendor would:
 
 ```bash
-go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./testdata/firmware/dummy_device/example.wasm --output_path=/tmp/update.ota
+go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:30:20.10Z" --binary_path=./testdata/firmware/dummy_device/example.wasm --output_path=/tmp/update.ota --device=dummy
 ```
 
   This creates and submits a new firmware manifest to the log, waits for it to be
@@ -164,7 +152,7 @@ go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T15:3
   > known-good build.  If they spot something _unexpected_ then they're
   > now aware that there is a problem which needs investigation...
 
-#### Terminal 5 - Device owner
+#### Terminal 4 - Device owner
 Through the power of scripted narrative, the owner of the target device now
 has a firmware update to install (we'll re-use the `/tmp/update.ota` file created
 in the last step).
@@ -192,7 +180,7 @@ in the last step).
    > In both of these cases, you can use the `--force` flag on the `flash_tool`.
 
    ```bash
-   go run ./cmd/flash_tool/ --logtostderr --update_file=/tmp/update.ota --dummy_storage_dir=/tmp/dummy_device  # --force if it's the first time
+   go run ./cmd/flash_tool/ --logtostderr --update_file=/tmp/update.ota --device_storage=/tmp/dummy_device --device=dummy # --force if it's the first time
    ```
 
 2. Boot the device.
@@ -232,7 +220,7 @@ echo "mwuhahahaha :eyes:"
 
 Let's watch as the device owner turns on their device in the next step...
 
-#### Terminal 5 - Device owner
+#### Terminal 4 - Device owner
 The device owner wants to use their device, however, unbeknownst to them it's
 been HACKED!
 
@@ -257,38 +245,21 @@ dummy_emu.go:41] ROM: "failed to verify bundle: firmware measurement does not ma
 
 #### Terminal 666 - The Hacker :shipit::computer:
 
-On the `dummy_device` the firmware measurement is simply the `SHA512` of the
-firmware image. For our `hacked.wasm` image, that's:
+We need to update the manifest on the device with the correct measurement for our hacked firmware.
+Run the following command:
 
 ```bash
-sha512sum testdata/firmware/dummy_device/hacked.wasm
-
-efb19feba9ea0e0d5de73ac16d8aa9c4ceb092ecd13eab5548f49a61e85c367a2f2c8ce1eb36b67e1407148406705e67663dc5b6d3f05a45475f6e4a2b69e285  testdata/firmware/dummy_device/hacked.wasm
-```
-
-For what we're going to do, we'll need that in base64:
-
-```bash
-echo "efb19feba9ea0e0d5de73ac16d8aa9c4ceb092ecd13eab5548f49a61e85c367a2f2c8ce1eb36b67e1407148406705e67663dc5b6d3f05a45475f6e4a2b69e285" |
-      xxd -r -p |
-      base64 -w 0
-
-77Gf66nqDg1d5zrBbYqpxM6wkuzRPqtVSPSaYehcNnovLIzh6za2fhQHFIQGcF5nZj3FttPwWkVHX25KK2nihQ==
-```
-
-Now we're going to patch that hash into the `bundle.json` file on the device:
-```bash
-export HACKED_SHA512="77Gf66nqDg1d5zrBbYqpxM6wkuzRPqtVSPSaYehcNnovLIzh6za2fhQHFIQGcF5nZj3FttPwWkVHX25KK2nihQ=="
-
-mv /tmp/dummy_device/bundle.json /tmp/dummy_device/bundle.json.orig
-
-# This beastly jq command unpacks the nested json structures and replaces just the fimware measurement with the one from our hacked firmware:
-jq --arg hacked ${HACKED_SHA512} -c '.ManifestStatement=(.ManifestStatement|@base64d|fromjson|.Metadata=(.Metadata|@base64d|fromjson|.ExpectedFirmwareMeasurement=$hacked|tojson|@base64)|tojson|@base64)' /tmp/dummy_device/bundle.json.orig > /tmp/dummy_device/bundle.json
+go run ./cmd/hacker/modify_bundle \
+   --device dummy \
+   --binary ./testdata/firmware/dummy_device/hacked.wasm \
+   --input /tmp/dummy_device/bundle.json \
+   --output /tmp/dummy_device/bundle.json \
+   --sign=false
 ```
 
 Let's watch as the device owner turns on their device in the next step...
 
-#### Terminal 5 - Device owner
+#### Terminal 4 - Device owner
 
 Start the device:
 
@@ -298,6 +269,39 @@ go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
 
 and _again_, even though the device now gets past the firmware measurement check
 we should see that the device still refuses to boot, with an error similar to:
+
+```
+F1215 17:47:06.449540 1724707 dummy_emu.go:41] ROM: "failed to verify bundle: failed to verify signature on FirmwareStatement: failed to verify signature crypto/rsa: verification error"
+exit status 1
+```
+
+#### Terminal 666 - The Hacker :shipit::computer:
+
+Ok, this time we'll "steal" the key and use it to sign our malicious firmware.
+This is equivalent to the status-quo today.
+
+Run the following command:
+
+```bash
+go run ./cmd/hacker/modify_bundle \
+   --device dummy \
+   --binary ./testdata/firmware/dummy_device/hacked.wasm \
+   --input /tmp/dummy_device/bundle.json \
+   --output /tmp/dummy_device/bundle.json \
+   --sign=true
+```
+
+Let's watch as the device owner turns on their device in the next step...
+
+#### Terminal 4 - Device owner
+
+Start the device:
+
+```bash
+go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
+```
+
+We've got past the signature check, but now there's another error:
 
 ```
 dummy_emu.go:41] ROM: "failed to verify bundle: invalid inclusion proof in bundle: calculated root:\n[202 202 214 35 92 129 74 43 92 63 27 232 69 79 93 26 187 86 24 174 32 49 53 19 122 252 252 241 139 226 122 79]\n does not match expected root:\n[186 61 229 40 73 60 245 168 87 2 6 107 225 25 186 169 85 12 74 158 126 168 255 168 27 149 245 138 27 211 67 234]"
@@ -321,7 +325,7 @@ Let's have the hacker break into the firmware vendor's offices and
 add their modified manifest+firmware to the log...
 
 ```bash
-go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T23:00:00.00Z" --binary_path=./testdata/firmware/dummy_device/hacked.wasm --output_path=/tmp/bad_update.ota
+go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T23:00:00.00Z" --binary_path=./testdata/firmware/dummy_device/hacked.wasm --output_path=/tmp/bad_update.ota --device=dummy
 ```
 
 > :frog: However, notice that the `FT Monitor` has spotted the firmware!

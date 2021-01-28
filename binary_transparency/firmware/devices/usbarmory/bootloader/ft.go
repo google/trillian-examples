@@ -3,41 +3,56 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"time"
 
 	"github.com/f-secure-foundry/tamago/soc/imx6/dcp"
-	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	_ "github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
-const bundlePath = "/bundle.json"
+const (
+	bundlePath                      = "/bundle.json"
+	firmwareMeasurementDomainPrefix = "armory_mkii"
+)
 
 func init() {
 	dcp.Init()
 }
 
-// loadBundle loads the proof bundle from the proof partition.
-func loadBundle(p *Partition) (api.ProofBundle, error) {
-	f, err := p.ReadAll(bundlePath)
+// verifyIntegrity checks the validity of the device state
+// against the stored proof bundle.
+//
+// This method will fail if:
+//   - there is no proof bundle stored in the proof partition
+//   - the proof bundle is not self-consistent
+//   - the measurement hash of the installed firmware does not
+//     match the value expected by the firmware manifest
+//   - TODO(al): check signatures.
+func verifyIntegrity(proof, firmware *Partition) error {
+	rawBundle, err := proof.ReadAll(bundlePath)
 	if err != nil {
-		return api.ProofBundle{}, fmt.Errorf("failed to read bundle: %w", err)
+		return fmt.Errorf("failed to read bundle: %w", err)
 	}
 
-	var bundle api.ProofBundle
-	if err := json.Unmarshal(f, &bundle); err != nil {
-		return api.ProofBundle{}, fmt.Errorf("invalid bundle: %w", err)
+	h, err := measureFirmware(firmware)
+	if err != nil {
+		return fmt.Errorf("failed to hash firmware partition: %w\n", err)
 	}
-	return bundle, nil
+	fmt.Printf("firmware partition hash: 0x%x\n", h)
+
+	if err := verify.BundleForBoot(rawBundle, h); err != nil {
+		return fmt.Errorf("failed to verify bundle: %w", err)
+	}
+	return nil
 }
 
-// hashPartition calculates the SHA256 of the whole partition.
-func hashPartition(p *Partition) ([]byte, error) {
+// measureFirmware returns the firmware measurement hash for the firmware
+// stored on the given partition.
+func measureFirmware(p *Partition) ([]byte, error) {
 	log.Printf("Reading partition at offset %d...\n", p.Offset)
-	numBytes, err := p.GetExtFilesystemSize()
+	numBytes, err := p.GetExt4FilesystemSize()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get partition size: %w", err)
 	}
@@ -47,8 +62,8 @@ func hashPartition(p *Partition) ([]byte, error) {
 		return nil, fmt.Errorf("failed to seek: %w", err)
 	}
 
-	bs := uint64(1 << 16)
-	rc := make(chan []byte, 10)
+	bs := uint64(1 << 21)
+	rc := make(chan []byte, 5)
 	hc := make(chan []byte)
 
 	start := time.Now()
@@ -57,6 +72,11 @@ func hashPartition(p *Partition) ([]byte, error) {
 		if err != nil {
 			panic(fmt.Sprintf("Failed to created hasher: %q", err))
 		}
+
+		if _, err := h.Write([]byte(firmwareMeasurementDomainPrefix)); err != nil {
+			panic(fmt.Sprintf("Failed to write measurement domain prefix: %q", err))
+		}
+
 		for b := range rc {
 			if _, err := h.Write(b); err != nil {
 				panic(fmt.Errorf("failed to hash: %w", err))
@@ -69,12 +89,15 @@ func hashPartition(p *Partition) ([]byte, error) {
 		hc <- hash
 	}()
 
+	if _, err := p.Seek(0, io.SeekStart); err != nil {
+		panic(fmt.Sprintf("Failed to seek to start of partition: %q", err))
+	}
 	for numBytes > 0 {
 		n := numBytes
 		if n > bs {
 			n = bs
 		}
-		b := make([]byte, bs)
+		b := make([]byte, n)
 		bc, err := p.Read(b)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read: %w", err)
@@ -85,7 +108,8 @@ func hashPartition(p *Partition) ([]byte, error) {
 	}
 	close(rc)
 
-	log.Printf("Finished reading, hashing in %s\n", time.Now().Sub(start))
 	hash := <-hc
+
+	log.Printf("Finished reading, hashing in %s\n", time.Now().Sub(start))
 	return hash[:], nil
 }

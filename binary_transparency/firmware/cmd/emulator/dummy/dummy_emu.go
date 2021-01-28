@@ -30,18 +30,19 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/rom"
+	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/emulator/dummy/impl"
+)
+
+var (
+	dummyDirectory = flag.String("dummy_storage_dir", "/tmp/dummy_device", "Directory path of the dummy device's state storage")
 )
 
 func main() {
 	flag.Parse()
 
-	boot, err := rom.ResetFromFlags()
-	if err != nil {
-		glog.Exitf("ROM: %q", err)
-	}
-
-	if err := boot(); err != nil {
-		glog.Warningf("boot(): %q", err)
+	if err := impl.Main(impl.EmulatorOpts{
+		DeviceStorage: *dummyDirectory,
+	}); err != nil {
+		glog.Exit(err.Error())
 	}
 }

@@ -19,7 +19,8 @@ type UpdatePackage struct {
 	// FirmwareImage is the actual firmware image itself.
 	FirmwareImage []byte
 	// ProofBundle holds the various artifacts required to validate the firmware image.
-	ProofBundle ProofBundle
+	// It should be a serialised JSON form of the ProofBundle structure.
+	ProofBundle []byte
 }
 
 // ProofBundle contains the manifest and associated proofs for a given firmware image.

@@ -1,0 +1,37 @@
+@startuml fw_monitor
+!include ./puml/style.puml
+
+PARTICIPANT_VENDOR(vendor, "Firmware Vendor")
+PARTICIPANT_MONITOR(monitor, "Obs/Vendor Monitor")
+PARTICIPANT_LOG(log, "FT Log")
+PARTICIPANT_ARBITER(arbiter, "Arbiter")
+
+    activate monitor
+        loop Forever
+
+            monitor -> log ++ : GetCheckpoint
+            return checkpoint
+            monitor -> log ++: GetConsistencyProof
+            return consistency proof
+            monitor -> monitor: Validate ConsistencyProof
+
+            |||
+
+            loop For each new LogEntry e
+                monitor -> log ++: GetEntry e
+                return entry
+                note right
+                    Monitor verifies inclusion of all entries locally
+                endnote
+                monitor -> monitor: Inspect entry
+                |||
+                alt #FAIL Badness detected
+                    monitor -->o arbiter: Alert
+                else #WARNING Firmware from Vendor detected
+                    monitor -->o vendor: Inform
+                else #SUCCESS Ok
+                end
+            end
+        end
+    deactivate monitor
+@enduml

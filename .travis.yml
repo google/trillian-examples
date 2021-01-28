@@ -1,12 +1,9 @@
 version: ~> 1.0
 os: linux
-dist: xenial
+dist: focal
 language: go
 go: "1.15.x"
 go_import_path: github.com/google/trillian-examples
-
-services:
-  - mysql
 
 cache:
   directories:
@@ -37,6 +34,10 @@ jobs:
     - name: "go mod tidy"
 
 install:
+  - mkdir bin
+  - export PATH=${PWD}/bin:${PATH}
+  - JQ_PLATFROM=$(case $TRAVIS_OS_NAME in "linux" ) echo "jq-linux64";; "osx" ) echo "jq-osx-amd64.dms";; esac)
+  - (cd bin && curl -L -O https://github.com/stedolan/jq/releases/download/jq-1.6/${JQ_PLATFROM} && mv ${JQ_PLATFROM} jq && chmod +x jq)
   - mkdir ../protoc
   - |
     (
@@ -53,9 +54,20 @@ install:
 
 before_script:
   - |
-    RESETDB="$(go list -f '{{.Dir}}' github.com/google/trillian)/scripts/resetdb.sh"
-    chmod +x $RESETDB
-    $RESETDB --force
+    # Use latest versions of Trillian docker images built by the Trillian CI cloudbuilders.
+    export PROJECT_ID=trillian-opensource-ci
+    docker pull gcr.io/$PROJECT_ID/log_server:latest
+    docker tag gcr.io/$PROJECT_ID/log_server:latest deployment_trillian-log-server
+    docker pull gcr.io/$PROJECT_ID/log_signer:latest
+    docker tag gcr.io/$PROJECT_ID/log_signer:latest deployment_trillian-log-signer
+
+    # Bring up an ephemeral trillian instance using the docker-compose config in the Trillian repo:
+    export TRILLIAN_PATH="$(go list -f '{{.Dir}}' github.com/google/trillian)"
+
+    docker-compose -f ${TRILLIAN_PATH}/examples/deployment/docker-compose.yml pull mysql trillian-log-server trillian-log-signer
+    docker-compose -f ${TRILLIAN_PATH}/examples/deployment/docker-compose.yml up -d mysql trillian-log-server trillian-log-signer
+
+    export TRILLIAN_LOG_RPC="localhost:8090"
 
 script:
   - set -e
@@ -71,7 +83,6 @@ script:
         export ETCD_DIR="${GOPATH}/bin"
       fi
   # TODO(al): split these tests out into separate tasks/jobs/envs.
-  - ./gossip/integration/gossip_test.sh
-  - ./binary_transparency/firmware/integration/ft_test.sh
+  - ./binary_transparency/firmware/integration/ft_test.sh --coverage
   - set +e
 

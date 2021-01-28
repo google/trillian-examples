@@ -5,9 +5,10 @@ package http
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	types "github.com/google/trillian/types"
-	reflect "reflect"
 )
 
 // MockTrillian is a mock of Trillian interface

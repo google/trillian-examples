@@ -12,11 +12,24 @@
 package main
 
 import (
-	"github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
+	"fmt"
+	"log"
+	"runtime"
+	"time"
+
+	usbarmory "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
 	"github.com/f-secure-foundry/tamago/soc/imx6"
 )
 
 func init() {
-	imx6.I2C1.Init()
-	usbarmory.EnableDebugAccessory()
+	debugConsole, _ := usbarmory.DetectDebugAccessory(250 * time.Millisecond)
+	<-debugConsole
+
+	banner := fmt.Sprintf("armory-boot • %s/%s (%s) • %s %s • %s",
+		runtime.GOOS, runtime.GOARCH, runtime.Version(),
+		Revision, Build,
+		imx6.Model())
+
+	log.SetFlags(0)
+	log.Printf("%s", banner)
 }

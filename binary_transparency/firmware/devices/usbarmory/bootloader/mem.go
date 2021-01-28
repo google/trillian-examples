@@ -26,5 +26,5 @@ var ramSize uint32 = 0x10000000
 var dmaStart uint32 = 0x80000000
 var dmaSize = 0x10000000
 
-const kernelOffset = 0x800000
-const dtbOffset = 0x7000000
+const kernelOffset = 0x0800000
+const paramsOffset = 0x7000000

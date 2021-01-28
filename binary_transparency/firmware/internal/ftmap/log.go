@@ -16,6 +16,7 @@ package ftmap
 
 import (
 	"crypto"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"reflect"
@@ -26,8 +27,6 @@ import (
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/coniks/hasher"
-
-	"golang.org/x/mod/sumdb/tlog"
 )
 
 func init() {
@@ -63,14 +62,7 @@ type moduleLogHashFn struct {
 
 func (fn *moduleLogHashFn) Setup() {
 	fn.rf = &compact.RangeFactory{
-		Hash: func(left, right []byte) []byte {
-			// There is no particular need for using this hash function, but it was convenient.
-			var lHash, rHash tlog.Hash
-			copy(lHash[:], left)
-			copy(rHash[:], right)
-			thash := tlog.NodeHash(lHash, rHash)
-			return thash[:]
-		},
+		Hash: NodeHash,
 	}
 }
 
@@ -79,7 +71,7 @@ func (fn *moduleLogHashFn) ProcessElement(log *DeviceReleaseLog) (*batchmap.Entr
 	for _, v := range log.Revisions {
 		bs := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bs, v)
-		h := tlog.RecordHash(bs)
+		h := RecordHash(bs)
 		logRange.Append(h[:], nil)
 	}
 	logRoot, err := logRange.GetRootHash(nil)
@@ -91,7 +83,7 @@ func (fn *moduleLogHashFn) ProcessElement(log *DeviceReleaseLog) (*batchmap.Entr
 	logKey := h.Sum(nil)
 
 	return &batchmap.Entry{
-		HashKey:   h.Sum(nil),
+		HashKey:   logKey,
 		HashValue: hasher.Default.HashLeaf(fn.TreeID, logKey, logRoot),
 	}, nil
 }
@@ -118,4 +110,26 @@ func makeDeviceReleaseLogFn(deviceID string, lit func(**firmwareLogEntry) bool) 
 		DeviceID:  deviceID,
 		Revisions: revisions,
 	}, nil
+}
+
+var zeroPrefix = []byte{0x00}
+var onePrefix = []byte{0x01}
+
+// RecordHash returns the content hash for the given record data.
+func RecordHash(data []byte) []byte {
+	// SHA256(0x00 || data)
+	h := sha256.New()
+	h.Write(zeroPrefix)
+	h.Write(data)
+	return h.Sum(nil)
+}
+
+// NodeHash returns the hash for an interior tree node with the given left and right hashes.
+func NodeHash(left, right []byte) []byte {
+	// SHA256(0x01 || left || right)
+	h := sha256.New()
+	h.Write(onePrefix)
+	h.Write(left)
+	h.Write(right)
+	return h.Sum(nil)
 }

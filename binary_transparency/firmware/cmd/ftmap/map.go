@@ -56,16 +56,16 @@ func main() {
 	flag.Parse()
 
 	// Connect to where we will read from and write to.
-	sumDB, err := newTrillianDBFromFlags()
+	trillianDB, err := newTrillianDBFromFlags()
 	if err != nil {
-		glog.Exitf("Failed to initialize from local SumDB: %v", err)
+		glog.Exitf("Failed to initialize Trillian connection: %v", err)
 	}
 	mapDB, rev, err := sinkFromFlags()
 	if err != nil {
 		glog.Exitf("Failed to initialize Map DB: %v", err)
 	}
 
-	pb := ftmap.NewMapBuilder(sumDB, *treeID, *prefixStrata)
+	pb := ftmap.NewMapBuilder(trillianDB, *treeID, *prefixStrata)
 
 	beam.Init()
 	beamlog.SetLogger(&BeamGLogger{InfoLogAtVerbosity: 2})

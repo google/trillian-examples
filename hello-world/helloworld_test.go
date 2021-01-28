@@ -17,6 +17,7 @@ package helloworld
 import (
     "context"
     "math/rand"
+    "flag"
     "fmt"
     "testing"
     "time"
@@ -24,9 +25,17 @@ import (
     p "github.com/google/trillian-examples/hello-world/personality"
 )
 
+var (
+    trillianAddr = flag.String("trillian", "", "Host:port of Trillian Log RPC server")
+)
+
 // TestAppend appends a random entry to the log and ensures that the
 // checkpoint updates properly (locally on the personality's side).
 func TestAppend(t *testing.T) {
+    if len(*trillianAddr) == 0 {
+	t.Skip("--trillian flag unset, skipping test")
+    }
+
     name := "testAppend"
     t.Run(name, func(t *testing.T) {
 	ctx := context.Background()
@@ -47,6 +56,10 @@ func TestAppend(t *testing.T) {
 // TestUpdate appends a random entry to the log and ensures that the
 // checkpoint updates properly for both the personality and the verifier.
 func TestUpdate(t *testing.T) {
+    if len(*trillianAddr) == 0 {
+	t.Skip("--trillian flag unset, skipping test")
+    }
+
     name := "testUpdate"
     t.Run(name, func(t *testing.T) {
 	ctx := context.Background()
@@ -70,6 +83,10 @@ func TestUpdate(t *testing.T) {
 // TestIncl tests inclusion proof checking for entries that both are and
 // aren't in the log.
 func TestIncl(t *testing.T) {
+    if len(*trillianAddr) == 0 {
+	t.Skip("--trillian flag unset, skipping test")
+    }
+
     tests := []struct {
 	name           string
 	addEntries     []string

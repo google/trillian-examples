@@ -101,6 +101,18 @@ steps:
       ./binary_transparency/firmware/integration/ft_test.sh --coverage
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
+# Run the hello-world integration test
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'helloworld-integration-test'
+  args:
+    - '-exc'
+    - |
+      export PATH=/bin:/usr/bin:/workspace/bin:/go/protoc/bin:/usr/local/go/bin
+      export TRILLIAN_LOG_RPC="deployment_trillian-log-server_1:8090"
+      ./hello-world/hw_integration.sh --coverage
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
 # Submit coverage results
 - name: 'gcr.io/cloud-builders/curl'
   entrypoint: bash

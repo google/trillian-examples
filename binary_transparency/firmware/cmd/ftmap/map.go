@@ -162,14 +162,6 @@ func (fn *tileToDBRowFn) ProcessElement(ctx context.Context, t *batchmap.Tile) (
 	}, nil
 }
 
-func tileFromDBRowFn(t MapTile) (*batchmap.Tile, error) {
-	var res batchmap.Tile
-	if err := json.Unmarshal(t.Tile, &res); err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
 // TODO(mhutchinson): This only works if the Trillian DB has a single tree.
 type trillianDB struct {
 	dbString string

@@ -63,7 +63,7 @@ func main() {
 		lh := h.HashLeaf(entry)
 
 		// ask storage to sequence
-		_, err = st.Sequence(lh, entry)
+		err = st.Sequence(lh, entry)
 		if err != nil {
 			glog.Exitf("Failed to sequence %q: %q", fp, err)
 		}

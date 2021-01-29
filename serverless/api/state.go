@@ -26,3 +26,11 @@ type LogState struct {
 	// Hashes are the roots of the minimal set of perfect subtrees contained by this log.
 	Hashes [][]byte
 }
+
+type Tile struct {
+	// Nodes stores the log tree nodes.
+	// Keys are "<level>-<index>" where level 0 are the "leaves" of the tile, and
+	// index 0 is the left-most node.
+	// Only non-ephemeral nodes are stored.
+	Nodes map[string][]byte
+}

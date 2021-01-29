@@ -32,7 +32,7 @@ type FirmwareMetadata struct {
 	FirmwareRevision uint64
 
 	// FirmwareImageSHA512 is the SHA512 hash over the firmware image as it will
-	// be delievered.
+	// be delivered.
 	FirmwareImageSHA512 []byte
 
 	// ExpectedFirmwareMeasurement represents the expected measured state of the

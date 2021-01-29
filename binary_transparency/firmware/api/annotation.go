@@ -37,7 +37,6 @@ type SignedStatement struct {
 
 // FirmwareID is a pointer to a firmware version.
 // It will be a SignedStatement of type FirmwareMetadataType.
-// TODO(mhutchinson): This could be simplified to just LeafHash or extended to have Revision.
 type FirmwareID struct {
 	LogIndex int64
 	LeafHash []byte
@@ -49,7 +48,7 @@ type MalwareStatement struct {
 	FirmwareID FirmwareID
 
 	// Good is a crude signal of goodness.
-	// TODO(mhutchinson): MVP for reasonable fields. Probably a Timestamp.
+	// TODO(mhutchinson): Add more fields as needed for the demo (e.g. Timestamp).
 	Good bool
 }
 

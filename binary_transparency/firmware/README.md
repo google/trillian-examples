@@ -339,3 +339,15 @@ go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T23:0
 >
 > Anybody else running a monitor also knows that malicious firmware has been
 > logged and can raise the alarm.
+
+Developer Notes
+---------------
+
+This section is not intended for a general audience.
+The intended audience is developers of FT that have a deployment and need to inspect or modify it.
+
+#### Docker
+
+Connecting to the Trillian database:
+
+`docker run -it --network deployment_default --rm mariadb mysql -hdeployment_mysql_1 -utest -pzaphod test`

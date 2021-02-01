@@ -90,7 +90,7 @@ func b64Decode(t *testing.T, b64 string) []byte {
 }
 func TestAddFirmware(t *testing.T) {
 	st := b64Decode(t, "eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==")
-	sign, err := crypto.SignMessage(api.FirmwareMetadataType, st)
+	sign, err := crypto.Publisher.SignMessage(api.FirmwareMetadataType, st)
 	if err != nil {
 		t.Fatalf("signing failed, bailing out!: %v", err)
 	}

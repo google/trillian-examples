@@ -126,7 +126,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 			}
 
 			// Verify the signature:
-			if err := crypto.VerifySignature(stmt.Type, stmt.Statement, stmt.Signature); err != nil {
+			if err := crypto.Publisher.VerifySignature(stmt.Type, stmt.Statement, stmt.Signature); err != nil {
 				glog.Warningf("Signature verification failed: %q", err)
 				continue
 			}

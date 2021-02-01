@@ -86,7 +86,7 @@ func verifyBundle(bundleRaw []byte) (api.ProofBundle, api.FirmwareMetadata, erro
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal SignedStatement: %w", err)
 	}
 	// Verify the statement signature:
-	if err := crypto.VerifySignature(fwStatement.Type, fwStatement.Statement, fwStatement.Signature); err != nil {
+	if err := crypto.Publisher.VerifySignature(fwStatement.Type, fwStatement.Statement, fwStatement.Signature); err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to verify signature on SignedStatement: %w", err)
 	}
 	if fwStatement.Type != api.FirmwareMetadataType {

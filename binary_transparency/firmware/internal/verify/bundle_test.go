@@ -118,7 +118,7 @@ func TestGoldenBundleGeneration(t *testing.T) {
 	}
 
 	mbs, _ := json.Marshal(meta)
-	sig, err := crypto.SignMessage(api.FirmwareMetadataType, mbs)
+	sig, err := crypto.Publisher.SignMessage(api.FirmwareMetadataType, mbs)
 	if err != nil {
 		t.Error(err)
 	}

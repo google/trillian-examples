@@ -97,7 +97,7 @@ func Main(opts ModifyBundleOpts) error {
 
 	if opts.Sign {
 		// Use stolen key to re-sign the dodgy metadata
-		sig, err := crypto.SignMessage(api.FirmwareMetadataType, rawMeta)
+		sig, err := crypto.Publisher.SignMessage(api.FirmwareMetadataType, rawMeta)
 		if err != nil {
 			return fmt.Errorf("failed to sign FirmwareMetadata: %w", err)
 		}

@@ -97,7 +97,7 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verify the signature:
-	if err := crypto.VerifySignature(stmt.Type, stmt.Statement, stmt.Signature); err != nil {
+	if err := crypto.Publisher.VerifySignature(stmt.Type, stmt.Statement, stmt.Signature); err != nil {
 		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
 		return
 	}
@@ -358,8 +358,7 @@ func (s *Server) addAnnotationMalware(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO(mhutchinson): This only works if the signer is the firmware publisher. Support more public keys.
-	if err := crypto.VerifySignature(ss.Type, ss.Statement, ss.Signature); err != nil {
+	if err := crypto.AnnotatorMalware.VerifySignature(ss.Type, ss.Statement, ss.Signature); err != nil {
 		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
 		return
 	}

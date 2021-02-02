@@ -14,21 +14,23 @@
 
 package api
 
+// StatementType is an enum that describes the type of statement in a SignedStatement.
+type StatementType byte
+
 // Enum values for the different types of statement.
 const (
-	FirmwareMetadataType    byte = 'f'
-	MalwareStatementType    byte = 'm'
-	RevocationStatementType byte = 'r'
+	FirmwareMetadataType    StatementType = 'f'
+	MalwareStatementType    StatementType = 'm'
+	RevocationStatementType StatementType = 'r'
 )
 
 // SignedStatement is a Statement signed by the Claimant.
 type SignedStatement struct {
 	// Type is one of the statement types from above, and indicates what
 	// Statement should be interpreted as.
-	Type byte
+	Type StatementType
 	// The serialised Claim in json form.
 	// This is one of MalwareStatement or BuildStatement.
-	// TODO(mhutchinson): Add an enum for Statement type?
 	Statement []byte
 
 	// Signature is the bytestream of the signature over (Type || Statement).
@@ -55,6 +57,7 @@ type MalwareStatement struct {
 // RevocationStatement is an annotation that marks a build as revoked.
 // This statement simply being present for a build marks it as revoked.
 // There is no way to unrevoke something; this can be done by re-releasing it.
+// TODO(mhutchinson): Wire this up in the personality.
 type RevocationStatement struct {
 	// FirmwareID is the SignedStatement in the log being annotated.
 	FirmwareID FirmwareID

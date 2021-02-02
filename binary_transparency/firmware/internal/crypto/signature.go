@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
 var (
@@ -132,9 +134,9 @@ func (c *Claimant) getPublicKey() (*rsa.PublicKey, error) {
 }
 
 //SignMessage is used to sign the Statement
-func (c *Claimant) SignMessage(stype byte, msg []byte) ([]byte, error) {
+func (c *Claimant) SignMessage(stype api.StatementType, msg []byte) ([]byte, error) {
 	bs := make([]byte, len(msg)+1)
-	bs[0] = stype
+	bs[0] = byte(stype)
 	copy(bs[1:], msg)
 
 	// Before signing, we need to hash the message
@@ -155,14 +157,14 @@ func (c *Claimant) SignMessage(stype byte, msg []byte) ([]byte, error) {
 }
 
 //VerifySignature is used to verify the incoming message
-func (c *Claimant) VerifySignature(stype byte, stmt []byte, signature []byte) error {
+func (c *Claimant) VerifySignature(stype api.StatementType, stmt []byte, signature []byte) error {
 	// Get the required key for signing
 	key, err := c.getPublicKey()
 	if err != nil {
 		return fmt.Errorf("public key fetch failed %v", err)
 	}
 	bs := make([]byte, len(stmt)+1)
-	bs[0] = stype
+	bs[0] = byte(stype)
 	copy(bs[1:], stmt)
 
 	// Before verify, we need to hash the message

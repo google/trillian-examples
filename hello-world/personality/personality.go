@@ -28,10 +28,7 @@ import (
 )
 
 var (
-    logAddr = flag.String("log_addr", "localhost:50054", "TCP address of Trillian log/admin server")
     connectTimeout = flag.Duration("connect_timeout", 5*time.Second, "the timeout for connecting to the backend")
-
-    treeID = flag.Int64("tree_id", 7096100506408595348, "the tree ID of the log to use")
 )
 
 type Chkpt struct {
@@ -41,17 +38,18 @@ type Chkpt struct {
 
 type TrillianP struct {
     l trillian.TrillianLogClient
+    treeID int64
 }
 
 // NewPersonality creates a new Trillian personality from the flags.
-func NewPersonality() TrillianP {
-    if *treeID <= 0 {
-	log.Fatalf("tree_id must be provided and positive, got %d", *treeID)
+func NewPersonality(logAddr string, treeID int64) TrillianP {
+    if treeID <= 0 {
+	log.Fatalf("tree_id must be provided and positive, got %d", treeID)
     }
 
     ctx, cancel := context.WithTimeout(context.Background(), *connectTimeout)
     defer cancel()
-    conn, err := grpc.DialContext(ctx, *logAddr, grpc.WithInsecure(), grpc.WithBlock())
+    conn, err := grpc.DialContext(ctx, logAddr, grpc.WithInsecure(), grpc.WithBlock())
     if err != nil {
 	panic(err)
     }
@@ -60,6 +58,7 @@ func NewPersonality() TrillianP {
 
     return TrillianP{
 	l: log,
+	treeID: treeID,
     }
 }
 
@@ -74,7 +73,7 @@ func (p TrillianP) formLeaf(entry []byte) *trillian.LogLeaf {
 
 // GetChkpt gets the latest checkpoint.
 func (p TrillianP) GetChkpt(ctx context.Context) Chkpt {
-    req := trillian.GetLatestSignedLogRootRequest{LogId: *treeID}
+    req := trillian.GetLatestSignedLogRootRequest{LogId: p.treeID}
     resp, err := p.l.GetLatestSignedLogRoot(ctx, &req)
     if err != nil {
 	panic(err)
@@ -92,7 +91,7 @@ func (p TrillianP) Append(ctx context.Context, entry []byte) Chkpt {
     // First get the latest checkpoint.
     chkpt := p.GetChkpt(ctx)
     leaf := p.formLeaf(entry)
-    req := trillian.QueueLeafRequest{LogId: *treeID, Leaf: leaf}
+    req := trillian.QueueLeafRequest{LogId: p.treeID, Leaf: leaf}
     if _, err := p.l.QueueLeaf(ctx, &req); err != nil {
 	panic(err)
     }
@@ -114,7 +113,7 @@ func (p TrillianP) ProveIncl(ctx context.Context, chkpt Chkpt, entry []byte) *tr
     leaf := p.formLeaf(entry)
     // Form the request according to the Trillian API.
     req := trillian.GetInclusionProofByHashRequest{
-	LogId:    *treeID,
+	LogId:    p.treeID,
 	LeafHash: leaf.MerkleLeafHash,
 	TreeSize: chkpt.LogSize}
     // Process the response.
@@ -134,7 +133,7 @@ func (p TrillianP) UpdateChkpt(ctx context.Context, chkpt Chkpt) (Chkpt, *trilli
     var pf *trillian.Proof
     if chkptNew.LogSize > chkpt.LogSize {
 	req := trillian.GetConsistencyProofRequest{
-	    LogId:          *treeID,
+	    LogId:          p.treeID,
 	    FirstTreeSize:  chkpt.LogSize,
 	    SecondTreeSize: chkptNew.LogSize}
 	resp, err := p.l.GetConsistencyProof(ctx, &req)

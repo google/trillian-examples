@@ -27,19 +27,20 @@ import (
 
 var (
     trillianAddr = flag.String("trillian", "localhost:50054", "Host:port of Trillian Log RPC server")
+    treeID = flag.Int64("tree_id", 0, "Tree ID")
 )
 
 // TestAppend appends a random entry to the log and ensures that the
 // checkpoint updates properly (locally on the personality's side).
 func TestAppend(t *testing.T) {
-    if len(*trillianAddr) == 0 {
+    if len(*trillianAddr) == 0 || *treeID == 0 {
 	t.Skip("--trillian flag unset, skipping test")
     }
 
     name := "testAppend"
     t.Run(name, func(t *testing.T) {
 	ctx := context.Background()
-	personality := p.NewPersonality()
+	personality := p.NewPersonality(*trillianAddr, *treeID)
 	chkptOld := personality.GetChkpt(ctx)
 	// Add a random entry so we can be sure it's new.
 	entry := make([]byte, 10)
@@ -56,14 +57,14 @@ func TestAppend(t *testing.T) {
 // TestUpdate appends a random entry to the log and ensures that the
 // checkpoint updates properly for both the personality and the verifier.
 func TestUpdate(t *testing.T) {
-    if len(*trillianAddr) == 0 {
+    if len(*trillianAddr) == 0 || *treeID == 0 {
 	t.Skip("--trillian flag unset, skipping test")
     }
 
     name := "testUpdate"
     t.Run(name, func(t *testing.T) {
 	ctx := context.Background()
-	personality := p.NewPersonality()
+	personality := p.NewPersonality(*trillianAddr, *treeID)
 	client := NewClient(personality)
 	chkpt := personality.GetChkpt(ctx)
 	client.chkpt = chkpt
@@ -83,7 +84,7 @@ func TestUpdate(t *testing.T) {
 // TestIncl tests inclusion proof checking for entries that both are and
 // aren't in the log.
 func TestIncl(t *testing.T) {
-    if len(*trillianAddr) == 0 {
+    if len(*trillianAddr) == 0 || *treeID == 0{
 	t.Skip("--trillian flag unset, skipping test")
     }
 
@@ -117,7 +118,7 @@ func TestIncl(t *testing.T) {
 	test := test
 	t.Run(test.name, func(t *testing.T) {
 	    ctx := context.Background()
-	    personality := p.NewPersonality()
+	    personality := p.NewPersonality(*trillianAddr, *treeID)
 	    var chkpt p.Chkpt
             // Append all the entries we plan to add (some of them might be
             // there already).

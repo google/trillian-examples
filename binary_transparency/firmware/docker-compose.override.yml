@@ -5,6 +5,12 @@ version: "3.1"
 # This won't scale to multiple replicas without much more work.
 
 services:
+  mysql:
+    # Expose the mysql port for the verifiable map on 3336 outside of the docker network.
+    # This avoids conflicting with any other mysql instance running on the host machine.
+    ports:
+      - "3336:3306"
+
   personality:
     build: 
       context: ../../../trillian-examples

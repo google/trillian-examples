@@ -19,16 +19,12 @@ export GO111MODULE=on
 go run github.com/google/trillian/cmd/trillian_log_server --rpc_endpoint="localhost:50054" --http_endpoint="localhost:50055" &
 go run github.com/google/trillian/cmd/trillian_log_signer --sequencer_interval="1s" --batch_size=500 --rpc_endpoint="localhost:50056" --http_endpoint="localhost:50057" --num_sequencers=1 --force_master &
 # Trillian services are now running
-go run github.com/google/trillian/cmd/createtree --admin_server=localhost:50054 # Take note of this tree/log ID
 
-export TREE_ID= # Use the tree ID returned by createtree above
-go run github.com/google/trillian/cmd/get_tree_public_key --admin_server=localhost:50054 --log_id=${TREE_ID}
+export TREE_ID=$(go run github.com/google/trillian/cmd/createtree --admin_server=localhost:50054)
 ```
 
-Paste the public key returned by this last call into `config.go` and paste
-the tree ID into `personality.go`.
-
-Now, in another terminal run `go build` and then `go test`.  This runs
+Now, in another terminal run `go build` and then `go test
+--tree_id=${TREE_ID} --trillian="localhost:50054"`.  This runs
 three tests. 
 1. `TestAppend` ensures that checkpoints update properly on the
 personality side when new entries are appended to the log.

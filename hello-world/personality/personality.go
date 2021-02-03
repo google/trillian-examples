@@ -27,12 +27,8 @@ import (
     "google.golang.org/grpc"
 )
 
-const (
-    listenAddr = "localhost:50053"
-)
-
 var (
-    logAddr        = flag.String("log_addr", "localhost:50054", "TCP address of Trillian log/admin server")
+    logAddr = flag.String("log_addr", "localhost:50054", "TCP address of Trillian log/admin server")
     connectTimeout = flag.Duration("connect_timeout", time.Second, "the timeout for connecting to the backend")
 
     treeID = flag.Int64("tree_id", 7096100506408595348, "the tree ID of the log to use")

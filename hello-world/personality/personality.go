@@ -29,7 +29,7 @@ import (
 
 var (
     logAddr = flag.String("log_addr", "localhost:50054", "TCP address of Trillian log/admin server")
-    connectTimeout = flag.Duration("connect_timeout", 5*time.Second, "the timeout for connecting to the backend")
+    connectTimeout = flag.Duration("connect_timeout", 60*time.Second, "the timeout for connecting to the backend")
 
     treeID = flag.Int64("tree_id", 7096100506408595348, "the tree ID of the log to use")
 )

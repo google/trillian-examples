@@ -26,7 +26,7 @@ import (
 )
 
 var (
-    trillianAddr = flag.String("trillian", "", "Host:port of Trillian Log RPC server")
+    trillianAddr = flag.String("trillian", "localhost:50054", "Host:port of Trillian Log RPC server")
 )
 
 // TestAppend appends a random entry to the log and ensures that the

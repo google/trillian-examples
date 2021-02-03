@@ -29,7 +29,7 @@ import (
 
 var (
     logAddr = flag.String("log_addr", "localhost:50054", "TCP address of Trillian log/admin server")
-    connectTimeout = flag.Duration("connect_timeout", time.Second, "the timeout for connecting to the backend")
+    connectTimeout = flag.Duration("connect_timeout", 5*time.Second, "the timeout for connecting to the backend")
 
     treeID = flag.Int64("tree_id", 7096100506408595348, "the tree ID of the log to use")
 )
@@ -97,9 +97,9 @@ func (p TrillianP) Append(ctx context.Context, entry []byte) Chkpt {
 	panic(err)
     }
     // Now fetch the new checkpoint, keep going until it's there or until
-    // one second has passed. (This is a terrible idea in any real situation.)
+    // five seconds have passed. (This is a terrible idea in any real situation.)
     var chkptNew Chkpt
-    for start := time.Now(); time.Since(start) < time.Second; {
+    for start := time.Now(); time.Since(start) < 5*time.Second; {
 	chkptNew = p.GetChkpt(ctx)
 	if chkpt.LogSize < chkptNew.LogSize {
 	    break

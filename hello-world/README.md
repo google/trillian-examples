@@ -23,9 +23,8 @@ go run github.com/google/trillian/cmd/trillian_log_signer --sequencer_interval="
 export TREE_ID=$(go run github.com/google/trillian/cmd/createtree --admin_server=localhost:50054)
 ```
 
-Now, in another terminal run `go build` and then `go test
---tree_id=${TREE_ID} --trillian="localhost:50054"`.  This runs
-three tests. 
+Now, in another terminal run `go build` and then `go test --tree_id=${TREE_ID}`.  
+This runs three tests. 
 1. `TestAppend` ensures that checkpoints update properly on the
 personality side when new entries are appended to the log.
 2. `TestUpdate` ensures that these updated checkpoints can be accepted by the 

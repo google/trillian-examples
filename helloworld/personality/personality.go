@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/google/trillian"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/google/trillian/merkle/rfc6962/hasher"
 	tt "github.com/google/trillian/types"
 	"google.golang.org/grpc"
 )
@@ -64,7 +64,7 @@ func NewPersonality(logAddr string, treeID int64) TrillianP {
 
 // formLeaf creates a Trillian log leaf from an entry.
 func (p TrillianP) formLeaf(entry []byte) *trillian.LogLeaf {
-	leafHash := rfc6962.DefaultHasher.HashLeaf(entry)
+	leafHash := hasher.DefaultHasher.HashLeaf(entry)
 	return &trillian.LogLeaf{
 		LeafValue:      entry,
 		MerkleLeafHash: leafHash,

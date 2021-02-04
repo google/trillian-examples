@@ -19,8 +19,8 @@ import (
 	"context"
 
 	trillian "github.com/google/trillian"
-	"github.com/google/trillian/merkle"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/google/trillian/merkle/logverifier"
+	"github.com/google/trillian/merkle/rfc6962/hasher"
 
 	p "github.com/google/trillian-examples/helloworld/personality"
 )
@@ -40,7 +40,7 @@ type Personality interface {
 
 // A client is a verifier that maintains a checkpoint as state.
 type Client struct {
-	v      merkle.LogVerifier
+	v      logverifier.LogVerifier
 	chkpt  p.Chkpt
 	person Personality
 }
@@ -49,7 +49,7 @@ type Client struct {
 // personality to talk to.
 func NewClient(prsn Personality) Client {
 	c := Client{person: prsn}
-	v := merkle.NewLogVerifier(rfc6962.DefaultHasher)
+	v := logverifier.New(hasher.DefaultHasher)
 	c.v = v
 	var rootHash []byte
 	chkpt := p.Chkpt{LogSize: 0, RootHash: rootHash}
@@ -62,7 +62,7 @@ func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 	if pf == nil {
 		return false
 	}
-	leafHash := rfc6962.DefaultHasher.HashLeaf(entry)
+	leafHash := hasher.DefaultHasher.HashLeaf(entry)
 	if err := c.v.VerifyInclusionProof(pf.LeafIndex, c.chkpt.LogSize,
 		pf.Hashes, c.chkpt.RootHash, leafHash); err != nil {
 		return false

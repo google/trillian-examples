@@ -115,7 +115,10 @@ func (l fakeLog) Entries(s beam.Scope, start, end int64) beam.PCollection {
 		// This swallows the error, but the test will fail anyway. YOLO.
 		index := start + int64(i)
 		fwbs, _ := json.Marshal(l.leaves[int(index)])
-		bs, _ := json.Marshal(api.FirmwareStatement{Metadata: fwbs})
+		bs, _ := json.Marshal(api.SignedStatement{
+			Type:      api.FirmwareMetadataType,
+			Statement: fwbs,
+		})
 		entries[i] = InputLogLeaf{
 			Seq:  index,
 			Data: bs,

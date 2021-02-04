@@ -84,8 +84,8 @@ func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeS
 	return client, nil
 }
 
-// AddFirmwareManifest adds the firmware manifest to the log if it isn't already present.
-func (c *Client) AddFirmwareManifest(ctx context.Context, data []byte) error {
+// AddSignedStatement adds the statement to the log if it isn't already present.
+func (c *Client) AddSignedStatement(ctx context.Context, data []byte) error {
 	leafHash := c.Hasher.HashLeaf(data)
 	leaf := &trillian.LogLeaf{
 		LeafValue:      data,

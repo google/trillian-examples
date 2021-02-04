@@ -81,13 +81,16 @@ func verifyBundle(bundleRaw []byte) (api.ProofBundle, api.FirmwareMetadata, erro
 
 	// TODO(al): check Checkpoint signature
 
-	var fwStatement api.FirmwareStatement
+	var fwStatement api.SignedStatement
 	if err := json.Unmarshal(pb.ManifestStatement, &fwStatement); err != nil {
-		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal FirmwareStatement: %w", err)
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal SignedStatement: %w", err)
 	}
 	// Verify the statement signature:
-	if err := crypto.VerifySignature(fwStatement.Metadata, fwStatement.Signature); err != nil {
-		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to verify signature on FirmwareStatement: %w", err)
+	if err := crypto.Publisher.VerifySignature(fwStatement.Type, fwStatement.Statement, fwStatement.Signature); err != nil {
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to verify signature on SignedStatement: %w", err)
+	}
+	if fwStatement.Type != api.FirmwareMetadataType {
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("expected statement type %q, but got %q", api.MalwareStatementType, fwStatement.Type)
 	}
 
 	lh := HashLeaf(pb.ManifestStatement)
@@ -97,7 +100,7 @@ func verifyBundle(bundleRaw []byte) (api.ProofBundle, api.FirmwareMetadata, erro
 	}
 
 	var fwMeta api.FirmwareMetadata
-	if err := json.Unmarshal(fwStatement.Metadata, &fwMeta); err != nil {
+	if err := json.Unmarshal(fwStatement.Statement, &fwMeta); err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal Metadata: %w", err)
 	}
 

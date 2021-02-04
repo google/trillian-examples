@@ -90,7 +90,7 @@ func TestPublish(t *testing.T) {
 	}
 }
 
-// parseAddFirmwareRequest returns the bytes for the FirmwareStatement, and the firmware image respectively.
+// parseAddFirmwareRequest returns the bytes for the SignedStatement, and the firmware image respectively.
 // TODO(mhutchinson): For now this is a copy of the server code. de-dupe this.
 func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
 	h := r.Header["Content-Type"]

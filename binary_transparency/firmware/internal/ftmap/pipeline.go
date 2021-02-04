@@ -121,18 +121,23 @@ type firmwareLogEntry struct {
 	Firmware api.FirmwareMetadata
 }
 
-func parseLogEntryFn(l InputLogLeaf) (*firmwareLogEntry, error) {
-	var s api.FirmwareStatement
+func parseLogEntryFn(l InputLogLeaf, emit func(*firmwareLogEntry)) error {
+	var s api.SignedStatement
 	if err := json.Unmarshal(l.Data, &s); err != nil {
-		return nil, err
+		return err
 	}
 
-	var m api.FirmwareMetadata
-	if err := json.Unmarshal(s.Metadata, &m); err != nil {
-		return nil, err
+	if s.Type != api.FirmwareMetadataType {
+		// TODO(mhutchinson): Support annotation types.
+		return nil
 	}
-	return &firmwareLogEntry{
+	var m api.FirmwareMetadata
+	if err := json.Unmarshal(s.Statement, &m); err != nil {
+		return err
+	}
+	emit(&firmwareLogEntry{
 		Index:    l.Seq,
 		Firmware: m,
-	}, nil
+	})
+	return nil
 }

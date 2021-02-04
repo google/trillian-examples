@@ -24,10 +24,65 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
-func getPrivateKey() (*rsa.PrivateKey, error) {
-	mKey := strings.NewReader(RSApri)
+var (
+	// Publisher makes statements containing the firmware metadata.
+	Publisher = Claimant{
+		priv: RSApri,
+		pub:  RSApub,
+	}
+
+	// AnnotatorMalware makes annotation statements about malware in firmware.
+	AnnotatorMalware = Claimant{
+		priv: `-----BEGIN RSA PRIVATE KEY-----
+MIIEogIBAAKCAQEAoGKwBzNMxdPS1Uo+BAykf2C9nuLpLkXBSpINYOiGcJeBpV04
+MUw7BrW0ynvwwQL1h+yVWfiRL3xMDQmMkr/EjPEiW4VXji/lVMDClIi4mlMdygiG
+hM1Na5PpCAg8+khpFOnSlpC95EdGoU3c+iezTJH0nHH6KUfT6cMZMLNdjI5MtES3
+aZET4/iQRkmqv+FXP4M5QmQb1PE7iEGZ6J3IUQKJrpqilz0RZM535Tz89cchD1Mh
+cIwi3MO45dbZP1/0lDDYinK/VnklYlKuZjXTC29TWFzStF34YPDA1dFaGZug2/oC
+jdMLyQBEZJsEYEwF6jhdp4p7zHOSQ5Xc68xbDQIDAQABAoIBADUsgu/gMjPkZqIQ
+Wz88cc1JZZSn5mdQ+SSgB495iBkMIg+ROHAftfIjjC0VqlxTftPxvBJ4Nqpnq08n
+O1PsAF46FAoDy2N4va+7uMdGDO4dYGL7MJ4W8vQXtcrT8GOKXkxwuUDx/AMTHnec
+OQc24lsgiNjVcPr+tWNrK47Z6MoQXT7CaZpQMaZkYxj8T3g63Anfdjoichv4jByS
+/TQzGElqea1IxzUpvGXMf3n6IV4GxlVdDX0rFXLM9vp7k5Av8vBx4YCnTi48u0m0
+JbdAzfgeOla8GkWzzgYSkAY0CMhiSNB6eUkbO9qxHH0o0JZKuU8kP1bci/LBhcCL
+MyeGSAECgYEAzTrYxne3hUeVxAmXABtbgWtZbmlfE3FKXf+Jy4UOaLa/KZeHAaIK
+e32KjYTITfNlNZ+g6nYAy1hI7kJvutnznjY3Nfv9gtRNmK96ej+1SabMD68raDGY
+7/YR5mYr7KcI9Am5HFKTzDKBHUry0OB3v5JOPMrr9Le/LZ6pxQzKOT0CgYEAyA/b
+0bCylSGX2LW63IuEdyPEv5zIL/7cTsUNdtWbSofBpG3DdT9Fm2AvfnipJRxNIcX+
+t5zAqPrWSx23ovhr7GsdPawjn8oNpwO5GyHmpiFiMtMnykEAXtQNuJbPGcpKFWnH
+Ydp8pSBVyK0C5vlJWINNHYa0vTEzKW1MwbBVphECgYAu8PzQOGXDmGILGt5s6dT+
+Px2PgY57lfgak+5inKZ1EQecbco1d2jKYiakw/BE1B0cLMzTk/YOjLzxskR4Co4M
+a/4o3OBZYlH1UH3FJHlExV/7XmehR2bhy/jAKDJ3yKTlnKu4bLLdi9e4aYIsgIsj
+SEWY5hkeOkECID5YkdpXSQKBgAuG3mN2itOM2/LghaOvZjJ3HR7tKZuaU5c2Q1BV
+fl0M9VtD978JpjkNka73xMcemlMX1VU+8trJmQ865xm8tnsosMac5HCQc7jrvf6S
+NXfc9It5HxHILP1JuoCoL8aMoTgaoCJDNGtPMaIeVcx5EIDJD+hjmoZMD2aTpZiD
+UGwBAoGAIDPx1CWMWqwLIF66BfbxnYC7iPKWc0oTUKFx45yxjgwegzj5n9VCmJw0
+nSEBOasrfQKsWg0gbtgoxxg6awY12czAWRukp5zyoTT+PSGi32gHepCOan4MqJ5w
+QeDeXVCJOme4xiBEhnC95flKCsfN9yBMwFy2N7qj0T1DbyKZtSc=
+-----END RSA PRIVATE KEY-----`,
+		pub: `-----BEGIN RSA PUBLIC KEY-----
+MIIBCgKCAQEAoGKwBzNMxdPS1Uo+BAykf2C9nuLpLkXBSpINYOiGcJeBpV04MUw7
+BrW0ynvwwQL1h+yVWfiRL3xMDQmMkr/EjPEiW4VXji/lVMDClIi4mlMdygiGhM1N
+a5PpCAg8+khpFOnSlpC95EdGoU3c+iezTJH0nHH6KUfT6cMZMLNdjI5MtES3aZET
+4/iQRkmqv+FXP4M5QmQb1PE7iEGZ6J3IUQKJrpqilz0RZM535Tz89cchD1MhcIwi
+3MO45dbZP1/0lDDYinK/VnklYlKuZjXTC29TWFzStF34YPDA1dFaGZug2/oCjdML
+yQBEZJsEYEwF6jhdp4p7zHOSQ5Xc68xbDQIDAQAB
+-----END RSA PUBLIC KEY-----`,
+	}
+)
+
+// Claimant is someone that makes statements, and can sign and verify them.
+type Claimant struct {
+	// Note that outside of a demo the private key should never be used like this!
+	priv, pub string
+}
+
+func (c *Claimant) getPrivateKey() (*rsa.PrivateKey, error) {
+	mKey := strings.NewReader(c.priv)
 	priv, err := ioutil.ReadAll(mKey)
 	if err != nil {
 		return nil, fmt.Errorf("read failed! %s", err)
@@ -52,8 +107,8 @@ func getPrivateKey() (*rsa.PrivateKey, error) {
 	return privateKey, nil
 }
 
-func getPublicKey() (*rsa.PublicKey, error) {
-	mKey := strings.NewReader(RSApub)
+func (c *Claimant) getPublicKey() (*rsa.PublicKey, error) {
+	mKey := strings.NewReader(c.pub)
 	pub, err := ioutil.ReadAll(mKey)
 	if err != nil {
 		return nil, fmt.Errorf("public key read failed! %s", err)
@@ -79,34 +134,42 @@ func getPublicKey() (*rsa.PublicKey, error) {
 }
 
 //SignMessage is used to sign the Statement
-func SignMessage(msg []byte) ([]byte, error) {
+func (c *Claimant) SignMessage(stype api.StatementType, msg []byte) ([]byte, error) {
+	bs := make([]byte, len(msg)+1)
+	bs[0] = byte(stype)
+	copy(bs[1:], msg)
+
 	// Before signing, we need to hash the message
 	// The hash is what we actually sign
-	h := sha512.Sum512(msg)
+	h := sha512.Sum512(bs)
 
 	// Get the required key for signing
-	key, err := getPrivateKey()
+	key, err := c.getPrivateKey()
 	if err != nil {
 		return nil, fmt.Errorf("private key fetch failed %v", err)
 	}
 	// use PSS over PKCS#1 v1.5 for enhanced security
 	signature, err := rsa.SignPSS(rand.Reader, key, crypto.SHA512, h[:], nil)
 	if err != nil {
-		return nil, fmt.Errorf("signing failed for firmware statement %v", err)
+		return nil, fmt.Errorf("failed to sign statement %v", err)
 	}
 	return signature, nil
 }
 
 //VerifySignature is used to verify the incoming message
-func VerifySignature(msg []byte, signature []byte) error {
+func (c *Claimant) VerifySignature(stype api.StatementType, stmt []byte, signature []byte) error {
 	// Get the required key for signing
-	key, err := getPublicKey()
+	key, err := c.getPublicKey()
 	if err != nil {
 		return fmt.Errorf("public key fetch failed %v", err)
 	}
+	bs := make([]byte, len(stmt)+1)
+	bs[0] = byte(stype)
+	copy(bs[1:], stmt)
+
 	// Before verify, we need to hash the message
 	// The hash is what we actually verify
-	h := sha512.Sum512(msg)
+	h := sha512.Sum512(bs)
 
 	if err = rsa.VerifyPSS(key, crypto.SHA512, h[:], signature, nil); err != nil {
 		return fmt.Errorf("failed to verify signature %v", err)

@@ -271,7 +271,7 @@ and _again_, even though the device now gets past the firmware measurement check
 we should see that the device still refuses to boot, with an error similar to:
 
 ```
-F1215 17:47:06.449540 1724707 dummy_emu.go:41] ROM: "failed to verify bundle: failed to verify signature on FirmwareStatement: failed to verify signature crypto/rsa: verification error"
+F1215 17:47:06.449540 1724707 dummy_emu.go:41] ROM: "failed to verify bundle: failed to verify signature on SignedStatement: failed to verify signature crypto/rsa: verification error"
 exit status 1
 ```
 

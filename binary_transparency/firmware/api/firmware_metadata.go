@@ -32,7 +32,7 @@ type FirmwareMetadata struct {
 	FirmwareRevision uint64
 
 	// FirmwareImageSHA512 is the SHA512 hash over the firmware image as it will
-	// be delievered.
+	// be delivered.
 	FirmwareImageSHA512 []byte
 
 	// ExpectedFirmwareMeasurement represents the expected measured state of the
@@ -49,14 +49,4 @@ type FirmwareMetadata struct {
 // String returns a human-readable representation of the firmware metadata info.
 func (m FirmwareMetadata) String() string {
 	return fmt.Sprintf("%s/v%d built at %s with image hash 0x%x", m.DeviceID, m.FirmwareRevision, m.BuildTimestamp, m.FirmwareImageSHA512)
-}
-
-// FirmwareStatement is the embodiment of the Statement in the claimant model for this demo.
-type FirmwareStatement struct {
-	// The serialised form of a FirmwareMetadata struct.
-	// TODO(al): settle on serialisation format for this.
-	Metadata []byte
-
-	// Signature is the bytestream of the signature over the Raw field above.
-	Signature []byte
 }

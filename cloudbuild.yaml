@@ -101,7 +101,7 @@ steps:
       ./binary_transparency/firmware/integration/ft_test.sh --coverage
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
-# Run the hello-world integration test
+# Run the helloworld integration test
 - name: gcr.io/$PROJECT_ID/testbase
   entrypoint: 'bash'
   id: 'helloworld-integration-test'

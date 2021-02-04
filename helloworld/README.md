@@ -1,4 +1,4 @@
-# hello-world
+# helloworld
 This is a very basic example of how to use
 [Trillian](http://github.com/google/trillian) to implement the operations
 needed for a verifiable log.  It intentionally avoids

@@ -110,7 +110,7 @@ steps:
     - |
       export PATH=/bin:/usr/bin:/workspace/bin:/go/protoc/bin:/usr/local/go/bin
       export TRILLIAN_LOG_RPC="deployment_trillian-log-server_1:8090"
-      ./hello-world/hw_integration.sh --coverage
+      ./helloworld/hw_integration.sh --coverage
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Submit coverage results

@@ -40,7 +40,7 @@ type WitnessOpts struct {
 	PollInterval time.Duration
 }
 
-//Main kick starts the server
+//Main kickstarts the witness
 func Main(ctx context.Context, opts WitnessOpts) error {
 	if len(opts.WSFile) == 0 {
 		return errors.New("Witness Store file is required")
@@ -52,12 +52,12 @@ func Main(ctx context.Context, opts WitnessOpts) error {
 	}
 
 	glog.Infof("Starting FT witness server...")
-	srv := ih.NewServer(ws)
+	witness := ih.NewWitness(ws, opts.FtLogURL, opts.PollInterval)
 	r := mux.NewRouter()
-	srv.RegisterHandlers(r)
+	witness.RegisterHandlers(r)
 
-	// TO DO Check the context parameter in the API correctly.
-	go srv.PollFTLog(ctx, opts.FtLogURL, opts.PollInterval)
+	go witness.Poll(ctx)
+
 	hServer := &http.Server{
 		Addr:    opts.ListenAddr,
 		Handler: r,

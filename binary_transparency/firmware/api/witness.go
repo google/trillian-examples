@@ -16,13 +16,8 @@ package api
 
 const (
 	//WitnessGetCheckpoint is the path of the URL to get witness checkpoint.
-	WitnessGetCheckpoint = "ft/witness/v0/get-w-checkpoint"
+	WitnessGetCheckpoint = "ft/witness/v0/get-checkpoint"
 )
 
-// WCheckpoint commits to the state of the log.
-type WCheckpoint struct {
-	TreeSize uint64
-	RootHash []byte
-	// The number of nanoseconds since the Unix epoch.
-	TimestampNanos uint64
-}
+//Please refer to LogCheckpoint structure in http.go for the CheckPoint returned.
+//Semantics for LogCheckpoint is identical between FT log and Witness

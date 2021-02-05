@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package http contains private implementation details for the FirmwareTransparency witness server.
+// Package http contains private implementation details for the FirmwareTransparency witness.
 package http
 
 import (
@@ -32,8 +32,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// WS is the interface to the  Witness Store, for storage of latest checkpoint
-type WS interface {
+// WitnessStore is the interface to the  Witness Store, for storage of latest checkpoint
+type WitnessStore interface {
 	// Store puts the checkpoint into Witness Store
 	StoreCP(wcp api.LogCheckpoint) error
 
@@ -42,20 +42,24 @@ type WS interface {
 	RetrieveCP() (api.LogCheckpoint, error)
 }
 
-// Server is the core state & handler implementation of the FT Witness
-type Server struct {
-	ws WS
+// Witness is the core state & handler implementation of the FT Witness
+type Witness struct {
+	ws           WitnessStore
+	logURL       string
+	pollInterval time.Duration
 }
 
-// NewServer creates a new server.
-func NewServer(ws WS) *Server {
-	return &Server{
-		ws: ws,
+// NewWitness creates a new Witness.
+func NewWitness(ws WitnessStore, logURL string, pollInterval time.Duration) *Witness {
+	return &Witness{
+		ws:           ws,
+		logURL:       logURL,
+		pollInterval: pollInterval,
 	}
 }
 
-// getWcheckpoint returns a checkpoint which is registered with witness
-func (s *Server) getWcheckpoint(w http.ResponseWriter, r *http.Request) {
+// getCheckpoint returns a checkpoint which is registered with witness
+func (s *Witness) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	checkpoint, err := s.ws.RetrieveCP()
 	if err != nil {
 		http.Error(w, err.Error(), httpStatusForErr(err))
@@ -85,15 +89,15 @@ func httpStatusForErr(e error) int {
 }
 
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.
-func (s *Server) RegisterHandlers(r *mux.Router) {
-	r.HandleFunc(fmt.Sprintf("/%s", api.WitnessGetCheckpoint), s.getWcheckpoint).Methods("GET")
+func (s *Witness) RegisterHandlers(r *mux.Router) {
+	r.HandleFunc(fmt.Sprintf("/%s", api.WitnessGetCheckpoint), s.getCheckpoint).Methods("GET")
 }
 
-// PollFTLog periodically polls the FT log for updating the witness checkpoint.
-func (s *Server) PollFTLog(ctx context.Context, LogURL string, PollInterval time.Duration) error {
+// Poll periodically polls the FT log for updating the witness checkpoint.
+func (s *Witness) Poll(ctx context.Context) error {
 
-	ticker := time.NewTicker(PollInterval)
-	ftURL, err := url.Parse(LogURL)
+	ticker := time.NewTicker(s.pollInterval)
+	ftURL, err := url.Parse(s.logURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse FT log URL: %w", err)
 	}

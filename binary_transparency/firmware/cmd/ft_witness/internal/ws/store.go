@@ -22,7 +22,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
@@ -100,7 +99,7 @@ func (ws *Wstorage) RetrieveCP() (api.LogCheckpoint, error) {
 	var wcp api.LogCheckpoint
 
 	if err := json.NewDecoder(f).Decode(&wcp); (err != nil) && (err != io.EOF) {
-		glog.Exitf("Failed to parse witness log checkpoint file: %q", err)
+		log.Fatalf("Failed to parse witness log checkpoint file: %q", err)
 	}
 	return wcp, nil
 }

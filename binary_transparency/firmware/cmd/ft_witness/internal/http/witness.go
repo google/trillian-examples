@@ -105,7 +105,12 @@ func (s *Witness) Poll(ctx context.Context) error {
 	c := client.ReadonlyClient{LogURL: ftURL}
 	lv := verify.NewLogVerifier()
 	for {
+
 		wcp, err := s.ws.RetrieveCP()
+		if err != nil {
+			glog.Warningf("Failed to retrieve store logcheckpoint: %q", err)
+			continue
+		}
 
 		select {
 		case <-ticker.C:
@@ -141,7 +146,10 @@ func (s *Witness) Poll(ctx context.Context) error {
 			glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)
 		}
 		wcp = *cp
-		//TO DO Check for Errors here!
-		s.ws.StoreCP(wcp)
+
+		if s.ws.StoreCP(wcp) != nil {
+			glog.Warningf("Failed to save new logcheckpoint into store: %q", err)
+			continue
+		}
 	}
 }

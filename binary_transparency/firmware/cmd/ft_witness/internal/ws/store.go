@@ -17,17 +17,24 @@ package ws
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
-// Wstorage is a WS intended for storing witness checkpoints
+const (
+	fileMask = 0755
+)
+
+// Wstorage is a Witness Storage intended for storing witness checkpoints
 // Currently a simple file is used as a storage mechanism
 type Wstorage struct {
-	fp string
+	fp        string
+	storeLock sync.Mutex
 }
 
 // NewWstorage creates a new WS that uses the given file as DB backend
@@ -55,8 +62,12 @@ func (ws *Wstorage) init() error {
 
 //StoreCP saves the given checkpoint into DB.
 func (ws *Wstorage) StoreCP(wcp api.LogCheckpoint) error {
+
+	ws.storeLock.Lock()
+	defer ws.storeLock.Unlock()
+
 	// Check if file exists, open for write and store the checkpoint
-	f, err := os.OpenFile(ws.fp, os.O_RDWR, 0755)
+	f, err := os.OpenFile(ws.fp, os.O_RDWR, fileMask)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -66,7 +77,7 @@ func (ws *Wstorage) StoreCP(wcp api.LogCheckpoint) error {
 		log.Fatalf("JSON marshaling failed: %s", err)
 	}
 	if _, err := f.Write(data); err != nil {
-		f.Close() // ignore error; Write error takes precedence
+		f.Close()
 		log.Fatal(err)
 	}
 	if err := f.Close(); err != nil {
@@ -75,16 +86,20 @@ func (ws *Wstorage) StoreCP(wcp api.LogCheckpoint) error {
 	return err
 }
 
-// Retrieve gets the checkpoint previously stored.
+// RetrieveCP gets the checkpoint previously stored.
 func (ws *Wstorage) RetrieveCP() (api.LogCheckpoint, error) {
+
+	ws.storeLock.Lock()
+	defer ws.storeLock.Unlock()
 	// Check if the file exists, open for read
-	f, err := os.OpenFile(ws.fp, os.O_RDONLY, 0755)
+	f, err := os.OpenFile(ws.fp, os.O_RDONLY, fileMask)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer f.Close()
 	var wcp api.LogCheckpoint
-	if err := json.NewDecoder(f).Decode(&wcp); err != nil {
+
+	if err := json.NewDecoder(f).Decode(&wcp); (err != nil) && (err != io.EOF) {
 		glog.Exitf("Failed to parse witness log checkpoint file: %q", err)
 	}
 	return wcp, nil

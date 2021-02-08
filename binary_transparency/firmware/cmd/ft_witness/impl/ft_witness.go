@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC. All Rights Reserved.
+// Copyright 2021 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,8 +13,7 @@
 // limitations under the License.
 
 // Package impl is the implementation of the Firmware Transparency witness server.
-// This requires a Trillian instance to be reachable via gRPC and a tree to have
-// been provisioned.
+// This requires a FT Log to be running at a known address.
 package impl
 
 import (
@@ -40,13 +39,13 @@ type WitnessOpts struct {
 	PollInterval time.Duration
 }
 
-//Main kickstarts the witness
+// Main kickstarts the witness
 func Main(ctx context.Context, opts WitnessOpts) error {
 	if len(opts.WSFile) == 0 {
 		return errors.New("Witness Store file is required")
 	}
 
-	ws, err := ws.NewWstorage(opts.WSFile)
+	ws, err := ws.NewStorage(opts.WSFile)
 	if err != nil {
 		return fmt.Errorf("failed to connect witness store: %w", err)
 	}

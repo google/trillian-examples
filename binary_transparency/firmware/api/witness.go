@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC. All Rights Reserved.
+// Copyright 2021 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,9 @@
 package api
 
 const (
-	//WitnessGetCheckpoint is the path of the URL to get witness checkpoint.
+	// WitnessGetCheckpoint is the path of the URL to get witness checkpoint.
 	WitnessGetCheckpoint = "ft/witness/v0/get-checkpoint"
 )
 
-//Please refer to LogCheckpoint structure in http.go for the CheckPoint returned.
-//Semantics for LogCheckpoint is identical between FT log and Witness
+// Please refer to LogCheckpoint structure in http.go for the CheckPoint returned.
+// Semantics for LogCheckpoint is identical between FT log and Witness

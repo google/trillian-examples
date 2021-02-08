@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC. All Rights Reserved.
+// Copyright 2021 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,9 +39,9 @@ func TestRoundTrip(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 
-			store, err := NewWstorage(dbFp)
+			store, err := NewStorage(dbFp)
 			if err != nil {
-				t.Error("failed to create CAS", err)
+				t.Error("failed to create storage", err)
 			}
 			want := test.cp
 			if err := store.StoreCP(test.cp); err != nil {

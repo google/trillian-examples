@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC. All Rights Reserved.
+// Copyright 2021 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ package ws
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
-	"log"
 	"os"
 	"sync"
 
@@ -29,77 +29,78 @@ const (
 	fileMask = 0755
 )
 
-// Wstorage is a Witness Storage intended for storing witness checkpoints
+// Storage is a Witness Storage intended for storing witness checkpoints
 // Currently a simple file is used as a storage mechanism
-type Wstorage struct {
+type Storage struct {
 	fp        string
 	storeLock sync.Mutex
 }
 
-// NewWstorage creates a new WS that uses the given file as DB backend
+// NewStorage creates a new WS that uses the given file as DB backend
 // The DB will be initialized if needed.
-func NewWstorage(fp string) (*Wstorage, error) {
-	ws := &Wstorage{
+func NewStorage(fp string) (*Storage, error) {
+	ws := &Storage{
 		fp: fp,
 	}
 	return ws, ws.init()
 }
 
 // init creates the file storage
-func (ws *Wstorage) init() error {
+func (ws *Storage) init() error {
 	// Check if the file exists, if not create one
 	f, err := os.OpenFile(ws.fp, os.O_RDWR|os.O_CREATE, os.ModePerm)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer f.Close()
 	if err := f.Close(); err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to close file: %w", err)
 	}
-	return err
+	return nil
 }
 
-//StoreCP saves the given checkpoint into DB.
-func (ws *Wstorage) StoreCP(wcp api.LogCheckpoint) error {
+// StoreCP saves the given checkpoint into DB.
+func (ws *Storage) StoreCP(wcp api.LogCheckpoint) error {
 
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()
 
 	// Check if file exists, open for write and store the checkpoint
 	f, err := os.OpenFile(ws.fp, os.O_RDWR, fileMask)
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer f.Close()
+	if err != nil {
+		return fmt.Errorf("failed to open file: %w", err)
+	}
+
 	data, err := json.MarshalIndent(wcp, "", " ")
 	if err != nil {
-		log.Fatalf("JSON marshaling failed: %s", err)
+		return fmt.Errorf("JSON marshaling failed: %w", err)
 	}
 	if _, err := f.Write(data); err != nil {
 		f.Close()
-		log.Fatal(err)
+		return fmt.Errorf("failed to write data to witness db file: %w", err)
 	}
 	if err := f.Close(); err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("failed to close file: %w", err)
 	}
-	return err
+	return nil
 }
 
 // RetrieveCP gets the checkpoint previously stored.
-func (ws *Wstorage) RetrieveCP() (api.LogCheckpoint, error) {
+func (ws *Storage) RetrieveCP() (api.LogCheckpoint, error) {
+	var wcp api.LogCheckpoint
 
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()
 	// Check if the file exists, open for read
 	f, err := os.OpenFile(ws.fp, os.O_RDONLY, fileMask)
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer f.Close()
-	var wcp api.LogCheckpoint
+	if err != nil {
+		return wcp, fmt.Errorf("failed to open file: %w", err)
+	}
 
 	if err := json.NewDecoder(f).Decode(&wcp); (err != nil) && (err != io.EOF) {
-		log.Fatalf("Failed to parse witness log checkpoint file: %q", err)
+		return wcp, fmt.Errorf("Failed to parse witness log checkpoint file: %w", err)
 	}
 	return wcp, nil
 }

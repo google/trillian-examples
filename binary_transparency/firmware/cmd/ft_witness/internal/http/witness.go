@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC. All Rights Reserved.
+// Copyright 2021 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -94,8 +94,8 @@ func (s *Witness) RegisterHandlers(r *mux.Router) {
 }
 
 // Poll periodically polls the FT log for updating the witness checkpoint.
+// It only returns on error (when it doesn't start its own polling thread)
 func (s *Witness) Poll(ctx context.Context) error {
-
 	ticker := time.NewTicker(s.pollInterval)
 	ftURL, err := url.Parse(s.logURL)
 	if err != nil {
@@ -105,11 +105,9 @@ func (s *Witness) Poll(ctx context.Context) error {
 	c := client.ReadonlyClient{LogURL: ftURL}
 	lv := verify.NewLogVerifier()
 	for {
-
 		wcp, err := s.ws.RetrieveCP()
 		if err != nil {
-			glog.Warningf("Failed to retrieve store logcheckpoint: %q", err)
-			continue
+			glog.Fatal("Failed to retrieve stored logcheckpoint: %w", err)
 		}
 
 		select {
@@ -120,7 +118,7 @@ func (s *Witness) Poll(ctx context.Context) error {
 		}
 		cp, err := c.GetCheckpoint()
 		if err != nil {
-			glog.Warningf("Failed to update LogCheckpoint: %q", err)
+			glog.Warningf("Failed to get logcheckpoint: %q", err)
 			continue
 		}
 		if cp.TreeSize <= wcp.TreeSize {
@@ -134,8 +132,8 @@ func (s *Witness) Poll(ctx context.Context) error {
 				glog.Warningf("Failed to fetch the Consistency: %q", err)
 				continue
 			}
-			glog.V(1).Infof("Printing the latest Consistency Proof Information")
-			glog.V(1).Infof("Consistency Proof = %x", consistency.Proof)
+			glog.V(2).Infof("Printing the latest Consistency Proof Information")
+			glog.V(2).Infof("Consistency Proof = %x", consistency.Proof)
 
 			//Verify the fetched consistency proof
 			if err := lv.VerifyConsistencyProof(int64(wcp.TreeSize), int64(cp.TreeSize), wcp.RootHash, cp.RootHash, consistency.Proof); err != nil {
@@ -145,9 +143,8 @@ func (s *Witness) Poll(ctx context.Context) error {
 			}
 			glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)
 		}
-		wcp = *cp
 
-		if s.ws.StoreCP(wcp) != nil {
+		if s.ws.StoreCP(*cp) != nil {
 			glog.Warningf("Failed to save new logcheckpoint into store: %q", err)
 			continue
 		}

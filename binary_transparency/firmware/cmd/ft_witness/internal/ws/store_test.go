@@ -15,13 +15,15 @@
 package ws
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
 const (
-	dbFp = "/tmp/wdb.db"
+	dbFp    = "/tmp/wdb.db"
+	undefFp = ""
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -55,6 +57,29 @@ func TestRoundTrip(t *testing.T) {
 				t.Errorf("got '%s' want '%s'", got, want)
 			}
 
+		})
+	}
+}
+
+func TestFailedStorage(t *testing.T) {
+	for _, test := range []struct {
+		desc      string
+		wantError string
+	}{
+		{
+			desc:      "Handle Storage failure",
+			wantError: "failed to open file: open : no such file or directory",
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			_, err := NewStorage(undefFp)
+			if err == nil {
+				t.Error("Unexpected success in storage creation", err)
+			}
+			fmt.Printf("Received Error = %s", err.Error())
+			if err.Error() != test.wantError {
+				t.Error("Unexpected error message received", err)
+			}
 		})
 	}
 }

@@ -67,8 +67,8 @@ func (ws *Storage) StoreCP(wcp api.LogCheckpoint) error {
 
 	// Check if file exists, open for write and store the checkpoint
 	f, err := os.OpenFile(ws.fp, os.O_RDWR, fileMask)
-	defer f.Close()
 	if err != nil {
+		f.Close()
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 
@@ -94,11 +94,11 @@ func (ws *Storage) RetrieveCP() (api.LogCheckpoint, error) {
 	defer ws.storeLock.Unlock()
 	// Check if the file exists, open for read
 	f, err := os.OpenFile(ws.fp, os.O_RDONLY, fileMask)
-	defer f.Close()
 	if err != nil {
+		f.Close()
 		return wcp, fmt.Errorf("failed to open file: %w", err)
 	}
-
+	defer f.Close()
 	if err := json.NewDecoder(f).Decode(&wcp); (err != nil) && (err != io.EOF) {
 		return wcp, fmt.Errorf("Failed to parse witness log checkpoint file: %w", err)
 	}

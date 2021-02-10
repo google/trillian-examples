@@ -29,8 +29,6 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 	"github.com/gorilla/mux"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // WitnessStore is the interface to the  Witness Store, for storage of latest checkpoint
@@ -75,19 +73,6 @@ func (s *Witness) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	s.witnessLock.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(js)
-}
-
-// httpStatusForErr maps status codes to HTTP errors.
-func httpStatusForErr(e error) int {
-	switch status.Code(e) {
-	case codes.OK:
-		return http.StatusOK
-	case codes.NotFound:
-		return http.StatusNotFound
-	default:
-		return http.StatusInternalServerError
-	}
-	// unreachable
 }
 
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.

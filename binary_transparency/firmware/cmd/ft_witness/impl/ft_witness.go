@@ -51,7 +51,10 @@ func Main(ctx context.Context, opts WitnessOpts) error {
 	}
 
 	glog.Infof("Starting FT witness server...")
-	witness := ih.NewWitness(ws, opts.FtLogURL, opts.PollInterval)
+	witness, err := ih.NewWitness(ws, opts.FtLogURL, opts.PollInterval)
+	if err != nil {
+		return fmt.Errorf("failed to create new witness: %w", err)
+	}
 	r := mux.NewRouter()
 	witness.RegisterHandlers(r)
 

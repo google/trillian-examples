@@ -43,8 +43,10 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 
-			witness := NewWitness(FakeStore{test.cp, true}, dummyURL, dummyPollInterval)
-
+			witness, err := NewWitness(FakeStore{test.cp, true}, dummyURL, dummyPollInterval)
+			if err != nil {
+				t.Errorf("error creating witness: %v", err)
+			}
 			ts := httptest.NewServer(http.HandlerFunc(witness.getCheckpoint))
 			defer ts.Close()
 
@@ -67,56 +69,47 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 	}
 }
 
-func TestFailedWitnessCheckpoint(t *testing.T) {
+func TestFailedWitnessCreation(t *testing.T) {
 	for _, test := range []struct {
-		desc       string
-		cp         api.LogCheckpoint
-		wantStatus int
+		desc      string
+		cp        api.LogCheckpoint
+		wantError string
 	}{
 		{
-			desc:       "Failed Witness Checkpoint retrieval",
-			cp:         api.LogCheckpoint{},
-			wantStatus: http.StatusInternalServerError,
+			desc:      "Failed Witness Creation",
+			cp:        api.LogCheckpoint{},
+			wantError: "new witness failed due to storage retrieval: unable to access store",
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-
-			witness := NewWitness(FakeStore{test.cp, false}, dummyURL, dummyPollInterval)
-
-			ts := httptest.NewServer(http.HandlerFunc(witness.getCheckpoint))
-			defer ts.Close()
-
-			client := ts.Client()
-			resp, err := client.Get(ts.URL)
-			if err != nil {
-				t.Errorf("error response: %v", err)
+			_, err := NewWitness(FakeStore{test.cp, false}, dummyURL, dummyPollInterval)
+			if err == nil {
+				t.Errorf("error witness creation happened smoothly: %v", err)
 			}
-			if resp.StatusCode == http.StatusOK {
-				t.Errorf("status code OK: %v", resp.StatusCode)
-			}
-			if resp.StatusCode != test.wantStatus {
-				t.Errorf("got '%d' want '%d'", resp.StatusCode, test.wantStatus)
+			fmt.Printf("Error received %s", err.Error())
+			if err.Error() != test.wantError {
+				t.Error("Unexpected error message received", err)
 			}
 		})
 	}
 }
 
 type FakeStore struct {
-	scp      api.LogCheckpoint
-	initDone bool
+	scp         api.LogCheckpoint
+	storeaccess bool
 }
 
 func (f FakeStore) StoreCP(wcp api.LogCheckpoint) error {
-	if !f.initDone {
-		return fmt.Errorf("unintialized store")
+	if !f.storeaccess {
+		return fmt.Errorf("unable to access store")
 	}
 	f.scp = wcp
 	return nil
 }
 
 func (f FakeStore) RetrieveCP() (api.LogCheckpoint, error) {
-	if !f.initDone {
-		return api.LogCheckpoint{}, fmt.Errorf("unintialized store")
+	if !f.storeaccess {
+		return api.LogCheckpoint{}, fmt.Errorf("unable to access store")
 	}
 	return f.scp, nil
 }

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -38,38 +39,40 @@ type WitnessStore interface {
 	StoreCP(wcp api.LogCheckpoint) error
 
 	// Retrieve gets the stored checkpoint.
-	// Must return status code NotFound if no such checkpoint exists.
 	RetrieveCP() (api.LogCheckpoint, error)
 }
 
 // Witness is the core state & handler implementation of the FT Witness
 type Witness struct {
 	ws           WitnessStore
+	gcp          api.LogCheckpoint
 	logURL       string
 	pollInterval time.Duration
+	witnessLock  sync.Mutex
 }
 
 // NewWitness creates a new Witness.
-func NewWitness(ws WitnessStore, logURL string, pollInterval time.Duration) *Witness {
+func NewWitness(ws WitnessStore, logURL string, pollInterval time.Duration) (*Witness, error) {
+	gcp, err := ws.RetrieveCP()
+	if err != nil {
+		return nil, fmt.Errorf("new witness failed due to storage retrieval: %w", err)
+	}
 	return &Witness{
 		ws:           ws,
+		gcp:          gcp,
 		logURL:       logURL,
 		pollInterval: pollInterval,
-	}
+	}, nil
 }
 
 // getCheckpoint returns a checkpoint which is registered with witness
 func (s *Witness) getCheckpoint(w http.ResponseWriter, r *http.Request) {
-	checkpoint, err := s.ws.RetrieveCP()
-	if err != nil {
-		http.Error(w, err.Error(), httpStatusForErr(err))
-		return
-	}
-
-	js, err := json.Marshal(checkpoint)
+	s.witnessLock.Lock()
+	js, err := json.Marshal(s.gcp)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	s.witnessLock.Unlock()
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(js)
 }
@@ -103,11 +106,8 @@ func (s *Witness) Poll(ctx context.Context) error {
 	glog.Infof("Polling FT log %q...", ftURL)
 	c := client.ReadonlyClient{LogURL: ftURL}
 	lv := verify.NewLogVerifier()
+	wcp := s.gcp
 	for {
-		wcp, err := s.ws.RetrieveCP()
-		if err != nil {
-			glog.Fatal("Failed to retrieve stored logcheckpoint: %w", err)
-		}
 
 		select {
 		case <-ticker.C:
@@ -142,10 +142,13 @@ func (s *Witness) Poll(ctx context.Context) error {
 			}
 			glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)
 		}
-
-		if s.ws.StoreCP(*cp) != nil {
+		s.witnessLock.Lock()
+		if err = s.ws.StoreCP(*cp); err != nil {
 			glog.Warningf("Failed to save new logcheckpoint into store: %q", err)
+			s.witnessLock.Unlock()
 			continue
 		}
+		s.gcp = (*cp)
+		s.witnessLock.Unlock()
 	}
 }

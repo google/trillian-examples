@@ -71,10 +71,10 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 	// should be serialized so the monitor persists its golden state between runs.
 	var latestCP api.LogCheckpoint
 	var head uint64
-	follow := client.NewLogFollower(c, opts.PollInterval, latestCP)
+	follow := client.NewLogFollower(c)
 
 	glog.Infof("Monitoring FT log %q...", opts.LogURL)
-	cpc, cperrc := follow.Checkpoints(ctx)
+	cpc, cperrc := follow.Checkpoints(ctx, opts.PollInterval, latestCP)
 	ec, eerrc := follow.Entries(ctx, cpc, head)
 
 	for entry := range ec {

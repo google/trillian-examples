@@ -87,10 +87,10 @@ func (s *Witness) Poll(ctx context.Context) error {
 		return fmt.Errorf("failed to parse FT log URL: %w", err)
 	}
 	c := client.ReadonlyClient{LogURL: ftURL}
-	follow := client.NewLogFollower(c, s.pollInterval, s.gcp)
+	follow := client.NewLogFollower(c)
 
 	glog.Infof("Polling FT log %q...", ftURL)
-	cpc, cperrc := follow.Checkpoints(ctx)
+	cpc, cperrc := follow.Checkpoints(ctx, s.pollInterval, s.gcp)
 
 	for cp := range cpc {
 		select {

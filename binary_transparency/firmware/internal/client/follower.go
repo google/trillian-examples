@@ -28,6 +28,9 @@ import (
 	"github.com/google/trillian/merkle/logverifier"
 )
 
+// ErrConsistency is returned if two logs roots are found which are inconsistent.
+// This allows a motivated client to extract the checkpoints to provide as evidence
+// if needed.
 type ErrConsistency struct {
 	Golden, Latest api.LogCheckpoint
 }
@@ -36,6 +39,8 @@ func (e ErrConsistency) Error() string {
 	return fmt.Sprintf("failed to verify consistency proof from %s to %s", e.Golden, e.Latest)
 }
 
+// ErrInclusion is returned if a proof of inclusion does not validate.
+// This allows a motivated client to provide evidence if needed.
 type ErrInclusion struct {
 	Checkpoint api.LogCheckpoint
 	Proof      api.InclusionProof
@@ -54,18 +59,15 @@ type LogEntry struct {
 
 // LogFollower follows a log for new data becoming available.
 type LogFollower struct {
-	c            ReadonlyClient
-	lv           logverifier.LogVerifier
-	pollInterval time.Duration
-	golden       api.LogCheckpoint
+	c  ReadonlyClient
+	lv logverifier.LogVerifier
 }
 
-func NewLogFollower(c ReadonlyClient, pollInterval time.Duration, golden api.LogCheckpoint) LogFollower {
+// NewLogFollower creates a LogFollower that uses the given client.
+func NewLogFollower(c ReadonlyClient) LogFollower {
 	return LogFollower{
-		c:            c,
-		lv:           verify.NewLogVerifier(),
-		pollInterval: pollInterval,
-		golden:       golden,
+		c:  c,
+		lv: verify.NewLogVerifier(),
 	}
 }
 
@@ -73,14 +75,14 @@ func NewLogFollower(c ReadonlyClient, pollInterval time.Duration, golden api.Log
 // with the current golden checkpoint. Should any valid roots be found which are inconsistent
 // then an error is returned. The log being unavailable will just cause a retry, giving it
 // the benefit of the doubt.
-func (f *LogFollower) Checkpoints(ctx context.Context) (<-chan api.LogCheckpoint, <-chan error) {
-	ticker := time.NewTicker(f.pollInterval)
+func (f *LogFollower) Checkpoints(ctx context.Context, pollInterval time.Duration, golden api.LogCheckpoint) (<-chan api.LogCheckpoint, <-chan error) {
+	ticker := time.NewTicker(pollInterval)
 
 	outc := make(chan api.LogCheckpoint, 1)
 	errc := make(chan error, 1)
 
 	// Push the starting checkpoint into the channel here to kick off the pipeline
-	outc <- f.golden
+	outc <- golden
 
 	go func() {
 		defer close(outc)
@@ -101,14 +103,14 @@ func (f *LogFollower) Checkpoints(ctx context.Context) (<-chan api.LogCheckpoint
 			}
 			// TODO(al): check signature on checkpoint when they're added.
 
-			if cp.TreeSize <= f.golden.TreeSize {
+			if cp.TreeSize <= golden.TreeSize {
 				continue
 			}
 			glog.V(1).Infof("Got newer checkpoint %s", cp)
 
 			// Perform consistency check only for non-zero initial tree size
-			if f.golden.TreeSize != 0 {
-				consistency, err := f.c.GetConsistencyProof(api.GetConsistencyRequest{From: f.golden.TreeSize, To: cp.TreeSize})
+			if golden.TreeSize != 0 {
+				consistency, err := f.c.GetConsistencyProof(api.GetConsistencyRequest{From: golden.TreeSize, To: cp.TreeSize})
 				if err != nil {
 					glog.Warningf("Failed to fetch the Consistency: %q", err)
 					continue
@@ -117,22 +119,26 @@ func (f *LogFollower) Checkpoints(ctx context.Context) (<-chan api.LogCheckpoint
 				glog.V(1).Infof("Consistency Proof = %x", consistency.Proof)
 
 				// Verify the fetched consistency proof
-				if err := f.lv.VerifyConsistencyProof(int64(f.golden.TreeSize), int64(cp.TreeSize), f.golden.RootHash, cp.RootHash, consistency.Proof); err != nil {
+				if err := f.lv.VerifyConsistencyProof(int64(golden.TreeSize), int64(cp.TreeSize), golden.RootHash, cp.RootHash, consistency.Proof); err != nil {
 					errc <- ErrConsistency{
-						Golden: f.golden,
+						Golden: golden,
 						Latest: *cp,
 					}
 					return
 				}
 				glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)
 			}
-			f.golden = *cp
+			golden = *cp
 			outc <- *cp
 		}
 	}()
 	return outc, errc
 }
 
+// Entries follows the log to output all of the leaves starting from the head index provided.
+// This is intended to be set up to consume the output of #Checkpoints(), and will output new
+// entries each time a Checkpoint becomes available which is larger than the current head.
+// The input channel should be closed in order to clean up the resources used by this method.
 func (f *LogFollower) Entries(ctx context.Context, cpc <-chan api.LogCheckpoint, head uint64) (<-chan LogEntry, <-chan error) {
 	outc := make(chan LogEntry, 1)
 	errc := make(chan error, 1)

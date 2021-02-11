@@ -76,3 +76,8 @@ type InclusionProof struct {
 	LeafIndex uint64
 	Proof     [][]byte
 }
+
+// String returns a compact printable representation of an InclusionProof.
+func (l InclusionProof) String() string {
+	return fmt.Sprintf("{index %d, value: 0x%x, proof: %x}", l.LeafIndex, l.Value, l.Proof)
+}

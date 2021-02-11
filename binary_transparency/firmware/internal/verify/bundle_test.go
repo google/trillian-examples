@@ -15,16 +15,21 @@
 package verify_test
 
 import (
+	"bytes"
 	"crypto/sha512"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"github.com/google/trillian/merkle/logverifier"
 )
 
 const (
-	goldenProofBundle   = `{"ManifestStatement":"eyJNZXRhZGF0YSI6ImV5SkVaWFpwWTJWSlJDSTZJbVIxYlcxNUlpd2lSbWx5YlhkaGNtVlNaWFpwYzJsdmJpSTZNU3dpUm1seWJYZGhjbVZKYldGblpWTklRVFV4TWlJNkltZ3ZTblpLTURVeE1GZE5Ua05hZG1wWFQwTXdVMUZxTDFKUFJHVXpLMGh6Uld0dE5HMUhUbnBWVEhSd1lXVlVhblkyU2xrcmQzSTBlVk51Vm5aNVJqVXdZa055TVhSd2NYZERiMEZvWm5CeFFscHNNbUpSUFQwaUxDSkZlSEJsWTNSbFpFWnBjbTEzWVhKbFRXVmhjM1Z5WlcxbGJuUWlPaUkyZEZWWGVYbHJlbmRtYjI5dVIzVm5ibVl4WkV3clkyZGtObUpGVjFWb2IyeEJUbUZFVERoS1dVdFhkR1J0VUdORlpWbDJaMDgyYmsxeUwwbE1aMWRRWTFWWloyZDJRVUZ5Y25SaFUwSnRZVzQxU0RSTFp6MDlJaXdpUW5WcGJHUlVhVzFsYzNSaGJYQWlPaUl5TURJd0xURXdMVEV3VkRFMU9qTXdPakl3TGpFd1dpSjkiLCJTaWduYXR1cmUiOiJFaXBNMXRMdjF4cnJMSHZEdC80VDFHUG9KV3hBYlExMmhiMkZTOWQ1cDhsbjBKeWJJZFBieVBPWTVYMXozbVBUV0VnMnp1VTB1aWs0VmQwNW84dmM1cGRPZEFTSHlCeDA5RXBhT0NjTWVxSW9SRm90N3lvVUVDdUxkZHBCNEw4aWlEZ3Vibnk1Tk8zaTkzTjNFcnBUclN0b1ZqWjd1ZnZRd082SWg4aWpQZTVTY0o5TG1zQjBMRkZKeUIvQVNnYXcyeE9NWDVnMjlxSzR5UWNBak11WlE3b25ITG95Z09pK2pWUy92akJ0SEVxcXQ1RVU3dU9NdVJVSitqOFYva25yWUJya2hMNEVqWW9SZFNKTnZ6azVpMDRrdGNWLzJQb1NBR2RqSi9rejMrUG1idStXUjRRMVZMcng2bzBaVFNRMi94dXR2K1d2K0lmQXFOdDB0QldoWnc9PSJ9","Checkpoint":{"TreeSize":5,"RootHash":"4E7J8K809jeqeg1oiTIz+5zfMItqZqUBFR0jySa3H/M=","TimestampNanos":1607450738111506088},"InclusionProof":{"Value":null,"LeafIndex":4,"Proof":["KFh4IVeIwbsvbWyz2QHVCXXyjWTRDqusRa0ZEjS2fls="]}}`
+	goldenProofBundle   = `{"ManifestStatement":"eyJUeXBlIjoxMDIsIlN0YXRlbWVudCI6ImV5SkVaWFpwWTJWSlJDSTZJbVIxYlcxNUlpd2lSbWx5YlhkaGNtVlNaWFpwYzJsdmJpSTZNU3dpUm1seWJYZGhjbVZKYldGblpWTklRVFV4TWlJNkltZ3ZTblpLTURVeE1GZE5Ua05hZG1wWFQwTXdVMUZxTDFKUFJHVXpLMGh6Uld0dE5HMUhUbnBWVEhSd1lXVlVhblkyU2xrcmQzSTBlVk51Vm5aNVJqVXdZa055TVhSd2NYZERiMEZvWm5CeFFscHNNbUpSUFQwaUxDSkZlSEJsWTNSbFpFWnBjbTEzWVhKbFRXVmhjM1Z5WlcxbGJuUWlPaUkyZEZWWGVYbHJlbmRtYjI5dVIzVm5ibVl4WkV3clkyZGtObUpGVjFWb2IyeEJUbUZFVERoS1dVdFhkR1J0VUdORlpWbDJaMDgyYmsxeUwwbE1aMWRRWTFWWloyZDJRVUZ5Y25SaFUwSnRZVzQxU0RSTFp6MDlJaXdpUW5WcGJHUlVhVzFsYzNSaGJYQWlPaUl5TURJd0xURXdMVEV3VkRFMU9qTXdPakl3TGpFd1dpSjkiLCJTaWduYXR1cmUiOiJUeUxVdFpCdHJHbyt3anRoSjI2Rk8wVE5QUHpTTDZhU0c1V0ZTanRCcjZLZ2x4a0RjR3dmZUxTTEpjbklmUnhZMnVJZHZLL09tMStXMndLNEkxSFRUYTdIUFZlSHo2MmF0V09hZm9TL1ZGc01OdEx1RkplaU5WNE5uY2Y0bllYMFBDdnN0MHRpYm5TVFRzNnEwMUZ1cEhaMnFwc2lyY2hFVXgwLzFjOFFOM2hGZVArSXcwVWxPNTVvZUhlWGtlRGRwL2w5SCsvZjYxYndFMmpHZVl1cFcvbld2bmN2NFgrS00weXgrYW1oVi9od0lCMDQ2aitNQzVndkd4LzJ2TkkySk5JeTBOQk13YWRIK1VONnp1MzRIZzM5NkY4MkxJU2NTOXU2MENBY3hzRlozR3d5NGpoR1JXR1lwSnhXdEJ6Zk5hZ1IvaVdmUzRJY2tJVmZ5Z2ZQUXc9PSJ9","Checkpoint":{"TreeSize":5,"RootHash":"X6TF8AcdIHv9ZtQl+SSaeVNc/Z5Rc42px1iFRKTcCtw=","TimestampNanos":1607450738111506088},"InclusionProof":{"Value":null,"LeafIndex":4,"Proof":["KFh4IVeIwbsvbWyz2QHVCXXyjWTRDqusRa0ZEjS2fls="]}}`
 	goldenFirmwareImage = `Firmware image`
 	// goldenFirmwareHashB64 is a base64 encoded string for ExpectedMeasurement field inside ManifestStatement.
 	// For the dummy device, this is SHA512("dummy"||img), where img is the base64 decoded bytes from
@@ -54,7 +59,12 @@ func TestBundleForUpdate(t *testing.T) {
 			imgHash := sha512.Sum512(test.img)
 			err := verify.BundleForUpdate([]byte(goldenProofBundle), imgHash[:], dc, proof)
 			if (err != nil) != test.wantErr {
-				t.Fatalf("want err %T, got %q", test.wantErr, err)
+				var lve logverifier.RootMismatchError
+				if errors.As(err, &lve) {
+					// Printing this out allows `goldenProofBundle` to be updated if needed
+					t.Errorf("calculated root %s", base64.StdEncoding.EncodeToString(lve.CalculatedRoot))
+				}
+				t.Fatalf("want err %v, got %q", test.wantErr, err)
 			}
 		})
 	}
@@ -87,8 +97,48 @@ func TestBundleForBoot(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			err := verify.BundleForBoot([]byte(goldenProofBundle), test.measurement)
 			if (err != nil) != test.wantErr {
-				t.Fatalf("want err %T, got %q", test.wantErr, err)
+				t.Fatalf("want err %v, got %q", test.wantErr, err)
 			}
 		})
 	}
+}
+
+// This test is really showing how the constants above are generated, and allows
+// them to be regenerated should any of the underlying formats change.
+func TestGoldenBundleGeneration(t *testing.T) {
+	h := sha512.Sum512([]byte(goldenFirmwareImage))
+	meta := api.FirmwareMetadata{
+		DeviceID:                    "dummy",
+		FirmwareRevision:            1,
+		FirmwareImageSHA512:         h[:],
+		ExpectedFirmwareMeasurement: b64Decode(t, goldenFirmwareHashB64),
+		BuildTimestamp:              "2020-10-10T15:30:20.10Z",
+	}
+
+	mbs, _ := json.Marshal(meta)
+	sig, err := crypto.Publisher.SignMessage(api.FirmwareMetadataType, mbs)
+	if err != nil {
+		t.Error(err)
+	}
+	ss := api.SignedStatement{
+		Type:      api.FirmwareMetadataType,
+		Statement: mbs,
+		Signature: sig,
+	}
+	var gpb api.ProofBundle
+	if err := json.Unmarshal([]byte(goldenProofBundle), &gpb); err != nil {
+		t.Error(err)
+	}
+	var gss api.SignedStatement
+	if err := json.Unmarshal(gpb.ManifestStatement, &gss); err != nil {
+		t.Error(err)
+	}
+	// Signature can't go into this check because they are non-deterministic.
+	if gss.Type != ss.Type || !bytes.Equal(gss.Statement, ss.Statement) {
+		gbs, _ := json.Marshal(gss)
+		sbs, _ := json.Marshal(ss)
+		// If this fails then the golden values in the test may need updating with `sbs`
+		t.Errorf("Golden != computed: %s, %s", gbs, sbs)
+	}
+
 }

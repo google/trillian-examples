@@ -119,22 +119,27 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 			glog.V(1).Infof("Inclusion proof for leafhash 0x%x verified", lh)
 
 			statement := manifest.Value
-			stmt := api.FirmwareStatement{}
+			stmt := api.SignedStatement{}
 			if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
-				glog.Warningf("Firmware Statement decoding from manifest failed: %q", err)
+				glog.Warningf("SignedStatement decoding failed: %q", err)
 				continue
 			}
 
 			// Verify the signature:
-			if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
-				glog.Warningf("Firmware signature verification failed: %q", err)
+			if err := crypto.Publisher.VerifySignature(stmt.Type, stmt.Statement, stmt.Signature); err != nil {
+				glog.Warningf("Signature verification failed: %q", err)
 				continue
 			}
-			glog.V(1).Infof("Firmware signature verification SUCCESS")
+			glog.V(1).Infof("Signature verification SUCCESS")
+
+			if stmt.Type != api.FirmwareMetadataType {
+				// TODO(mhutchinson): Process annotations in the monitor?
+				continue
+			}
 
 			// Parse the firmware metadata:
 			var meta api.FirmwareMetadata
-			if err := json.Unmarshal(stmt.Metadata, &meta); err != nil {
+			if err := json.Unmarshal(stmt.Statement, &meta); err != nil {
 				glog.Warningf("Unable to decode FW Metadata from Statement %q", err)
 				continue
 			}

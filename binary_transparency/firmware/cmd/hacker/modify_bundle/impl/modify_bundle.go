@@ -55,12 +55,12 @@ func Main(opts ModifyBundleOpts) error {
 	if err := json.Unmarshal(bundleRaw, &pb); err != nil {
 		return fmt.Errorf("failed to parse proof bundle file: %w", err)
 	}
-	var fs api.FirmwareStatement
+	var fs api.SignedStatement
 	if err := json.Unmarshal(pb.ManifestStatement, &fs); err != nil {
-		return fmt.Errorf("failed to parse FirmwareStatement: %w", err)
+		return fmt.Errorf("failed to parse SignedStatement: %w", err)
 	}
 	var fm api.FirmwareMetadata
-	if err := json.Unmarshal(fs.Metadata, &fm); err != nil {
+	if err := json.Unmarshal(fs.Statement, &fm); err != nil {
 		return fmt.Errorf("failed to parse FirmwareMetadata: %w", err)
 	}
 
@@ -93,11 +93,11 @@ func Main(opts ModifyBundleOpts) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal FirmwareMetadata: %w", err)
 	}
-	fs.Metadata = rawMeta
+	fs.Statement = rawMeta
 
 	if opts.Sign {
 		// Use stolen key to re-sign the dodgy metadata
-		sig, err := crypto.SignMessage(rawMeta)
+		sig, err := crypto.Publisher.SignMessage(api.FirmwareMetadataType, rawMeta)
 		if err != nil {
 			return fmt.Errorf("failed to sign FirmwareMetadata: %w", err)
 		}
@@ -106,7 +106,7 @@ func Main(opts ModifyBundleOpts) error {
 
 	rawFS, err := json.Marshal(fs)
 	if err != nil {
-		return fmt.Errorf("failed to marshal FirmwareStatement: %w", err)
+		return fmt.Errorf("failed to marshal SignedStatement: %w", err)
 	}
 
 	pb.ManifestStatement = rawFS

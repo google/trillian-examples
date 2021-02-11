@@ -40,8 +40,8 @@ import (
 
 // Trillian is the interface to the Trillian Log required for the personality frontend.
 type Trillian interface {
-	// AddFirmwareManifest adds the firmware manifest to the log if it isn't already present.
-	AddFirmwareManifest(ctx context.Context, data []byte) error
+	// AddSignedStatement adds the statement to the log if it isn't already present.
+	AddSignedStatement(ctx context.Context, data []byte) error
 
 	// Root returns the most recent root seen by this client.
 	Root() *types.LogRootV1
@@ -82,7 +82,7 @@ func NewServer(c Trillian, cas CAS) *Server {
 }
 
 // addFirmware handles requests to log new firmware images.
-// It expects a mime/multipart POST consisting of FirmwareStatement and then firmware bytes.
+// It expects a mime/multipart POST consisting of SignedStatement and then firmware bytes.
 func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	statement, image, err := parseAddFirmwareRequest(r)
 	if err != nil {
@@ -90,21 +90,25 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stmt := api.FirmwareStatement{}
+	stmt := api.SignedStatement{}
 	if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
 		http.Error(w, fmt.Sprintf("failed to decode statement: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
 
 	// Verify the signature:
-	if err := crypto.VerifySignature(stmt.Metadata, stmt.Signature); err != nil {
+	if err := crypto.Publisher.VerifySignature(stmt.Type, stmt.Statement, stmt.Signature); err != nil {
 		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
+		return
+	}
+	if stmt.Type != api.FirmwareMetadataType {
+		http.Error(w, fmt.Sprintf("Expected statement type %q, but got %q", api.FirmwareMetadataType, stmt.Type), http.StatusBadRequest)
 		return
 	}
 
 	// Parse the firmware metadata:
 	var meta api.FirmwareMetadata
-	if err := json.Unmarshal(stmt.Metadata, &meta); err != nil {
+	if err := json.Unmarshal(stmt.Statement, &meta); err != nil {
 		http.Error(w, fmt.Sprintf("failed to unmarshal metadata: %q", err.Error()), http.StatusBadRequest)
 		return
 	}
@@ -121,14 +125,14 @@ func (s *Server) addFirmware(w http.ResponseWriter, r *http.Request) {
 	if err := s.cas.Store((h[:]), image); err != nil {
 		http.Error(w, fmt.Sprintf("failed to store image in CAS %v", err), http.StatusInternalServerError)
 	}
-	if err := s.c.AddFirmwareManifest(r.Context(), statement); err != nil {
+	if err := s.c.AddSignedStatement(r.Context(), statement); err != nil {
 		http.Error(w, fmt.Sprintf("failed to log firmware to Trillian %v", err), http.StatusInternalServerError)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 }
 
-// parseAddFirmwareRequest returns the bytes for the FirmwareStatement, and the firmware image respectively.
+// parseAddFirmwareRequest returns the bytes for the SignedStatement, and the firmware image respectively.
 func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
 	h := r.Header["Content-Type"]
 	if len(h) == 0 {
@@ -339,6 +343,45 @@ func (s *Server) getFirmwareImage(w http.ResponseWriter, r *http.Request) {
 	w.Write(image)
 }
 
+// addAnnotationMalware handles requests to annotate a logged firmware with a malware annotation.
+func (s *Server) addAnnotationMalware(w http.ResponseWriter, r *http.Request) {
+	ss := api.SignedStatement{}
+
+	// Store the original bytes as statement to avoid a round-trip (de)serialization.
+	rawStmt, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := json.NewDecoder(bytes.NewReader(rawStmt)).Decode(&ss); err != nil {
+		http.Error(w, fmt.Sprintf("failed to decode statement: %q", err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	if err := crypto.AnnotatorMalware.VerifySignature(ss.Type, ss.Statement, ss.Signature); err != nil {
+		http.Error(w, fmt.Sprintf("signature verification failed! %v", err), http.StatusBadRequest)
+		return
+	}
+	if ss.Type != api.MalwareStatementType {
+		http.Error(w, fmt.Sprintf("expected statement type %q, but got %q", api.MalwareStatementType, ss.Type), http.StatusBadRequest)
+		return
+	}
+
+	var malwareStmt api.MalwareStatement
+	if err := json.Unmarshal(ss.Statement, &malwareStmt); err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal MalwareStatement: %q", err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	glog.V(1).Infof("Got MalwareStatement %+v", malwareStmt)
+
+	if err := s.c.AddSignedStatement(r.Context(), rawStmt); err != nil {
+		http.Error(w, fmt.Sprintf("failed to log firmware to Trillian %v", err), http.StatusInternalServerError)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+}
+
 // httpStatusForErr maps status codes to HTTP errors.
 func httpStatusForErr(e error) int {
 	switch status.Code(e) {
@@ -355,6 +398,7 @@ func httpStatusForErr(e error) int {
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
 	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPAddFirmware), s.addFirmware).Methods("POST")
+	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPAddAnnotationMalware), s.addAnnotationMalware).Methods("POST")
 	r.HandleFunc(fmt.Sprintf("/%s/from/{from:[0-9]+}/to/{to:[0-9]+}", api.HTTPGetConsistency), s.getConsistency).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/for-leaf-hash/{hash}/in-tree-of/{treesize:[0-9]+}", api.HTTPGetInclusion), s.getInclusionByHash).Methods("GET")
 	r.HandleFunc(fmt.Sprintf("/%s/at/{index:[0-9]+}/in-tree-of/{treesize:[0-9]+}", api.HTTPGetManifestEntryAndProof), s.getManifestEntryAndProof).Methods("GET")

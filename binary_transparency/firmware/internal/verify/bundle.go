@@ -57,6 +57,39 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 	return nil
 }
 
+// BundleValidateWitness verifies the received bundle against witness checkpoint
+func BundleValidateWitness(bundleRaw []byte, wc api.LogCheckpoint, cpFunc ConsistencyProofFunc) error {
+	var pb api.ProofBundle
+	lv := NewLogVerifier()
+	if err := json.Unmarshal(bundleRaw, &pb); err != nil {
+		return fmt.Errorf("failed to parse proof bundle: %w", err)
+	}
+	if wc.TreeSize < pb.InclusionProof.LeafIndex {
+		return fmt.Errorf("witness verification failed wcp treesize(%d)<device cp index(%d)", wc.TreeSize, pb.InclusionProof.LeafIndex)
+	}
+	var fromts, tots uint64
+	var root1, root2 []byte
+	if wc.TreeSize < pb.Checkpoint.TreeSize {
+		fromts = wc.TreeSize
+		tots = pb.Checkpoint.TreeSize
+		root1 = wc.RootHash
+		root2 = pb.Checkpoint.RootHash
+	} else {
+		fromts = pb.Checkpoint.TreeSize
+		tots = wc.TreeSize
+		root1 = pb.Checkpoint.RootHash
+		root2 = wc.RootHash
+	}
+	cProof, err := cpFunc(fromts, tots)
+	if err != nil {
+		return fmt.Errorf("cpFunc failed: %q", err)
+	}
+	if err := lv.VerifyConsistencyProof(int64(fromts), int64(tots), root1, root2, cProof); err != nil {
+		return fmt.Errorf("failed consistency proof between witness and client checkpoint %w", err)
+	}
+	return nil
+}
+
 // BundleForBoot checks that the manifest, checkpoint, and proofs in a bundle
 // are all self-consistent, and that the provided firmware measurement matches
 // the one expected by the bundle.

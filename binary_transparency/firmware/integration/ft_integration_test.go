@@ -83,7 +83,7 @@ func TestFTIntegration(t *testing.T) {
 	pErrChan = make(chan error)
 
 	go func() {
-		if err := runWitness(ctx, t, pAddr, wAddr); err != nil {
+		if err := runWitness(ctx, t, pAddr, wHost); err != nil {
 			pErrChan <- err
 		}
 		close(pErrChan)
@@ -114,6 +114,7 @@ func TestFTIntegration(t *testing.T) {
 			step: func() error {
 				return i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
+					WitnessURL:    wAddr,
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
@@ -144,6 +145,7 @@ func TestFTIntegration(t *testing.T) {
 			step: func() error {
 				return i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
+					WitnessURL:    wAddr,
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
@@ -248,6 +250,7 @@ func TestFTIntegration(t *testing.T) {
 				// and so is now discoverable.
 				if err := i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
+					WitnessURL:    wAddr,
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,

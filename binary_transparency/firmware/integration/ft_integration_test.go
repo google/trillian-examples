@@ -246,6 +246,7 @@ func TestFTIntegration(t *testing.T) {
 					t.Fatalf("Failed to log malware: %q", err)
 				}
 
+				<-time.After(5 * time.Second)
 				// Now flash the bundle normally, it will install because it's been logged
 				// and so is now discoverable.
 				if err := i_flash.Main(i_flash.FlashOpts{

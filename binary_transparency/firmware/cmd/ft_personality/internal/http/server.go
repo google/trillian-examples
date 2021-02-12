@@ -373,6 +373,31 @@ func (s *Server) addAnnotationMalware(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Now check that the annotation points at something which is actually in this log.
+	fwbs, _, err := s.c.FirmwareManifestAtIndex(r.Context(), malwareStmt.FirmwareID.LogIndex, malwareStmt.FirmwareID.LogIndex+1)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to validate firmware: %q", err.Error()), http.StatusInternalServerError)
+		return
+	}
+	var fwss api.SignedStatement
+	if err := json.Unmarshal(fwbs, &fwss); err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal statement: %q", err.Error()), http.StatusInternalServerError)
+		return
+	}
+	if fwss.Type != api.FirmwareMetadataType {
+		http.Error(w, fmt.Sprintf("statement at index %d is not firmware", malwareStmt.FirmwareID.LogIndex), http.StatusBadRequest)
+		return
+	}
+	var meta api.FirmwareMetadata
+	if err := json.Unmarshal(fwss.Statement, &meta); err != nil {
+		http.Error(w, fmt.Sprintf("failed to unmarshal firmware: %q", err.Error()), http.StatusInternalServerError)
+		return
+	}
+	if !bytes.Equal(meta.FirmwareImageSHA512, malwareStmt.FirmwareID.FirmwareImageSHA512) {
+		http.Error(w, fmt.Sprintf("wrong firmware hash at index %d; got %x but expected %x", malwareStmt.FirmwareID.LogIndex, malwareStmt.FirmwareID.FirmwareImageSHA512, meta.FirmwareImageSHA512), http.StatusInternalServerError)
+		return
+	}
+
 	glog.V(1).Infof("Got MalwareStatement %+v", malwareStmt)
 
 	if err := s.c.AddSignedStatement(r.Context(), rawStmt); err != nil {

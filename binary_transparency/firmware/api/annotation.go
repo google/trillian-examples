@@ -14,6 +14,8 @@
 
 package api
 
+import "fmt"
+
 // StatementType is an enum that describes the type of statement in a SignedStatement.
 type StatementType byte
 
@@ -40,8 +42,12 @@ type SignedStatement struct {
 // FirmwareID is a pointer to a firmware version.
 // It will be a SignedStatement of type FirmwareMetadataType.
 type FirmwareID struct {
-	LogIndex int64
-	LeafHash []byte
+	LogIndex            uint64
+	FirmwareImageSHA512 []byte
+}
+
+func (id FirmwareID) String() string {
+	return fmt.Sprintf("FirmwareID{index %d, hash %x}", id.LogIndex, id.FirmwareImageSHA512)
 }
 
 // MalwareStatement is an annotation about malware checks in a firmware version.
@@ -52,6 +58,10 @@ type MalwareStatement struct {
 	// Good is a crude signal of goodness.
 	// TODO(mhutchinson): Add more fields as needed for the demo (e.g. Timestamp).
 	Good bool
+}
+
+func (s MalwareStatement) String() string {
+	return fmt.Sprintf("MalwareStatement{fw %s, good %t}", s.FirmwareID, s.Good)
 }
 
 // RevocationStatement is an annotation that marks a build as revoked.

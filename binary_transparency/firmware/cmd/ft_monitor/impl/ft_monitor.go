@@ -29,12 +29,12 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 )
 
 // MatchFunc is the signature of a function which can be called by the monitor
@@ -47,6 +47,7 @@ type MonitorOpts struct {
 	PollInterval time.Duration
 	Keyword      string
 	Matched      MatchFunc
+	Annotate     bool
 }
 
 func Main(ctx context.Context, opts MonitorOpts) error {
@@ -60,15 +61,14 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 	}
 
 	// Parse the input keywords as regular expression
-	var ftKeywords []*regexp.Regexp
-	for _, k := range strings.Fields(opts.Keyword) {
-		ftKeywords = append(ftKeywords, regexp.MustCompile(k))
-	}
+	matcher := regexp.MustCompile(opts.Keyword)
 
 	c := client.ReadonlyClient{LogURL: ftURL}
 
 	// TODO(mhutchinson): This checkpoint and tracker for number of processed entries
 	// should be serialized so the monitor persists its golden state between runs.
+	// In particular this will prevent the annotator from adding multiple annotations
+	// for the same firmware each time the monitor is started.
 	var latestCP api.LogCheckpoint
 	var head uint64
 	follow := client.NewLogFollower(c)
@@ -91,7 +91,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 
 		stmt := entry.Value
 		if stmt.Type != api.FirmwareMetadataType {
-			// TODO(mhutchinson): Process annotations in the monitor?
+			// Only analyze firmware statements in the monitor.
 			continue
 		}
 
@@ -119,11 +119,49 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		glog.V(1).Infof("Image Hash Verified for image at leaf index %d", entry.Index)
 
 		// Search for specific keywords inside firmware image
-		for _, m := range ftKeywords {
-			if m.Match(image) {
-				opts.Matched(entry.Index, meta)
+		malwareDetected := matcher.Match(image)
+
+		if malwareDetected {
+			opts.Matched(entry.Index, meta)
+		}
+		if opts.Annotate {
+			ms := api.MalwareStatement{
+				FirmwareID: api.FirmwareID{
+					LogIndex:            entry.Index,
+					FirmwareImageSHA512: h[:],
+				},
+				Good: !malwareDetected,
+			}
+			glog.V(1).Infof("Annotating %s", ms)
+			js, err := createStatementJSON(ms)
+			if err != nil {
+				return fmt.Errorf("failed to create annotation: %w", err)
+			}
+			sc := client.SubmitClient{
+				ReadonlyClient: &c,
+			}
+			if err := sc.PublishAnnotationMalware(js); err != nil {
+				return fmt.Errorf("failed to publish annotation: %w", err)
 			}
 		}
-
 	}
+}
+
+func createStatementJSON(m api.MalwareStatement) ([]byte, error) {
+	js, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal metadata: %w", err)
+	}
+	sig, err := crypto.AnnotatorMalware.SignMessage(api.MalwareStatementType, js)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate signature: %w", err)
+	}
+
+	statement := api.SignedStatement{
+		Type:      api.MalwareStatementType,
+		Statement: js,
+		Signature: sig,
+	}
+
+	return json.Marshal(statement)
 }

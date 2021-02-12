@@ -80,13 +80,13 @@ func TestFTIntegration(t *testing.T) {
 
 	wHost := "localhost:43565"
 	wAddr := fmt.Sprintf("http://%s", wHost)
-	pErrChan = make(chan error)
+	wErrChan := make(chan error)
 
 	go func() {
 		if err := runWitness(ctx, t, pAddr, wHost); err != nil {
 			pErrChan <- err
 		}
-		close(pErrChan)
+		close(wErrChan)
 	}()
 
 	// Wait for few seconds before starting the test

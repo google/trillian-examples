@@ -35,8 +35,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 )
 
 // MatchFunc is the signature of a function which can be called by the monitor
@@ -52,7 +50,6 @@ type MonitorOpts struct {
 }
 
 func Main(ctx context.Context, opts MonitorOpts) error {
-
 	if len(opts.LogURL) == 0 {
 		return errors.New("log URL is required")
 	}
@@ -62,132 +59,71 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		return fmt.Errorf("failed to parse FT log URL: %w", err)
 	}
 
-	glog.Infof("Monitoring FT log %q...", opts.LogURL)
-	ticker := time.NewTicker(opts.PollInterval)
-
-	c := client.ReadonlyClient{LogURL: ftURL}
-	var latestCP api.LogCheckpoint
-
-	lv := verify.NewLogVerifier()
-
 	// Parse the input keywords as regular expression
 	var ftKeywords []*regexp.Regexp
 	for _, k := range strings.Fields(opts.Keyword) {
 		ftKeywords = append(ftKeywords, regexp.MustCompile(k))
 	}
 
+	c := client.ReadonlyClient{LogURL: ftURL}
+
+	// TODO(mhutchinson): This checkpoint and tracker for number of processed entries
+	// should be serialized so the monitor persists its golden state between runs.
+	var latestCP api.LogCheckpoint
+	var head uint64
+	follow := client.NewLogFollower(c)
+
+	glog.Infof("Monitoring FT log %q...", opts.LogURL)
+	cpc, cperrc := follow.Checkpoints(ctx, opts.PollInterval, latestCP)
+	ec, eerrc := follow.Entries(ctx, cpc, head)
+
 	for {
+		var entry client.LogEntry
 		select {
-		case <-ticker.C:
-			//
+		case err = <-cperrc:
+			return err
+		case err = <-eerrc:
+			return err
 		case <-ctx.Done():
 			return ctx.Err()
+		case entry = <-ec:
 		}
 
-		cp, err := c.GetCheckpoint()
+		stmt := entry.Value
+		if stmt.Type != api.FirmwareMetadataType {
+			// TODO(mhutchinson): Process annotations in the monitor?
+			continue
+		}
+
+		// Parse the firmware metadata:
+		var meta api.FirmwareMetadata
+		if err := json.Unmarshal(stmt.Statement, &meta); err != nil {
+			glog.Warningf("Unable to decode FW Metadata from Statement %q", err)
+			continue
+		}
+
+		glog.Infof("Found firmware (@%d): %s", entry.Index, meta)
+
+		// Fetch the Image from FT Personality
+		image, err := c.GetFirmwareImage(meta.FirmwareImageSHA512)
 		if err != nil {
-			glog.Warningf("Failed to update LogCheckpoint: %q", err)
+			glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
 			continue
 		}
-		// TODO(al): check signature on checkpoint when they're added.
-
-		if cp.TreeSize <= latestCP.TreeSize {
+		// Verify Image Hash from log Manifest matches the actual image hash
+		h := sha512.Sum512(image)
+		if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
+			glog.Warningf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
 			continue
 		}
-		glog.V(1).Infof("Got newer checkpoint %s", cp)
+		glog.V(1).Infof("Image Hash Verified for image at leaf index %d", entry.Index)
 
-		// Fetch all the manifests from now till new checkpoint
-		for idx := latestCP.TreeSize; idx < cp.TreeSize; idx++ {
-
-			manifest, err := c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{Index: idx, TreeSize: cp.TreeSize})
-			if err != nil {
-				glog.Warningf("Failed to fetch the Manifest: %q", err)
-				continue
-			}
-			glog.V(1).Infof("Received New Manifest with Information=")
-			glog.V(1).Infof("Manifest Value = %s", manifest.Value)
-			glog.V(1).Infof("LeafIndex = %d", manifest.LeafIndex)
-			glog.V(1).Infof("Proof = %x", manifest.Proof)
-
-			lh := verify.HashLeaf(manifest.Value)
-			if err := lv.VerifyInclusionProof(int64(manifest.LeafIndex), int64(cp.TreeSize), manifest.Proof, cp.RootHash, lh); err != nil {
-				// Report Failed Inclusion Proof
-				glog.Warningf("Invalid inclusion proof received for LeafIndex %d", manifest.LeafIndex)
-				continue
-			}
-
-			glog.V(1).Infof("Inclusion proof for leafhash 0x%x verified", lh)
-
-			statement := manifest.Value
-			stmt := api.SignedStatement{}
-			if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
-				glog.Warningf("SignedStatement decoding failed: %q", err)
-				continue
-			}
-
-			// Verify the signature:
-			if err := crypto.Publisher.VerifySignature(stmt.Type, stmt.Statement, stmt.Signature); err != nil {
-				glog.Warningf("Signature verification failed: %q", err)
-				continue
-			}
-			glog.V(1).Infof("Signature verification SUCCESS")
-
-			if stmt.Type != api.FirmwareMetadataType {
-				// TODO(mhutchinson): Process annotations in the monitor?
-				continue
-			}
-
-			// Parse the firmware metadata:
-			var meta api.FirmwareMetadata
-			if err := json.Unmarshal(stmt.Statement, &meta); err != nil {
-				glog.Warningf("Unable to decode FW Metadata from Statement %q", err)
-				continue
-			}
-
-			glog.Infof("Found firmware (@%d): %s", idx, meta)
-
-			// Fetch the Image from FT Personality
-			image, err := c.GetFirmwareImage(meta.FirmwareImageSHA512)
-			if err != nil {
-				glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
-				continue
-			}
-			// Verify Image Hash from log Manifest matches the actual image hash
-			h := sha512.Sum512(image)
-			if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
-				glog.Warningf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
-				continue
-			}
-			glog.V(1).Infof("Image Hash Verified for image at leaf index %d", manifest.LeafIndex)
-
-			//Search for specific keywords inside firmware image
-			for _, m := range ftKeywords {
-				if m.Match(image) {
-					opts.Matched(idx, meta)
-				}
+		// Search for specific keywords inside firmware image
+		for _, m := range ftKeywords {
+			if m.Match(image) {
+				opts.Matched(entry.Index, meta)
 			}
 		}
 
-		// Perform consistency check only for non-zero initial tree size
-		if latestCP.TreeSize != 0 {
-			consistency, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: latestCP.TreeSize, To: cp.TreeSize})
-			if err != nil {
-				glog.Warningf("Failed to fetch the Consistency: %q", err)
-				continue
-			}
-			glog.V(1).Infof("Printing the latest Consistency Proof Information")
-			glog.V(1).Infof("Consistency Proof = %x", consistency.Proof)
-
-			//Verify the fetched consistency proof
-			if err := lv.VerifyConsistencyProof(int64(latestCP.TreeSize), int64(cp.TreeSize), latestCP.RootHash, cp.RootHash, consistency.Proof); err != nil {
-				// Verification of Consistency Proof failed!!
-				glog.Warningf("Failed verification of Consistency proof %q", err)
-				continue
-			}
-			glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)
-		}
-
-		latestCP = *cp
 	}
-	// unreachable
 }

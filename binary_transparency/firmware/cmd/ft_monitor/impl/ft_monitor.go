@@ -126,5 +126,4 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		}
 
 	}
-	return nil
 }

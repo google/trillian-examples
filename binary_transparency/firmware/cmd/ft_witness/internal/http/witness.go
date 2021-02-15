@@ -111,5 +111,4 @@ func (s *Witness) Poll(ctx context.Context) error {
 		s.gcp = cp
 		s.witnessLock.Unlock()
 	}
-	return nil
 }

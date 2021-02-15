@@ -39,6 +39,7 @@ import (
 const (
 	PublishTimestamp1       = "2020-11-24 10:00:00+00:00"
 	PublishTimestamp2       = "2020-11-24 10:15:00+00:00"
+	PublishTimestamp3       = "2021-02-16 10:11:16:00+00:00"
 	PublishMalwareTimestamp = "2020-11-24 10:30:00+00:00"
 
 	GoodFirmware   = "../testdata/firmware/dummy_device/example.wasm"
@@ -112,6 +113,7 @@ func TestFTIntegration(t *testing.T) {
 		}, {
 			desc: "Force flashing device (init)",
 			step: func() error {
+				<-time.After(5 * time.Second)
 				return i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
 					WitnessURL:    wAddr,
@@ -143,6 +145,7 @@ func TestFTIntegration(t *testing.T) {
 		}, {
 			desc: "Flashing device (update)",
 			step: func() error {
+				<-time.After(5 * time.Second)
 				return i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
 					WitnessURL:    wAddr,
@@ -271,6 +274,32 @@ func TestFTIntegration(t *testing.T) {
 					t.Fatal("Monitor didn't spot logged malware")
 				}
 
+				return nil
+			},
+		}, {
+			desc: "Witness checkpoint is greater then published firmware",
+			step: func() error {
+				if err := i_publish.Main(ctx, i_publish.PublishOpts{
+					LogURL:     pAddr,
+					DeviceID:   "dummy",
+					BinaryPath: GoodFirmware,
+					Timestamp:  PublishTimestamp3,
+					Revision:   3,
+					OutputPath: "",
+				}); err != nil {
+					t.Fatalf("Failed to publish new bundle: %q", err)
+				}
+				<-time.After(5 * time.Second)
+
+				if err := i_flash.Main(i_flash.FlashOpts{
+					LogURL:        pAddr,
+					WitnessURL:    wAddr,
+					DeviceID:      "dummy",
+					UpdateFile:    updatePath,
+					DeviceStorage: devStoragePath,
+				}); err != nil {
+					t.Fatalf("Failed to flash malware update onto device: %q", err)
+				}
 				return nil
 			},
 		},

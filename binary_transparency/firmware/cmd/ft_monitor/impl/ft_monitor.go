@@ -77,7 +77,8 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 	cpc, cperrc := follow.Checkpoints(ctx, opts.PollInterval, latestCP)
 	ec, eerrc := follow.Entries(ctx, cpc, head)
 
-	for entry := range ec {
+	for {
+		var entry client.LogEntry
 		select {
 		case err = <-cperrc:
 			return err
@@ -85,7 +86,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 			return err
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
+		case entry = <-ec:
 		}
 
 		stmt := entry.Value

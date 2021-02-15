@@ -179,6 +179,7 @@ func (c *Claimant) VerifySignature(stype api.StatementType, stmt []byte, signatu
 	return nil
 }
 
+// ClaimantForType returns the relevant Claimant for the given Statement type.
 func ClaimantForType(t api.StatementType) (*Claimant, error) {
 	switch t {
 	case api.FirmwareMetadataType:
@@ -186,6 +187,6 @@ func ClaimantForType(t api.StatementType) (*Claimant, error) {
 	case api.MalwareStatementType:
 		return &AnnotatorMalware, nil
 	default:
-		return nil, fmt.Errorf("Unknown type %v", t)
+		return nil, fmt.Errorf("Unknown Claimant type %v", t)
 	}
 }

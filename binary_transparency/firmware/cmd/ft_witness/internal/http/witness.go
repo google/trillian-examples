@@ -92,13 +92,14 @@ func (s *Witness) Poll(ctx context.Context) error {
 	glog.Infof("Polling FT log %q...", ftURL)
 	cpc, cperrc := follow.Checkpoints(ctx, s.pollInterval, s.gcp)
 
-	for cp := range cpc {
+	for {
+		var cp api.LogCheckpoint
 		select {
 		case err = <-cperrc:
 			return err
 		case <-ctx.Done():
 			return ctx.Err()
-		default:
+		case cp = <-cpc:
 		}
 
 		s.witnessLock.Lock()

@@ -57,7 +57,7 @@ func TestBundleForUpdate(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			imgHash := sha512.Sum512(test.img)
-			err := verify.BundleForUpdate([]byte(goldenProofBundle), imgHash[:], dc, proof)
+			_, err := verify.BundleForUpdate([]byte(goldenProofBundle), imgHash[:], dc, proof)
 			if (err != nil) != test.wantErr {
 				var lve logverifier.RootMismatchError
 				if errors.As(err, &lve) {

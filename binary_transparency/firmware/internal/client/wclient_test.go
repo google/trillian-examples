@@ -60,7 +60,7 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			wc := WitnessClient{LogURL: tsURL}
+			wc := WitnessClient{URL: tsURL}
 			cp, err := wc.GetWitnessCheckpoint()
 			switch {
 			case err != nil && !test.wantErr:

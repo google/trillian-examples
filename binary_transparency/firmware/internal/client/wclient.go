@@ -27,13 +27,13 @@ import (
 
 // WitnessClient is an HTTP client for the FT witness.
 type WitnessClient struct {
-	// LogURL is the base URL for the FT witness.
-	LogURL *url.URL
+	// URL is the base URL for the FT witness.
+	URL *url.URL
 }
 
 // GetWitnessCheckpoint returns a checkpoint from witness server
 func (c WitnessClient) GetWitnessCheckpoint() (*api.LogCheckpoint, error) {
-	u, err := c.LogURL.Parse(api.WitnessGetCheckpoint)
+	u, err := c.URL.Parse(api.WitnessGetCheckpoint)
 	if err != nil {
 		return nil, err
 	}

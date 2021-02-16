@@ -82,8 +82,8 @@ func Main(opts FlashOpts) error {
 			glog.Warning(err)
 		}
 	}
-
-	if err := verifyUpdate(c, up, dev); err != nil {
+	pb, err := verifyUpdate(c, up, dev)
+	if err != nil {
 		err := fmt.Errorf("failed to validate update: %w", err)
 		if !opts.Force {
 			return err
@@ -96,9 +96,9 @@ func Main(opts FlashOpts) error {
 		if err != nil {
 			return fmt.Errorf("witness_url is invalid: %w", err)
 		}
-		wc := client.WitnessClient{LogURL: wURL}
+		wc := client.WitnessClient{URL: wURL}
 
-		if err := verifyWitness(c, wc, up); err != nil {
+		if err := verifyWitness(c, pb, wc); err != nil {
 			err := fmt.Errorf("failed to verify update with witness: %w", err)
 			if !opts.Force {
 				return err
@@ -152,25 +152,27 @@ func getConsistencyFunc(c *client.ReadonlyClient) func(from, to uint64) ([][]byt
 	return cpFunc
 }
 
-// verifyUpdate checks that an update package is self-consistent.
-func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) error {
+// verifyUpdate checks that an update package is self-consistent and returns a verified proof bundle
+func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) (api.ProofBundle, error) {
+	var pb api.ProofBundle
+
 	// Get the consistency proof for the bundle
 	dc, err := dev.DeviceCheckpoint()
 	if err != nil {
-		return fmt.Errorf("failed to fetch the device checkpoint: %w", err)
+		return pb, fmt.Errorf("failed to fetch the device checkpoint: %w", err)
 	}
 
 	cpFunc := getConsistencyFunc(c)
 	fwHash := sha512.Sum512(up.FirmwareImage)
-	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc); err != nil {
-		return fmt.Errorf("failed to verify proof bundle: %w", err)
+	pb, err = verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc)
+	if err != nil {
+		return pb, fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
-	return nil
+	return pb, nil
 }
 
 // verifyWitness checks that an update package is consistent with witness
-func verifyWitness(c *client.ReadonlyClient, wc client.WitnessClient, up api.UpdatePackage) error {
-
+func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, wc client.WitnessClient) error {
 	wcp, err := wc.GetWitnessCheckpoint()
 	if err != nil {
 		return fmt.Errorf("failed to fetch the witness checkpoint: %w", err)
@@ -180,7 +182,7 @@ func verifyWitness(c *client.ReadonlyClient, wc client.WitnessClient, up api.Upd
 		return fmt.Errorf("No witness checkpoint to verify")
 	}
 	cpFunc := getConsistencyFunc(c)
-	if err := verify.BundleValidateWitness(up.ProofBundle, (*wcp), cpFunc); err != nil {
+	if err := verify.BundleValidateWitness(pb, (*wcp), cpFunc); err != nil {
 		return fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
 	return nil

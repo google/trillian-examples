@@ -31,6 +31,7 @@ import (
 	i_flash "github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/impl"
 	i_monitor "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_monitor/impl"
 	i_personality "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/impl"
+	i_witness "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_witness/impl"
 	i_modify "github.com/google/trillian-examples/binary_transparency/firmware/cmd/hacker/modify_bundle/impl"
 	i_publish "github.com/google/trillian-examples/binary_transparency/firmware/cmd/publisher/impl"
 )
@@ -38,6 +39,7 @@ import (
 const (
 	PublishTimestamp1       = "2020-11-24 10:00:00+00:00"
 	PublishTimestamp2       = "2020-11-24 10:15:00+00:00"
+	PublishTimestamp3       = "2021-02-16 10:00:00+00:00"
 	PublishMalwareTimestamp = "2020-11-24 10:30:00+00:00"
 
 	GoodFirmware   = "../testdata/firmware/dummy_device/example.wasm"
@@ -99,6 +101,7 @@ func TestFTIntegration(t *testing.T) {
 			step: func() error {
 				return i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
+					WitnessURL:    "",
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
@@ -129,6 +132,7 @@ func TestFTIntegration(t *testing.T) {
 			step: func() error {
 				return i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
+					WitnessURL:    "",
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
@@ -229,10 +233,12 @@ func TestFTIntegration(t *testing.T) {
 					t.Fatalf("Failed to log malware: %q", err)
 				}
 
+				<-time.After(5 * time.Second)
 				// Now flash the bundle normally, it will install because it's been logged
 				// and so is now discoverable.
 				if err := i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
+					WitnessURL:    "",
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
@@ -252,6 +258,49 @@ func TestFTIntegration(t *testing.T) {
 					t.Fatal("Monitor didn't spot logged malware")
 				}
 
+				return nil
+			},
+		}, {
+			desc: "Firmware update with witness verification",
+			step: func() error {
+				// Start up the witness:
+				wHost := "localhost:43565"
+				wAddr := fmt.Sprintf("http://%s", wHost)
+				wCtx, wCancel := context.WithCancel(context.Background())
+				wErrChan := make(chan error)
+				defer wCancel()
+				go func() {
+					if err := runWitness(wCtx, t, pAddr, wHost); err != nil {
+						pErrChan <- err
+					}
+					close(wErrChan)
+				}()
+
+				// Wait for few seconds before starting the test
+				<-time.After(2 * time.Second)
+				if err := i_publish.Main(ctx, i_publish.PublishOpts{
+					LogURL:     pAddr,
+					DeviceID:   "dummy",
+					BinaryPath: GoodFirmware,
+					Timestamp:  PublishTimestamp3,
+					Revision:   3,
+					OutputPath: updatePath,
+				}); err != nil {
+					t.Fatalf("Failed to publish new bundle: %q", err)
+				}
+
+				// Wait witness to view the device checkpoint
+				<-time.After(5 * time.Second)
+
+				if err := i_flash.Main(i_flash.FlashOpts{
+					LogURL:        pAddr,
+					WitnessURL:    wAddr,
+					DeviceID:      "dummy",
+					UpdateFile:    updatePath,
+					DeviceStorage: devStoragePath,
+				}); err != nil {
+					t.Fatalf("witness verification failed: %q", err)
+				}
 				return nil
 			},
 		},
@@ -311,6 +360,22 @@ func runPersonality(ctx context.Context, t *testing.T, serverAddr string) error 
 		TrillianAddr:   *trillianAddr,
 		ConnectTimeout: 10 * time.Second,
 		STHRefresh:     time.Second,
+	})
+	if err != http.ErrServerClosed {
+		return err
+	}
+	return nil
+}
+
+func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string) error {
+	t.Helper()
+	r := t.TempDir()
+
+	err := i_witness.Main(ctx, i_witness.WitnessOpts{
+		ListenAddr:   serverAddr,
+		WSFile:       filepath.Join(r, "ft-witness.db"),
+		FtLogURL:     persAddr,
+		PollInterval: 5 * time.Second,
 	})
 	if err != http.ErrServerClosed {
 		return err

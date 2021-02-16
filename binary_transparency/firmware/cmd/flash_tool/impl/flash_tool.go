@@ -38,6 +38,7 @@ import (
 type FlashOpts struct {
 	DeviceID      string
 	LogURL        string
+	WitnessURL    string
 	UpdateFile    string
 	Force         bool
 	DeviceStorage string
@@ -81,13 +82,29 @@ func Main(opts FlashOpts) error {
 			glog.Warning(err)
 		}
 	}
-
-	if err := verifyUpdate(c, up, dev); err != nil {
+	pb, err := verifyUpdate(c, up, dev)
+	if err != nil {
 		err := fmt.Errorf("failed to validate update: %w", err)
 		if !opts.Force {
 			return err
 		}
 		glog.Warning(err)
+	}
+
+	if len(opts.WitnessURL) > 0 {
+		wURL, err := url.Parse(opts.WitnessURL)
+		if err != nil {
+			return fmt.Errorf("witness_url is invalid: %w", err)
+		}
+		wc := client.WitnessClient{URL: wURL}
+
+		if err := verifyWitness(c, pb, wc); err != nil {
+			err := fmt.Errorf("failed to verify update with witness: %w", err)
+			if !opts.Force {
+				return err
+			}
+			glog.Warning(err)
+		}
 	}
 
 	glog.Info("Update verified, about to apply to device...")
@@ -118,17 +135,12 @@ func readUpdateFile(path string) (api.UpdatePackage, error) {
 	return up, nil
 }
 
-// verifyUpdate checks that an update package is self-consistent.
-func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) error {
-	// Get the consistency proof for the bundle
-	dc, err := dev.DeviceCheckpoint()
-	if err != nil {
-		return fmt.Errorf("failed to fetch the device checkpoint: %w", err)
-	}
-
+// getConsistencyFunc executes on a given client context and returns a
+// consistency function.
+func getConsistencyFunc(c *client.ReadonlyClient) func(from, to uint64) ([][]byte, error) {
 	cpFunc := func(from, to uint64) ([][]byte, error) {
 		var cp [][]byte
-		if dc.TreeSize > 0 {
+		if from > 0 {
 			r, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: from, To: to})
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch consistency proof: %w", err)
@@ -137,9 +149,40 @@ func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.De
 		}
 		return cp, nil
 	}
+	return cpFunc
+}
 
+// verifyUpdate checks that an update package is self-consistent and returns a verified proof bundle
+func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) (api.ProofBundle, error) {
+	var pb api.ProofBundle
+
+	// Get the consistency proof for the bundle
+	dc, err := dev.DeviceCheckpoint()
+	if err != nil {
+		return pb, fmt.Errorf("failed to fetch the device checkpoint: %w", err)
+	}
+
+	cpFunc := getConsistencyFunc(c)
 	fwHash := sha512.Sum512(up.FirmwareImage)
-	if err := verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc); err != nil {
+	pb, err = verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc)
+	if err != nil {
+		return pb, fmt.Errorf("failed to verify proof bundle: %w", err)
+	}
+	return pb, nil
+}
+
+// verifyWitness checks that an update package is consistent with witness
+func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, wc client.WitnessClient) error {
+	wcp, err := wc.GetWitnessCheckpoint()
+	if err != nil {
+		return fmt.Errorf("failed to fetch the witness checkpoint: %w", err)
+	}
+
+	if wcp.TreeSize == 0 {
+		return fmt.Errorf("No witness checkpoint to verify")
+	}
+	cpFunc := getConsistencyFunc(c)
+	if err := verify.BundleValidateWitness(pb, (*wcp), cpFunc); err != nil {
 		return fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
 	return nil

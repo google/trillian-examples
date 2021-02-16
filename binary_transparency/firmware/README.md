@@ -82,9 +82,9 @@ unless they have been made discoverable via a verifiable log.
  - [X] Flash stores "proof bundle" on device for validation at boot time.
  - [X] Build simple monitor to tail the log and dump info from meta-data in realtime.
  - [X] Monitor is extended to validate firmware images hash
+ - [X] Integrated STH Witness support, as an optional feature
 
 Planned future enhancements:
- - [ ] Integrate STH Witness support.
  - [ ] Add support for emulated and real hardware, e.g. via QEmu.
 
 Running the Demo

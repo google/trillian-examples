@@ -35,6 +35,7 @@ import (
 var (
 	deviceID      = flag.String("device", "", "One of [dummy, armory]")
 	logURL        = flag.String("log_url", "http://localhost:8000", "Base URL of the log HTTP API")
+	witnessURL    = flag.String("witness_url", "", "URL to fetch the Witness")
 	updateFile    = flag.String("update_file", "", "File path to read the update package from")
 	force         = flag.Bool("force", false, "Ignore errors and force update")
 	deviceStorage = flag.String("device_storage", "", "Storage description string for selected device")
@@ -46,6 +47,7 @@ func main() {
 	if err := impl.Main(impl.FlashOpts{
 		DeviceID:      *deviceID,
 		LogURL:        *logURL,
+		WitnessURL:    *witnessURL,
 		UpdateFile:    *updateFile,
 		Force:         *force,
 		DeviceStorage: *deviceStorage,

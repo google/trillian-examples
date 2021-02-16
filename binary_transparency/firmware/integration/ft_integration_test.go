@@ -39,7 +39,7 @@ import (
 const (
 	PublishTimestamp1       = "2020-11-24 10:00:00+00:00"
 	PublishTimestamp2       = "2020-11-24 10:15:00+00:00"
-	PublishTimestamp3       = "2021-02-16 10:11:16:00+00:00"
+	PublishTimestamp3       = "2021-02-16 10:00:00+00:00"
 	PublishMalwareTimestamp = "2020-11-24 10:30:00+00:00"
 
 	GoodFirmware   = "../testdata/firmware/dummy_device/example.wasm"
@@ -79,20 +79,6 @@ func TestFTIntegration(t *testing.T) {
 	// TODO(al): make this wait until the personality is listening
 	<-time.After(5 * time.Second)
 
-	wHost := "localhost:43565"
-	wAddr := fmt.Sprintf("http://%s", wHost)
-	wErrChan := make(chan error)
-
-	go func() {
-		if err := runWitness(ctx, t, pAddr, wHost); err != nil {
-			pErrChan <- err
-		}
-		close(wErrChan)
-	}()
-
-	// Wait for few seconds before starting the test
-	<-time.After(2 * time.Second)
-
 	for _, step := range []struct {
 		desc       string
 		step       func() error
@@ -113,10 +99,9 @@ func TestFTIntegration(t *testing.T) {
 		}, {
 			desc: "Force flashing device (init)",
 			step: func() error {
-				<-time.After(5 * time.Second)
 				return i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
-					WitnessURL:    wAddr,
+					WitnessURL:    "",
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
@@ -145,10 +130,9 @@ func TestFTIntegration(t *testing.T) {
 		}, {
 			desc: "Flashing device (update)",
 			step: func() error {
-				<-time.After(5 * time.Second)
 				return i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
-					WitnessURL:    wAddr,
+					WitnessURL:    "",
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
@@ -254,7 +238,7 @@ func TestFTIntegration(t *testing.T) {
 				// and so is now discoverable.
 				if err := i_flash.Main(i_flash.FlashOpts{
 					LogURL:        pAddr,
-					WitnessURL:    wAddr,
+					WitnessURL:    "",
 					DeviceID:      "dummy",
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
@@ -277,18 +261,35 @@ func TestFTIntegration(t *testing.T) {
 				return nil
 			},
 		}, {
-			desc: "Witness checkpoint is greater then published firmware",
+			desc: "Firmware update with witness verification",
 			step: func() error {
+				// Start up the witness:
+				wHost := "localhost:43565"
+				wAddr := fmt.Sprintf("http://%s", wHost)
+				wCtx, wCancel := context.WithCancel(context.Background())
+				wErrChan := make(chan error)
+				defer wCancel()
+				go func() {
+					if err := runWitness(wCtx, t, pAddr, wHost); err != nil {
+						pErrChan <- err
+					}
+					close(wErrChan)
+				}()
+
+				// Wait for few seconds before starting the test
+				<-time.After(2 * time.Second)
 				if err := i_publish.Main(ctx, i_publish.PublishOpts{
 					LogURL:     pAddr,
 					DeviceID:   "dummy",
 					BinaryPath: GoodFirmware,
 					Timestamp:  PublishTimestamp3,
 					Revision:   3,
-					OutputPath: "",
+					OutputPath: updatePath,
 				}); err != nil {
 					t.Fatalf("Failed to publish new bundle: %q", err)
 				}
+
+				// Wait witness to view the device checkpoint
 				<-time.After(5 * time.Second)
 
 				if err := i_flash.Main(i_flash.FlashOpts{
@@ -298,7 +299,7 @@ func TestFTIntegration(t *testing.T) {
 					UpdateFile:    updatePath,
 					DeviceStorage: devStoragePath,
 				}); err != nil {
-					t.Fatalf("Failed to flash malware update onto device: %q", err)
+					t.Fatalf("witness verification failed: %q", err)
 				}
 				return nil
 			},

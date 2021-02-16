@@ -51,11 +51,6 @@ func Main(opts FlashOpts) error {
 	}
 	c := &client.ReadonlyClient{LogURL: logURL}
 
-	wURL, err := url.Parse(opts.WitnessURL)
-	if err != nil {
-		return fmt.Errorf("witness_url is invalid: %w", err)
-	}
-	wc := client.WitnessClient{LogURL: wURL}
 	up, err := readUpdateFile(opts.UpdateFile)
 	if err != nil {
 		return fmt.Errorf("Failed to read update package file: %w", err)
@@ -95,13 +90,23 @@ func Main(opts FlashOpts) error {
 		}
 		glog.Warning(err)
 	}
-	if err := verifyWitness(c, wc, up); err != nil {
-		err := fmt.Errorf("failed to verify update with witness: %w", err)
-		if !opts.Force {
-			return err
+
+	if len(opts.WitnessURL) > 0 {
+		wURL, err := url.Parse(opts.WitnessURL)
+		if err != nil {
+			return fmt.Errorf("witness_url is invalid: %w", err)
 		}
-		glog.Warning(err)
+		wc := client.WitnessClient{LogURL: wURL}
+
+		if err := verifyWitness(c, wc, up); err != nil {
+			err := fmt.Errorf("failed to verify update with witness: %w", err)
+			if !opts.Force {
+				return err
+			}
+			glog.Warning(err)
+		}
 	}
+
 	glog.Info("Update verified, about to apply to device...")
 
 	if err := dev.ApplyUpdate(up); err != nil {
@@ -165,14 +170,15 @@ func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.De
 
 // verifyWitness checks that an update package is consistent with witness
 func verifyWitness(c *client.ReadonlyClient, wc client.WitnessClient, up api.UpdatePackage) error {
+
 	wcp, err := wc.GetWitnessCheckpoint()
 	if err != nil {
 		return fmt.Errorf("failed to fetch the witness checkpoint: %w", err)
 	}
+
 	if wcp.TreeSize == 0 {
 		return fmt.Errorf("No witness checkpoint to verify")
 	}
-
 	cpFunc := getConsistencyFunc(c)
 	if err := verify.BundleValidateWitness(up.ProofBundle, (*wcp), cpFunc); err != nil {
 		return fmt.Errorf("failed to verify proof bundle: %w", err)

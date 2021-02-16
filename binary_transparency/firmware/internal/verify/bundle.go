@@ -64,17 +64,17 @@ func BundleValidateWitness(bundleRaw []byte, wc api.LogCheckpoint, cpFunc Consis
 	if err := json.Unmarshal(bundleRaw, &pb); err != nil {
 		return fmt.Errorf("failed to parse proof bundle: %w", err)
 	}
+	fmt.Printf("Witness TreeSize=%d, Inclusion Index=%d \n", wc.TreeSize, pb.InclusionProof.LeafIndex)
+
 	if wc.TreeSize < pb.InclusionProof.LeafIndex {
 		return fmt.Errorf("witness verification failed wcp treesize(%d)<device cp index(%d)", wc.TreeSize, pb.InclusionProof.LeafIndex)
 	}
-	var fromts, tots uint64
-	var root1, root2 []byte
-	if wc.TreeSize < pb.Checkpoint.TreeSize {
-		fromts = wc.TreeSize
-		tots = pb.Checkpoint.TreeSize
-		root1 = wc.RootHash
-		root2 = pb.Checkpoint.RootHash
-	} else {
+
+	fromts := wc.TreeSize
+	tots := pb.Checkpoint.TreeSize
+	root1 := wc.RootHash
+	root2 := pb.Checkpoint.RootHash
+	if wc.TreeSize > pb.Checkpoint.TreeSize {
 		fromts = pb.Checkpoint.TreeSize
 		tots = wc.TreeSize
 		root1 = pb.Checkpoint.RootHash

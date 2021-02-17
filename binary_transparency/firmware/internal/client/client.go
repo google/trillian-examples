@@ -144,6 +144,7 @@ func (c ReadonlyClient) GetInclusion(statement []byte, cp api.LogCheckpoint) (ap
 }
 
 // GetManifestEntryAndProof returns the manifest and proof from the server, for given Index and TreeSize
+// TODO(mhutchinson): Rename this as leaf values can also be annotations.
 func (c ReadonlyClient) GetManifestEntryAndProof(request api.GetFirmwareManifestRequest) (*api.InclusionProof, error) {
 	url := fmt.Sprintf("%s/at/%d/in-tree-of/%d", api.HTTPGetManifestEntryAndProof, request.Index, request.TreeSize)
 

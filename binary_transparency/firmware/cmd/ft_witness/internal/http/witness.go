@@ -27,7 +27,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 	"github.com/gorilla/mux"
 )
 
@@ -83,57 +82,33 @@ func (s *Witness) RegisterHandlers(r *mux.Router) {
 // Poll periodically polls the FT log for updating the witness checkpoint.
 // It only returns on error (when it doesn't start its own polling thread)
 func (s *Witness) Poll(ctx context.Context) error {
-	ticker := time.NewTicker(s.pollInterval)
 	ftURL, err := url.Parse(s.logURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse FT log URL: %w", err)
 	}
-	glog.Infof("Polling FT log %q...", ftURL)
 	c := client.ReadonlyClient{LogURL: ftURL}
-	lv := verify.NewLogVerifier()
-	wcp := s.gcp
-	for {
+	follow := client.NewLogFollower(c)
 
+	glog.Infof("Polling FT log %q...", ftURL)
+	cpc, cperrc := follow.Checkpoints(ctx, s.pollInterval, s.gcp)
+
+	for {
+		var cp api.LogCheckpoint
 		select {
-		case <-ticker.C:
-			//
+		case err = <-cperrc:
+			return err
 		case <-ctx.Done():
 			return ctx.Err()
+		case cp = <-cpc:
 		}
-		cp, err := c.GetCheckpoint()
-		if err != nil {
-			glog.Warningf("Failed to get logcheckpoint: %q", err)
-			continue
-		}
-		if cp.TreeSize <= wcp.TreeSize {
-			continue
-		}
-		glog.V(1).Infof("Got newer checkpoint %s", cp)
-		// Perform consistency check only for non-zero saved witness tree size
-		if wcp.TreeSize != 0 {
-			consistency, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: wcp.TreeSize, To: cp.TreeSize})
-			if err != nil {
-				glog.Warningf("Failed to fetch the Consistency: %q", err)
-				continue
-			}
-			glog.V(2).Infof("Printing the latest Consistency Proof Information")
-			glog.V(2).Infof("Consistency Proof = %x", consistency.Proof)
 
-			//Verify the fetched consistency proof
-			if err := lv.VerifyConsistencyProof(int64(wcp.TreeSize), int64(cp.TreeSize), wcp.RootHash, cp.RootHash, consistency.Proof); err != nil {
-				// Verification of Consistency Proof failed!!
-				glog.Warningf("Failed verification of Consistency proof %q", err)
-				continue
-			}
-			glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)
-		}
 		s.witnessLock.Lock()
-		if err = s.ws.StoreCP(*cp); err != nil {
+		if err = s.ws.StoreCP(cp); err != nil {
 			glog.Warningf("Failed to save new logcheckpoint into store: %q", err)
 			s.witnessLock.Unlock()
 			continue
 		}
-		s.gcp = (*cp)
+		s.gcp = cp
 		s.witnessLock.Unlock()
 	}
 }

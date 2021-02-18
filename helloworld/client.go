@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC
+// Copyright 2021 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,34 +27,41 @@ import (
 
 // Personality is the interface to the the Trillian log.
 type Personality interface {
-	// Append stores an entry in the log.
-	Append(context.Context, []byte) p.Chkpt
+	// Append stores an entry in the log and, once it is there, returns a
+	// new checkpoint that commits to the new entry (in addition to all
+	// previous ones).
+	Append(context.Context, []byte) (*p.Chkpt, error)
 
-	// ProveIncl proves the inclusion of a given entry.
-	ProveIncl(context.Context, p.Chkpt, []byte) *trillian.Proof
+	// ProveIncl proves the inclusion of a given entry.  It is the job of
+	// the client to verify this inclusion proof in order to convince
+	// itself that the entry really has been included in the log.
+	ProveIncl(context.Context, *p.Chkpt, []byte) (*trillian.Proof, error)
 
 	// UpdateChkpt provides a new checkpoint and proves it is consistent
-	// with an old one.
-	UpdateChkpt(context.Context, p.Chkpt) (p.Chkpt, *trillian.Proof)
+	// with an old one.  Again, it is the job of the client to verify this
+	// consistency proof.
+	UpdateChkpt(context.Context, *p.Chkpt) (*p.Chkpt, *trillian.Proof, error)
 }
 
 // A client is a verifier that maintains a checkpoint as state.
 type Client struct {
 	v      logverifier.LogVerifier
-	chkpt  p.Chkpt
+	chkpt  *p.Chkpt
 	person Personality
 }
 
 // NewClient creates a new client with an empty checkpoint and a given
-// personality to talk to.
+// personality to talk to.  In real usage, a client should persist this
+// checkpoint across different runs to ensure consistency.
 func NewClient(prsn Personality) Client {
-	c := Client{person: prsn}
 	v := logverifier.New(hasher.DefaultHasher)
-	c.v = v
 	var rootHash []byte
-	chkpt := p.Chkpt{LogSize: 0, RootHash: rootHash}
-	c.chkpt = chkpt
-	return c
+	chkpt := &p.Chkpt{LogSize: 0, RootHash: rootHash}
+	return Client{
+		person: prsn,
+		v:      v,
+		chkpt:  chkpt,
+	}
 }
 
 // VerIncl allows the client to check inclusion of a given entry.
@@ -71,13 +78,10 @@ func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 }
 
 // UpdateChkpt allows a client to update its stored checkpoint.
-func (c Client) UpdateChkpt(chkptNew p.Chkpt, pf *trillian.Proof) bool {
+func (c Client) UpdateChkpt(chkptNew *p.Chkpt, pf *trillian.Proof) bool {
 	// If there is no checkpoint then just use this one no matter what.
 	if c.chkpt.LogSize != 0 {
 		// Else make sure this new checkpoint is consistent with the current one.
-		if pf == nil {
-			return false
-		}
 		hashes := pf.GetHashes()
 		if err := c.v.VerifyConsistencyProof(c.chkpt.LogSize, chkptNew.LogSize,
 			c.chkpt.RootHash, chkptNew.RootHash, hashes); err != nil {

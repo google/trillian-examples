@@ -1,12 +1,19 @@
 # helloworld
-This is a very basic example of how to use
+This is a basic example of how to use
 [Trillian](http://github.com/google/trillian) to implement the operations
-needed for a verifiable log.  It intentionally avoids
+needed for a verifiable log.  This means providing instantiations for two
+different actors:
+- A **personality**, which acts a front-end for the (Trillian) log.  In CT,
+  for example, the personality is CTFE.
+- A **client**, which interfaces with the personality; in Trillian, the client
+  should never talk to the log directly.  In CT, for example, the client might
+  be an individual browser or a monitor.
+
+This example intentionally avoids
 defining any interface between the client and personality, leaving only the
 gRPC interface between the personality and the (Trillian) log.  In a real
 deployment it would be necessary to define an interface between the client
-and the personality, and thus implement a "real" client on top of the
-current one.
+and the personality, for example a RESTful API or gRPC.
 
 In order to run the tests, it is necessary to first have a Trillian log
 running, which itself means it is necessary to have MySQL or MariaDB

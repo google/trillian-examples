@@ -133,7 +133,7 @@ func (c *Claimant) getPublicKey() (*rsa.PublicKey, error) {
 	return pubKey, nil
 }
 
-//SignMessage is used to sign the Statement
+// SignMessage is used to sign the Statement
 func (c *Claimant) SignMessage(stype api.StatementType, msg []byte) ([]byte, error) {
 	bs := make([]byte, len(msg)+1)
 	bs[0] = byte(stype)
@@ -156,7 +156,7 @@ func (c *Claimant) SignMessage(stype api.StatementType, msg []byte) ([]byte, err
 	return signature, nil
 }
 
-//VerifySignature is used to verify the incoming message
+// VerifySignature is used to verify the incoming message
 func (c *Claimant) VerifySignature(stype api.StatementType, stmt []byte, signature []byte) error {
 	// Get the required key for signing
 	key, err := c.getPublicKey()

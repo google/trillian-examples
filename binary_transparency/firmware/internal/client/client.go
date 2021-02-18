@@ -100,6 +100,23 @@ func (c SubmitClient) PublishFirmware(manifest, image []byte) error {
 	return nil
 }
 
+// PublishAnnotationMalware publishes the serialized annotation to the log.
+func (c SubmitClient) PublishAnnotationMalware(stmt []byte) error {
+	u, err := c.LogURL.Parse(api.HTTPAddAnnotationMalware)
+	if err != nil {
+		return err
+	}
+	glog.V(1).Infof("Submitting to %v", u.String())
+	r, err := http.Post(u.String(), "application/json", bytes.NewBuffer(stmt))
+	if err != nil {
+		return fmt.Errorf("failed to publish to log endpoint (%s): %w", u, err)
+	}
+	if r.StatusCode != http.StatusOK {
+		return errFromResponse("failed to submit to log", r)
+	}
+	return nil
+}
+
 // GetCheckpoint returns a new LogCheckPoint from the server.
 func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 	u, err := c.LogURL.Parse(api.HTTPGetRoot)

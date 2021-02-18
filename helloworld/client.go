@@ -25,7 +25,7 @@ import (
 	p "github.com/google/trillian-examples/helloworld/personality"
 )
 
-// Personality is the interface to the the Trillian log.
+// Personality is the front-end for the Trillian log.
 type Personality interface {
 	// Append stores an entry in the log and, once it is there, returns a
 	// new checkpoint that commits to the new entry (in addition to all
@@ -66,9 +66,6 @@ func NewClient(prsn Personality) Client {
 
 // VerIncl allows the client to check inclusion of a given entry.
 func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
-	if pf == nil {
-		return false
-	}
 	leafHash := hasher.DefaultHasher.HashLeaf(entry)
 	if err := c.v.VerifyInclusionProof(pf.LeafIndex, c.chkpt.LogSize,
 		pf.Hashes, c.chkpt.RootHash, leafHash); err != nil {
@@ -77,7 +74,9 @@ func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 	return true
 }
 
-// UpdateChkpt allows a client to update its stored checkpoint.
+// UpdateChkpt allows a client to update its stored checkpoint.  In a real use
+// case it would be important for the client to check the signature contained
+// in the checkpoint before verifying consistency.
 func (c Client) UpdateChkpt(chkptNew *p.Chkpt, pf *trillian.Proof) bool {
 	// If there is no checkpoint then just use this one no matter what.
 	if c.chkpt.LogSize != 0 {

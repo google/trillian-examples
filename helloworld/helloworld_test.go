@@ -43,11 +43,11 @@ func TestAppend(t *testing.T) {
 		ctx := context.Background()
 		personality, err := p.NewPersonality(*trillianAddr, *treeID)
 		if err != nil {
-			panic(err)
+			t.Fatalf(err.Error())
 		}
 		chkptOld, err := personality.GetChkpt(ctx)
 		if err != nil {
-			panic(err)
+			t.Fatalf(err.Error())
 		}
 		// Add a random entry so we can be sure it's new.
 		entry := make([]byte, 10)
@@ -55,7 +55,7 @@ func TestAppend(t *testing.T) {
 		rand.Read(entry)
 		chkptNew, err := personality.Append(ctx, entry)
 		if err != nil {
-			panic(err)
+			t.Fatalf(err.Error())
 		}
 		if chkptNew.LogSize <= chkptOld.LogSize {
 			t.Errorf("the log didn't grow properly in %v", name)
@@ -76,12 +76,12 @@ func TestUpdate(t *testing.T) {
 		ctx := context.Background()
 		personality, err := p.NewPersonality(*trillianAddr, *treeID)
 		if err != nil {
-			panic(err)
+			t.Fatalf(err.Error())
 		}
 		client := NewClient(personality)
 		chkpt, err := personality.GetChkpt(ctx)
 		if err != nil {
-			panic(err)
+			t.Fatalf(err.Error())
 		}
 		client.chkpt = chkpt
 		entry := make([]byte, 10)
@@ -90,7 +90,7 @@ func TestUpdate(t *testing.T) {
 		personality.Append(ctx, entry)
 		chkptNew, pf, err := personality.UpdateChkpt(ctx, chkpt)
 		if err != nil {
-			panic(err)
+			t.Fatalf(err.Error())
 		}
 		got := client.UpdateChkpt(chkptNew, pf)
 		if !got {
@@ -139,7 +139,7 @@ func TestIncl(t *testing.T) {
 			ctx := context.Background()
 			personality, err := p.NewPersonality(*trillianAddr, *treeID)
 			if err != nil {
-				panic(err)
+				t.Fatalf(err.Error())
 			}
 			var chkpt *p.Chkpt
 			// Append all the entries we plan to add, folding in
@@ -150,7 +150,7 @@ func TestIncl(t *testing.T) {
 				chkpt, err = personality.Append(ctx, bs)
 				// If the checkpoint didn't update that's a problem.
 				if err != nil {
-					t.Errorf(err.Error())
+					t.Fatalf(err.Error())
 				}
 			}
 			client := NewClient(personality)
@@ -164,8 +164,11 @@ func TestIncl(t *testing.T) {
 				// Ignore error here since it's okay if we
 				// don't have a valid inclusion proof (testing
 				// on entries that aren't there).
-				pf, _ := personality.ProveIncl(ctx, chkpt, bs)
-				got := client.VerIncl(bs, pf)
+				pf, err := personality.ProveIncl(ctx, chkpt, bs)
+				got := false
+				if err == nil {
+					got = client.VerIncl(bs, pf)
+				}
 				if got != test.wants[i] {
 					t.Errorf("%v: got %v, want %v", test.name, got, test.wants[i])
 				}

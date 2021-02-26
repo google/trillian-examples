@@ -155,7 +155,7 @@ func tilePath(root string, level, index uint64) (string, string) {
 		root,
 		"tile",
 		fmt.Sprintf("%02x", level),
-		fmt.Sprintf("%0x", (index >> 24)),
+		fmt.Sprintf("%04x", (index >> 24)),
 		fmt.Sprintf("%02x", (index>>16)&0xff),
 		fmt.Sprintf("%02x", (index>>8)&0xff),
 		fmt.Sprintf("%02x", index&0xff),

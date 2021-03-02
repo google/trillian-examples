@@ -15,8 +15,15 @@
 package fs
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestSeqPath(t *testing.T) {
@@ -148,5 +155,96 @@ func TestTilePath(t *testing.T) {
 				t.Errorf("got file %q want %q", gotFile, test.wantFile)
 			}
 		})
+	}
+}
+
+func TestCreate(t *testing.T) {
+	empty := []byte("empty")
+
+	d := filepath.Join(t.TempDir(), "storage")
+	s, err := Create(d, empty)
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+
+	ls := s.LogState()
+	if got, want := ls.Size, uint64(0); got != want {
+		t.Errorf("New logstate has size %d, want %d", got, want)
+	}
+	if got, want := ls.RootHash, empty; !bytes.Equal(got, want) {
+		t.Errorf("New logstate roothash %x, want %x", got, want)
+	}
+	if got, want := len(ls.Hashes), 0; got != want {
+		t.Errorf("New logstate hashes is size %d, want %d", got, want)
+	}
+}
+
+func TestCreateForExistingDirectory(t *testing.T) {
+	// This dir will already exist since the test framework just created it.
+	d := t.TempDir()
+
+	_, err := Create(d, []byte("empty"))
+	if !errors.Is(err, os.ErrExist) {
+		t.Fatalf("Create = %v, want already exists error", err)
+	}
+}
+
+func TestNew(t *testing.T) {
+	empty := []byte("empty")
+
+	d := filepath.Join(t.TempDir(), "storage")
+	_, err := Create(d, empty)
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+
+	if _, err := New(d); err != nil {
+		t.Fatalf("New = %v, want no error", err)
+	}
+}
+
+func TestNewForNonExistentDir(t *testing.T) {
+	if _, err := New("5oi4egdf93uyjigedfk"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("New = %v, want not exists error", err)
+	}
+}
+
+func TestNewWithCorruptState(t *testing.T) {
+	empty := []byte("empty")
+
+	d := filepath.Join(t.TempDir(), "storage")
+	_, err := Create(d, empty)
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+
+	if err := ioutil.WriteFile(filepath.Join(d, statePath), []byte("][bananas!"), 0644); err != nil {
+		t.Fatalf("Failed to write corrupt log state file; %q", err)
+	}
+
+	if _, err := New(d); err == nil {
+		t.Fatal("New = nil, want err")
+	}
+}
+func TestUpdateState(t *testing.T) {
+	empty := []byte("empty")
+
+	d := filepath.Join(t.TempDir(), "storage")
+	s, err := Create(d, empty)
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+
+	ls := s.LogState()
+	ls.Size++
+
+	if err := s.UpdateState(ls); err != nil {
+		t.Fatalf("UpdateState = %v", err)
+	}
+
+	ls2 := s.LogState()
+
+	if diff := cmp.Diff(ls2, ls); len(diff) != 0 {
+		t.Errorf("Updated state had diff %s", diff)
 	}
 }

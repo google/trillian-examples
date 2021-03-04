@@ -90,10 +90,9 @@ func (s *TreeStorage) createTree(ctx context.Context, conn grpc.ClientConnInterf
 	}
 
 	adminClient := trillian.NewTrillianAdminClient(conn)
-	mapClient := trillian.NewTrillianMapClient(conn)
 	logClient := trillian.NewTrillianLogClient(conn)
 
-	return client.CreateAndInitTree(ctx, ctr, adminClient, mapClient, logClient)
+	return client.CreateAndInitTree(ctx, ctr, adminClient, logClient)
 }
 
 func (s *TreeStorage) getTree() (*trillian.Tree, error) {

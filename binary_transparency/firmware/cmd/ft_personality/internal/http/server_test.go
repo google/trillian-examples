@@ -102,11 +102,12 @@ func TestAddFirmware(t *testing.T) {
 
 	s := string(js)
 	for _, test := range []struct {
-		desc         string
-		body         string
-		trillianErr  error
-		wantManifest string
-		wantStatus   int
+		desc             string
+		body             string
+		trillianErr      error
+		wantTrillianCall bool
+		wantManifest     string
+		wantStatus       int
 	}{
 		{
 			desc:       "malformed request",
@@ -126,8 +127,9 @@ func TestAddFirmware(t *testing.T) {
 				"--mimeisfunlolol--",
 				"",
 			}, "\n"),
-			wantManifest: s,
-			wantStatus:   http.StatusOK,
+			wantTrillianCall: true,
+			wantManifest:     s,
+			wantStatus:       http.StatusOK,
 		}, {
 			desc: "firmware image does not match manifest",
 			body: strings.Join([]string{"--mimeisfunlolol",
@@ -158,9 +160,10 @@ func TestAddFirmware(t *testing.T) {
 				"--mimeisfunlolol--",
 				"",
 			}, "\n"),
-			wantManifest: s,
-			trillianErr:  errors.New("boom"),
-			wantStatus:   http.StatusInternalServerError,
+			wantTrillianCall: true,
+			wantManifest:     s,
+			trillianErr:      errors.New("boom"),
+			wantStatus:       http.StatusInternalServerError,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -168,8 +171,10 @@ func TestAddFirmware(t *testing.T) {
 			mt := NewMockTrillian(ctrl)
 			server := NewServer(mt, FakeCAS{})
 
-			mt.EXPECT().AddSignedStatement(gomock.Any(), gomock.Eq([]byte(test.wantManifest))).
-				Return(test.trillianErr)
+			if test.wantTrillianCall {
+				mt.EXPECT().AddSignedStatement(gomock.Any(), gomock.Eq([]byte(test.wantManifest))).
+					Return(test.trillianErr)
+			}
 
 			r := mux.NewRouter()
 			server.RegisterHandlers(r)
@@ -234,11 +239,13 @@ func TestGetConsistency(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
 			server := NewServer(mt, FakeCAS{})
-			mt.EXPECT().Root().
+			mt.EXPECT().Root().AnyTimes().
 				Return(&root)
 
-			mt.EXPECT().ConsistencyProof(gomock.Any(), gomock.Eq(test.wantFrom), gomock.Eq(test.wantTo)).
-				Return(test.trillianProof, test.trillianErr)
+			if test.trillianProof != nil || test.trillianErr != nil {
+				mt.EXPECT().ConsistencyProof(gomock.Any(), gomock.Eq(test.wantFrom), gomock.Eq(test.wantTo)).
+					Return(test.trillianProof, test.trillianErr)
+			}
 
 			r := mux.NewRouter()
 			server.RegisterHandlers(r)
@@ -320,11 +327,13 @@ func TestGetManifestEntries(t *testing.T) {
 			mt := NewMockTrillian(ctrl)
 			server := NewServer(mt, FakeCAS{})
 
-			mt.EXPECT().Root().
+			mt.EXPECT().Root().AnyTimes().
 				Return(&root)
 
-			mt.EXPECT().FirmwareManifestAtIndex(gomock.Any(), gomock.Eq(test.wantIndex), gomock.Eq(test.wantSize)).
-				Return(test.trillianData, test.trillianProof, test.trillianErr)
+			if test.trillianData != nil || test.trillianErr != nil {
+				mt.EXPECT().FirmwareManifestAtIndex(gomock.Any(), gomock.Eq(test.wantIndex), gomock.Eq(test.wantSize)).
+					Return(test.trillianData, test.trillianProof, test.trillianErr)
+			}
 
 			r := mux.NewRouter()
 			server.RegisterHandlers(r)
@@ -395,11 +404,13 @@ func TestGetInclusionProofByHash(t *testing.T) {
 			mt := NewMockTrillian(ctrl)
 			server := NewServer(mt, FakeCAS{})
 
-			mt.EXPECT().Root().
+			mt.EXPECT().Root().AnyTimes().
 				Return(&root)
 
-			mt.EXPECT().InclusionProofByHash(gomock.Any(), gomock.Eq(test.hash), gomock.Eq(root.TreeSize)).
-				Return(test.trillianIndex, test.trillianProof, test.trillianErr)
+			if test.trillianProof != nil || test.trillianErr != nil {
+				mt.EXPECT().InclusionProofByHash(gomock.Any(), gomock.Eq(test.hash), gomock.Eq(root.TreeSize)).
+					Return(test.trillianIndex, test.trillianProof, test.trillianErr)
+			}
 
 			r := mux.NewRouter()
 			server.RegisterHandlers(r)

@@ -19,7 +19,7 @@ require (
 	github.com/golang/protobuf v1.4.3
 	github.com/golangci/golangci-lint v1.36.0 // indirect
 	github.com/google/certificate-transparency-go v1.0.22-0.20200708065856-b8561831ac3c // indirect
-	github.com/google/go-cmp v0.5.4
+	github.com/google/go-cmp v0.5.5
 	github.com/google/trillian v1.3.12-0.20210114154553-c92fa63aaa6c
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2 // indirect

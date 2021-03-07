@@ -18,7 +18,7 @@ and the personality, for example a RESTful API or gRPC.
 In order to run the tests, it is necessary to first have a Trillian log
 running, which itself means it is necessary to have MySQL or MariaDB
 running (see [MySQL
-setup](http://github.com/google/trillian#mysqlsetup) for more
+setup](http://github.com/google/trillian#mysql-setup) for more
 information).  In one terminal, run the following commands:
 
 ```

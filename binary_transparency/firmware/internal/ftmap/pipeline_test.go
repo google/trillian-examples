@@ -15,6 +15,7 @@
 package ftmap
 
 import (
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -40,7 +41,7 @@ func TestCreate(t *testing.T) {
 			treeID: 12345,
 			count:  1,
 
-			wantRoot: "85749402df8a992bbce4d3cd5a8205421b73dcc6df860253ddcbceddf60ed903",
+			wantRoot: "825bf65fd8fe537c6e39836405fbe86b457d08890c21e8abd3b39190fff643fe",
 			wantLogs: []string{"dummy: [1]"},
 		},
 		{
@@ -48,29 +49,17 @@ func TestCreate(t *testing.T) {
 			treeID: 12345,
 			count:  -1,
 
-			wantRoot: "eb994efa95861a85b0a463f1499af81c41370882abb715e456ba79813f3a88d2",
+			wantRoot: "496c3192b94184786e899d8199bd92106cb6e669fbe5b113e29378d56d295f6d",
 			wantLogs: []string{"dummy: [1 5 3]", "fish: [42]"},
 		},
 	}
 
 	inputLog := fakeLog{
-		leaves: []api.FirmwareMetadata{
-			{
-				DeviceID:         "dummy",
-				FirmwareRevision: 1,
-			},
-			{
-				DeviceID:         "dummy",
-				FirmwareRevision: 5,
-			},
-			{
-				DeviceID:         "fish",
-				FirmwareRevision: 42,
-			},
-			{
-				DeviceID:         "dummy",
-				FirmwareRevision: 3,
-			},
+		leaves: []api.SignedStatement{
+			createFWSignedStatement("dummy", 1),
+			createFWSignedStatement("dummy", 5),
+			createFWSignedStatement("fish", 42),
+			createFWSignedStatement("dummy", 3),
 		},
 		head: []byte("this is just passed around"),
 	}
@@ -88,7 +77,7 @@ func TestCreate(t *testing.T) {
 			rootToString := func(t *batchmap.Tile) string { return fmt.Sprintf("%x", t.RootHash) }
 			passert.Equals(s, beam.ParDo(s, rootToString, result.MapTiles), test.wantRoot)
 
-			logToString := func(l *DeviceReleaseLog) string { return fmt.Sprintf("%s: %v", l.DeviceID, l.Revisions) }
+			logToString := func(l *api.DeviceReleaseLog) string { return fmt.Sprintf("%s: %v", l.DeviceID, l.Revisions) }
 			passert.Equals(s, beam.ParDo(s, logToString, result.DeviceLogs), beam.CreateList(s, test.wantLogs))
 
 			err = ptest.Run(p)
@@ -99,8 +88,26 @@ func TestCreate(t *testing.T) {
 	}
 }
 
+func createFW(device string, revision uint64) api.FirmwareMetadata {
+	image := fmt.Sprintf("this image is the firmware at revision %d for device %s.", revision, device)
+	imageHash := sha512.Sum512([]byte(image))
+	return api.FirmwareMetadata{
+		DeviceID:            device,
+		FirmwareRevision:    revision,
+		FirmwareImageSHA512: imageHash[:],
+	}
+}
+
+func createFWSignedStatement(device string, revision uint64) api.SignedStatement {
+	fwbs, _ := json.Marshal(createFW(device, revision))
+	return api.SignedStatement{
+		Type:      api.FirmwareMetadataType,
+		Statement: fwbs,
+	}
+}
+
 type fakeLog struct {
-	leaves []api.FirmwareMetadata
+	leaves []api.SignedStatement
 	head   []byte
 }
 
@@ -114,11 +121,7 @@ func (l fakeLog) Entries(s beam.Scope, start, end int64) beam.PCollection {
 	for i := 0; i < count; i++ {
 		// This swallows the error, but the test will fail anyway. YOLO.
 		index := start + int64(i)
-		fwbs, _ := json.Marshal(l.leaves[int(index)])
-		bs, _ := json.Marshal(api.SignedStatement{
-			Type:      api.FirmwareMetadataType,
-			Statement: fwbs,
-		})
+		bs, _ := json.Marshal(l.leaves[int(index)])
 		entries[i] = InputLogLeaf{
 			Seq:  index,
 			Data: bs,

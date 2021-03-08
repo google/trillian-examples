@@ -32,6 +32,7 @@ import (
 
 	"github.com/google/trillian/experimental/batchmap"
 
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/ftmap"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -50,6 +51,7 @@ var (
 func init() {
 	beam.RegisterType(reflect.TypeOf((*tileToDBRowFn)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*logToDBRowFn)(nil)).Elem())
+	beam.RegisterType(reflect.TypeOf((*aggToDBRowFn)(nil)).Elem())
 }
 
 func main() {
@@ -75,8 +77,10 @@ func main() {
 		glog.Exitf("Failed to build Create pipeline: %v", err)
 	}
 
-	tileRows := beam.ParDo(s.Scope("convertoutput"), &tileToDBRowFn{Revision: rev}, result.MapTiles)
-	databaseio.WriteWithBatchSize(s.Scope("sink"), *batchSize, "sqlite3", *mapDBString, "tiles", []string{}, tileRows)
+	tileRows := beam.ParDo(s.Scope("convertTiles"), &tileToDBRowFn{Revision: rev}, result.MapTiles)
+	databaseio.WriteWithBatchSize(s.Scope("sinkTiles"), *batchSize, "sqlite3", *mapDBString, "tiles", []string{}, tileRows)
+	aggRows := beam.ParDo(s.Scope("convertAgg"), &aggToDBRowFn{Revision: rev}, result.AggregatedFirmware)
+	databaseio.WriteWithBatchSize(s.Scope("sinkAgg"), *batchSize, "sqlite3", *mapDBString, "aggregations", []string{}, aggRows)
 	logRows := beam.ParDo(s, &logToDBRowFn{rev}, result.DeviceLogs)
 	databaseio.WriteWithBatchSize(s.Scope("sinkLogs"), *batchSize, "sqlite3", *mapDBString, "logs", []string{}, logRows)
 
@@ -123,7 +127,7 @@ type logToDBRowFn struct {
 	Revision int
 }
 
-func (fn *logToDBRowFn) ProcessElement(ctx context.Context, l *ftmap.DeviceReleaseLog) (LogDBRow, error) {
+func (fn *logToDBRowFn) ProcessElement(ctx context.Context, l *api.DeviceReleaseLog) (LogDBRow, error) {
 	bs, err := json.Marshal(l.Revisions)
 	if err != nil {
 		return LogDBRow{}, err
@@ -156,6 +160,33 @@ func (fn *tileToDBRowFn) ProcessElement(ctx context.Context, t *batchmap.Tile) (
 		Path:     t.Path,
 		Tile:     bs,
 	}, nil
+}
+
+// AggregatedFirmwareDBRow adapts AggregatedFirmware to the schema format of the Map database to allow for databaseio writing.
+type AggregatedFirmwareDBRow struct {
+	// The keys are the index of the FW Log Metadata that was aggregated, and map Revision number.
+	FWLogIndex uint64
+	Revision   int
+
+	// The value is the summary of the aggregated information. Thus far, a bool for whether it's considered good.
+	// Clients will have the other information about the FW so no need to duplicate it here.
+	Good int
+}
+
+type aggToDBRowFn struct {
+	Revision int
+}
+
+func (fn *aggToDBRowFn) ProcessElement(ctx context.Context, t *api.AggregatedFirmware) AggregatedFirmwareDBRow {
+	goodInt := 0
+	if t.Good {
+		goodInt = 1
+	}
+	return AggregatedFirmwareDBRow{
+		FWLogIndex: t.Index,
+		Revision:   fn.Revision,
+		Good:       goodInt,
+	}
 }
 
 // TODO(mhutchinson): This only works if the Trillian DB has a single tree.

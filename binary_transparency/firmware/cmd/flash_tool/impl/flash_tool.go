@@ -107,6 +107,10 @@ func Main(opts FlashOpts) error {
 		}
 	}
 
+	// TODO(mhutchinson): query the map:
+	// 1. Check that the map root commits to a log root consistent with the checkpoints above
+	// 2. Look up the aggregation under the key: fmt.Sprintf("summary:%d", pb.InclusionProof.LeafIndex)
+
 	glog.Info("Update verified, about to apply to device...")
 
 	if err := dev.ApplyUpdate(up); err != nil {

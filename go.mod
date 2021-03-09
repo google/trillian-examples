@@ -6,12 +6,11 @@ require (
 	github.com/allegro/bigcache v1.2.1 // indirect
 	github.com/apache/beam v2.28.0+incompatible
 	github.com/benlaurie/gds-registers v0.0.0-20180214133647-6355673a9585
-	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/deckarep/golang-set v1.7.1 // indirect
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
-	github.com/ethereum/go-ethereum v1.9.25
+	github.com/ethereum/go-ethereum v1.10.1
 	github.com/f-secure-foundry/tamago v0.0.0-20201201222556-c7d3ba598c56
 	github.com/go-sql-driver/mysql v1.5.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -21,7 +20,6 @@ require (
 	github.com/google/go-cmp v0.5.5
 	github.com/google/trillian v1.3.12-0.20210114154553-c92fa63aaa6c
 	github.com/gorilla/mux v1.8.0
-	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-runewidth v0.0.8 // indirect
@@ -31,8 +29,6 @@ require (
 	github.com/onsi/ginkgo v1.14.2 // indirect
 	github.com/onsi/gomega v1.10.4 // indirect
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
-	github.com/prometheus/tsdb v0.7.1 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/u-root/u-root v7.0.0+incompatible
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/mod v0.4.1

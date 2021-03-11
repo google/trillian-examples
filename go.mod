@@ -35,7 +35,7 @@ require (
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/u-root/u-root v7.0.0+incompatible
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/mod v0.4.1
+	golang.org/x/mod v0.4.2
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/text v0.3.4 // indirect
 	golang.org/x/tools v0.0.0-20210105210202-9ed45478a130 // indirect

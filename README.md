@@ -17,13 +17,6 @@ Currently the examples here are:
    updates, but the principles are also more generally applicable to all kinds
    of binaries/updates.
 
- * [etherslurp](etherslurp): An app which syncs a popular blockchain into a
-   Trillian Log, and then replays the transactions contained in the blocks
-   into a Trillian Map of SHA256(Account ID) -> Balance.
-
- * [registers](registers): A tutorial for building Trillian apps showing the
-   use of logs and maps and serving the results to clients.
-
  * [tritter](tritter): An example / demo of a chat service with audit
    capability.
 

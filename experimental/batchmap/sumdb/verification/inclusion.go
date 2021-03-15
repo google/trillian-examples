@@ -63,8 +63,9 @@ func (v *MapVerifier) CheckInclusion(rev int, key string, value []byte) ([]byte,
 	h := v.hash.New()
 	h.Write([]byte(key))
 	keyPath := h.Sum(nil)
+	leafID := tree.NewNodeID2(string(keyPath), uint(len(keyPath)*8))
 
-	expectedValueHash := hasher.Default.HashLeaf(v.treeID, keyPath, value)
+	expectedValueHash := hasher.Default.HashLeaf(v.treeID, leafID, value)
 
 	// Read the tiles required for this check from disk.
 	tiles, err := v.getTilesForKey(rev, keyPath)
@@ -165,11 +166,7 @@ type emptyTree struct {
 }
 
 func (e emptyTree) Get(id tree.NodeID2) ([]byte, error) {
-	oldID := tree.NewNodeIDFromID2(id)
-	height := e.hasher.BitLen() - oldID.PrefixLenBits
-	// TODO(pavelkalinnikov): Make HashEmpty method take the NodeID2 directly,
-	// batchmap is the only remaining user of the map helpers.
-	return e.hasher.HashEmpty(e.treeID, oldID.Path, height), nil
+	return e.hasher.HashEmpty(e.treeID, id), nil
 }
 
 func (e emptyTree) Set(id tree.NodeID2, hash []byte) {}

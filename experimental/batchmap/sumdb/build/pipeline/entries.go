@@ -22,6 +22,7 @@ import (
 	"github.com/apache/beam/sdks/go/pkg/beam"
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/coniks/hasher"
+	"github.com/google/trillian/storage/tree"
 )
 
 func init() {
@@ -54,18 +55,20 @@ func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*batchmap.Entry)) {
 	h := hash.New()
 	h.Write([]byte(fmt.Sprintf("%s %s/go.mod", m.Module, m.Version)))
 	modKey := h.Sum(nil)
+	modLeafID := tree.NewNodeID2(string(modKey), uint(len(modKey)*8))
 
 	emit(&batchmap.Entry{
 		HashKey:   modKey,
-		HashValue: hasher.Default.HashLeaf(fn.TreeID, modKey, []byte(m.ModHash)),
+		HashValue: hasher.Default.HashLeaf(fn.TreeID, modLeafID, []byte(m.ModHash)),
 	})
 
 	h = hash.New()
 	h.Write([]byte(fmt.Sprintf("%s %s", m.Module, m.Version)))
 	repoKey := h.Sum(nil)
+	repoLeafID := tree.NewNodeID2(string(repoKey), uint(len(repoKey)*8))
 
 	emit(&batchmap.Entry{
 		HashKey:   repoKey,
-		HashValue: hasher.Default.HashLeaf(fn.TreeID, repoKey, []byte(m.RepoHash)),
+		HashValue: hasher.Default.HashLeaf(fn.TreeID, repoLeafID, []byte(m.RepoHash)),
 	})
 }

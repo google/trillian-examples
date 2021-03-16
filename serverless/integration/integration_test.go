@@ -35,7 +35,7 @@ func RunIntegration(t *testing.T, s log.Storage) {
 	// Do a few interations around the sequence/integrate loop;
 	const (
 		loops         = 200
-		leavesPerLoop = 200
+		leavesPerLoop = 257
 	)
 	for i := 0; i < loops; i++ {
 		glog.Infof("----------------%d--------------", i)

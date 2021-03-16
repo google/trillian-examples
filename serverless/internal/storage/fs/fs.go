@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/internal/storage"
 )
 
 // FS is a serverless storage implementation which uses files to store tree state.
@@ -259,7 +260,8 @@ func parseTile(t []byte) (*api.Tile, error) {
 }
 
 // StoreTile writes a tile out to disk.
-func (fs *FS) StoreTile(level, index, tileSize uint64, tile *api.Tile) error {
+func (fs *FS) StoreTile(level, index uint64, tile *api.Tile) error {
+	tileSize := storage.TileSize(tile)
 	if tileSize == 0 || tileSize > 256 {
 		return fmt.Errorf("tileSize %d must be > 0 and <= 256", tileSize)
 	}

@@ -19,11 +19,10 @@ package log
 import (
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/hashers"
 )
@@ -34,7 +33,7 @@ type Storage interface {
 	GetTile(level, index, logSize uint64) (*api.Tile, error)
 
 	// StoreTile stores the tile at the given level & index.
-	StoreTile(level, index, tileSize uint64, tile *api.Tile) error
+	StoreTile(level, index uint64, tile *api.Tile) error
 
 	// LogState returns the current state of the stored log.
 	LogState() api.LogState
@@ -126,10 +125,8 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	glog.Infof("New log state: size %d hash: %x", baseRange.End(), newRoot)
 
 	for k, t := range tiles {
-		l, i := splitTileKey(k)
-		s := tileSize(t)
-		glog.V(1).Infof("StoreTile: %s => %d", k, s)
-		if err := st.StoreTile(l, i, s, t); err != nil {
+		l, i := storage.SplitTileKey(k)
+		if err := st.StoreTile(l, i, t); err != nil {
 			return fmt.Errorf("failed to store tile at level %d index %d: %q", l, i, err)
 		}
 	}
@@ -143,34 +140,4 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 		return fmt.Errorf("failed to update stored state: %q", err)
 	}
 	return nil
-}
-
-// tileSize returns the size of contiguous
-func tileSize(t *api.Tile) uint64 {
-	for i := uint64(0); i < 256; i++ {
-		if t.Nodes[api.TileNodeKey(0, i)] == nil {
-			return i
-		}
-	}
-	return 256
-}
-
-// tileKey creates a string key for the specified tile address.
-func tileKey(level, index uint64) string {
-	return fmt.Sprintf("%d/%d", level, index)
-}
-
-// splitTileKey returns the level and index implied by the given tile key.
-// This key should have been created with the tileKey function above.
-func splitTileKey(s string) (uint64, uint64) {
-	p := strings.Split(s, "/")
-	l, err := strconv.ParseUint(p[0], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	i, err := strconv.ParseUint(p[1], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return l, i
 }

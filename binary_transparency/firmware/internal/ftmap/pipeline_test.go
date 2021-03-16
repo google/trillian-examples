@@ -80,16 +80,16 @@ func TestCreate(t *testing.T) {
 			mb := NewMapBuilder(inputLog, test.treeID, 0)
 			p, s := beam.NewPipelineWithRoot()
 
-			tiles, logs, _, err := mb.Create(s, test.count)
+			result, err := mb.Create(s, test.count)
 			if err != nil {
-				t.Errorf("failed to Create(): %v", err)
+				t.Fatalf("failed to Create(): %v", err)
 			}
 
 			rootToString := func(t *batchmap.Tile) string { return fmt.Sprintf("%x", t.RootHash) }
-			passert.Equals(s, beam.ParDo(s, rootToString, tiles), test.wantRoot)
+			passert.Equals(s, beam.ParDo(s, rootToString, result.MapTiles), test.wantRoot)
 
 			logToString := func(l *DeviceReleaseLog) string { return fmt.Sprintf("%s: %v", l.DeviceID, l.Revisions) }
-			passert.Equals(s, beam.ParDo(s, logToString, logs), beam.CreateList(s, test.wantLogs))
+			passert.Equals(s, beam.ParDo(s, logToString, result.DeviceLogs), beam.CreateList(s, test.wantLogs))
 
 			err = ptest.Run(p)
 			if err != nil {

@@ -29,9 +29,13 @@ import (
 )
 
 func init() {
-	beam.RegisterFunction(parseLogEntryFn)
+	beam.RegisterFunction(parseStatementFn)
+	beam.RegisterFunction(parseFirmwareFn)
+	beam.RegisterFunction(partitionFn)
 	beam.RegisterType(reflect.TypeOf((*InputLogMetadata)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*InputLogLeaf)(nil)).Elem())
+	beam.RegisterType(reflect.TypeOf((*PipelineResult)(nil)).Elem())
+	beam.RegisterType(reflect.TypeOf((*loggedStatement)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*firmwareLogEntry)(nil)).Elem())
 }
 
@@ -56,6 +60,17 @@ type InputLogLeaf struct {
 	Data []byte
 }
 
+// PipelineResult is returned on successful run of the pipeline. It primarily
+// exists to name the output and aid readability, as PCollections are untyped
+// in code, so having them as named fields at least aids a little.
+type PipelineResult struct {
+	MapTiles   beam.PCollection
+	DeviceLogs beam.PCollection
+	// TODO(mhutchinson): aggregate annotations with release metadata
+	// ReleaseAggregations beam.PCollection
+	Metadata InputLogMetadata
+}
+
 // MapBuilder contains the static configuration for a map, and allows
 // maps at different log sizes to be built using its methods.
 type MapBuilder struct {
@@ -75,26 +90,44 @@ func NewMapBuilder(source InputLog, treeID int64, prefixStrata int) MapBuilder {
 
 // Create builds a map from scratch, using the first `size` entries in the
 // input log. If there aren't enough entries then it will fail.
-// It returns a PCollection of *Tile as the first output, and any logs built
-// will be output in the second PCollection (of type DeviceReleaseLog).
-func (b *MapBuilder) Create(s beam.Scope, size int64) (beam.PCollection, beam.PCollection, InputLogMetadata, error) {
+// The results of the pipeline on success are returned as a PipelineResult.
+func (b *MapBuilder) Create(s beam.Scope, size int64) (*PipelineResult, error) {
 	var tiles, logs beam.PCollection
 
 	endID, golden, err := b.getLogEnd(size)
 	if err != nil {
-		return tiles, logs, InputLogMetadata{}, err
+		return nil, err
 	}
 
+	// Read the log as a collection of InputLogLeaf.
 	inputLeaves := b.source.Entries(s.Scope("source"), 0, endID)
-	fws := beam.ParDo(s.Scope("parse"), parseLogEntryFn, inputLeaves)
+	// Parse these into their loggedStatements.
+	statements := beam.ParDo(s.Scope("parseStatement"), parseStatementFn, inputLeaves)
+
+	// Partition into:
+	// 0: FW Metadata
+	// 1: Annotation malware
+	// 2: Everything else
+	partitions := beam.Partition(s.Scope("partition"), MaxPartitions, partitionFn, statements)
+
+	fws := beam.ParDo(s, parseFirmwareFn, partitions[FirmwareMetaPartition])
+
+	// Branch 1: create the logs of firmware releases.
 	entries, logs := MakeReleaseLogs(s.Scope("makeLogs"), b.treeID, fws)
+
+	// Branch 2: aggregate firmware releases with their annotations.
+	// TODO(mhutchinson): aggregate the annotations here.
 
 	glog.Infof("Creating new map revision from range [0, %d)", endID)
 	tiles, err = batchmap.Create(s, entries, b.treeID, crypto.SHA512_256, b.prefixStrata)
 
-	return tiles, logs, InputLogMetadata{
-		Checkpoint: golden,
-		Entries:    endID,
+	return &PipelineResult{
+		MapTiles:   tiles,
+		DeviceLogs: logs,
+		Metadata: InputLogMetadata{
+			Checkpoint: golden,
+			Entries:    endID,
+		},
 	}, err
 }
 
@@ -115,29 +148,59 @@ func (b *MapBuilder) getLogEnd(requiredEntries int64) (int64, []byte, error) {
 	return requiredEntries, golden, nil
 }
 
-// firmwareLogEntry is a parsed version of InputLogLeaf.
+const (
+	// Partition index for partition containing FirmwareMetadata
+	FirmwareMetaPartition = iota
+	// Partition index for partition containing MalwareStatement
+	MalwareStatementPartition
+	// Partition index for partition containing anything not classified above
+	UnclassifiedStatementPartition
+	// Add new partitions here
+	MaxPartitions
+)
+
+// partitionFn partitions the statements by type.
+func partitionFn(s *loggedStatement) int {
+	switch s.Statement.Type {
+	case api.FirmwareMetadataType:
+		return FirmwareMetaPartition
+	case api.MalwareStatementType:
+		return MalwareStatementPartition
+	default:
+		return UnclassifiedStatementPartition
+	}
+}
+
+// loggedStatement is a parsed version of InputLogLeaf.
+type loggedStatement struct {
+	Index     int64
+	Statement api.SignedStatement
+}
+
+func parseStatementFn(l InputLogLeaf) (*loggedStatement, error) {
+	var s api.SignedStatement
+	if err := json.Unmarshal(l.Data, &s); err != nil {
+		return nil, err
+	}
+
+	return &loggedStatement{
+		Index:     l.Seq,
+		Statement: s,
+	}, nil
+}
+
 type firmwareLogEntry struct {
 	Index    int64
 	Firmware api.FirmwareMetadata
 }
 
-func parseLogEntryFn(l InputLogLeaf, emit func(*firmwareLogEntry)) error {
-	var s api.SignedStatement
-	if err := json.Unmarshal(l.Data, &s); err != nil {
-		return err
-	}
-
-	if s.Type != api.FirmwareMetadataType {
-		// TODO(mhutchinson): Support annotation types.
-		return nil
-	}
+func parseFirmwareFn(s *loggedStatement) (*firmwareLogEntry, error) {
 	var m api.FirmwareMetadata
-	if err := json.Unmarshal(s.Statement, &m); err != nil {
-		return err
+	if err := json.Unmarshal(s.Statement.Statement, &m); err != nil {
+		return nil, err
 	}
-	emit(&firmwareLogEntry{
-		Index:    l.Seq,
+	return &firmwareLogEntry{
+		Index:    s.Index,
 		Firmware: m,
-	})
-	return nil
+	}, nil
 }

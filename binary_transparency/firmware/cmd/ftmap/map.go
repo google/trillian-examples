@@ -70,18 +70,14 @@ func main() {
 	beam.Init()
 	beamlog.SetLogger(&BeamGLogger{InfoLogAtVerbosity: 2})
 	p, s := beam.NewPipelineWithRoot()
-
-	var tiles, logs beam.PCollection
-	var inputLogMetadata ftmap.InputLogMetadata
-
-	tiles, logs, inputLogMetadata, err = pb.Create(s, *count)
+	result, err := pb.Create(s, *count)
 	if err != nil {
 		glog.Exitf("Failed to build Create pipeline: %v", err)
 	}
 
-	tileRows := beam.ParDo(s.Scope("convertoutput"), &tileToDBRowFn{Revision: rev}, tiles)
+	tileRows := beam.ParDo(s.Scope("convertoutput"), &tileToDBRowFn{Revision: rev}, result.MapTiles)
 	databaseio.WriteWithBatchSize(s.Scope("sink"), *batchSize, "sqlite3", *mapDBString, "tiles", []string{}, tileRows)
-	logRows := beam.ParDo(s, &logToDBRowFn{rev}, logs)
+	logRows := beam.ParDo(s, &logToDBRowFn{rev}, result.DeviceLogs)
 	databaseio.WriteWithBatchSize(s.Scope("sinkLogs"), *batchSize, "sqlite3", *mapDBString, "logs", []string{}, logRows)
 
 	// All of the above constructs the pipeline but doesn't run it. Now we run it.
@@ -90,7 +86,7 @@ func main() {
 	}
 
 	// Now write the revision metadata to finalize this map construction.
-	if err := mapDB.WriteRevision(rev, inputLogMetadata.Checkpoint, inputLogMetadata.Entries); err != nil {
+	if err := mapDB.WriteRevision(rev, result.Metadata.Checkpoint, result.Metadata.Entries); err != nil {
 		glog.Exitf("Failed to finalize map revison %d: %v", rev, err)
 	}
 }

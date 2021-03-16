@@ -98,7 +98,6 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	n, err := st.ScanSequenced(state.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
-			glog.V(2).Infof("new @%d: %x", seq, lh)
 			// Set leafhash on zeroth level
 			visitor(compact.NodeID{Level: 0, Index: seq}, lh)
 			// Update range and set internal nodes
@@ -122,7 +121,7 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	if err != nil {
 		return fmt.Errorf("failed to calculate new root hash: %q", err)
 	}
-	glog.Infof("New log state: size %d hash: %x", baseRange.End(), newRoot)
+	glog.Infof("New log state: size 0x%x hash: %x", baseRange.End(), newRoot)
 
 	for k, t := range tiles {
 		l, i := storage.SplitTileKey(k)

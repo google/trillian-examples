@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 )
@@ -241,6 +242,7 @@ func (fs *FS) GetTile(level, index, logsize uint64) (*api.Tile, error) {
 	if index >= fullTiles && partialTile > 0 {
 		p += fmt.Sprintf(".%02x", partialTile)
 	}
+	glog.V(2).Infof("GetTile: read tile %q", p)
 	t, err := ioutil.ReadFile(p)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
@@ -262,6 +264,7 @@ func parseTile(t []byte) (*api.Tile, error) {
 // StoreTile writes a tile out to disk.
 func (fs *FS) StoreTile(level, index uint64, tile *api.Tile) error {
 	tileSize := storage.TileSize(tile)
+	glog.V(2).Infof("StoreTile: level %d index %x ts: %x", level, index, tileSize)
 	if tileSize == 0 || tileSize > 256 {
 		return fmt.Errorf("tileSize %d must be > 0 and <= 256", tileSize)
 	}

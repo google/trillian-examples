@@ -108,9 +108,9 @@ func (b *MapBuilder) Create(s beam.Scope, size int64) (*PipelineResult, error) {
 	// 0: FW Metadata
 	// 1: Annotation malware
 	// 2: Everything else
-	partitions := beam.Partition(s.Scope("partition"), 3, partitionFn, statements)
+	partitions := beam.Partition(s.Scope("partition"), MaxPartitions, partitionFn, statements)
 
-	fws := beam.ParDo(s, parseFirmwareFn, partitions[0])
+	fws := beam.ParDo(s, parseFirmwareFn, partitions[FirmwareMetaPartition])
 
 	// Branch 1: create the logs of firmware releases.
 	entries, logs := MakeReleaseLogs(s.Scope("makeLogs"), b.treeID, fws)
@@ -148,17 +148,26 @@ func (b *MapBuilder) getLogEnd(requiredEntries int64) (int64, []byte, error) {
 	return requiredEntries, golden, nil
 }
 
+const (
+	// Partition index for partition containing FirmwareMetadata
+	FirmwareMetaPartition = iota
+	// Partition index for partition containing MalwareStatement
+	MalwareStatementPartition
+	// Partition index for partition containing anything not classified above
+	UnclassifiedStatementPartition
+	// Add new partitions here
+	MaxPartitions
+)
+
 // partitionFn partitions the statements by type.
-// If you change the implementation here, then the cardinality needs to be
-// changed where this function is applied.
 func partitionFn(s *loggedStatement) int {
 	switch s.Statement.Type {
 	case api.FirmwareMetadataType:
-		return 0
+		return FirmwareMetaPartition
 	case api.MalwareStatementType:
-		return 1
+		return MalwareStatementPartition
 	default:
-		return 2
+		return UnclassifiedStatementPartition
 	}
 }
 

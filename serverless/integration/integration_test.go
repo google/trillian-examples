@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/serverless/internal/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/hashers"
@@ -34,9 +35,10 @@ func RunIntegration(t *testing.T, s log.Storage) {
 
 	// Do a few interations around the sequence/integrate loop;
 	const (
-		loops         = 200
+		loops         = 100
 		leavesPerLoop = 257
 	)
+
 	for i := 0; i < loops; i++ {
 		glog.Infof("----------------%d--------------", i)
 		state := s.LogState()
@@ -52,6 +54,22 @@ func RunIntegration(t *testing.T, s log.Storage) {
 		newState := s.LogState()
 		if got, want := newState.Size-state.Size, uint64(leavesPerLoop); got != want {
 			t.Errorf("Integrate missed some entries, got %d want %d", got, want)
+		}
+
+		pb, err := client.NewProofBuilder(newState, lh.HashChildren, s.GetTile)
+		if err != nil {
+			t.Fatalf("Failed to create ProofBuilder: %q", err)
+		}
+
+		if state.Size > 0 {
+			cp, err := pb.ConsistencyProof(state.Size, newState.Size)
+			if err != nil {
+				t.Fatalf("Failed to fetch consistency proof from %d to %d: %q", state.Size, newState.Size, err)
+			}
+			if err := lv.VerifyConsistencyProof(int64(state.Size), int64(newState.Size), state.RootHash, newState.RootHash, cp); err != nil {
+				t.Fatalf("Failed to verify consistency proof: %q", err)
+			}
+			glog.Infof("Consistency proof 0x%x->0x%x verified", state.Size, newState.Size)
 		}
 	}
 

@@ -60,9 +60,15 @@ func inclusionProof(state api.LogState, f client.GetTileFunc, args []string) err
 	if err != nil {
 		return fmt.Errorf("failed to read entry from %q: %q", *forEntryPath, err)
 	}
-	lh := hasher.DefaultHasher.HashLeaf(entry)
+	h := hasher.DefaultHasher
+	lh := h.HashLeaf(entry)
 
-	proof, err := client.InclusionProof(*fromIndex, state.Size, f)
+	builder, err := client.NewProofBuilder(state, h.HashChildren, f)
+	if err != nil {
+		return fmt.Errorf("failed to create proof builder: %w", err)
+	}
+
+	proof, err := builder.InclusionProof(*fromIndex)
 	if err != nil {
 		return fmt.Errorf("failed to get inclusion proof: %w", err)
 	}

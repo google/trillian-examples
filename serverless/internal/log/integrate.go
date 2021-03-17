@@ -69,8 +69,7 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	tiles := make(map[string]*api.Tile)
 
 	visitor := func(id compact.NodeID, hash []byte) {
-		tileLevel := uint64(id.Level / 8)
-		tileIndex := uint64(id.Index >> (8 - id.Level%8))
+		tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
 		tileKey := storage.TileKey(tileLevel, tileIndex)
 		tile := tiles[tileKey]
 		if tile == nil {
@@ -88,7 +87,7 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 			glog.V(1).Infof("GetTile: %s new: %v", tileKey, created)
 			tiles[tileKey] = tile
 		}
-		tile.Nodes[api.TileNodeKey(id.Level%8, id.Index%256)] = hash
+		tile.Nodes[api.TileNodeKey(nodeLevel, nodeIndex)] = hash
 	}
 
 	// look for new sequenced entries and build tree

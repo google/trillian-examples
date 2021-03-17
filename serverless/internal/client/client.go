@@ -16,10 +16,11 @@
 package client
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/compact"
 )
@@ -74,26 +75,26 @@ func newNodeCache(f GetTileFunc) nodeCache {
 }
 
 // tileKey creates keys to be used internally by nodeCache.
-func tileKey(l int, i uint64) string {
+func tileKey(l uint64, i uint64) string {
 	return fmt.Sprintf("%d/%d", l, i)
 }
 
 // GetNode returns the internal log tree node hash for the specified node ID.
 func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
-	tLevel, tIndex := id.Level/8, id.Index/256
-	tKey := tileKey(int(tLevel), tIndex)
+	tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
+	tKey := tileKey(tileLevel, tileIndex)
 	t, ok := n.tiles[tKey]
 	if !ok {
-		tile, err := n.getTile(uint64(tLevel), tIndex, logSize)
+		tile, err := n.getTile(tileLevel, tileIndex, logSize)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch tile: %w", err)
 		}
 		t = *tile
 		n.tiles[tKey] = *tile
 	}
-	node := t.Nodes[api.TileNodeKey(id.Level%8, id.Index%256)]
+	node := t.Nodes[api.TileNodeKey(nodeLevel, nodeIndex)]
 	if node == nil {
-		return nil, fmt.Errorf("node %v unknown", id)
+		return nil, fmt.Errorf("node %v (tile coords [%d,%d]/[%d,%d]) unknown", id, tileLevel, tileIndex, nodeLevel, nodeIndex)
 	}
 	return node, nil
 }

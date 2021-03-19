@@ -9,6 +9,7 @@ options:
   - GOPROXY=https://proxy.golang.org
   - PROJECT_ROOT=github.com/google/trillian-examples
   - GOPATH=/go
+  - GOLANG_PROTOBUF_REGISTRATION_CONFLICT=ignore # Temporary work-around v1.proto already registered error.
 
 steps:
 # First build a "testbase" docker image which contains most of the tools we need for the later steps:

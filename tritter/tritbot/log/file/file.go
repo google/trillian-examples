@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/trillian-examples/tritter/tritbot/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -56,11 +55,11 @@ func newFileLogger() *fileLogger {
 // Log implements log.LoggerServer.Log.
 func (l *fileLogger) Log(ctx context.Context, in *log.LogRequest) (*log.LogResponse, error) {
 	msg := in.GetMessage()
-	t, err := ptypes.Timestamp(msg.GetTimestamp())
-	if err != nil {
+	ts := msg.GetTimestamp()
+	if err := ts.CheckValid(); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "Invalid timestamp: %v", err)
 	}
-	if _, err := l.f.WriteString(fmt.Sprintf("%v: [%v] %v\n", t.Format(time.RFC3339), msg.GetUser(), msg.GetMessage())); err != nil {
+	if _, err := l.f.WriteString(fmt.Sprintf("%v: [%v] %v\n", ts.AsTime().Format(time.RFC3339), msg.GetUser(), msg.GetMessage())); err != nil {
 		return nil, status.Errorf(codes.Internal, "Failed to log message: %v", err)
 	}
 

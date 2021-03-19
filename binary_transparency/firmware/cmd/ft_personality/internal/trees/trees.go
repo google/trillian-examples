@@ -22,12 +22,12 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
 	"github.com/google/trillian/crypto/keyspb"
 	"github.com/google/trillian/crypto/sigpb"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // TreeStorage allows access to the configuration.
@@ -80,7 +80,7 @@ func (s *TreeStorage) createTree(ctx context.Context, conn grpc.ClientConnInterf
 			SignatureAlgorithm: sigpb.DigitallySigned_ECDSA,
 			DisplayName:        "ft",
 			Description:        "binary transparency log",
-			MaxRootDuration:    ptypes.DurationProto(time.Hour),
+			MaxRootDuration:    durationpb.New(time.Hour),
 		},
 		KeySpec: &keyspb.Specification{
 			Params: &keyspb.Specification_EcdsaParams{

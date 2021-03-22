@@ -117,6 +117,8 @@ func (fs *FS) UpdateState(newState api.LogState) error {
 	return ioutil.WriteFile(filepath.Join(fs.rootDir, statePath), lsRaw, 0644)
 }
 
+// seqPath builds the directory path and relative filename for the entry at the given
+// sequence number.
 func seqPath(root string, seq uint64) (string, string) {
 	frag := []string{
 		root,
@@ -131,6 +133,8 @@ func seqPath(root string, seq uint64) (string, string) {
 	return d, frag[6]
 }
 
+// leafPath builds the directory path and relative filename for the entry data with the
+// given leafhash.
 func leafPath(root string, leafhash []byte) (string, string) {
 	frag := []string{
 		root,
@@ -144,6 +148,8 @@ func leafPath(root string, leafhash []byte) (string, string) {
 	return d, frag[5]
 }
 
+// tilePath builds the directory path and relative filename for the subtree tile with the
+// given level and index.
 func tilePath(root string, level, index uint64) (string, string) {
 	frag := []string{
 		root,

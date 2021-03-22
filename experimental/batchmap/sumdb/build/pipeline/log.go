@@ -23,7 +23,7 @@ import (
 
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/compact"
-	"github.com/google/trillian/merkle/coniks/hasher"
+	"github.com/google/trillian/merkle/coniks"
 	"github.com/google/trillian/storage/tree"
 
 	"golang.org/x/mod/sumdb/tlog"
@@ -90,7 +90,7 @@ func (fn *moduleLogHashFn) ProcessElement(log *ModuleVersionLog) (*batchmap.Entr
 
 	return &batchmap.Entry{
 		HashKey:   h.Sum(nil),
-		HashValue: hasher.Default.HashLeaf(fn.TreeID, leafID, logRoot),
+		HashValue: coniks.Default.HashLeaf(fn.TreeID, leafID, logRoot),
 	}, nil
 }
 

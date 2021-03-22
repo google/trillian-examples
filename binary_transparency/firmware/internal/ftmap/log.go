@@ -26,7 +26,7 @@ import (
 
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/compact"
-	"github.com/google/trillian/merkle/coniks/hasher"
+	"github.com/google/trillian/merkle/coniks"
 	"github.com/google/trillian/storage/tree"
 )
 
@@ -86,7 +86,7 @@ func (fn *moduleLogHashFn) ProcessElement(log *DeviceReleaseLog) (*batchmap.Entr
 	leafID := tree.NewNodeID2(string(logKey), uint(len(logKey)*8))
 	return &batchmap.Entry{
 		HashKey:   logKey,
-		HashValue: hasher.Default.HashLeaf(fn.TreeID, leafID, logRoot),
+		HashValue: coniks.Default.HashLeaf(fn.TreeID, leafID, logRoot),
 	}, nil
 }
 

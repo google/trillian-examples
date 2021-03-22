@@ -14,7 +14,7 @@ require (
 	github.com/golang/protobuf v1.5.1
 	github.com/google/certificate-transparency-go v1.0.22-0.20200708065856-b8561831ac3c // indirect
 	github.com/google/go-cmp v0.5.5
-	github.com/google/trillian v1.3.14-0.20210315165204-0750ec122362
+	github.com/google/trillian v1.3.14-0.20210322095311-635a0d02067a
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.6
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

@@ -15,6 +15,8 @@
 // Package api contains the "public" API/artifacts of the serverless log.
 package api
 
+import "fmt"
+
 // LogState represents the state of a serverless log
 type LogState struct {
 	// Size is the number of leaves in the log
@@ -27,10 +29,16 @@ type LogState struct {
 	Hashes [][]byte
 }
 
+// Tile represents a subtree tile, containing inner nodes of a log tree.
 type Tile struct {
 	// Nodes stores the log tree nodes.
 	// Keys are "<level>-<index>" where level 0 are the "leaves" of the tile, and
 	// index 0 is the left-most node.
 	// Only non-ephemeral nodes are stored.
 	Nodes map[string][]byte
+}
+
+// TileNodeKey generates keys used in Tile.Nodes map.
+func TileNodeKey(level uint, index uint64) string {
+	return fmt.Sprintf("%d-%d", level, index)
 }

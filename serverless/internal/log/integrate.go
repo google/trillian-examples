@@ -75,15 +75,18 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 		tileKey := storage.TileKey(tileLevel, tileIndex)
 		tile := tiles[tileKey]
 		if tile == nil {
+			created := false
 			tile, err = st.GetTile(tileLevel, tileIndex, state.Size)
 			if err != nil {
 				if !os.IsNotExist(err) {
 					panic(err)
 				}
+				created = true
 				tile = &api.Tile{
 					Nodes: make(map[string][]byte),
 				}
 			}
+			glog.V(1).Infof("GetTile: %s new: %v", tileKey, created)
 			tiles[tileKey] = tile
 		}
 		tile.Nodes[api.TileNodeKey(id.Level%8, id.Index%256)] = hash
@@ -96,7 +99,7 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	n, err := st.ScanSequenced(state.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
-			glog.Infof("new @%d: %x", seq, lh)
+			glog.V(2).Infof("new @%d: %x", seq, lh)
 			// Set leafhash on zeroth level
 			visitor(compact.NodeID{Level: 0, Index: seq}, lh)
 			// Update range and set internal nodes
@@ -125,6 +128,7 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	for k, t := range tiles {
 		l, i := splitTileKey(k)
 		s := tileSize(t)
+		glog.V(1).Infof("StoreTile: %s => %d", k, s)
 		if err := st.StoreTile(l, i, s, t); err != nil {
 			return fmt.Errorf("failed to store tile at level %d index %d: %q", l, i, err)
 		}

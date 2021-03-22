@@ -20,6 +20,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/hashers"
@@ -33,10 +34,11 @@ func RunIntegration(t *testing.T, s log.Storage) {
 
 	// Do a few interations around the sequence/integrate loop;
 	const (
-		loops         = 10
-		leavesPerLoop = 100
+		loops         = 200
+		leavesPerLoop = 200
 	)
 	for i := 0; i < loops; i++ {
+		glog.Infof("----------------%d--------------", i)
 		state := s.LogState()
 
 		// Sequence some leaves:

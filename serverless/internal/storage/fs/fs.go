@@ -210,20 +210,21 @@ func (fs *FS) Sequence(leafhash []byte, leaf []byte) error {
 // ScanSequenced calls the provided function once for each contiguous entry
 // in storage starting at begin.
 // The scan will abort if the function returns an error.
-func (fs *FS) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) error {
+func (fs *FS) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
+	end := begin
 	for {
-		sp := filepath.Join(seqPath(fs.rootDir, begin))
+		sp := filepath.Join(seqPath(fs.rootDir, end))
 		entry, err := ioutil.ReadFile(sp)
 		if errors.Is(err, os.ErrNotExist) {
 			// we're done.
-			return nil
+			return end - begin, nil
 		} else if err != nil {
-			return fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
+			return end - begin, fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
 		}
-		if err := f(begin, entry); err != nil {
-			return err
+		if err := f(end, entry); err != nil {
+			return end - begin, err
 		}
-		begin++
+		end++
 	}
 }
 
@@ -231,19 +232,19 @@ func (fs *FS) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error
 // If no complete tile exists at that location, it will attempt to find a
 // partial tile for the given tree size at that location.
 func (fs *FS) GetTile(level, index, logsize uint64) (*api.Tile, error) {
+	sizeAtLevel := logsize >> (level * 8)
+	fullTiles := sizeAtLevel / 256
+	partialTile := sizeAtLevel % 256
+
 	p := filepath.Join(tilePath(fs.rootDir, level, index))
+	if index >= fullTiles && partialTile > 0 {
+		p += fmt.Sprintf(".%02x", partialTile)
+	}
 	t, err := ioutil.ReadFile(p)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
 	}
-	if err == nil {
-		return parseTile(t)
-	}
-	// Not found, so try a fractional tile
-	p += fmt.Sprintf(".%02x", logsize%0xff)
-	t, err = ioutil.ReadFile(p)
 	if err != nil {
-		// Do not wrap this error - caller needs to know if it's IsNotExists.
 		return nil, err
 	}
 	return parseTile(t)
@@ -259,7 +260,7 @@ func parseTile(t []byte) (*api.Tile, error) {
 
 // StoreTile writes a tile out to disk.
 func (fs *FS) StoreTile(level, index, tileSize uint64, tile *api.Tile) error {
-	if tileSize > 256 || tileSize == 0 {
+	if tileSize == 0 || tileSize > 256 {
 		return fmt.Errorf("tileSize %d must be > 0 and <= 256", tileSize)
 	}
 	t, err := json.Marshal(tile)

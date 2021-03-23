@@ -23,7 +23,7 @@ import (
 	"github.com/google/trillian-examples/serverless/api"
 )
 
-// TileSize returns the size of contiguous
+// TileSize returns the number of contiguous leaves in a tile.
 func TileSize(t *api.Tile) uint64 {
 	for i := uint64(0); i < 256; i++ {
 		if t.Nodes[api.TileNodeKey(0, i)] == nil {
@@ -31,6 +31,17 @@ func TileSize(t *api.Tile) uint64 {
 		}
 	}
 	return 256
+}
+
+// PartialTileSize returns the expected number of leaves in a tile at the given location within
+// a tree of the specified logSize, or 0 if the tile is expected to be fully populated.
+func PartialTileSize(level, index, logSize uint64) uint64 {
+	sizeAtLevel := logSize >> (level * 8)
+	fullTiles := sizeAtLevel / 256
+	if index < fullTiles {
+		return 0
+	}
+	return sizeAtLevel % 256
 }
 
 // TileKey creates a string key for the specified tile address.

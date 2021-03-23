@@ -26,6 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/storage"
+	"github.com/google/trillian-examples/serverless/internal/storage/fs/layout"
 )
 
 // FS is a serverless storage implementation which uses files to store tree state.
@@ -41,10 +42,7 @@ type FS struct {
 	state   api.LogState
 }
 
-const (
-	leavesPendingPathFmt = "leaves/pending/%0x"
-	statePath            = "state"
-)
+const leavesPendingPathFmt = "leaves/pending/%0x"
 
 // New returns an FS instance initialised from the filesystem.
 func New(rootDir string) (*FS, error) {
@@ -57,7 +55,7 @@ func New(rootDir string) (*FS, error) {
 		return nil, fmt.Errorf("%q is not a directory", rootDir)
 	}
 
-	s, err := loadLogState(filepath.Join(rootDir, statePath))
+	s, err := loadLogState(filepath.Join(rootDir, layout.StatePath))
 	if err != nil {
 		return nil, err
 	}
@@ -116,54 +114,7 @@ func (fs *FS) UpdateState(newState api.LogState) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal LogState: %w", err)
 	}
-	return ioutil.WriteFile(filepath.Join(fs.rootDir, statePath), lsRaw, 0644)
-}
-
-// seqPath builds the directory path and relative filename for the entry at the given
-// sequence number.
-func seqPath(root string, seq uint64) (string, string) {
-	frag := []string{
-		root,
-		"seq",
-		fmt.Sprintf("%02x", (seq >> 32)),
-		fmt.Sprintf("%02x", (seq>>24)&0xff),
-		fmt.Sprintf("%02x", (seq>>16)&0xff),
-		fmt.Sprintf("%02x", (seq>>8)&0xff),
-		fmt.Sprintf("%02x", seq&0xff),
-	}
-	d := filepath.Join(frag[:6]...)
-	return d, frag[6]
-}
-
-// leafPath builds the directory path and relative filename for the entry data with the
-// given leafhash.
-func leafPath(root string, leafhash []byte) (string, string) {
-	frag := []string{
-		root,
-		"leaves",
-		fmt.Sprintf("%02x", leafhash[0]),
-		fmt.Sprintf("%02x", leafhash[1]),
-		fmt.Sprintf("%02x", leafhash[2]),
-		fmt.Sprintf("%0x", leafhash[3:]),
-	}
-	d := filepath.Join(frag[:5]...)
-	return d, frag[5]
-}
-
-// tilePath builds the directory path and relative filename for the subtree tile with the
-// given level and index.
-func tilePath(root string, level, index uint64) (string, string) {
-	frag := []string{
-		root,
-		"tile",
-		fmt.Sprintf("%02x", level),
-		fmt.Sprintf("%04x", (index >> 24)),
-		fmt.Sprintf("%02x", (index>>16)&0xff),
-		fmt.Sprintf("%02x", (index>>8)&0xff),
-		fmt.Sprintf("%02x", index&0xff),
-	}
-	d := filepath.Join(frag[:6]...)
-	return d, frag[6]
+	return ioutil.WriteFile(filepath.Join(fs.rootDir, layout.StatePath), lsRaw, 0644)
 }
 
 // Sequence assigns the given leaf entry to the next available sequence number.
@@ -178,7 +129,7 @@ func (fs *FS) Sequence(leafhash []byte, leaf []byte) error {
 	}()
 
 	// Try to link into leaf data storage
-	leafDir, leafFile := leafPath(fs.rootDir, leafhash)
+	leafDir, leafFile := layout.LeafPath(fs.rootDir, leafhash)
 	if err := os.MkdirAll(leafDir, 0755); err != nil {
 		return fmt.Errorf("failed to make leaf directory structure: %w", err)
 	}
@@ -192,7 +143,7 @@ func (fs *FS) Sequence(leafhash []byte, leaf []byte) error {
 	for {
 		seq := fs.nextSeq
 
-		seqDir, seqFile := seqPath(fs.rootDir, seq)
+		seqDir, seqFile := layout.SeqPath(fs.rootDir, seq)
 		if err := os.MkdirAll(seqDir, 0755); err != nil {
 			return fmt.Errorf("failed to make seq directory structure: %w", err)
 		}
@@ -215,7 +166,7 @@ func (fs *FS) Sequence(leafhash []byte, leaf []byte) error {
 func (fs *FS) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
 	for {
-		sp := filepath.Join(seqPath(fs.rootDir, end))
+		sp := filepath.Join(layout.SeqPath(fs.rootDir, end))
 		entry, err := ioutil.ReadFile(sp)
 		if errors.Is(err, os.ErrNotExist) {
 			// we're done.
@@ -233,16 +184,9 @@ func (fs *FS) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error
 // GetTile returns the tile at the given tile-level and tile-index.
 // If no complete tile exists at that location, it will attempt to find a
 // partial tile for the given tree size at that location.
-func (fs *FS) GetTile(level, index, logsize uint64) (*api.Tile, error) {
-	sizeAtLevel := logsize >> (level * 8)
-	fullTiles := sizeAtLevel / 256
-	partialTile := sizeAtLevel % 256
-
-	p := filepath.Join(tilePath(fs.rootDir, level, index))
-	if index >= fullTiles && partialTile > 0 {
-		p += fmt.Sprintf(".%02x", partialTile)
-	}
-	glog.V(2).Infof("GetTile: read tile %q", p)
+func (fs *FS) GetTile(level, index, logSize uint64) (*api.Tile, error) {
+	tileSize := storage.PartialTileSize(level, index, logSize)
+	p := filepath.Join(layout.TilePath(fs.rootDir, level, index, tileSize))
 	t, err := ioutil.ReadFile(p)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
@@ -273,16 +217,13 @@ func (fs *FS) StoreTile(level, index uint64, tile *api.Tile) error {
 		return fmt.Errorf("failed to marshal tile: %w", err)
 	}
 
-	tDir, tFile := tilePath(fs.rootDir, level, index)
+	tDir, tFile := layout.TilePath(fs.rootDir, level, index, tileSize%256)
 	tPath := filepath.Join(tDir, tFile)
 
 	if err := os.MkdirAll(tDir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory %q: %w", tDir, err)
 	}
 
-	if tileSize != 256 {
-		tPath += fmt.Sprintf(".%02x", tileSize)
-	}
 	// TODO(al): use unlinked temp file
 	temp := fmt.Sprintf("%s.temp", tPath)
 	if err := ioutil.WriteFile(temp, t, 0644); err != nil {

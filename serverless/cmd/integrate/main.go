@@ -19,7 +19,10 @@ package main
 import (
 	"flag"
 
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/golang/glog"
+	"github.com/google/trillian-examples/serverless/internal/log"
+	"github.com/google/trillian-examples/serverless/internal/storage/fs"
+	"github.com/google/trillian/merkle/rfc6962/hasher"
 )
 
 var (
@@ -27,18 +30,15 @@ var (
 )
 
 func main() {
-	hasher := rfc6962.DefaultHasher
+	flag.Parse()
+	h := hasher.DefaultHasher
 	// init storage
 	st, err := fs.New(*storageDir)
+	if err != nil {
+		glog.Exitf("Failed to load storage: %q", err)
+	}
 
-	// fetch state
-
-	// look for new sequenced entries and build tree
-
-	// write new completed subtrees
-
-	// create and sign tree head
-	// write treehead
-
-	// done.
+	if err := log.Integrate(st, h); err != nil {
+		glog.Exitf("Failed to integrate: %q", err)
+	}
 }

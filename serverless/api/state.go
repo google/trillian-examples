@@ -26,3 +26,21 @@ type LogState struct {
 	// Hashes are the roots of the minimal set of perfect subtrees contained by this log.
 	Hashes [][]byte
 }
+
+// Tile represents a subtree tile, containing inner nodes of a log tree.
+type Tile struct {
+	// NumLeaves is the number of entries at level 0 of this tile.
+	NumLeaves uint
+
+	// Nodes stores the log tree nodes.
+	// Nodes are stored linearised using in-order traversal - this isn't completely optimal
+	// in terms of storage for partial tiles, but index calculation is relatively
+	// straight-forward.
+	// Note that only non-ephemeral nodes are stored.
+	Nodes [][]byte
+}
+
+// TileNodeKey generates keys used in Tile.Nodes array.
+func TileNodeKey(level uint, index uint64) uint {
+	return uint(1<<(level+1)*index + 1<<level - 1)
+}

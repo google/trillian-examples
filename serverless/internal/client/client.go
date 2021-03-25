@@ -19,7 +19,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian/merkle"

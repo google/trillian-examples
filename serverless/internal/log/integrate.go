@@ -81,13 +81,16 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 				}
 				created = true
 				tile = &api.Tile{
-					Nodes: make(map[string][]byte),
+					Nodes: make([][]byte, 256*2),
 				}
 			}
 			glog.V(1).Infof("GetTile: %s new: %v", tileKey, created)
 			tiles[tileKey] = tile
 		}
 		tile.Nodes[api.TileNodeKey(nodeLevel, nodeIndex)] = hash
+		if nodeLevel == 0 && nodeIndex >= uint64(tile.NumLeaves) {
+			tile.NumLeaves = uint(nodeIndex + 1)
+		}
 	}
 
 	// look for new sequenced entries and build tree

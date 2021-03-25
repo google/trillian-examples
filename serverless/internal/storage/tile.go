@@ -25,12 +25,7 @@ import (
 
 // TileSize returns the number of contiguous leaves in a tile.
 func TileSize(t *api.Tile) uint64 {
-	for i := uint64(0); i < 256; i++ {
-		if t.Nodes[api.TileNodeKey(0, i)] == nil {
-			return i
-		}
-	}
-	return 256
+	return uint64(t.NumLeaves)
 }
 
 // PartialTileSize returns the expected number of leaves in a tile at the given location within

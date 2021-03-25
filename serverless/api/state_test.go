@@ -16,6 +16,7 @@
 package api_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/trillian-examples/serverless/api"
@@ -25,25 +26,25 @@ func TestNodeKey(t *testing.T) {
 	for _, test := range []struct {
 		level uint
 		index uint64
-		want  string
+		want  uint
 	}{
 		{
 			level: 0,
 			index: 0,
-			want:  "0-0",
+			want:  0,
 		}, {
 			level: 1,
-			index: 2,
-			want:  "1-2",
+			index: 0,
+			want:  1,
 		}, {
-			level: 10,
-			index: 26666,
-			want:  "10-26666",
+			level: 1,
+			index: 1,
+			want:  5,
 		},
 	} {
-		t.Run(test.want, func(t *testing.T) {
+		t.Run(fmt.Sprintf("level %d, index %d", test.level, test.index), func(t *testing.T) {
 			if got, want := api.TileNodeKey(test.level, test.index), test.want; got != want {
-				t.Fatalf("got %q want %q", got, want)
+				t.Fatalf("got %d want %d", got, want)
 			}
 		})
 	}

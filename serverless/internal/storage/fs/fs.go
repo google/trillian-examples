@@ -217,7 +217,7 @@ func (fs *FS) StoreTile(level, index uint64, tile *api.Tile) error {
 		return fmt.Errorf("failed to marshal tile: %w", err)
 	}
 
-	tDir, tFile := layout.TilePath(fs.rootDir, level, index, tileSize%256)
+	tDir, tFile := layout.TilePath(fs.rootDir, level, index, uint64(tileSize%256))
 	tPath := filepath.Join(tDir, tFile)
 
 	if err := os.MkdirAll(tDir, 0755); err != nil {

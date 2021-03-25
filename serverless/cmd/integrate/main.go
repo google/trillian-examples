@@ -33,7 +33,7 @@ func main() {
 	flag.Parse()
 	h := hasher.DefaultHasher
 	// init storage
-	st, err := fs.New(*storageDir)
+	st, err := fs.Load(*storageDir)
 	if err != nil {
 		glog.Exitf("Failed to load storage: %q", err)
 	}

@@ -44,7 +44,7 @@ func main() {
 	if *create {
 		st, err = fs.Create(*storageDir, h.EmptyRoot())
 	} else {
-		st, err = fs.New(*storageDir)
+		st, err = fs.Load(*storageDir)
 	}
 	if err != nil {
 		glog.Exitf("Failed to initialise storage: %q", err)

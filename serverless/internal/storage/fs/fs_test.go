@@ -57,7 +57,7 @@ func TestCreateForExistingDirectory(t *testing.T) {
 	}
 }
 
-func TestNew(t *testing.T) {
+func TestLoad(t *testing.T) {
 	empty := []byte("empty")
 
 	d := filepath.Join(t.TempDir(), "storage")
@@ -66,18 +66,18 @@ func TestNew(t *testing.T) {
 		t.Fatalf("Create = %v", err)
 	}
 
-	if _, err := New(d); err != nil {
-		t.Fatalf("New = %v, want no error", err)
+	if _, err := Load(d); err != nil {
+		t.Fatalf("Load = %v, want no error", err)
 	}
 }
 
-func TestNewForNonExistentDir(t *testing.T) {
-	if _, err := New("5oi4egdf93uyjigedfk"); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("New = %v, want not exists error", err)
+func TestLoadForNonExistentDir(t *testing.T) {
+	if _, err := Load("5oi4egdf93uyjigedfk"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Load = %v, want not exists error", err)
 	}
 }
 
-func TestNewWithCorruptState(t *testing.T) {
+func TestLoadWithCorruptState(t *testing.T) {
 	empty := []byte("empty")
 
 	d := filepath.Join(t.TempDir(), "storage")
@@ -90,8 +90,8 @@ func TestNewWithCorruptState(t *testing.T) {
 		t.Fatalf("Failed to write corrupt log state file; %q", err)
 	}
 
-	if _, err := New(d); err == nil {
-		t.Fatal("New = nil, want err")
+	if _, err := Load(d); err == nil {
+		t.Fatal("Load = nil, want err")
 	}
 }
 func TestUpdateState(t *testing.T) {

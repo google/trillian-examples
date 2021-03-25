@@ -27,20 +27,26 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/storage/fs/layout"
 )
 
+const (
+	dirPerm  = 0755
+	filePerm = 0644
+)
+
 // Storage is a serverless storage implementation which uses files to store tree state.
 // The on-disk structure is:
 //  <rootDir>/leaves/aa/bb/cc/ddeeff...
-//  <rootDir>/leaves/pending/
 //  <rootDir>/seq/aa/bb/cc/ddeeff...
 //  <rootDir>/tile/<level>/aa/bb/ccddee...
 //  <rootDir>/state
+//
+// The functions on this struct are not thread-safe.
 type Storage struct {
 	rootDir string
 	state   api.LogState
 }
 
-// New returns an FS instance initialised from the filesystem.
-func New(rootDir string) (*Storage, error) {
+// Load returns an Storage instance initialised from the filesystem.
+func Load(rootDir string) (*Storage, error) {
 	fi, err := os.Stat(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat %q: %w", rootDir, err)
@@ -68,15 +74,8 @@ func Create(rootDir string, emptyHash []byte) (*Storage, error) {
 		return nil, fmt.Errorf("%q %w", rootDir, os.ErrExist)
 	}
 
-	if err := os.MkdirAll(rootDir, 0755); err != nil {
+	if err := os.MkdirAll(rootDir, dirPerm); err != nil {
 		return nil, fmt.Errorf("failed to create directory %q: %w", rootDir, err)
-	}
-
-	for _, sfx := range []string{"leaves/pending", "seq", "tree"} {
-		path := filepath.Join(rootDir, sfx)
-		if err := os.MkdirAll(path, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create directory %q: %w", path, err)
-		}
 	}
 
 	fs := &Storage{
@@ -107,7 +106,12 @@ func (fs *Storage) UpdateState(newState api.LogState) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal LogState: %w", err)
 	}
-	return ioutil.WriteFile(filepath.Join(fs.rootDir, layout.StatePath), lsRaw, 0644)
+	oPath := filepath.Join(fs.rootDir, layout.StatePath)
+	tmp := fmt.Sprintf("%s.tmp", oPath)
+	if err := ioutil.WriteFile(tmp, lsRaw, filePerm); err != nil {
+		return fmt.Errorf("failed to create temporary state file: %w", err)
+	}
+	return os.Rename(tmp, oPath)
 }
 
 // Sequence assigns the given leaf entry to the next available sequence number.

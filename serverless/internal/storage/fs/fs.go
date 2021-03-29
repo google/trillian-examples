@@ -242,6 +242,18 @@ func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) 
 	}
 }
 
+// GetTile returns the tile at the given tile-level and tile-index.
+// If no complete tile exists at that location, it will attempt to find a
+// partial tile for the given tree size at that location.
+func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
+	return nil, errors.New("unimplemented")
+}
+
+// StoreTile writes a tile out to disk.
+func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
+	return errors.New("unimplemented")
+}
+
 func loadLogState(s string) (*api.LogState, error) {
 	raw, err := ioutil.ReadFile(s)
 	if err != nil {

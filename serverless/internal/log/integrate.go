@@ -17,19 +17,33 @@
 package log
 
 import (
-	"errors"
+	"fmt"
+	"os"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/internal/storage"
+	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/hashers"
 )
 
 // Storage represents the set of functions needed by the log tooling.
 type Storage interface {
+	// GetTile returns the tile at the given level & index.
+	GetTile(level, index, logSize uint64) (*api.Tile, error)
+
+	// StoreTile stores the tile at the given level & index.
+	StoreTile(level, index uint64, tile *api.Tile) error
+
 	// LogState returns the current state of the stored log.
 	LogState() api.LogState
 
 	// UpdateState stores a newly updated log state.
 	UpdateState(newState api.LogState) error
+
+	// ScanSequenced calls f for each contiguous sequenced log entry >= begin.
+	// It should stop scanning if the call to f returns an error.
+	ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error)
 
 	// Sequence assigns sequence numbers to the passed in entry.
 	Sequence(leafhash []byte, leaf []byte) error
@@ -37,5 +51,94 @@ type Storage interface {
 
 // Integrate adds sequenced but not-yet-included entries into the tree state.
 func Integrate(st Storage, h hashers.LogHasher) error {
-	return errors.New("unimplemented")
+	rf := compact.RangeFactory{Hash: h.HashChildren}
+
+	// fetch state
+	state := st.LogState()
+	baseRange, err := rf.NewRange(0, state.Size, state.Hashes)
+	if err != nil {
+		return fmt.Errorf("failed to create range covering existing log: %w", err)
+	}
+
+	r, err := baseRange.GetRootHash(nil)
+	if err != nil {
+		return fmt.Errorf("invalid log state, unable to recalculate root: %w", err)
+	}
+	glog.Infof("Loaded state with roothash %x", r)
+
+	tiles := make(map[string]*api.Tile)
+
+	visitor := func(id compact.NodeID, hash []byte) {
+		tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
+		tileKey := storage.TileKey(tileLevel, tileIndex)
+		tile := tiles[tileKey]
+		if tile == nil {
+			created := false
+			tile, err = st.GetTile(tileLevel, tileIndex, state.Size)
+			if err != nil {
+				if !os.IsNotExist(err) {
+					panic(err)
+				}
+				created = true
+				tile = &api.Tile{
+					Nodes: make([][]byte, 256*2),
+				}
+			}
+			glog.V(1).Infof("GetTile: %s new: %v", tileKey, created)
+			tiles[tileKey] = tile
+		}
+		tile.Nodes[api.TileNodeKey(nodeLevel, nodeIndex)] = hash
+		if nodeLevel == 0 && nodeIndex >= uint64(tile.NumLeaves) {
+			tile.NumLeaves = uint(nodeIndex + 1)
+		}
+	}
+
+	// look for new sequenced entries and build tree
+	newRange := rf.NewEmptyRange(state.Size)
+
+	// write new completed subtrees
+	n, err := st.ScanSequenced(state.Size,
+		func(seq uint64, entry []byte) error {
+			lh := h.HashLeaf(entry)
+			// Set leafhash on zeroth level
+			visitor(compact.NodeID{Level: 0, Index: seq}, lh)
+			// Update range and set internal nodes
+			newRange.Append(lh, visitor)
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("error while integrating: %w", err)
+	}
+	if n == 0 {
+		glog.Infof("Nothing to do.")
+		// Nothing to do, nothing done.
+		return nil
+	}
+
+	if err := baseRange.AppendRange(newRange, visitor); err != nil {
+		return fmt.Errorf("failed to merge new range onto existing log: %w", err)
+	}
+
+	newRoot, err := baseRange.GetRootHash(nil)
+	if err != nil {
+		return fmt.Errorf("failed to calculate new root hash: %w", err)
+	}
+	glog.Infof("New log state: size 0x%x hash: %x", baseRange.End(), newRoot)
+
+	for k, t := range tiles {
+		l, i := storage.SplitTileKey(k)
+		if err := st.StoreTile(l, i, t); err != nil {
+			return fmt.Errorf("failed to store tile at level %d index %d: %w", l, i, err)
+		}
+	}
+
+	newState := api.LogState{
+		RootHash: newRoot,
+		Size:     baseRange.End(),
+		Hashes:   baseRange.Hashes(),
+	}
+	if err := st.UpdateState(newState); err != nil {
+		return fmt.Errorf("failed to update stored state: %w", err)
+	}
+	return nil
 }

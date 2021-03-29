@@ -19,6 +19,8 @@ package log
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
@@ -70,7 +72,7 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 
 	visitor := func(id compact.NodeID, hash []byte) {
 		tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
-		tileKey := storage.TileKey(tileLevel, tileIndex)
+		tileKey := tileKey(tileLevel, tileIndex)
 		tile := tiles[tileKey]
 		if tile == nil {
 			created := false
@@ -126,7 +128,7 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	glog.Infof("New log state: size 0x%x hash: %x", baseRange.End(), newRoot)
 
 	for k, t := range tiles {
-		l, i := storage.SplitTileKey(k)
+		l, i := splitTileKey(k)
 		if err := st.StoreTile(l, i, t); err != nil {
 			return fmt.Errorf("failed to store tile at level %d index %d: %w", l, i, err)
 		}
@@ -141,4 +143,24 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 		return fmt.Errorf("failed to update stored state: %w", err)
 	}
 	return nil
+}
+
+// tileKey creates a string key for the specified tile address.
+func tileKey(level, index uint64) string {
+	return fmt.Sprintf("%x/%x", level, index)
+}
+
+// splitTileKey returns the level and index implied by the given tile key.
+// This key should have been created with the tileKey function above.
+func splitTileKey(s string) (uint64, uint64) {
+	p := strings.Split(s, "/")
+	l, err := strconv.ParseUint(p[0], 16, 64)
+	if err != nil {
+		panic(err)
+	}
+	i, err := strconv.ParseUint(p[1], 16, 64)
+	if err != nil {
+		panic(err)
+	}
+	return l, i
 }

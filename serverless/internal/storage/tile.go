@@ -16,10 +16,6 @@
 package storage
 
 import (
-	"fmt"
-	"strconv"
-	"strings"
-
 	"github.com/google/trillian-examples/serverless/api"
 )
 
@@ -37,26 +33,6 @@ func PartialTileSize(level, index, logSize uint64) uint64 {
 		return 0
 	}
 	return sizeAtLevel % 256
-}
-
-// TileKey creates a string key for the specified tile address.
-func TileKey(level, index uint64) string {
-	return fmt.Sprintf("%d/%d", level, index)
-}
-
-// SplitTileKey returns the level and index implied by the given tile key.
-// This key should have been created with the tileKey function above.
-func SplitTileKey(s string) (uint64, uint64) {
-	p := strings.Split(s, "/")
-	l, err := strconv.ParseUint(p[0], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	i, err := strconv.ParseUint(p[1], 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return l, i
 }
 
 // NodeCoordsToTileAddress returns the (TileLevel, TileIndex) in tile-space, and the

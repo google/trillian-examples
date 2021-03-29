@@ -26,5 +26,6 @@ TODO:
  [ ] Integration test.
  [ ] Add simple HTTP server which serves exactly the same structure as the filesystem storage.
  [ ] Update client to be able to read tree data from the filesystem via HTTP.
+ [ ] Add example config for serving tiles/files with e.g. Nginx
  [ ] Implement & document GitHub actions components.
  [ ] Maybe add configs/examples/docs for Cloud Functions, etc. too.

@@ -18,7 +18,43 @@
 // the stored data either directly or via some other transport.
 package layout
 
+import (
+	"fmt"
+	"path/filepath"
+)
+
 const (
 	// StatePath is the location of the file containing the log checkpoint.
 	StatePath = "state"
 )
+
+// SeqPath builds the directory path and relative filename for the entry at the given
+// sequence number.
+func SeqPath(root string, seq uint64) (string, string) {
+	frag := []string{
+		root,
+		"seq",
+		fmt.Sprintf("%02x", (seq >> 32)),
+		fmt.Sprintf("%02x", (seq>>24)&0xff),
+		fmt.Sprintf("%02x", (seq>>16)&0xff),
+		fmt.Sprintf("%02x", (seq>>8)&0xff),
+		fmt.Sprintf("%02x", seq&0xff),
+	}
+	d := filepath.Join(frag[:6]...)
+	return d, frag[6]
+}
+
+// LeafPath builds the directory path and relative filename for the entry data with the
+// given leafhash.
+func LeafPath(root string, leafhash []byte) (string, string) {
+	frag := []string{
+		root,
+		"leaves",
+		fmt.Sprintf("%02x", leafhash[0]),
+		fmt.Sprintf("%02x", leafhash[1]),
+		fmt.Sprintf("%02x", leafhash[2]),
+		fmt.Sprintf("%0x", leafhash[3:]),
+	}
+	d := filepath.Join(frag[:5]...)
+	return d, frag[5]
+}

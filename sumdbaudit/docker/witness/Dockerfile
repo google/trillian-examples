@@ -1,4 +1,4 @@
-FROM golang:1.15 AS builder
+FROM golang:buster AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./sumdbaudit/cli/witness
 
 # Build release image
-FROM golang:1.15-buster
+FROM golang:buster
 
 COPY --from=builder /build/witness /bin/witness
 ENTRYPOINT ["/bin/witness"]

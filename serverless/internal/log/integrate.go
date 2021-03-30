@@ -17,19 +17,33 @@
 package log
 
 import (
-	"errors"
+	"fmt"
+	"os"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/internal/storage"
+	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/hashers"
 )
 
 // Storage represents the set of functions needed by the log tooling.
 type Storage interface {
+	// GetTile returns the tile at the given level & index.
+	GetTile(level, index, logSize uint64) (*api.Tile, error)
+
+	// StoreTile stores the tile at the given level & index.
+	StoreTile(level, index uint64, tile *api.Tile) error
+
 	// LogState returns the current state of the stored log.
 	LogState() api.LogState
 
 	// UpdateState stores a newly updated log state.
 	UpdateState(newState api.LogState) error
+
+	// ScanSequenced calls f for each contiguous sequenced log entry >= begin.
+	// It should stop scanning if the call to f returns an error.
+	ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error)
 
 	// Sequence assigns sequence numbers to the passed in entry.
 	Sequence(leafhash []byte, leaf []byte) error
@@ -37,5 +51,138 @@ type Storage interface {
 
 // Integrate adds sequenced but not-yet-included entries into the tree state.
 func Integrate(st Storage, h hashers.LogHasher) error {
-	return errors.New("unimplemented")
+	rf := compact.RangeFactory{Hash: h.HashChildren}
+
+	// Fetch previously stored state
+	state := st.LogState()
+	baseRange, err := rf.NewRange(0, state.Size, state.Hashes)
+	if err != nil {
+		return fmt.Errorf("failed to create range covering existing log: %w", err)
+	}
+
+	// Initialise a compact range representation, and verify the stored state.
+	r, err := baseRange.GetRootHash(nil)
+	if err != nil {
+		return fmt.Errorf("invalid log state, unable to recalculate root: %w", err)
+	}
+
+	glog.Infof("Loaded state with roothash %x", r)
+
+	// Create a new compact range which represents the update to the tree
+	newRange := rf.NewEmptyRange(state.Size)
+	tc := tileCache{m: make(map[tileKey]*api.Tile), getTile: func(l, i uint64) (*api.Tile, error) {
+		return st.GetTile(l, i, state.Size)
+	}}
+	n, err := st.ScanSequenced(state.Size,
+		func(seq uint64, entry []byte) error {
+			lh := h.HashLeaf(entry)
+			// Set leafhash on zeroth level
+			tc.Visit(compact.NodeID{Level: 0, Index: seq}, lh)
+			// Update range and set internal nodes
+			newRange.Append(lh, tc.Visit)
+			return nil
+		})
+	if err != nil {
+		return fmt.Errorf("error while integrating: %w", err)
+	}
+	if n == 0 {
+		glog.Infof("Nothing to do.")
+		// Nothing to do, nothing done.
+		return nil
+	}
+
+	// Merge the update range into the old tree
+	if err := baseRange.AppendRange(newRange, tc.Visit); err != nil {
+		return fmt.Errorf("failed to merge new range onto existing log: %w", err)
+	}
+
+	// Calculate the new root hash - don't pass in the tileCache visitor here since
+	// this will construct any emphemeral nodes and we do not want to store those.
+	newRoot, err := baseRange.GetRootHash(nil)
+	if err != nil {
+		return fmt.Errorf("failed to calculate new root hash: %w", err)
+	}
+
+	// All calculation is now complete, all that remains is to store the new
+	// tiles and updated log state.
+	glog.Infof("New log state: size 0x%x hash: %x", baseRange.End(), newRoot)
+
+	for k, t := range tc.m {
+		if err := st.StoreTile(k.level, k.index, t); err != nil {
+			return fmt.Errorf("failed to store tile at level %d index %d: %w", k.level, k.index, err)
+		}
+	}
+
+	// Finally, write out the new log state which subsequent runs will use.
+	// Because the sequencing is already completed (by the sequence tool), any
+	// failures to write/update the tree are idempotent and can be safely
+	// re-tried with a subsequent run of this method. Also, until UpdateState
+	// is complete, clients have no root hash for a larger tree so it's
+	// meaningless for them to attempt to construct inclusion/consistency
+	// proofs.
+	newState := api.LogState{
+		RootHash: newRoot,
+		Size:     baseRange.End(),
+		Hashes:   baseRange.Hashes(),
+	}
+	if err := st.UpdateState(newState); err != nil {
+		return fmt.Errorf("failed to update stored state: %w", err)
+	}
+	return nil
+}
+
+// tileKey is a level/index key for the tile cache below.
+type tileKey struct {
+	level uint64
+	index uint64
+}
+
+// tileCache is a simple cache for storing the newly created tiles produced by
+// the integration of new leaves into the tree.
+//
+// Calls to Visit will cause the map of tiles to become filled with the set of
+// `dirty` tiles which need to be flushed back to disk to preserve the updated
+// tree state.
+//
+// Note that by itself, this cache does not update any on-disk state.
+type tileCache struct {
+	m map[tileKey]*api.Tile
+
+	getTile func(level, index uint64) (*api.Tile, error)
+}
+
+// Visit should be called once for each newly set non-ephemeral node in the
+// tree.
+//
+// If the tile containing id has not been seen before, this method will fetch
+// it from disk (or create a new empty in-memory tile if it doesn't exist), and
+// update it by setting the node corresponding to id to the value hash.
+func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
+	tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
+	tileKey := tileKey{level: tileLevel, index: tileIndex}
+	tile := tc.m[tileKey]
+	var err error
+	if tile == nil {
+		// We haven't see this tile before, so try to fetch it from disk
+		created := false
+		tile, err = tc.getTile(tileLevel, tileIndex)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				panic(err)
+			}
+			// This is a brand new tile.
+			created = true
+			tile = &api.Tile{
+				Nodes: make([][]byte, 256*2),
+			}
+		}
+		glog.V(1).Infof("GetTile: %v new: %v", tileKey, created)
+		tc.m[tileKey] = tile
+	}
+	// Update the tile with the new node hash.
+	tile.Nodes[api.TileNodeKey(nodeLevel, nodeIndex)] = hash
+	// Update the number of 'tile leaves', if necessary.
+	if nodeLevel == 0 && nodeIndex >= uint64(tile.NumLeaves) {
+		tile.NumLeaves = uint(nodeIndex + 1)
+	}
 }

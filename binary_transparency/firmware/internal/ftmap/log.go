@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/beam/sdks/go/pkg/beam"
 
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/coniks"
@@ -33,14 +34,7 @@ import (
 func init() {
 	beam.RegisterFunction(makeDeviceReleaseLogFn)
 	beam.RegisterType(reflect.TypeOf((*moduleLogHashFn)(nil)).Elem())
-	beam.RegisterType(reflect.TypeOf((*DeviceReleaseLog)(nil)).Elem())
-}
-
-// DeviceReleaseLog represents firmware releases found for a single device ID.
-// Entries are ordered by their sequence in the original log.
-type DeviceReleaseLog struct {
-	DeviceID  string
-	Revisions []uint64
+	beam.RegisterType(reflect.TypeOf((*api.DeviceReleaseLog)(nil)).Elem())
 }
 
 // MakeReleaseLogs takes all firmwareLogEntrys and processes these by
@@ -67,7 +61,7 @@ func (fn *moduleLogHashFn) Setup() {
 	}
 }
 
-func (fn *moduleLogHashFn) ProcessElement(log *DeviceReleaseLog) (*batchmap.Entry, error) {
+func (fn *moduleLogHashFn) ProcessElement(log *api.DeviceReleaseLog) (*batchmap.Entry, error) {
 	logRange := fn.rf.NewEmptyRange(0)
 	for _, v := range log.Revisions {
 		bs := make([]byte, 8)
@@ -90,7 +84,7 @@ func (fn *moduleLogHashFn) ProcessElement(log *DeviceReleaseLog) (*batchmap.Entr
 	}, nil
 }
 
-func makeDeviceReleaseLogFn(deviceID string, lit func(**firmwareLogEntry) bool) (*DeviceReleaseLog, error) {
+func makeDeviceReleaseLogFn(deviceID string, lit func(**firmwareLogEntry) bool) (*api.DeviceReleaseLog, error) {
 	// We need to ensure ordering by sequence ID in the original log for stability.
 
 	// First consume the iterator into an in-memory list.
@@ -108,7 +102,7 @@ func makeDeviceReleaseLogFn(deviceID string, lit func(**firmwareLogEntry) bool) 
 		revisions[i] = entries[i].Firmware.FirmwareRevision
 	}
 
-	return &DeviceReleaseLog{
+	return &api.DeviceReleaseLog{
 		DeviceID:  deviceID,
 		Revisions: revisions,
 	}, nil

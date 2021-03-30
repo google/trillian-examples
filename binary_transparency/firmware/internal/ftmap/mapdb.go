@@ -55,6 +55,10 @@ func (d *MapDB) Init() error {
 	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS logs (deviceID BLOB, revision INTEGER, leaves BLOB, PRIMARY KEY (deviceID, revision))"); err != nil {
 		return err
 	}
+	// We use an INTEGER for a boolean to make life easy across multiple DB implementations.
+	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS aggregations (fwLogIndex INTEGER, revision INTEGER, good INTEGER, PRIMARY KEY (fwLogIndex, revision))"); err != nil {
+		return err
+	}
 	return nil
 }
 

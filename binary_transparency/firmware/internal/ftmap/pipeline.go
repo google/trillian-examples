@@ -31,12 +31,14 @@ import (
 func init() {
 	beam.RegisterFunction(parseStatementFn)
 	beam.RegisterFunction(parseFirmwareFn)
+	beam.RegisterFunction(parseAnnotationMalwareFn)
 	beam.RegisterFunction(partitionFn)
 	beam.RegisterType(reflect.TypeOf((*InputLogMetadata)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*InputLogLeaf)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*PipelineResult)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*loggedStatement)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*firmwareLogEntry)(nil)).Elem())
+	beam.RegisterType(reflect.TypeOf((*annotationMalwareLogEntry)(nil)).Elem())
 }
 
 // InputLog allows access to entries from the FT Log.
@@ -64,11 +66,10 @@ type InputLogLeaf struct {
 // exists to name the output and aid readability, as PCollections are untyped
 // in code, so having them as named fields at least aids a little.
 type PipelineResult struct {
-	MapTiles   beam.PCollection
-	DeviceLogs beam.PCollection
-	// TODO(mhutchinson): aggregate annotations with release metadata
-	// ReleaseAggregations beam.PCollection
-	Metadata InputLogMetadata
+	MapTiles           beam.PCollection
+	DeviceLogs         beam.PCollection
+	AggregatedFirmware beam.PCollection
+	Metadata           InputLogMetadata
 }
 
 // MapBuilder contains the static configuration for a map, and allows
@@ -111,19 +112,24 @@ func (b *MapBuilder) Create(s beam.Scope, size int64) (*PipelineResult, error) {
 	partitions := beam.Partition(s.Scope("partition"), MaxPartitions, partitionFn, statements)
 
 	fws := beam.ParDo(s, parseFirmwareFn, partitions[FirmwareMetaPartition])
+	ams := beam.ParDo(s, parseAnnotationMalwareFn, partitions[MalwareStatementPartition])
 
 	// Branch 1: create the logs of firmware releases.
-	entries, logs := MakeReleaseLogs(s.Scope("makeLogs"), b.treeID, fws)
+	logEntries, logs := MakeReleaseLogs(s.Scope("makeLogs"), b.treeID, fws)
 
 	// Branch 2: aggregate firmware releases with their annotations.
-	// TODO(mhutchinson): aggregate the annotations here.
+	annotationEntries, aggregated := Aggregate(s, b.treeID, fws, ams)
+
+	// Flatten the entries together to create a single unified map.
+	entries := beam.Flatten(s, logEntries, annotationEntries)
 
 	glog.Infof("Creating new map revision from range [0, %d)", endID)
 	tiles, err = batchmap.Create(s, entries, b.treeID, crypto.SHA512_256, b.prefixStrata)
 
 	return &PipelineResult{
-		MapTiles:   tiles,
-		DeviceLogs: logs,
+		MapTiles:           tiles,
+		DeviceLogs:         logs,
+		AggregatedFirmware: aggregated,
 		Metadata: InputLogMetadata{
 			Checkpoint: golden,
 			Entries:    endID,
@@ -202,5 +208,21 @@ func parseFirmwareFn(s *loggedStatement) (*firmwareLogEntry, error) {
 	return &firmwareLogEntry{
 		Index:    s.Index,
 		Firmware: m,
+	}, nil
+}
+
+type annotationMalwareLogEntry struct {
+	Index      int64
+	Annotation api.MalwareStatement
+}
+
+func parseAnnotationMalwareFn(s *loggedStatement) (*annotationMalwareLogEntry, error) {
+	var a api.MalwareStatement
+	if err := json.Unmarshal(s.Statement.Statement, &a); err != nil {
+		return nil, err
+	}
+	return &annotationMalwareLogEntry{
+		Index:      s.Index,
+		Annotation: a,
 	}, nil
 }

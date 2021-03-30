@@ -29,3 +29,4 @@ TODO:
  [ ] Add example config for serving tiles/files with e.g. Nginx
  [ ] Implement & document GitHub actions components.
  [ ] Maybe add configs/examples/docs for Cloud Functions, etc. too.
+ [X] Support for squashing dupes.

@@ -58,3 +58,24 @@ func LeafPath(root string, leafhash []byte) (string, string) {
 	d := filepath.Join(frag[:5]...)
 	return d, frag[5]
 }
+
+// TilePath builds the directory path and relative filename for the subtree tile with the
+// given level and index.
+func TilePath(root string, level, index, tileSize uint64) (string, string) {
+	suffix := ""
+	if tileSize > 0 {
+		suffix = fmt.Sprintf(".%02x", tileSize)
+	}
+
+	frag := []string{
+		root,
+		"tile",
+		fmt.Sprintf("%02x", level),
+		fmt.Sprintf("%04x", (index >> 24)),
+		fmt.Sprintf("%02x", (index>>16)&0xff),
+		fmt.Sprintf("%02x", (index>>8)&0xff),
+		fmt.Sprintf("%02x%s", index&0xff, suffix),
+	}
+	d := filepath.Join(frag[:6]...)
+	return d, frag[6]
+}

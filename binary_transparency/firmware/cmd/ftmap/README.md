@@ -34,7 +34,7 @@ Now to generate the map:
 
 > :warning: this section still in progress
 
-TODO(mhutchinson): serve the aggregated information back to clients with inclusion proofs in the map tiles.
+TODO(mhutchinson): serve the map tiles; clients need map inclusion proofs for this aggregated information.
 
 It's possible to confirm that the aggregation has compiled the correct result by looking into the DB:
 `sqlite3 ~/ftmap.db 'SELECT * FROM aggregations;'`

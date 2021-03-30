@@ -7,6 +7,7 @@ ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
 ENV GO111MODULE=on
 
+RUN echo "deb http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list
 RUN apt-get update && apt-get -y install curl docker-compose lsof netcat unzip wget xxd
 
 RUN cd /usr/bin && curl -L -O https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && mv jq-linux64 /usr/bin/jq && chmod +x /usr/bin/jq
@@ -18,7 +19,8 @@ RUN mkdir protoc && \
     )
 
 # Tamago bits
-RUN apt-get -y install binutils-arm-none-eabi build-essential fuse fuse2fs make u-boot-tools
+RUN apt-get -y install binutils-arm-none-eabi build-essential make u-boot-tools && \
+    apt-get -y install -t buster-backports fuse fuse2fs
 RUN curl -sfL https://github.com/f-secure-foundry/tamago-go/releases/download/tamago-go1.15.6/tamago-go1.15.6.linux-amd64.tar.gz | tar -xzf - -C /
 ENV TAMAGO=/usr/local/tamago-go/bin/go
 

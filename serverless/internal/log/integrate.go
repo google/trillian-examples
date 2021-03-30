@@ -19,8 +19,6 @@ package log
 import (
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
@@ -55,57 +53,33 @@ type Storage interface {
 func Integrate(st Storage, h hashers.LogHasher) error {
 	rf := compact.RangeFactory{Hash: h.HashChildren}
 
-	// fetch state
+	// Fetch previously stored state
 	state := st.LogState()
 	baseRange, err := rf.NewRange(0, state.Size, state.Hashes)
 	if err != nil {
 		return fmt.Errorf("failed to create range covering existing log: %w", err)
 	}
 
+	// Initialise a compact range representation, and verify the stored state.
 	r, err := baseRange.GetRootHash(nil)
 	if err != nil {
 		return fmt.Errorf("invalid log state, unable to recalculate root: %w", err)
 	}
+
 	glog.Infof("Loaded state with roothash %x", r)
 
-	tiles := make(map[string]*api.Tile)
-
-	visitor := func(id compact.NodeID, hash []byte) {
-		tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
-		tileKey := tileKey(tileLevel, tileIndex)
-		tile := tiles[tileKey]
-		if tile == nil {
-			created := false
-			tile, err = st.GetTile(tileLevel, tileIndex, state.Size)
-			if err != nil {
-				if !os.IsNotExist(err) {
-					panic(err)
-				}
-				created = true
-				tile = &api.Tile{
-					Nodes: make([][]byte, 256*2),
-				}
-			}
-			glog.V(1).Infof("GetTile: %s new: %v", tileKey, created)
-			tiles[tileKey] = tile
-		}
-		tile.Nodes[api.TileNodeKey(nodeLevel, nodeIndex)] = hash
-		if nodeLevel == 0 && nodeIndex >= uint64(tile.NumLeaves) {
-			tile.NumLeaves = uint(nodeIndex + 1)
-		}
-	}
-
-	// look for new sequenced entries and build tree
+	// Create a new compact range which represents the update to the tree
 	newRange := rf.NewEmptyRange(state.Size)
-
-	// write new completed subtrees
+	tc := tileCache{m: make(map[tileKey]*api.Tile), getTile: func(l, i uint64) (*api.Tile, error) {
+		return st.GetTile(l, i, state.Size)
+	}}
 	n, err := st.ScanSequenced(state.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
 			// Set leafhash on zeroth level
-			visitor(compact.NodeID{Level: 0, Index: seq}, lh)
+			tc.Visit(compact.NodeID{Level: 0, Index: seq}, lh)
 			// Update range and set internal nodes
-			newRange.Append(lh, visitor)
+			newRange.Append(lh, tc.Visit)
 			return nil
 		})
 	if err != nil {
@@ -117,23 +91,35 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 		return nil
 	}
 
-	if err := baseRange.AppendRange(newRange, visitor); err != nil {
+	// Merge the update range into the old tree
+	if err := baseRange.AppendRange(newRange, tc.Visit); err != nil {
 		return fmt.Errorf("failed to merge new range onto existing log: %w", err)
 	}
 
+	// Calculate the new root hash - don't pass in the tileCache visitor here since
+	// this will construct any emphemeral nodes and we do not want to store those.
 	newRoot, err := baseRange.GetRootHash(nil)
 	if err != nil {
 		return fmt.Errorf("failed to calculate new root hash: %w", err)
 	}
+
+	// All calculation is now complete, all that remains is to store the new
+	// tiles and updated log state.
 	glog.Infof("New log state: size 0x%x hash: %x", baseRange.End(), newRoot)
 
-	for k, t := range tiles {
-		l, i := splitTileKey(k)
-		if err := st.StoreTile(l, i, t); err != nil {
-			return fmt.Errorf("failed to store tile at level %d index %d: %w", l, i, err)
+	for k, t := range tc.m {
+		if err := st.StoreTile(k.level, k.index, t); err != nil {
+			return fmt.Errorf("failed to store tile at level %d index %d: %w", k.level, k.index, err)
 		}
 	}
 
+	// Finally, write out the new log state which subsequent runs will use.
+	// Because the sequencing is already completed (by the sequence tool), any
+	// failures to write/update the tree are idempotent and can be safely
+	// re-tried with a subsequent run of this method. Also, until UpdateState
+	// is complete, clients have no root hash for a larger tree so it's
+	// meaningless for them to attempt to construct inclusion/consistency
+	// proofs.
 	newState := api.LogState{
 		RootHash: newRoot,
 		Size:     baseRange.End(),
@@ -145,22 +131,58 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	return nil
 }
 
-// tileKey creates a string key for the specified tile address.
-func tileKey(level, index uint64) string {
-	return fmt.Sprintf("%x/%x", level, index)
+// tileKey is a level/index key for the tile cache below.
+type tileKey struct {
+	level uint64
+	index uint64
 }
 
-// splitTileKey returns the level and index implied by the given tile key.
-// This key should have been created with the tileKey function above.
-func splitTileKey(s string) (uint64, uint64) {
-	p := strings.Split(s, "/")
-	l, err := strconv.ParseUint(p[0], 16, 64)
-	if err != nil {
-		panic(err)
+// tileCache is a simple cache for storing the newly created tiles produced by
+// the integration of new leaves into the tree.
+//
+// Calls to Visit will cause the map of tiles to become filled with the set of
+// `dirty` tiles which need to be flushed back to disk to preserve the updated
+// tree state.
+//
+// Note that by itself, this cache does not update any on-disk state.
+type tileCache struct {
+	m map[tileKey]*api.Tile
+
+	getTile func(level, index uint64) (*api.Tile, error)
+}
+
+// Visit should be called once for each newly set non-ephemeral node in the
+// tree.
+//
+// If the tile containing id has not been seen before, this method will fetch
+// it from disk (or create a new empty in-memory tile if it doesn't exist), and
+// update it by setting the node corresponding to id to the value hash.
+func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
+	tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
+	tileKey := tileKey{level: tileLevel, index: tileIndex}
+	tile := tc.m[tileKey]
+	var err error
+	if tile == nil {
+		// We haven't see this tile before, so try to fetch it from disk
+		created := false
+		tile, err = tc.getTile(tileLevel, tileIndex)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				panic(err)
+			}
+			// This is a brand new tile.
+			created = true
+			tile = &api.Tile{
+				Nodes: make([][]byte, 256*2),
+			}
+		}
+		glog.V(1).Infof("GetTile: %v new: %v", tileKey, created)
+		tc.m[tileKey] = tile
 	}
-	i, err := strconv.ParseUint(p[1], 16, 64)
-	if err != nil {
-		panic(err)
+	// Update the tile with the new node hash.
+	tile.Nodes[api.TileNodeKey(nodeLevel, nodeIndex)] = hash
+	// Update the number of 'tile leaves', if necessary.
+	if nodeLevel == 0 && nodeIndex >= uint64(tile.NumLeaves) {
+		tile.NumLeaves = uint(nodeIndex + 1)
 	}
-	return l, i
 }

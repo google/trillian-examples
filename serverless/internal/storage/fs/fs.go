@@ -44,9 +44,15 @@ const (
 //
 // The functions on this struct are not thread-safe.
 type Storage struct {
+	// rootDir is the root directory where tree data will be stored.
 	rootDir string
+	// nextSeq is a hint to the Sequence func as to what the next available
+	// sequence number is to help performance.
+	// Note that nextSeq may be <= than the actual next available number, but
+	// never greater.
 	nextSeq uint64
-	state   api.LogState
+	// state is the latest known state of the log.
+	state api.LogState
 }
 
 const leavesPendingPathFmt = "leaves/pending/%0x"
@@ -123,7 +129,7 @@ func (fs *Storage) UpdateState(newState api.LogState) error {
 	}
 	oPath := filepath.Join(fs.rootDir, layout.StatePath)
 	tmp := fmt.Sprintf("%s.tmp", oPath)
-	if err := createExcl(tmp, lsRaw); err != nil {
+	if err := createExclusive(tmp, lsRaw); err != nil {
 		return fmt.Errorf("failed to create temporary state file: %w", err)
 	}
 	return os.Rename(tmp, oPath)
@@ -138,7 +144,7 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) error {
 	// 3. Hard link temp -> seq file
 	// 4. Optimistically symlink leafhash -> seq file
 
-	// Ensure the leafhash diretory structure is pressent
+	// Ensure the leafhash directory structure is present
 	leafDir, leafFile := layout.LeafPath(fs.rootDir, leafhash)
 	if err := os.MkdirAll(leafDir, dirPerm); err != nil {
 		return fmt.Errorf("failed to make leaf directory structure: %w", err)
@@ -151,7 +157,7 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) error {
 	}
 
 	tmp := filepath.Join(fs.rootDir, fmt.Sprintf(leavesPendingPathFmt, leafhash))
-	if err := createExcl(tmp, leaf); err != nil {
+	if err := createExclusive(tmp, leaf); err != nil {
 		return fmt.Errorf("unable to write temporary file: %w", err)
 	}
 	defer func() {
@@ -193,10 +199,10 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) error {
 	return nil
 }
 
-// createExcl, creates the named file before writing the data in d to it.
+// createExclusive creates the named file before writing the data in d to it.
 // It will error if the file already exists, or it's unable to fully write the
 // data & close the file.
-func createExcl(f string, d []byte) error {
+func createExclusive(f string, d []byte) error {
 	tmpFile, err := os.OpenFile(f, os.O_RDWR|os.O_CREATE|os.O_EXCL, filePerm)
 	if err != nil {
 		return fmt.Errorf("unable to create temporary file: %w", err)
@@ -216,7 +222,8 @@ func createExcl(f string, d []byte) error {
 
 // ScanSequenced calls the provided function once for each contiguous entry
 // in storage starting at begin.
-// The scan will abort if the function returns an error.
+// The scan will abort if the function returns an error, otherwise it will
+// return the number of sequenced entries.
 func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
 	for {

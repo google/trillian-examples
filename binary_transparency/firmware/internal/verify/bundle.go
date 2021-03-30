@@ -34,53 +34,53 @@ type ConsistencyProofFunc func(from, to uint64) ([][]byte, error)
 // the one in the bundle. It also checks consistency proof between update log point
 // and device log point (for non zero device tree size). Upon successful verification
 // returns a proof bundle
-func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc ConsistencyProofFunc) (api.ProofBundle, error) {
+func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc ConsistencyProofFunc) (api.ProofBundle, api.FirmwareMetadata, error) {
 	proofBundle, fwMeta, err := verifyBundle(bundleRaw)
 	if err != nil {
-		return proofBundle, err
+		return proofBundle, fwMeta, err
 	}
 
 	if got, want := fwHash, fwMeta.FirmwareImageSHA512; !bytes.Equal(got, want) {
-		return proofBundle, fmt.Errorf("firmware update image hash does not match metadata (0x%x != 0x%x)", got, want)
+		return proofBundle, fwMeta, fmt.Errorf("firmware update image hash does not match metadata (0x%x != 0x%x)", got, want)
 	}
 
 	cProof, err := cpFunc(dc.TreeSize, proofBundle.Checkpoint.TreeSize)
 	if err != nil {
-		return proofBundle, fmt.Errorf("cpFunc failed: %q", err)
+		return proofBundle, fwMeta, fmt.Errorf("cpFunc failed: %q", err)
 	}
 
 	// Verify the consistency proof between device and bundle checkpoint
 	if dc.TreeSize > 0 {
 		lv := NewLogVerifier()
 		if err := lv.VerifyConsistencyProof(int64(dc.TreeSize), int64(proofBundle.Checkpoint.TreeSize), dc.RootHash, proofBundle.Checkpoint.RootHash, cProof); err != nil {
-			return proofBundle, fmt.Errorf("failed verification of consistency proof %w", err)
+			return proofBundle, fwMeta, fmt.Errorf("failed verification of consistency proof %w", err)
 		}
 	}
-	return proofBundle, nil
+	return proofBundle, fwMeta, nil
 }
 
-// BundleValidateWitness verifies the received bundle against witness checkpoint
-func BundleValidateWitness(pb api.ProofBundle, wc api.LogCheckpoint, cpFunc ConsistencyProofFunc) error {
+// BundleValidateRemote verifies the received bundle against a remotely retrieved checkpoint (e.g. witness).
+func BundleValidateRemote(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc ConsistencyProofFunc) error {
 	lv := NewLogVerifier()
 
-	glog.V(1).Infof("Witness TreeSize=%d, Inclusion Index=%d \n", wc.TreeSize, pb.InclusionProof.LeafIndex)
-	if wc.TreeSize < pb.InclusionProof.LeafIndex {
-		return fmt.Errorf("witness verification failed wcp treesize(%d)<device cp index(%d)", wc.TreeSize, pb.InclusionProof.LeafIndex)
+	glog.V(1).Infof("Remote TreeSize=%d, Inclusion Index=%d \n", rc.TreeSize, pb.InclusionProof.LeafIndex)
+	if rc.TreeSize < pb.InclusionProof.LeafIndex {
+		return fmt.Errorf("remote verification failed wcp treesize(%d)<device cp index(%d)", rc.TreeSize, pb.InclusionProof.LeafIndex)
 	}
 
-	fromcp := wc
+	fromcp := rc
 	tocp := pb.Checkpoint
-	// swap the witness checkpoint(fromcp) with published checkpoint (tocp) if it is ahead of published checkpoint
+	// swap the remote checkpoint(fromcp) with published checkpoint (tocp) if it is ahead of published checkpoint
 	if fromcp.TreeSize > tocp.TreeSize {
 		fromcp = pb.Checkpoint
-		tocp = wc
+		tocp = rc
 	}
 	cProof, err := cpFunc(fromcp.TreeSize, tocp.TreeSize)
 	if err != nil {
 		return fmt.Errorf("cpFunc failed: %q", err)
 	}
 	if err := lv.VerifyConsistencyProof(int64(fromcp.TreeSize), int64(tocp.TreeSize), fromcp.RootHash, tocp.RootHash, cProof); err != nil {
-		return fmt.Errorf("failed consistency proof between witness and client checkpoint %w", err)
+		return fmt.Errorf("failed consistency proof between remote and client checkpoint %w", err)
 	}
 	return nil
 }

@@ -19,12 +19,12 @@ package main
 import (
 	"flag"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 )
 
@@ -56,19 +56,31 @@ func main() {
 		glog.Exitf("Failed to glob entries %q: %q", *entries, err)
 	}
 
-	entries := make(chan []byte, 100)
+	type entry struct {
+		name string
+		b    []byte
+	}
+	entries := make(chan entry, 100)
 	go func() {
 		for _, fp := range toAdd {
-			entry, err := ioutil.ReadFile(fp)
+			b, err := ioutil.ReadFile(fp)
 			if err != nil {
 				glog.Exitf("Failed to read entry file %q: %q", fp, err)
 			}
-			entries <- entry
+			entries <- entry{name: fp, b: b}
 		}
 		close(entries)
 	}()
 
-	if err := log.Sequence(st, h, entries); err != nil {
-		glog.Exitf("Failed to sequence entries: %q", err)
+	for entry := range entries {
+		// ask storage to sequence
+		lh := h.HashLeaf(entry.b)
+		if err := st.Sequence(lh, entry.b); err != nil {
+			if os.IsExist(err) {
+				glog.Infof("Skipping dupe entry %q with hash 0x%x", entry.name, lh)
+			} else {
+				glog.Fatalf("failed to sequence %q: %q", lh, err)
+			}
+		}
 	}
 }

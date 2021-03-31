@@ -16,6 +16,7 @@ package fs
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -115,4 +116,45 @@ func TestUpdateState(t *testing.T) {
 	if diff := cmp.Diff(ls2, ls); len(diff) != 0 {
 		t.Errorf("Updated state had diff %s", diff)
 	}
+}
+
+func TestSequence(t *testing.T) {
+	empty := []byte("empty")
+
+	d := filepath.Join(t.TempDir(), "storage")
+	s, err := Create(d, empty)
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+
+	for _, test := range []struct {
+		desc    string
+		leaves  [][]byte
+		wantErr bool
+	}{
+		{
+			desc:    "sequences ok",
+			leaves:  [][]byte{{0x00}, {0x01}, {0x02}},
+			wantErr: false,
+		}, {
+			desc:    "dupe denied",
+			leaves:  [][]byte{{0x10}, {0x10}},
+			wantErr: true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			gotErr := false
+			for i, leaf := range test.leaves {
+				h := sha256.Sum256(leaf)
+				if err := s.Sequence(h[:], leaf); err != nil {
+					t.Logf("Sequence %d = %v", i, err)
+					gotErr = true
+				}
+			}
+			if gotErr != test.wantErr {
+				t.Errorf("Got error %t, want error %t", gotErr, test.wantErr)
+			}
+		})
+	}
+
 }

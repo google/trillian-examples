@@ -20,7 +20,10 @@ package layout
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -42,6 +45,24 @@ func SeqPath(root string, seq uint64) (string, string) {
 	}
 	d := filepath.Join(frag[:6]...)
 	return d, frag[6]
+}
+
+// SeqFromPath recovers a sequence number from the specified path.
+// The path must have been generated with the SeqPath method in this package.
+func SeqFromPath(root, seqPath string) (uint64, error) {
+	seqDir := filepath.Join(root, "seq")
+	if !strings.HasPrefix(seqPath, seqDir) {
+		return 0, fmt.Errorf("invalid seqPath %q, doesn't start with prefix %q", seqPath, seqDir)
+	}
+	s := strings.TrimPrefix(seqPath, seqDir)
+	if s[0] != os.PathSeparator || s[3] != os.PathSeparator || s[6] != os.PathSeparator || s[9] != os.PathSeparator || s[12] != os.PathSeparator {
+		return 0, fmt.Errorf("seqPath format invalid %q", s)
+	}
+	var b strings.Builder
+	for _, s := range []string{s[1:3], s[4:6], s[7:9], s[10:12], s[13:]} {
+		b.WriteString(s)
+	}
+	return strconv.ParseUint(b.String(), 16, 64)
 }
 
 // LeafPath builds the directory path and relative filename for the entry data with the

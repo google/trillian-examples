@@ -79,12 +79,14 @@ func main() {
 	for entry := range entries {
 		// ask storage to sequence
 		lh := h.HashLeaf(entry.b)
-		if err := st.Sequence(lh, entry.b); err != nil {
+		seq, err := st.Sequence(lh, entry.b)
+		if err != nil {
 			if os.IsExist(err) {
 				glog.Infof("Skipping dupe entry %q with hash 0x%x", entry.name, lh)
 			} else {
 				glog.Fatalf("failed to sequence %q: %q", lh, err)
 			}
 		}
+		glog.Infof("%d: %v", seq, entry.name)
 	}
 }

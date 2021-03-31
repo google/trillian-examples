@@ -119,45 +119,47 @@ func TestUpdateState(t *testing.T) {
 	}
 }
 
+type errCheck func(error) bool
+
 func TestSequence(t *testing.T) {
-	empty := []byte("empty")
-
-	d := filepath.Join(t.TempDir(), "storage")
-	s, err := Create(d, empty)
-	if err != nil {
-		t.Fatalf("Create = %v", err)
-	}
-
 	for _, test := range []struct {
 		desc    string
 		leaves  [][]byte
-		wantErr func(error) bool
+		wantSeq []uint64
+		wantErr []errCheck
 	}{
 		{
-			desc:   "sequences ok",
-			leaves: [][]byte{{0x00}, {0x01}, {0x02}},
+			desc:    "sequences ok",
+			leaves:  [][]byte{{0x00}, {0x01}, {0x02}},
+			wantSeq: []uint64{0, 1, 2},
 		}, {
-			desc:    "dupe denied",
+			desc:    "dupe squashed",
 			leaves:  [][]byte{{0x10}, {0x10}},
-			wantErr: func(e error) bool { return errors.Is(e, storage.ErrDupeLeaf) },
+			wantSeq: []uint64{0, 0},
+			wantErr: []errCheck{nil, func(e error) bool { return errors.Is(e, storage.ErrDupeLeaf) }},
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			var gotErr error
+			d := filepath.Join(t.TempDir(), "storage")
+			s, err := Create(d, []byte("empty"))
+			if err != nil {
+				t.Fatalf("Create = %v", err)
+			}
 			for i, leaf := range test.leaves {
 				h := sha256.Sum256(leaf)
-				e := s.Sequence(h[:], leaf)
-				if e != nil {
-					gotErr = e
+				gotSeq, gotErr := s.Sequence(h[:], leaf)
+				if gotErr != nil {
 					t.Logf("Sequence %d = %v", i, gotErr)
-					break
 				}
-			}
-			if gotErr != nil && test.wantErr == nil {
-				t.Errorf("Got unexpected error %v, want no error", gotErr)
-			}
-			if test.wantErr != nil && !test.wantErr(gotErr) {
-				t.Errorf("Got wrong type of error %T (%[1]q)", gotErr)
+				if gotErr != nil && test.wantErr[i] == nil {
+					t.Errorf("Got unexpected error %v, want no error", gotErr)
+				}
+				if test.wantErr != nil && !test.wantErr[i](gotErr) {
+					t.Errorf("Got wrong type of error %T (%[1]q)", gotErr)
+				}
+				if gotSeq != test.wantSeq[i] {
+					t.Fatalf("Got sequence number %d, want %d", gotSeq, test.wantSeq[i])
+				}
 			}
 		})
 	}

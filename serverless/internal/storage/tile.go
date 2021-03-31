@@ -15,6 +15,17 @@
 // Package storage provides common code used by storage implementations.
 package storage
 
+// PartialTileSize returns the expected number of leaves in a tile at the given location within
+// a tree of the specified logSize, or 0 if the tile is expected to be fully populated.
+func PartialTileSize(level, index, logSize uint64) uint64 {
+	sizeAtLevel := logSize >> (level * 8)
+	fullTiles := sizeAtLevel / 256
+	if index < fullTiles {
+		return 0
+	}
+	return sizeAtLevel % 256
+}
+
 // NodeCoordsToTileAddress returns the (TileLevel, TileIndex) in tile-space, and the
 // (NodeLevel, NodeIndex) address within that tile of the specified tree node co-ordinates.
 func NodeCoordsToTileAddress(treeLevel, treeIndex uint64) (uint64, uint64, uint, uint64) {

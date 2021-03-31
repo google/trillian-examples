@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs/layout"
 )
 
@@ -246,12 +247,76 @@ func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) 
 // If no complete tile exists at that location, it will attempt to find a
 // partial tile for the given tree size at that location.
 func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
-	return nil, errors.New("unimplemented")
+	tileSize := storage.PartialTileSize(level, index, logSize)
+	p := filepath.Join(layout.TilePath(fs.rootDir, level, index, tileSize))
+	t, err := ioutil.ReadFile(p)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
+		}
+		return nil, err
+	}
+
+	var tile api.Tile
+	if err := json.Unmarshal(t, &tile); err != nil {
+		return nil, fmt.Errorf("failed to parse tile: %w", err)
+	}
+	return &tile, nil
 }
 
 // StoreTile writes a tile out to disk.
+// Fully populated tiles are stored at the path corresponding to the level &
+// index parameters, partially populated (i.e. right-hand edge) tiles are
+// stored with a .xx suffix where xx is the number of "tile leaves" in hex.
 func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
-	return errors.New("unimplemented")
+	tileSize := uint64(tile.NumLeaves)
+	glog.V(2).Infof("StoreTile: level %d index %x ts: %x", level, index, tileSize)
+	if tileSize == 0 || tileSize > 256 {
+		return fmt.Errorf("tileSize %d must be > 0 and <= 256", tileSize)
+	}
+	t, err := json.Marshal(tile)
+	if err != nil {
+		return fmt.Errorf("failed to marshal tile: %w", err)
+	}
+
+	tDir, tFile := layout.TilePath(fs.rootDir, level, index, tileSize%256)
+	tPath := filepath.Join(tDir, tFile)
+
+	if err := os.MkdirAll(tDir, dirPerm); err != nil {
+		return fmt.Errorf("failed to create directory %q: %w", tDir, err)
+	}
+
+	// TODO(al): use unlinked temp file
+	temp := fmt.Sprintf("%s.temp", tPath)
+	if err := ioutil.WriteFile(temp, t, filePerm); err != nil {
+		return fmt.Errorf("failed to write temporary tile file: %w", err)
+	}
+	if err := os.Rename(temp, tPath); err != nil {
+		return fmt.Errorf("failed to rename temporary tile file: %w", err)
+	}
+
+	if tileSize == 256 {
+		partials, err := filepath.Glob(fmt.Sprintf("%s.*", tPath))
+		if err != nil {
+			return fmt.Errorf("failed to list partial tiles for clean up; %w", err)
+		}
+		// Clean up old partial tiles by symlinking them to the new full tile.
+		for _, p := range partials {
+			glog.V(2).Infof("relink partial %s to %s", p, tPath)
+			// We have to do a little dance here to get POSIX atomicity:
+			// 1. Create a new temporary symlink to the full tile
+			// 2. Rename the temporary symlink over the top of the old partial tile
+			tmp := fmt.Sprintf("%s.link", tPath)
+			if err := os.Symlink(tPath, tmp); err != nil {
+				return fmt.Errorf("failed to create temp link to full tile: %w", err)
+			}
+			if err := os.Rename(tmp, p); err != nil {
+				return fmt.Errorf("failed to rename temp link over partial tile: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func loadLogState(s string) (*api.LogState, error) {

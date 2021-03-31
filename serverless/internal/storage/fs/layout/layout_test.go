@@ -97,3 +97,67 @@ func TestLeafPath(t *testing.T) {
 		})
 	}
 }
+
+func TestTilePath(t *testing.T) {
+	for _, test := range []struct {
+		root     string
+		level    uint64
+		index    uint64
+		tileSize uint64
+		wantDir  string
+		wantFile string
+	}{
+		{
+			root:     "/root/path",
+			level:    0,
+			index:    0,
+			tileSize: 0,
+			wantDir:  "/root/path/tile/00/0000/00/00",
+			wantFile: "00",
+		}, {
+			root:     "/root/path",
+			level:    0,
+			index:    0,
+			tileSize: 1,
+			wantDir:  "/root/path/tile/00/0000/00/00",
+			wantFile: "00.01",
+		}, {
+			root:     "/root/path",
+			level:    0x10,
+			index:    0,
+			wantDir:  "/root/path/tile/10/0000/00/00",
+			wantFile: "00",
+		}, {
+			root:     "/root/path",
+			level:    0x10,
+			index:    0x455667,
+			tileSize: 0x78,
+			wantDir:  "/root/path/tile/10/0000/45/56",
+			wantFile: "67.78",
+		}, {
+			root:     "/root/path",
+			level:    0x10,
+			index:    0x123456789a,
+			tileSize: 0x7,
+			wantDir:  "/root/path/tile/10/1234/56/78",
+			wantFile: "9a.07",
+		}, {
+			root:     "/a/different/root/path",
+			level:    0x15,
+			index:    0x455667,
+			wantDir:  "/a/different/root/path/tile/15/0000/45/56",
+			wantFile: "67",
+		},
+	} {
+		desc := fmt.Sprintf("root %q level %x index %x", test.root, test.level, test.index)
+		t.Run(desc, func(t *testing.T) {
+			gotDir, gotFile := TilePath(test.root, test.level, test.index, test.tileSize)
+			if gotDir != test.wantDir {
+				t.Errorf("Got dir %q want %q", gotDir, test.wantDir)
+			}
+			if gotFile != test.wantFile {
+				t.Errorf("got file %q want %q", gotFile, test.wantFile)
+			}
+		})
+	}
+}

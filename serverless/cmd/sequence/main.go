@@ -17,11 +17,13 @@
 package main
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
+	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 
 	"github.com/golang/glog"
@@ -79,14 +81,19 @@ func main() {
 	for entry := range entries {
 		// ask storage to sequence
 		lh := h.HashLeaf(entry.b)
+		dupe := false
 		seq, err := st.Sequence(lh, entry.b)
 		if err != nil {
-			if os.IsExist(err) {
-				glog.Infof("Skipping dupe entry %q with hash 0x%x", entry.name, lh)
+			if errors.Is(err, storage.ErrDupeLeaf) {
+				dupe = true
 			} else {
-				glog.Fatalf("failed to sequence %q: %q", lh, err)
+				glog.Exitf("failed to sequence %q: %q", entry.name, err)
 			}
 		}
-		glog.Infof("%d: %v", seq, entry.name)
+		l := fmt.Sprintf("%d: %v", seq, entry.name)
+		if dupe {
+			l += " (dupe)"
+		}
+		glog.Info(l)
 	}
 }

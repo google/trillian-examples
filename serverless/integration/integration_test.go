@@ -35,7 +35,7 @@ func RunIntegration(t *testing.T, s log.Storage) {
 
 	// Do a few interations around the sequence/integrate loop;
 	const (
-		loops         = 100
+		loops         = 50
 		leavesPerLoop = 257
 	)
 
@@ -44,7 +44,7 @@ func RunIntegration(t *testing.T, s log.Storage) {
 		state := s.LogState()
 
 		// Sequence some leaves:
-		sequenceNLeaves(t, s, lh, leavesPerLoop)
+		sequenceNLeaves(t, s, lh, i*leavesPerLoop, leavesPerLoop)
 
 		// Integrate those leaves
 		if err := log.Integrate(s, lh); err != nil {
@@ -87,13 +87,11 @@ func TestLogless(t *testing.T) {
 	RunIntegration(t, fs)
 }
 
-func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, n int) {
-	c := make(chan []byte, n)
+func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n int) {
 	for i := 0; i < n; i++ {
-		c <- []byte(fmt.Sprintf("Leaf %d", i))
-	}
-	close(c)
-	if err := log.Sequence(s, lh, c); err != nil {
-		t.Fatalf("Sequence = %v", err)
+		c := []byte(fmt.Sprintf("Leaf %d", start+i))
+		if err := s.Sequence(lh.HashLeaf(c), c); err != nil {
+			t.Fatalf("Sequence = %v", err)
+		}
 	}
 }

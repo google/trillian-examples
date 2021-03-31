@@ -61,10 +61,12 @@ func LeafPath(root string, leafhash []byte) (string, string) {
 
 // TilePath builds the directory path and relative filename for the subtree tile with the
 // given level and index.
-func TilePath(root string, level, index, tileSize uint64) (string, string) {
+// partialTileSize should be set to a non-zero number if the path to a partial tile
+// is required.
+func TilePath(root string, level, index, partialTileSize uint64) (string, string) {
 	suffix := ""
-	if tileSize > 0 {
-		suffix = fmt.Sprintf(".%02x", tileSize)
+	if partialTileSize > 0 {
+		suffix = fmt.Sprintf(".%02x", partialTileSize)
 	}
 
 	frag := []string{

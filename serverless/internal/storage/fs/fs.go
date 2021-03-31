@@ -250,10 +250,10 @@ func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
 	tileSize := storage.PartialTileSize(level, index, logSize)
 	p := filepath.Join(layout.TilePath(fs.rootDir, level, index, tileSize))
 	t, err := ioutil.ReadFile(p)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
-	}
 	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
+		}
 		return nil, err
 	}
 
@@ -279,7 +279,7 @@ func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 		return fmt.Errorf("failed to marshal tile: %w", err)
 	}
 
-	tDir, tFile := layout.TilePath(fs.rootDir, level, index, uint64(tileSize%256))
+	tDir, tFile := layout.TilePath(fs.rootDir, level, index, tileSize%256)
 	tPath := filepath.Join(tDir, tFile)
 
 	if err := os.MkdirAll(tDir, dirPerm); err != nil {

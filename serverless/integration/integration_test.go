@@ -46,7 +46,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 		state := s.LogState()
 
 		// Sequence some leaves:
-		sequenceNLeaves(t, s, lh, i*leavesPerLoop, leavesPerLoop)
+		leaves := sequenceNLeaves(t, s, lh, i*leavesPerLoop, leavesPerLoop)
 
 		// Integrate those leaves
 		if err := log.Integrate(s, lh); err != nil {
@@ -73,12 +73,21 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 			}
 			glog.Infof("Consistency proof 0x%x->0x%x verified", state.Size, newState.Size)
 		}
-	}
 
-	// TODO(al): Add inclusion checking here too
+		for i, l := range leaves {
+			idx := state.Size + uint64(i)
+			ip, err := pb.InclusionProof(idx)
+			if err != nil {
+				t.Fatalf("Failed to fetch inclusion proof for %d: %v", idx, err)
+			}
+			if err := lv.VerifyInclusionProof(int64(idx), int64(newState.Size), ip, newState.RootHash, lh.HashLeaf(l)); err != nil {
+				t.Fatalf("Invalid inclusion proof for %d: %x", idx, ip)
+			}
+		}
+	}
 }
 
-func TestLogless(t *testing.T) {
+func TestServerless(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "log")
 
 	fs, err := fs.Create(root, []byte("empty"))
@@ -102,11 +111,14 @@ func TestLogless(t *testing.T) {
 	RunIntegration(t, fs, f)
 }
 
-func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n int) {
+func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n int) [][]byte {
+	r := make([][]byte, 0, n)
 	for i := 0; i < n; i++ {
 		c := []byte(fmt.Sprintf("Leaf %d", start+i))
 		if _, err := s.Sequence(lh.HashLeaf(c), c); err != nil {
 			t.Fatalf("Sequence = %v", err)
 		}
+		r = append(r, c)
 	}
+	return r
 }

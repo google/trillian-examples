@@ -24,8 +24,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/trillian-examples/serverless/internal/layout"
 	"github.com/google/trillian-examples/serverless/internal/storage"
-	"github.com/google/trillian-examples/serverless/internal/storage/fs/layout"
 )
 
 func TestCreate(t *testing.T) {

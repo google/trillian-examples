@@ -22,7 +22,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
-	"github.com/google/trillian-examples/serverless/internal/storage"
+	"github.com/google/trillian-examples/serverless/internal/layout"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/hashers"
 )
@@ -163,7 +163,7 @@ type tileCache struct {
 // it from disk (or create a new empty in-memory tile if it doesn't exist), and
 // update it by setting the node corresponding to id to the value hash.
 func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
-	tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
+	tileLevel, tileIndex, nodeLevel, nodeIndex := layout.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
 	tileKey := tileKey{level: tileLevel, index: tileIndex}
 	tile := tc.m[tileKey]
 	var err error

@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package storage provides common code used by storage implementations.
-package storage
+package layout
 
 // PartialTileSize returns the expected number of leaves in a tile at the given location within
 // a tree of the specified logSize, or 0 if the tile is expected to be fully populated.

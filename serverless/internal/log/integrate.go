@@ -46,7 +46,12 @@ type Storage interface {
 	ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error)
 
 	// Sequence assigns sequence numbers to the passed in entry.
-	Sequence(leafhash []byte, leaf []byte) error
+	// Returns the assigned sequence number for the leafhash.
+	//
+	// If a duplicate leaf is sequenced the storage implementation may return
+	// the sequence number associated with an earlier instance, along with a
+	// os.ErrDupeLeaf error.
+	Sequence(leafhash []byte, leaf []byte) (uint64, error)
 }
 
 // Integrate adds sequenced but not-yet-included entries into the tree state.

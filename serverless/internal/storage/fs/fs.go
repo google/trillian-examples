@@ -139,26 +139,36 @@ func (fs *Storage) UpdateState(newState api.LogState) error {
 // Sequence assigns the given leaf entry to the next available sequence number.
 // This method will attempt to silently squash duplicate leaves, but it cannot
 // be guaranteed that no duplicate entries will exist.
-func (fs *Storage) Sequence(leafhash []byte, leaf []byte) error {
+// Returns the sequence number assigned to this leaf (if the leaf has already
+// been sequenced it will return the original sequence number and
+// storage.ErrDupeLeaf).
+func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 	// 1. Check for dupe leafhash
 	// 2. Write temp file
 	// 3. Hard link temp -> seq file
-	// 4. Optimistically symlink leafhash -> seq file
+	// 4. Symlink leafhash -> seq file to help prevent dupes
 
 	// Ensure the leafhash directory structure is present
 	leafDir, leafFile := layout.LeafPath(fs.rootDir, leafhash)
 	if err := os.MkdirAll(leafDir, dirPerm); err != nil {
-		return fmt.Errorf("failed to make leaf directory structure: %w", err)
+		return 0, fmt.Errorf("failed to make leaf directory structure: %w", err)
 	}
 	// Check for dupe leaf already present.
+	// If there is one, it's a symlink to the sequence file, so read that back
+	// and return that sequence number.
 	leafFQ := filepath.Join(leafDir, leafFile)
-	if _, err := os.Stat(leafFQ); !os.IsNotExist(err) {
-		return storage.ErrDupeLeaf
+	if seqPath, err := os.Readlink(leafFQ); !os.IsNotExist(err) {
+		origSeq, err := layout.SeqFromPath(fs.rootDir, seqPath)
+		if err != nil {
+			return 0, err
+		}
+		return origSeq, storage.ErrDupeLeaf
 	}
 
+	// Write a temp file with the leaf data
 	tmp := filepath.Join(fs.rootDir, fmt.Sprintf(leavesPendingPathFmt, leafhash))
 	if err := createExclusive(tmp, leaf); err != nil {
-		return fmt.Errorf("unable to write temporary file: %w", err)
+		return 0, fmt.Errorf("unable to write temporary file: %w", err)
 	}
 	defer func() {
 		os.Remove(tmp)
@@ -173,7 +183,7 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) error {
 		// Ensure the sequencing directory structure is present:
 		seqDir, seqFile := layout.SeqPath(fs.rootDir, seq)
 		if err := os.MkdirAll(seqDir, dirPerm); err != nil {
-			return fmt.Errorf("failed to make seq directory structure: %w", err)
+			return 0, fmt.Errorf("failed to make seq directory structure: %w", err)
 		}
 
 		// Hardlink the sequence file to the temporary file
@@ -183,20 +193,21 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) error {
 			fs.nextSeq++
 			continue
 		} else if err != nil {
-			return fmt.Errorf("failed to link seq file: %w", err)
+			return 0, fmt.Errorf("failed to link seq file: %w", err)
 		}
 
-		// Finally, try to link leafhash -> seq.
+		// Link leafhash -> seq file, this helps to prevent dupes.
+		// This isn't infallible though, if we crash after hardlinking the
+		// sequence file above, but before doing this a resubmission of the
+		// same leafhash would be permitted.
 		err := os.Symlink(seqPath, leafFQ)
 		if err != nil && !errors.Is(err, os.ErrExist) {
-			return fmt.Errorf("failed to link leafdata file: %w", err)
+			return 0, fmt.Errorf("failed to link leafdata file: %w", err)
 		}
 
 		// All done!
-		break
+		return seq, nil
 	}
-
-	return nil
 }
 
 // createExclusive creates the named file before writing the data in d to it.

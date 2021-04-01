@@ -90,7 +90,7 @@ func TestLogless(t *testing.T) {
 func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n int) {
 	for i := 0; i < n; i++ {
 		c := []byte(fmt.Sprintf("Leaf %d", start+i))
-		if err := s.Sequence(lh.HashLeaf(c), c); err != nil {
+		if _, err := s.Sequence(lh.HashLeaf(c), c); err != nil {
 			t.Fatalf("Sequence = %v", err)
 		}
 	}

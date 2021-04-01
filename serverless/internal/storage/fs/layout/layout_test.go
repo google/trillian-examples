@@ -61,6 +61,58 @@ func TestSeqPath(t *testing.T) {
 	}
 }
 
+func TestSeqFromPath(t *testing.T) {
+	for _, test := range []struct {
+		desc    string
+		seqPath string
+		root    string
+		wantSeq uint64
+		wantErr bool
+	}{
+		{
+			desc:    "valid 0",
+			root:    "/bananas",
+			seqPath: "/bananas/seq/00/00/00/00/00",
+			wantSeq: 0,
+		}, {
+			desc:    "valid x10",
+			root:    "/bananas",
+			seqPath: "/bananas/seq/00/00/00/00/10",
+			wantSeq: 0x10,
+		}, {
+			desc:    "valid large",
+			root:    "/lemons",
+			seqPath: "/lemons/seq/12/34/56/78/90",
+			wantSeq: 0x1234567890,
+		}, {
+			desc:    "wrong root",
+			root:    "/lemons",
+			seqPath: "/apples/seq/12/34/56/78/90",
+			wantErr: true,
+		}, {
+			desc:    "missing seq path",
+			root:    "/lemons",
+			seqPath: "/lemons/12/34/56/78/90",
+			wantErr: true,
+		}, {
+			desc:    "invalid format",
+			root:    "/lemons",
+			seqPath: "/lemons/12/4/56/78/90",
+			wantErr: true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			got, gotErr := SeqFromPath(test.root, test.seqPath)
+			if test.wantErr != (gotErr != nil) {
+				t.Fatalf("Want err %t, got err %v", test.wantErr, gotErr)
+			}
+			if got != test.wantSeq {
+				t.Errorf("got seq %d, want %d", got, test.wantSeq)
+			}
+		})
+	}
+}
+
 func TestLeafPath(t *testing.T) {
 	for _, test := range []struct {
 		root     string

@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
@@ -146,7 +147,7 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 	// 1. Check for dupe leafhash
 	// 2. Write temp file
 	// 3. Hard link temp -> seq file
-	// 4. Symlink leafhash -> seq file to help prevent dupes
+	// 4. Create leafhash file containing assigned sequence number
 
 	// Ensure the leafhash directory structure is present
 	leafDir, leafFile := layout.LeafPath(fs.rootDir, leafhash)
@@ -157,8 +158,8 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 	// If there is one, it's a symlink to the sequence file, so read that back
 	// and return that sequence number.
 	leafFQ := filepath.Join(leafDir, leafFile)
-	if seqPath, err := os.Readlink(leafFQ); !os.IsNotExist(err) {
-		origSeq, err := layout.SeqFromPath(fs.rootDir, seqPath)
+	if seqString, err := ioutil.ReadFile(leafFQ); !os.IsNotExist(err) {
+		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
 		if err != nil {
 			return 0, err
 		}
@@ -196,13 +197,21 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 			return 0, fmt.Errorf("failed to link seq file: %w", err)
 		}
 
-		// Link leafhash -> seq file, this helps to prevent dupes.
+		// Create a leafhash file containing the assigned sequence number.
 		// This isn't infallible though, if we crash after hardlinking the
 		// sequence file above, but before doing this a resubmission of the
 		// same leafhash would be permitted.
-		err := os.Symlink(seqPath, leafFQ)
-		if err != nil && !errors.Is(err, os.ErrExist) {
-			return 0, fmt.Errorf("failed to link leafdata file: %w", err)
+		//
+		// First create a temp file
+		leafTmp := fmt.Sprintf("%s.tmp", leafFQ)
+		if err := createExclusive(leafTmp, []byte(strconv.FormatUint(seq, 16))); err != nil {
+			return 0, fmt.Errorf("couldn't create temporary leafhash file: %w", err)
+		}
+		defer os.Remove(leafTmp)
+		// Link the temporary file in place, if it already exists we likely crashed after
+		//creating the tmp file above.
+		if err := os.Link(leafTmp, leafFQ); err != nil && !errors.Is(err, os.ErrExist) {
+			return 0, fmt.Errorf("couldn't link temporary leafhash file in place: %w", err)
 		}
 
 		// All done!

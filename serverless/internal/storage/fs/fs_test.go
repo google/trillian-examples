@@ -16,6 +16,7 @@ package fs
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -23,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs/layout"
 )
 
@@ -115,4 +117,49 @@ func TestUpdateState(t *testing.T) {
 	if diff := cmp.Diff(ls2, ls); len(diff) != 0 {
 		t.Errorf("Updated state had diff %s", diff)
 	}
+}
+
+func TestSequence(t *testing.T) {
+	empty := []byte("empty")
+
+	d := filepath.Join(t.TempDir(), "storage")
+	s, err := Create(d, empty)
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+
+	for _, test := range []struct {
+		desc    string
+		leaves  [][]byte
+		wantErr func(error) bool
+	}{
+		{
+			desc:   "sequences ok",
+			leaves: [][]byte{{0x00}, {0x01}, {0x02}},
+		}, {
+			desc:    "dupe denied",
+			leaves:  [][]byte{{0x10}, {0x10}},
+			wantErr: func(e error) bool { return errors.Is(e, storage.ErrDupeLeaf) },
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			var gotErr error
+			for i, leaf := range test.leaves {
+				h := sha256.Sum256(leaf)
+				e := s.Sequence(h[:], leaf)
+				if e != nil {
+					gotErr = e
+					t.Logf("Sequence %d = %v", i, gotErr)
+					break
+				}
+			}
+			if gotErr != nil && test.wantErr == nil {
+				t.Errorf("Got unexpected error %v, want no error", gotErr)
+			}
+			if test.wantErr != nil && !test.wantErr(gotErr) {
+				t.Errorf("Got wrong type of error %T (%[1]q)", gotErr)
+			}
+		})
+	}
+
 }

@@ -12,22 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package log
+package storage
 
 import (
-	"fmt"
-
-	"github.com/google/trillian/merkle/hashers"
+	"errors"
 )
 
-// Sequence assigns sequence numbers to leaves read from the channel.
-func Sequence(st Storage, h hashers.LogHasher, toAdd <-chan []byte) error {
-	for entry := range toAdd {
-		// ask storage to sequence
-		lh := h.HashLeaf(entry)
-		if err := st.Sequence(lh, entry); err != nil {
-			return fmt.Errorf("failed to sequence %q: %q", lh, err)
-		}
-	}
-	return nil
-}
+// ErrDupeLeaf is returned by the Sequence method of storage implementations to
+// indicate that a leaf has already been sequenced.
+var ErrDupeLeaf = errors.New("duplicate leaf")

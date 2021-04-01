@@ -17,7 +17,11 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/layout"
@@ -25,8 +29,22 @@ import (
 	"github.com/google/trillian/merkle/compact"
 )
 
-// GetTileFunc is the signature of a function which knows how to fetch log subtree tiles.
-type GetTileFunc func(level, index, logSize uint64) (*api.Tile, error)
+// FetcherFunc is the signature of a function which can retrieve arbitrary files from
+// a log's data storage, via whatever appropriate mechanism.
+// The path parameter is relative to the root of the log storage.
+type FetcherFunc func(path string) ([]byte, error)
+
+func GetLogState(f FetcherFunc) (*api.LogState, error) {
+	sRaw, err := f(layout.StatePath)
+	if err != nil {
+		return nil, err
+	}
+	var ls api.LogState
+	if err := json.Unmarshal(sRaw, &ls); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal logstate: %w", err)
+	}
+	return &ls, nil
+}
 
 // ProofBuilder knows how to build inclusion and consistency proofs from tiles.
 // Since the tiles commit only to immutable nodes, the job of building proofs is slightly
@@ -40,7 +58,7 @@ type ProofBuilder struct {
 // NewProofBuilder creates a new ProofBuilder object for a given tree size.
 // The returned ProofBuilder can be re-used for proofs related to a given tree size, but
 // it is not thread-safe and should not be accessed concurrently.
-func NewProofBuilder(s api.LogState, h compact.HashFn, f GetTileFunc) (*ProofBuilder, error) {
+func NewProofBuilder(s api.LogState, h compact.HashFn, f FetcherFunc) (*ProofBuilder, error) {
 	pb := &ProofBuilder{
 		ls:        s,
 		nodeCache: newNodeCache(f),
@@ -117,7 +135,7 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 type nodeCache struct {
 	ephemeral map[compact.NodeID][]byte
 	tiles     map[tileKey]api.Tile
-	getTile   GetTileFunc
+	fetcher   FetcherFunc
 }
 
 // tileKey is used as a key in nodeCache's tile map.
@@ -127,11 +145,11 @@ type tileKey struct {
 }
 
 // newNodeCache creates a new nodeCache instance.
-func newNodeCache(f GetTileFunc) nodeCache {
+func newNodeCache(f FetcherFunc) nodeCache {
 	return nodeCache{
 		ephemeral: make(map[compact.NodeID][]byte),
 		tiles:     make(map[tileKey]api.Tile),
-		getTile:   f,
+		fetcher:   f,
 	}
 }
 
@@ -166,4 +184,23 @@ func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
 		return nil, fmt.Errorf("node %v (tile coords [%d,%d]/[%d,%d]) unknown", id, tileLevel, tileIndex, nodeLevel, nodeIndex)
 	}
 	return node, nil
+}
+
+// getTile retrieves and parses the tile containing the specified node.
+func (n *nodeCache) getTile(level, index, logSize uint64) (*api.Tile, error) {
+	tileSize := layout.PartialTileSize(level, index, logSize)
+	p := filepath.Join(layout.TilePath("", level, index, tileSize))
+	t, err := n.fetcher(p)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
+		}
+		return nil, err
+	}
+
+	var tile api.Tile
+	if err := json.Unmarshal(t, &tile); err != nil {
+		return nil, fmt.Errorf("failed to parse tile: %w", err)
+	}
+	return &tile, nil
 }

@@ -17,6 +17,8 @@ package integration
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/url"
 	"path/filepath"
 	"testing"
 
@@ -29,7 +31,7 @@ import (
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 )
 
-func RunIntegration(t *testing.T, s log.Storage) {
+func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 	lh := hasher.DefaultHasher
 	lv := logverifier.New(lh)
 
@@ -56,7 +58,7 @@ func RunIntegration(t *testing.T, s log.Storage) {
 			t.Errorf("Integrate missed some entries, got %d want %d", got, want)
 		}
 
-		pb, err := client.NewProofBuilder(newState, lh.HashChildren, s.GetTile)
+		pb, err := client.NewProofBuilder(newState, lh.HashChildren, f)
 		if err != nil {
 			t.Fatalf("Failed to create ProofBuilder: %q", err)
 		}
@@ -84,7 +86,20 @@ func TestLogless(t *testing.T) {
 		t.Fatalf("Create = %v", err)
 	}
 
-	RunIntegration(t, fs)
+	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
+	if err != nil {
+		t.Fatalf("Failed to create root URL: %q", err)
+	}
+
+	f := func(p string) ([]byte, error) {
+		u, err := rootURL.Parse(p)
+		if err != nil {
+			return nil, err
+		}
+		return ioutil.ReadFile(u.Path)
+	}
+
+	RunIntegration(t, fs, f)
 }
 
 func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n int) {

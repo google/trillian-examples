@@ -25,8 +25,8 @@ type MapClient struct {
 	URL *url.URL
 }
 
-func NewMapClient(mapUrl string) (*MapClient, error) {
-	u, err := url.Parse(mapUrl)
+func NewMapClient(mapURL string) (*MapClient, error) {
+	u, err := url.Parse(mapURL)
 	if err != nil {
 		return nil, err
 	}

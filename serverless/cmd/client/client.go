@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main is a read-only client command for interacting with serverless logs.
+// client is a read-only cli for interacting with serverless logs.
 package main
 
 import (
@@ -21,6 +21,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
@@ -30,13 +32,21 @@ import (
 )
 
 var (
-	storageURL   = flag.String("storage_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
-	fromIndex    = flag.Uint64("from_index", 0, "Index for inclusion proof")
-	forEntryPath = flag.String("for_entry", "", "Path to entry for inclusion proof")
+	storageURL = flag.String("storage_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
 )
+
+func usage() {
+	fmt.Fprintf(os.Stderr, "Please specify one of the commands and its arguments:\n")
+	fmt.Fprintf(os.Stderr, "  inclusion <file> <index-in-log>\n")
+	os.Exit(-1)
+}
 
 func main() {
 	flag.Parse()
+
+	if len(*storageURL) == 0 {
+		glog.Exitf("--storage_url must be provided")
+	}
 
 	rootURL, err := url.Parse(*storageURL)
 	if err != nil {
@@ -48,15 +58,15 @@ func main() {
 		glog.Exitf("Failed to fetch log state: %q", err)
 	}
 
-	glog.Infof("Using tree size %d, with root 0x%0x", logState.Size, logState.RootHash)
-
 	args := flag.Args()
 	if len(args) == 0 {
-		glog.Exit("Please specify a command from [inclusion]")
+		usage()
 	}
 	switch args[0] {
 	case "inclusion":
 		err = inclusionProof(*logState, f, args[1:])
+	default:
+		usage()
 	}
 	if err != nil {
 		glog.Exitf("Command %q failed: %q", args[0], err)
@@ -64,9 +74,16 @@ func main() {
 }
 
 func inclusionProof(state api.LogState, f client.FetcherFunc, args []string) error {
-	entry, err := ioutil.ReadFile(*forEntryPath)
+	if len(args) != 2 {
+		return fmt.Errorf("usage: inclusion <file> <index-in-log>")
+	}
+	entry, err := ioutil.ReadFile(args[0])
 	if err != nil {
-		return fmt.Errorf("failed to read entry from %q: %q", *forEntryPath, err)
+		return fmt.Errorf("failed to read entry from %q: %q", args[0], err)
+	}
+	idx, err := strconv.ParseUint(args[1], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid index-in-log %q: %q", args[1], err)
 	}
 	h := hasher.DefaultHasher
 	lh := h.HashLeaf(entry)
@@ -76,21 +93,21 @@ func inclusionProof(state api.LogState, f client.FetcherFunc, args []string) err
 		return fmt.Errorf("failed to create proof builder: %w", err)
 	}
 
-	proof, err := builder.InclusionProof(*fromIndex)
+	proof, err := builder.InclusionProof(idx)
 	if err != nil {
 		return fmt.Errorf("failed to get inclusion proof: %w", err)
 	}
 
 	lv := logverifier.New(hasher.DefaultHasher)
-	if err := lv.VerifyInclusionProof(int64(*fromIndex), int64(state.Size), proof, state.RootHash, lh); err != nil {
+	if err := lv.VerifyInclusionProof(int64(idx), int64(state.Size), proof, state.RootHash, lh); err != nil {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
 	}
 
-	glog.Info("Inclusion verified.")
+	glog.Infof("Inclusion verified in tree size %d, with root 0x%0x", state.Size, state.RootHash)
 	return nil
 }
 
-// newFetcher creates a fetched for the log at the given root location.
+// newFetcher creates a FetcherFunc for the log at the given root location.
 func newFetcher(root *url.URL) client.FetcherFunc {
 	get := getByScheme[root.Scheme]
 	if get == nil {

@@ -34,6 +34,7 @@ import (
 // The path parameter is relative to the root of the log storage.
 type FetcherFunc func(path string) ([]byte, error)
 
+// GetLogState fetches and parses the latest LogState from the log.
 func GetLogState(f FetcherFunc) (*api.LogState, error) {
 	sRaw, err := f(layout.StatePath)
 	if err != nil {

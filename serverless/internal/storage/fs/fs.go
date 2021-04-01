@@ -153,7 +153,7 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) error {
 	// Check for dupe leaf already present.
 	leafFQ := filepath.Join(leafDir, leafFile)
 	if _, err := os.Stat(leafFQ); !os.IsNotExist(err) {
-		return os.ErrExist
+		return storage.ErrDupeLeaf
 	}
 
 	tmp := filepath.Join(fs.rootDir, fmt.Sprintf(leavesPendingPathFmt, leafhash))

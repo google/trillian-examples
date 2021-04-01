@@ -56,18 +56,22 @@ func main() {
 		glog.Exitf("Failed to glob entries %q: %q", *entries, err)
 	}
 
-	type entry struct {
+	// entryInfo binds the actual bytes to be added as a leaf with a
+	// user-recognisable name for the source of those bytes.
+	// The name is only used below in order to inform the user of the
+	// sequence numbers assigned to the data from the provided input files.
+	type entryInfo struct {
 		name string
 		b    []byte
 	}
-	entries := make(chan entry, 100)
+	entries := make(chan entryInfo, 100)
 	go func() {
 		for _, fp := range toAdd {
 			b, err := ioutil.ReadFile(fp)
 			if err != nil {
 				glog.Exitf("Failed to read entry file %q: %q", fp, err)
 			}
-			entries <- entry{name: fp, b: b}
+			entries <- entryInfo{name: fp, b: b}
 		}
 		close(entries)
 	}()

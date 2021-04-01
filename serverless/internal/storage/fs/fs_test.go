@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs/layout"
 )
 
@@ -130,29 +131,33 @@ func TestSequence(t *testing.T) {
 	for _, test := range []struct {
 		desc    string
 		leaves  [][]byte
-		wantErr bool
+		wantErr func(error) bool
 	}{
 		{
-			desc:    "sequences ok",
-			leaves:  [][]byte{{0x00}, {0x01}, {0x02}},
-			wantErr: false,
+			desc:   "sequences ok",
+			leaves: [][]byte{{0x00}, {0x01}, {0x02}},
 		}, {
 			desc:    "dupe denied",
 			leaves:  [][]byte{{0x10}, {0x10}},
-			wantErr: true,
+			wantErr: func(e error) bool { return errors.Is(e, storage.ErrDupeLeaf) },
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			gotErr := false
+			var gotErr error
 			for i, leaf := range test.leaves {
 				h := sha256.Sum256(leaf)
-				if err := s.Sequence(h[:], leaf); err != nil {
-					t.Logf("Sequence %d = %v", i, err)
-					gotErr = true
+				e := s.Sequence(h[:], leaf)
+				if e != nil {
+					gotErr = e
+					t.Logf("Sequence %d = %v", i, gotErr)
+					break
 				}
 			}
-			if gotErr != test.wantErr {
-				t.Errorf("Got error %t, want error %t", gotErr, test.wantErr)
+			if gotErr != nil && test.wantErr == nil {
+				t.Errorf("Got unexpected error %v, want no error", gotErr)
+			}
+			if test.wantErr != nil && !test.wantErr(gotErr) {
+				t.Errorf("Got wrong type of error %T (%[1]q)", gotErr)
 			}
 		})
 	}

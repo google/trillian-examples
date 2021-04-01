@@ -18,6 +18,8 @@ package integration
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"testing"
@@ -87,19 +89,19 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 	}
 }
 
-func TestServerless(t *testing.T) {
+func TestServerlessViaFile(t *testing.T) {
+	// Create log instance
 	root := filepath.Join(t.TempDir(), "log")
-
 	fs, err := fs.Create(root, []byte("empty"))
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}
 
+	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
 	if err != nil {
 		t.Fatalf("Failed to create root URL: %q", err)
 	}
-
 	f := func(p string) ([]byte, error) {
 		u, err := rootURL.Parse(p)
 		if err != nil {
@@ -108,7 +110,38 @@ func TestServerless(t *testing.T) {
 		return ioutil.ReadFile(u.Path)
 	}
 
+	// Run test
 	RunIntegration(t, fs, f)
+}
+
+func TestServerlessViaHTTP(t *testing.T) {
+	// Create the log instance
+	root := filepath.Join(t.TempDir(), "log")
+	fs, err := fs.Create(root, []byte("empty"))
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+
+	// Arrange for its files to be served via HTTP
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Failed to create listener: %q", err)
+	}
+	srv := http.Server{
+		Handler: http.FileServer(http.Dir(root)),
+	}
+	defer srv.Close()
+	go func() {
+		srv.Serve(listener)
+	}()
+
+	// Create fetcher
+	url := fmt.Sprintf("http://%s/", listener.Addr().String())
+	f := httpFetcher(t, url)
+
+	// Run test
+	RunIntegration(t, fs, f)
+
 }
 
 func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n int) [][]byte {
@@ -121,4 +154,25 @@ func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n
 		r = append(r, c)
 	}
 	return r
+}
+
+func httpFetcher(t *testing.T, u string) client.FetcherFunc {
+	t.Helper()
+	rootURL, err := url.Parse(u)
+	if err != nil {
+		t.Fatalf("Failed to create root URL: %q", err)
+	}
+
+	return func(p string) ([]byte, error) {
+		u, err := rootURL.Parse(p)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := http.Get(u.String())
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		return ioutil.ReadAll(resp.Body)
+	}
 }

@@ -25,8 +25,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/internal/layout"
 	"github.com/google/trillian-examples/serverless/internal/storage"
-	"github.com/google/trillian-examples/serverless/internal/storage/fs/layout"
 )
 
 const (
@@ -257,7 +257,7 @@ func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) 
 // If no complete tile exists at that location, it will attempt to find a
 // partial tile for the given tree size at that location.
 func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
-	tileSize := storage.PartialTileSize(level, index, logSize)
+	tileSize := layout.PartialTileSize(level, index, logSize)
 	p := filepath.Join(layout.TilePath(fs.rootDir, level, index, tileSize))
 	t, err := ioutil.ReadFile(p)
 	if err != nil {

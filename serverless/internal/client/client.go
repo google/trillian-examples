@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	"github.com/google/trillian-examples/serverless/api"
-	"github.com/google/trillian-examples/serverless/internal/storage"
+	"github.com/google/trillian-examples/serverless/internal/layout"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/compact"
 )
@@ -150,7 +150,7 @@ func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
 		return e, nil
 	}
 	// Otherwise look in fetched tiles:
-	tileLevel, tileIndex, nodeLevel, nodeIndex := storage.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
+	tileLevel, tileIndex, nodeLevel, nodeIndex := layout.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
 	tKey := tileKey{tileLevel, tileIndex}
 	t, ok := n.tiles[tKey]
 	if !ok {

@@ -82,7 +82,7 @@ func Main(opts FlashOpts) error {
 	}
 
 	if len(opts.MapURL) > 0 {
-		err := verifyMap(c, pb, fwMeta, opts.MapURL)
+		err := verifyAnnotations(c, pb, fwMeta, opts.MapURL)
 		if !opts.Force {
 			return err
 		}
@@ -194,23 +194,27 @@ func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, witnessURL stri
 	if err != nil {
 		return fmt.Errorf("failed to fetch the witness checkpoint: %w", err)
 	}
-	if err := verifyRemote(c, pb, *wcp); err != nil {
-		return fmt.Errorf("failed to verify update with witness: %w", err)
+	if wcp.TreeSize == 0 {
+		return fmt.Errorf("no witness checkpoint to verify")
+	}
+	if err := verify.BundleConsistency(pb, *wcp, getConsistencyFunc(c)); err != nil {
+		return fmt.Errorf("failed to verify checkpoint consistency against witness: %w", err)
 	}
 	return nil
 }
 
-func verifyMap(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
+func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
 	mc := client.MapClient{}
 	mcp, err := mc.MapCheckpoint()
 	if err != nil {
 		return fmt.Errorf("failed to get map root: %w", err)
 	}
+
 	// TODO(mhutchinson): check consistency with the largest checkpoint found thus far
 	// in order to detect a class of fork; it could be that the checkpoint in the update
 	// is consistent with the map and the witness, but the map and the witness aren't
 	// consistent with each other.
-	if err := verifyRemote(c, pb, mcp.LogCheckpoint); err != nil {
+	if err := verify.BundleConsistency(pb, mcp.LogCheckpoint, getConsistencyFunc(c)); err != nil {
 		return fmt.Errorf("failed to verify update with map checkpoint: %w", err)
 	}
 
@@ -224,18 +228,6 @@ func verifyMap(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.Firmware
 	}
 	if !afw.Good {
 		return errors.New("firmware is marked as bad")
-	}
-	return nil
-}
-
-// verifyRemote checks that an update package is consistent with remotely fetched Checkpoint.
-func verifyRemote(c *client.ReadonlyClient, pb api.ProofBundle, rcp api.LogCheckpoint) error {
-	if rcp.TreeSize == 0 {
-		return fmt.Errorf("no remote checkpoint to verify")
-	}
-	cpFunc := getConsistencyFunc(c)
-	if err := verify.BundleValidateRemote(pb, rcp, cpFunc); err != nil {
-		return fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
 	return nil
 }

@@ -44,7 +44,7 @@ type MapCheckpoint struct {
 }
 
 // MapInclusionProof contains the value at the requested key and the proof to the
-// requested tree size.
+// requested Checkpoint.
 type MapInclusionProof struct {
 	Key   []byte
 	Value []byte

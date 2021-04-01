@@ -59,8 +59,8 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 	return proofBundle, fwMeta, nil
 }
 
-// BundleValidateRemote verifies the received bundle against a remotely retrieved checkpoint (e.g. witness).
-func BundleValidateRemote(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc ConsistencyProofFunc) error {
+// BundleConsistency verifies the log checkpoint in the bundle is consistent against a given checkpoint (e.g. one fetched from a witness).
+func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc ConsistencyProofFunc) error {
 	lv := NewLogVerifier()
 
 	glog.V(1).Infof("Remote TreeSize=%d, Inclusion Index=%d \n", rc.TreeSize, pb.InclusionProof.LeafIndex)

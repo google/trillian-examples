@@ -154,7 +154,7 @@ func TestSequence(t *testing.T) {
 				if gotErr != nil && test.wantErr[i] == nil {
 					t.Errorf("Got unexpected error %v, want no error", gotErr)
 				}
-				if test.wantErr != nil && !test.wantErr[i](gotErr) {
+				if test.wantErr != nil && test.wantErr[i] != nil && !test.wantErr[i](gotErr) {
 					t.Errorf("Got wrong type of error %T (%[1]q)", gotErr)
 				}
 				if gotSeq != test.wantSeq[i] {

@@ -98,8 +98,8 @@ func main() {
 	glog.Infof("Starting witness listening on %s...", *listenAddr)
 
 	r := mux.NewRouter()
-	r.HandleFunc(fmt.Sprintf("/golden"), server.getGolden).Methods("GET")
-	r.HandleFunc(fmt.Sprintf("/checkConsistency/{cp}"), server.checkConsistency).Methods("GET")
+	r.HandleFunc("/golden", server.getGolden).Methods("GET")
+	r.HandleFunc("/checkConsistency/{cp}", server.checkConsistency).Methods("GET")
 	glog.Fatal(http.ListenAndServe(*listenAddr, r))
 }
 

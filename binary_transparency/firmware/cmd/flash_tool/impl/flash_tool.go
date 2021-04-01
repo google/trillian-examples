@@ -59,31 +59,11 @@ func Main(opts FlashOpts) error {
 	}
 	// TODO(al): check signature on checkpoints when they're added.
 
-	var dev devices.Device
-	switch opts.DeviceID {
-	case "armory":
-		dev, err = armory_flash.New(opts.DeviceStorage)
-	case "dummy":
-		dev, err = dummy.New(opts.DeviceStorage)
-	default:
-		return errors.New("device must be one of: 'dummy', 'armory'")
-	}
+	dev, err := getDevice(opts)
 	if err != nil {
-		switch t := err.(type) {
-		case devices.ErrNeedsInit:
-			err := fmt.Errorf("device needs to be force initialised: %w", err)
-			if !opts.Force {
-				return err
-			}
-			glog.Warning(err)
-		default:
-			err := fmt.Errorf("failed to open device: %w", t)
-			if !opts.Force {
-				return err
-			}
-			glog.Warning(err)
-		}
+		return fmt.Errorf("failed to get device: %w", err)
 	}
+
 	pb, fwMeta, err := verifyUpdate(c, up, dev)
 	if err != nil {
 		err := fmt.Errorf("failed to validate update: %w", err)
@@ -94,57 +74,19 @@ func Main(opts FlashOpts) error {
 	}
 
 	if len(opts.WitnessURL) > 0 {
-		wURL, err := url.Parse(opts.WitnessURL)
-		if err != nil {
-			return fmt.Errorf("witness_url is invalid: %w", err)
+		err := verifyWitness(c, pb, opts.WitnessURL)
+		if !opts.Force {
+			return err
 		}
-		wc := client.WitnessClient{URL: wURL}
-
-		wcp, err := wc.GetWitnessCheckpoint()
-		if err != nil {
-			return fmt.Errorf("failed to fetch the witness checkpoint: %w", err)
-		}
-		if err := verifyRemote(c, pb, *wcp); err != nil {
-			err := fmt.Errorf("failed to verify update with witness: %w", err)
-			if !opts.Force {
-				return err
-			}
-			glog.Warning(err)
-		}
+		glog.Warning(err)
 	}
 
 	if len(opts.MapURL) > 0 {
-		mc := client.MapClient{}
-		mcp, err := mc.MapCheckpoint()
-		if err != nil {
-			return fmt.Errorf("failed to get map root: %w", err)
+		err := verifyMap(c, pb, fwMeta, opts.MapURL)
+		if !opts.Force {
+			return err
 		}
-		// TODO(mhutchinson): check consistency with the largest checkpoint found thus far
-		// in order to detect a class of fork; it could be that the checkpoint in the update
-		// is consistent with the map and the witness, but the map and the witness aren't
-		// consistent with each other.
-		if err := verifyRemote(c, pb, mcp.LogCheckpoint); err != nil {
-			err := fmt.Errorf("failed to verify update with map checkpoint: %w", err)
-			if !opts.Force {
-				return err
-			}
-			glog.Warning(err)
-		}
-
-		// TODO(mhutchinson): Check the inclusion proof and use the values returned by the map.
-		afw, _, err := mc.Aggregation(mcp, pb.InclusionProof.LeafIndex)
-		if err != nil {
-			return fmt.Errorf("failed to get map value for %q: %w", pb.InclusionProof.LeafIndex, err)
-		}
-		if !reflect.DeepEqual(fwMeta, *afw.Firmware) {
-			return fmt.Errorf("got aggregated response for %q, but expected %q", afw.Firmware, fwMeta)
-		}
-		if !afw.Good {
-			if !opts.Force {
-				return errors.New("firmware is marked as bad")
-			}
-			glog.Warning("firmware is marked as bad, but continuing because of force")
-		}
+		glog.Warning(err)
 	}
 	glog.Info("Update verified, about to apply to device...")
 
@@ -154,6 +96,36 @@ func Main(opts FlashOpts) error {
 
 	glog.Info("Update applied.")
 	return nil
+}
+
+func getDevice(opts FlashOpts) (devices.Device, error) {
+	var dev devices.Device
+	var err error
+	switch opts.DeviceID {
+	case "armory":
+		dev, err = armory_flash.New(opts.DeviceStorage)
+	case "dummy":
+		dev, err = dummy.New(opts.DeviceStorage)
+	default:
+		return dev, errors.New("device must be one of: 'dummy', 'armory'")
+	}
+	if err != nil {
+		switch t := err.(type) {
+		case devices.ErrNeedsInit:
+			err := fmt.Errorf("device needs to be force initialised: %w", err)
+			if !opts.Force {
+				return dev, err
+			}
+			glog.Warning(err)
+		default:
+			err := fmt.Errorf("failed to open device: %w", t)
+			if !opts.Force {
+				return dev, err
+			}
+			glog.Warning(err)
+		}
+	}
+	return dev, nil
 }
 
 func readUpdateFile(path string) (api.UpdatePackage, error) {
@@ -209,6 +181,51 @@ func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.De
 		return pb, fwMeta, fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
 	return pb, fwMeta, nil
+}
+
+func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, witnessURL string) error {
+	wURL, err := url.Parse(witnessURL)
+	if err != nil {
+		return fmt.Errorf("witness_url is invalid: %w", err)
+	}
+	wc := client.WitnessClient{URL: wURL}
+
+	wcp, err := wc.GetWitnessCheckpoint()
+	if err != nil {
+		return fmt.Errorf("failed to fetch the witness checkpoint: %w", err)
+	}
+	if err := verifyRemote(c, pb, *wcp); err != nil {
+		return fmt.Errorf("failed to verify update with witness: %w", err)
+	}
+	return nil
+}
+
+func verifyMap(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
+	mc := client.MapClient{}
+	mcp, err := mc.MapCheckpoint()
+	if err != nil {
+		return fmt.Errorf("failed to get map root: %w", err)
+	}
+	// TODO(mhutchinson): check consistency with the largest checkpoint found thus far
+	// in order to detect a class of fork; it could be that the checkpoint in the update
+	// is consistent with the map and the witness, but the map and the witness aren't
+	// consistent with each other.
+	if err := verifyRemote(c, pb, mcp.LogCheckpoint); err != nil {
+		return fmt.Errorf("failed to verify update with map checkpoint: %w", err)
+	}
+
+	// TODO(mhutchinson): Check the inclusion proof and use the values returned by the map.
+	afw, _, err := mc.Aggregation(mcp, pb.InclusionProof.LeafIndex)
+	if err != nil {
+		return fmt.Errorf("failed to get map value for %q: %w", pb.InclusionProof.LeafIndex, err)
+	}
+	if !reflect.DeepEqual(fwMeta, *afw.Firmware) {
+		return fmt.Errorf("got aggregated response for %q, but expected %q", afw.Firmware, fwMeta)
+	}
+	if !afw.Good {
+		return errors.New("firmware is marked as bad")
+	}
+	return nil
 }
 
 // verifyRemote checks that an update package is consistent with remotely fetched Checkpoint.

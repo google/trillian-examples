@@ -207,7 +207,7 @@ func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.
 	mc := client.MapClient{}
 	mcp, err := mc.MapCheckpoint()
 	if err != nil {
-		return fmt.Errorf("failed to get map root: %w", err)
+		return fmt.Errorf("failed to get map checkpoint: %w", err)
 	}
 
 	// TODO(mhutchinson): check consistency with the largest checkpoint found thus far

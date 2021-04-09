@@ -14,6 +14,8 @@
 
 package api
 
+import "fmt"
+
 // AggregatedFirmware represents the results of aggregating a single piece of firmware
 // according to the rules described in #Aggregate().
 type AggregatedFirmware struct {
@@ -27,4 +29,29 @@ type AggregatedFirmware struct {
 type DeviceReleaseLog struct {
 	DeviceID  string
 	Revisions []uint64
+}
+
+// MapCheckpoint is a commitment to a map built from the FW Log at a given size.
+// The map checkpoint contains the checkpoint of the log this was built from, with
+// the number of entries consumed from that input log. This allows clients to check
+// they are seeing the same version of the log as the map was built from. This also
+// provides information to allow verifiers of the map to confirm correct construction.
+type MapCheckpoint struct {
+	LogCheckpoint LogCheckpoint
+	LogSize       uint64
+	RootHash      []byte
+	Revision      uint64
+}
+
+// MapInclusionProof contains the value at the requested key and the proof to the
+// requested Checkpoint.
+type MapInclusionProof struct {
+	Key   []byte
+	Value []byte
+	Proof [][]byte
+}
+
+// String returns a compact printable representation of an InclusionProof.
+func (l MapInclusionProof) String() string {
+	return fmt.Sprintf("{key: 0x%x, value: 0x%x, proof: %x}", l.Key, l.Value, l.Proof)
 }

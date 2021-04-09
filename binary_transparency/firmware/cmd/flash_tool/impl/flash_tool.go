@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"reflect"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
@@ -38,6 +39,7 @@ import (
 type FlashOpts struct {
 	DeviceID      string
 	LogURL        string
+	MapURL        string
 	WitnessURL    string
 	UpdateFile    string
 	Force         bool
@@ -53,36 +55,16 @@ func Main(opts FlashOpts) error {
 
 	up, err := readUpdateFile(opts.UpdateFile)
 	if err != nil {
-		return fmt.Errorf("Failed to read update package file: %w", err)
+		return fmt.Errorf("failed to read update package file: %w", err)
 	}
 	// TODO(al): check signature on checkpoints when they're added.
 
-	var dev devices.Device
-	switch opts.DeviceID {
-	case "armory":
-		dev, err = armory_flash.New(opts.DeviceStorage)
-	case "dummy":
-		dev, err = dummy.New(opts.DeviceStorage)
-	default:
-		return errors.New("device must be one of: 'dummy', 'armory'")
-	}
+	dev, err := getDevice(opts)
 	if err != nil {
-		switch t := err.(type) {
-		case devices.ErrNeedsInit:
-			err := fmt.Errorf("device needs to be force initialised: %w", err)
-			if !opts.Force {
-				return err
-			}
-			glog.Warning(err)
-		default:
-			err := fmt.Errorf("failed to open device: %w", t)
-			if !opts.Force {
-				return err
-			}
-			glog.Warning(err)
-		}
+		return fmt.Errorf("failed to get device: %w", err)
 	}
-	pb, err := verifyUpdate(c, up, dev)
+
+	pb, fwMeta, err := verifyUpdate(c, up, dev)
 	if err != nil {
 		err := fmt.Errorf("failed to validate update: %w", err)
 		if !opts.Force {
@@ -92,25 +74,20 @@ func Main(opts FlashOpts) error {
 	}
 
 	if len(opts.WitnessURL) > 0 {
-		wURL, err := url.Parse(opts.WitnessURL)
-		if err != nil {
-			return fmt.Errorf("witness_url is invalid: %w", err)
+		err := verifyWitness(c, pb, opts.WitnessURL)
+		if !opts.Force {
+			return err
 		}
-		wc := client.WitnessClient{URL: wURL}
-
-		if err := verifyWitness(c, pb, wc); err != nil {
-			err := fmt.Errorf("failed to verify update with witness: %w", err)
-			if !opts.Force {
-				return err
-			}
-			glog.Warning(err)
-		}
+		glog.Warning(err)
 	}
 
-	// TODO(mhutchinson): query the map:
-	// 1. Check that the map root commits to a log root consistent with the checkpoints above
-	// 2. Look up the aggregation under the key: fmt.Sprintf("summary:%d", pb.InclusionProof.LeafIndex)
-
+	if len(opts.MapURL) > 0 {
+		err := verifyAnnotations(c, pb, fwMeta, opts.MapURL)
+		if !opts.Force {
+			return err
+		}
+		glog.Warning(err)
+	}
 	glog.Info("Update verified, about to apply to device...")
 
 	if err := dev.ApplyUpdate(up); err != nil {
@@ -119,6 +96,36 @@ func Main(opts FlashOpts) error {
 
 	glog.Info("Update applied.")
 	return nil
+}
+
+func getDevice(opts FlashOpts) (devices.Device, error) {
+	var dev devices.Device
+	var err error
+	switch opts.DeviceID {
+	case "armory":
+		dev, err = armory_flash.New(opts.DeviceStorage)
+	case "dummy":
+		dev, err = dummy.New(opts.DeviceStorage)
+	default:
+		return dev, errors.New("device must be one of: 'dummy', 'armory'")
+	}
+	if err != nil {
+		switch t := err.(type) {
+		case devices.ErrNeedsInit:
+			err := fmt.Errorf("device needs to be force initialised: %w", err)
+			if !opts.Force {
+				return dev, err
+			}
+			glog.Warning(err)
+		default:
+			err := fmt.Errorf("failed to open device: %w", t)
+			if !opts.Force {
+				return dev, err
+			}
+			glog.Warning(err)
+		}
+	}
+	return dev, nil
 }
 
 func readUpdateFile(path string) (api.UpdatePackage, error) {
@@ -157,37 +164,70 @@ func getConsistencyFunc(c *client.ReadonlyClient) func(from, to uint64) ([][]byt
 }
 
 // verifyUpdate checks that an update package is self-consistent and returns a verified proof bundle
-func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) (api.ProofBundle, error) {
+func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) (api.ProofBundle, api.FirmwareMetadata, error) {
 	var pb api.ProofBundle
+	var fwMeta api.FirmwareMetadata
 
 	// Get the consistency proof for the bundle
 	dc, err := dev.DeviceCheckpoint()
 	if err != nil {
-		return pb, fmt.Errorf("failed to fetch the device checkpoint: %w", err)
+		return pb, fwMeta, fmt.Errorf("failed to fetch the device checkpoint: %w", err)
 	}
 
 	cpFunc := getConsistencyFunc(c)
 	fwHash := sha512.Sum512(up.FirmwareImage)
-	pb, err = verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc)
+	pb, fwMeta, err = verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc)
 	if err != nil {
-		return pb, fmt.Errorf("failed to verify proof bundle: %w", err)
+		return pb, fwMeta, fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
-	return pb, nil
+	return pb, fwMeta, nil
 }
 
-// verifyWitness checks that an update package is consistent with witness
-func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, wc client.WitnessClient) error {
+func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, witnessURL string) error {
+	wURL, err := url.Parse(witnessURL)
+	if err != nil {
+		return fmt.Errorf("witness_url is invalid: %w", err)
+	}
+	wc := client.WitnessClient{URL: wURL}
+
 	wcp, err := wc.GetWitnessCheckpoint()
 	if err != nil {
 		return fmt.Errorf("failed to fetch the witness checkpoint: %w", err)
 	}
-
 	if wcp.TreeSize == 0 {
-		return fmt.Errorf("No witness checkpoint to verify")
+		return fmt.Errorf("no witness checkpoint to verify")
 	}
-	cpFunc := getConsistencyFunc(c)
-	if err := verify.BundleValidateWitness(pb, (*wcp), cpFunc); err != nil {
-		return fmt.Errorf("failed to verify proof bundle: %w", err)
+	if err := verify.BundleConsistency(pb, *wcp, getConsistencyFunc(c)); err != nil {
+		return fmt.Errorf("failed to verify checkpoint consistency against witness: %w", err)
+	}
+	return nil
+}
+
+func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
+	mc := client.MapClient{}
+	mcp, err := mc.MapCheckpoint()
+	if err != nil {
+		return fmt.Errorf("failed to get map checkpoint: %w", err)
+	}
+
+	// TODO(mhutchinson): check consistency with the largest checkpoint found thus far
+	// in order to detect a class of fork; it could be that the checkpoint in the update
+	// is consistent with the map and the witness, but the map and the witness aren't
+	// consistent with each other.
+	if err := verify.BundleConsistency(pb, mcp.LogCheckpoint, getConsistencyFunc(c)); err != nil {
+		return fmt.Errorf("failed to verify update with map checkpoint: %w", err)
+	}
+
+	// TODO(mhutchinson): Check the inclusion proof and use the values returned by the map.
+	afw, _, err := mc.Aggregation(mcp, pb.InclusionProof.LeafIndex)
+	if err != nil {
+		return fmt.Errorf("failed to get map value for %q: %w", pb.InclusionProof.LeafIndex, err)
+	}
+	if !reflect.DeepEqual(fwMeta, *afw.Firmware) {
+		return fmt.Errorf("got aggregated response for %q, but expected %q", afw.Firmware, fwMeta)
+	}
+	if !afw.Good {
+		return errors.New("firmware is marked as bad")
 	}
 	return nil
 }

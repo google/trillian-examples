@@ -155,8 +155,8 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 		return 0, fmt.Errorf("failed to make leaf directory structure: %w", err)
 	}
 	// Check for dupe leaf already present.
-	// If there is one, it's a symlink to the sequence file, so read that back
-	// and return that sequence number.
+	// If there is one, it should contain the existing leaf's sequence number,
+	// so read that back and return it.
 	leafFQ := filepath.Join(leafDir, leafFile)
 	if seqString, err := ioutil.ReadFile(leafFQ); !os.IsNotExist(err) {
 		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)

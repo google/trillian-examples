@@ -144,10 +144,10 @@ exit status 1
 TODO
 ----
 
- - [ ] Document structure, design, etc.
- - [ ] Integration test.
+ - [X] Document structure, design, etc.
+ - [X] Integration test.
  - [ ] Add simple HTTP server which serves exactly the same structure as the filesystem storage.
- - [ ] Update client to be able to read tree data from the filesystem via HTTP.
+ - [X] Update client to be able to read tree data from the filesystem via HTTP.
  - [ ] Add example config for serving tiles/files with e.g. Nginx
  - [ ] Implement & document GitHub actions components.
  - [ ] Maybe add configs/examples/docs for Cloud Functions, etc. too.

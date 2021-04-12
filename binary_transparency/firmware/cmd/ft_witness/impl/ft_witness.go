@@ -28,7 +28,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_witness/internal/ws"
 	"github.com/gorilla/mux"
 
-	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
+	_ "github.com/google/trillian/merkle/rfc6962/hasher" // Load hashers
 )
 
 // WitnessOpts encapsulates options for running an FT witness.

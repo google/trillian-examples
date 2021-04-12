@@ -86,7 +86,7 @@ func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeS
 
 // AddSignedStatement adds the statement to the log if it isn't already present.
 func (c *Client) AddSignedStatement(ctx context.Context, data []byte) error {
-	leafHash := c.Hasher.HashLeaf(data)
+	leafHash := c.BuildLeaf(data).MerkleLeafHash
 	leaf := &trillian.LogLeaf{
 		LeafValue:      data,
 		MerkleLeafHash: leafHash,

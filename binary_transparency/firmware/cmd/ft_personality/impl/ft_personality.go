@@ -32,8 +32,8 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
 	"github.com/gorilla/mux"
 
-	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
-	_ "github.com/mattn/go-sqlite3"               // Load drivers for sqlite3
+	_ "github.com/google/trillian/merkle/rfc6962/hasher" // Load hashers
+	_ "github.com/mattn/go-sqlite3"                      // Load drivers for sqlite3
 )
 
 // PersonalityOpts encapsulates options for running an FT personality.

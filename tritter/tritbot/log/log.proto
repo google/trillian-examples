@@ -5,7 +5,6 @@ package log;
 option go_package = "github.com/google/trillian-examples/tritter/tritbot/log";
 
 import "trillian.proto";
-import "trillian_log_api.proto";
 import "google/protobuf/timestamp.proto";
 
 // InternalMessage has the details of a message that is going to

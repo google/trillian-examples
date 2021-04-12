@@ -141,7 +141,6 @@ func TestServerlessViaHTTP(t *testing.T) {
 
 	// Run test
 	RunIntegration(t, fs, f)
-
 }
 
 func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n int) [][]byte {

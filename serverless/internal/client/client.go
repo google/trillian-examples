@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/layout"
@@ -204,4 +205,18 @@ func (n *nodeCache) getTile(level, index, logSize uint64) (*api.Tile, error) {
 		return nil, fmt.Errorf("failed to parse tile: %w", err)
 	}
 	return &tile, nil
+}
+
+// LookupIndex fetches the leafhash->seq mapping file from the log, and returns
+// its parsed contents.
+func LookupIndex(f FetcherFunc, lh []byte) (uint64, error) {
+	p := filepath.Join(layout.LeafPath("", lh))
+	sRaw, err := f(p)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, fmt.Errorf("leafhash unknown (%w)", err)
+		}
+		return 0, fmt.Errorf("failed to fetch leafhash->seq file: %w", err)
+	}
+	return strconv.ParseUint(string(sRaw), 16, 64)
 }

@@ -37,7 +37,7 @@ var (
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Please specify one of the commands and its arguments:\n")
-	fmt.Fprintf(os.Stderr, "  inclusion <file> <index-in-log>\n")
+	fmt.Fprintf(os.Stderr, "  inclusion <file> [index-in-log]\n")
 	os.Exit(-1)
 }
 
@@ -74,19 +74,30 @@ func main() {
 }
 
 func inclusionProof(state api.LogState, f client.FetcherFunc, args []string) error {
-	if len(args) != 2 {
-		return fmt.Errorf("usage: inclusion <file> <index-in-log>")
+	if l := len(args); l < 1 || l > 2 {
+		return fmt.Errorf("usage: inclusion <file> [index-in-log]")
 	}
 	entry, err := ioutil.ReadFile(args[0])
 	if err != nil {
-		return fmt.Errorf("failed to read entry from %q: %q", args[0], err)
+		return fmt.Errorf("failed to read entry from %q: %w", args[0], err)
 	}
-	idx, err := strconv.ParseUint(args[1], 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid index-in-log %q: %q", args[1], err)
-	}
+
 	h := hasher.DefaultHasher
 	lh := h.HashLeaf(entry)
+
+	var idx uint64
+	if len(args) == 2 {
+		idx, err = strconv.ParseUint(args[1], 16, 64)
+		if err != nil {
+			return fmt.Errorf("invalid index-in-log %q: %w", args[1], err)
+		}
+	} else {
+		idx, err = client.LookupIndex(f, lh)
+		if err != nil {
+			return fmt.Errorf("failed to lookup leaf index: %w", err)
+		}
+		glog.Infof("Leaf %q found at index %d", args[0], idx)
+	}
 
 	builder, err := client.NewProofBuilder(state, h.HashChildren, f)
 	if err != nil {
@@ -97,6 +108,8 @@ func inclusionProof(state api.LogState, f client.FetcherFunc, args []string) err
 	if err != nil {
 		return fmt.Errorf("failed to get inclusion proof: %w", err)
 	}
+
+	glog.V(1).Infof("Built inclusion proof: %#x", proof)
 
 	lv := logverifier.New(hasher.DefaultHasher)
 	if err := lv.VerifyInclusionProof(int64(idx), int64(state.Size), proof, state.RootHash, lh); err != nil {

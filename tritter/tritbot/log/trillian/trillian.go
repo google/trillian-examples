@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/tritter/tritbot/log"
 	"github.com/google/trillian/client"
@@ -29,8 +28,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/prototext"
 
-	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
+	_ "github.com/google/trillian/merkle/rfc6962/hasher" // Load hashers
 )
 
 const (
@@ -93,7 +93,7 @@ func (l *trillianLogger) Log(ctx context.Context, in *log.LogRequest) (*log.LogR
 	}
 
 	// Serialize the message and write to Trillian, blocking until written.
-	bs := []byte(proto.MarshalTextString(msg))
+	bs := []byte(prototext.Format(msg))
 	l.c.AddLeaf(ctx, bs)
 	r := l.c.GetRoot()
 	glog.Infof("Logged to Trillian and included in r=%d: %v", r.Revision, msg)

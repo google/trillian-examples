@@ -130,7 +130,7 @@ func (a *auditor) getIndex(ctx context.Context, root *types.LogRootV1, index int
 	}
 
 	data := r.GetData()
-	if err := a.v.VerifyInclusionAtIndex(root, data, index, r.GetProof().GetHashes()); err != nil {
+	if err := a.v.VerifyInclusionByHash(root, a.v.BuildLeaf(data).MerkleLeafHash, r.GetProof()); err != nil {
 		return nil, fmt.Errorf("failed to verify leaf inclusion: %v", err)
 	}
 	return data, nil

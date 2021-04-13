@@ -41,7 +41,7 @@ import (
 
 var (
 	trillianMySQL = flag.String("trillian_mysql", "", "The connection string to the Trillian MySQL database.")
-	mapDBString   = flag.String("map_db", "", "File path for output database where the map tiles will be written.") // TODO(mhutchinson): this needs to be able to sink to a client/server database
+	mapDBString   = flag.String("map_db", "", "Connection path for output database where the map tiles will be written.")
 	count         = flag.Int64("count", -1, "The total number of entries starting from the beginning of the log to use, or -1 to use all. This can be used to independently create maps of the same size.")
 	treeID        = flag.Int64("tree_id", 12345, "The ID of the tree. Used as a salt in hashing.")
 	prefixStrata  = flag.Int("prefix_strata", 2, "The number of strata of 8-bit strata before the final strata.")

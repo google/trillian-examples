@@ -209,12 +209,15 @@ func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.
 	if err != nil {
 		return fmt.Errorf("failed to get map checkpoint: %w", err)
 	}
-
+	var lcp api.LogCheckpoint
+	if err := json.Unmarshal(mcp.LogCheckpoint, &lcp); err != nil {
+		return fmt.Errorf("failed to unmarshal log checkpoint: %w", err)
+	}
 	// TODO(mhutchinson): check consistency with the largest checkpoint found thus far
 	// in order to detect a class of fork; it could be that the checkpoint in the update
 	// is consistent with the map and the witness, but the map and the witness aren't
 	// consistent with each other.
-	if err := verify.BundleConsistency(pb, mcp.LogCheckpoint, getConsistencyFunc(c)); err != nil {
+	if err := verify.BundleConsistency(pb, lcp, getConsistencyFunc(c)); err != nil {
 		return fmt.Errorf("failed to verify update with map checkpoint: %w", err)
 	}
 

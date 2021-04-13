@@ -76,13 +76,17 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 			glog.Infof("Consistency proof 0x%x->0x%x verified", state.Size, newState.Size)
 		}
 
-		for i, l := range leaves {
-			idx := state.Size + uint64(i)
+		for _, l := range leaves {
+			h := lh.HashLeaf(l)
+			idx, err := client.LookupIndex(f, h)
+			if err != nil {
+				t.Fatalf("Failed to lookup leaf index: %v", err)
+			}
 			ip, err := pb.InclusionProof(idx)
 			if err != nil {
 				t.Fatalf("Failed to fetch inclusion proof for %d: %v", idx, err)
 			}
-			if err := lv.VerifyInclusionProof(int64(idx), int64(newState.Size), ip, newState.RootHash, lh.HashLeaf(l)); err != nil {
+			if err := lv.VerifyInclusionProof(int64(idx), int64(newState.Size), ip, newState.RootHash, h); err != nil {
 				t.Fatalf("Invalid inclusion proof for %d: %x", idx, ip)
 			}
 		}

@@ -104,9 +104,6 @@ func sinkFromFlags() (*ftmap.MapDB, int, error) {
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to open map DB at %q: %v", *mapDBString, err)
 	}
-	if err := mapDB.Init(); err != nil {
-		return nil, 0, fmt.Errorf("failed to Init map DB at %q: %v", *mapDBString, err)
-	}
 
 	var rev int
 	if rev, err = mapDB.NextWriteRevision(); err != nil {

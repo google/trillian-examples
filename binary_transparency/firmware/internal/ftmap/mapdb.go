@@ -39,9 +39,10 @@ func NewMapDB(location string) (*MapDB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &MapDB{
+	mapDB := &MapDB{
 		db: db,
-	}, nil
+	}
+	return mapDB, mapDB.Init()
 }
 
 // Init creates the database tables if needed.

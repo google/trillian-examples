@@ -16,6 +16,11 @@ package api
 
 import "fmt"
 
+const (
+	// MapHTTPGetCheckpoint is the path of the URL to get a recent map checkpoint.
+	MapHTTPGetCheckpoint = "ftmap/v0/get-checkpoint"
+)
+
 // AggregatedFirmware represents the results of aggregating a single piece of firmware
 // according to the rules described in #Aggregate().
 type AggregatedFirmware struct {
@@ -37,7 +42,8 @@ type DeviceReleaseLog struct {
 // they are seeing the same version of the log as the map was built from. This also
 // provides information to allow verifiers of the map to confirm correct construction.
 type MapCheckpoint struct {
-	LogCheckpoint LogCheckpoint
+	// LogCheckpoint is the json encoded api.LogCheckpoint.
+	LogCheckpoint []byte
 	LogSize       uint64
 	RootHash      []byte
 	Revision      uint64

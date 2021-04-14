@@ -135,7 +135,7 @@ exit status 1
 > and in another terminal:
 >
 > ```bash
-> $ go run ./serverless/cmd/client/ --logtostderr --storage_url=http://localhost:8008 inclusion ./CONTRIBUTING.md
+> $ go run ./serverless/cmd/client/ --logtostderr --storage_url=http://localhost:8000 inclusion ./CONTRIBUTING.md
 > I0413 17:25:05.799998 4163606 client.go:99] Leaf "./CONTRIBUTING.md" found at index 0
 > I0413 17:25:05.801354 4163606 client.go:119] Inclusion verified in tree size 3, with root 0x615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
 > ```

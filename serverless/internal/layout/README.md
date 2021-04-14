@@ -7,17 +7,16 @@ This doc describes the on-disk layout and format of the serverless log files.
 > of the serverless log structure may well change.
 
 Broadly, the layout consists of a self-contained directory hierarchy whose
-contents represents the entire state of the log. With one exception, the
-contents and structure of this directory is designed to allow it to be safely
-and indefinitely cached by clients.
+contents represents the entire state of the log.
+The contents and structure of this directory is designed to allow it to be safely
+and indefinitely cached by clients, with one exception - the state file.
 
 Inside the directory you'll find:
 
- * :file_folder: leaves/
- * :file_folder: seq/
- * :file_folder: tile/
  * :page_facing_up: state
-
+ * :file_folder: seq/
+ * :file_folder: leaves/
+ * :file_folder: tile/
 
 state
 -----
@@ -54,20 +53,20 @@ tile/
 
 The nodes are grouped into "tiles" - these are 8 level deep "sub trees".
 Each tile exists at a particular location in tile-space, identified by its
-`layer` and `index`.
+`stratum` and `index`.
 
-A *perfect* tree of size 65536 would be represented by two layers of tiles:
- - layer 0, 256 tiles wide, containing all the leaf hashes of the log along with
-   the 7 bottom-most layers of internal nodes.
- - layer 1, 1 tile wide, containing the next 8 layers of internal nodes.
+A *perfect* tree of size 2^16 would be represented by two strata of tiles:
+ - stratum 0: 256 tiles wide, containing all the leaf hashes of the log along with
+   the 7 bottom-most levels of internal nodes.
+ - stratum 1: 1 tile wide, containing the next 8 levels of internal nodes.
 
-Given a `layer` of `0x0123456789` and an `index` of `0xef`, the corresponding
+Given an `index` of `0x0123456789` and an `stratum` of `0xef`, the corresponding
 fully populated tile file would be found at `.../tile/ef/0123/45/67/89`.
 
 Given that we would like tiles to be indefinitely cacheable, and that in
 the general case a log will not be comprised entirely of perfect subtrees, tiles
 which are *not* fully populated will be stored with a hex suffix representing
-the number of (tile) "leaves" present in the tile.  E.g., for the `layer` and
+the number of (tile) "leaves" present in the tile.  E.g., for the `stratum` and
 `index` given above, if the tile contained `0xab` (tile) "leaves" it would be
 found at `.../tile/ef/0123/45/67/89.ab`
 

@@ -10,145 +10,23 @@ The idea is to make logging infrastructure a bit more *nix like, and demonstrate
 how to use those tools in conjunction with GitHub actions, GCP Cloud Functions,
 AWS Lambda, etc. to deploy and maintain "serverless" transparency logs.
 
-The on-disk structure of the log is well defined, and can directly be made
-public via HTTP[S]. Clients wishing to be convinced of consistency/inclusion are
-responsible for constructing the proofs themselves by fetching the tiles
-containing the required nodes.
-
-Command-line tools usage
-------------------------
-
-A few tools are provided for manipulating the on-disk log state:
+A few example tools are provided:
  - `sequence` this assigns sequence numbers to new entries
  - `integrate` this integrates any as-yet un-integrated sequence numbers into
    the log state
  - `client` this provides log proof verification
 
-Examples of how to use the tools are given below, they assume that a `${LOG_DIR}`
-environment variable has been set to the desired path and directory name which
-should contain the log state files, e.g.:
+The on-disk structure of the log is well defined, and can directly be made
+public via HTTP[S]. Clients wishing to be convinced of consistency/inclusion are
+responsible for constructing the proofs themselves by fetching the tiles
+containing the required nodes.
 
-```bash
-$ export LOG_DIR="/tmp/mylog"
-```
-
-### Creating a new log
-To create a new log state directory, use the `sequence` command with the `--create`
-flag:
-
-```bash
-$ go run ./serverless/cmd/sequence --create --storage_dir=${LOG_DIR} --logtostderr
-```
-
-### Sequencing entries into a log
-To add the contents of some files to a log, use the `sequence` command with the
-`--entries` flag set to a filename glob of files to add:
-
-```bash
-$ go run ./serverless/cmd/sequence --storage_dir=${LOG_DIR} --entries '*.md' --logtostderr
-I0413 16:54:52.708433 4154632 main.go:97] 0: CONTRIBUTING.md
-I0413 16:54:52.709114 4154632 main.go:97] 1: README.md
-```
-
-The tool prints out the names of added files, along with their assigned sequence
-number(s) - above, the contents of `CONTRIBUTING.md` was assigned to sequence number
-0.
-
-Attempting to re-sequence the same file contents will result in the `sequence`
-tool telling you that you're trying to add duplicate entries, along with their
-originally assigned sequence numbers:
-
-```
-$ go run ./serverless/cmd/sequence --storage_dir=${LOG_DIR} --entries 'C*' --logtostderr
-I0413 16:58:08.956402 4155499 main.go:97] 0: CONTRIBUTING.md (dupe)
-I0413 16:58:08.956938 4155499 main.go:97] 2: CONTRIBUTORS
-```
-
-Here we see that the contents of `CONTRIBUTING.md` already exists in the log at
-sequence number 0, but the contents `CONTRIBUTORS` did not and was assigned a
-sequence number of 2.
-
-> :warning: </br>
-> Note that duplicate suppression is not guaranteed - there are corner
-> cases where a crash of the `sequence` tool could result in a duplicate entry
-> being added, so it's best not to rely on uniqueness and instead consider it
-> a best-effort anti-spam mitigation.
-
-### Integrating sequenced entries
-Although the entries we've added above are now assigned positions in the log, we
-still need to update the proof structure state to integrate these new entries.
-We use the `integrate` tool for that:
-
-```bash
-$ go run ./serverless/cmd/integrate --storage_dir=${LOG_DIR} --logtostderr
-I0413 17:03:19.239293 4156550 integrate.go:74] Loaded state with roothash
-I0413 17:03:19.239468 4156550 integrate.go:113] New log state: size 0x3 hash: 615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
-```
-
-This output says that the integration was successful, and we now have a new log
-tree state which contains `0x03` entries, and has the printed log root hash.
-
-Unless further entries are sequenced as above, re-running the `integrate` command
-will have no effect:
-
-```bash
-$ go run ./serverless/cmd/integrate --storage_dir=${LOG_DIR} --logtostderr
-I0413 17:05:10.040900 4156921 integrate.go:74] Loaded state with roothash 615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
-I0413 17:05:10.040976 4156921 integrate.go:94] Nothing to do.
-```
-
-### Client
-
-There is a simple client-side tool for querying the log, currently it supports
-the following functionality:
-
-#### inclusion proof verification
-
-We can verify the inclusion of a given leaf in the tree with the `client inclusion`
-command:
-
-```bash
-$ go run ./serverless/cmd/client/ --logtostderr --storage_url=file:///${LOG_DIR}/ inclusion ./CONTRIBUTING.md
-I0413 17:09:48.335324 4158369 client.go:99] Leaf "./CONTRIBUTING.md" found at index 0
-I0413 17:09:48.335468 4158369 client.go:119] Inclusion verified in tree size 3, with root 0x615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
-```
-
-As expected, requesting an inclusion proof for something not in the log will fail:
-
-```bash
-$ go run ./serverless/cmd/client/ --logtostderr --storage_url=file:///${LOG_DIR}/ inclusion ./go.mod
-F0413 17:13:04.148676 4158991 client.go:72] Command "inclusion" failed: "failed to lookup leaf index: leafhash unknown (open /${LOG_DIR}/leaves/67/48/64/2df7219529a9f2303e8668d60b70a6d7600f22e22fc612c26bd3c399ef: no such file or directory)"
-exit status 1
-```
-
-> :frog: </br>
-> Note that the `--storage_url` parameter is a URL, it understands `file://`
-> URLs for local filesystem access, but also works with `http[s]://` URLs too - so
-> you can directly serve the filesystem contents in `${LOG_DIR}` via HTTP[S] and point
-> the client at that server instead and it should work just fine.
->
-> E.g.:
->
-> ```bash
-> $ busybox httpd -f -p 8000 -h ${LOG_DIR}
-> ```
-> and in another terminal:
->
-> ```bash
-> $ go run ./serverless/cmd/client/ --logtostderr --storage_url=http://localhost:8000 inclusion ./CONTRIBUTING.md
-> I0413 17:25:05.799998 4163606 client.go:99] Leaf "./CONTRIBUTING.md" found at index 0
-> I0413 17:25:05.801354 4163606 client.go:119] Inclusion verified in tree size 3, with root 0x615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
-> ```
-
-
-TODO
-----
-
- - [ ] Document structure, design, etc.
- - [ ] Integration test.
- - [ ] Add simple HTTP server which serves exactly the same structure as the filesystem storage.
- - [ ] Update client to be able to read tree data from the filesystem via HTTP.
- - [ ] Add example config for serving tiles/files with e.g. Nginx
- - [ ] Implement & document GitHub actions components.
- - [ ] Maybe add configs/examples/docs for Cloud Functions, etc. too.
- - [X] Support for squashing dupes.
+TODO:
+ [ ] Document structure, design, etc.
+ [ ] Integration test.
+ [ ] Add simple HTTP server which serves exactly the same structure as the filesystem storage.
+ [ ] Update client to be able to read tree data from the filesystem via HTTP.
+ [ ] Add example config for serving tiles/files with e.g. Nginx
+ [ ] Implement & document GitHub actions components.
+ [ ] Maybe add configs/examples/docs for Cloud Functions, etc. too.
+ [X] Support for squashing dupes.

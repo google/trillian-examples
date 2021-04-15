@@ -84,7 +84,7 @@ func Main(opts FlashOpts) error {
 	if len(opts.MapURL) > 0 {
 		err := verifyAnnotations(c, pb, fwMeta, opts.MapURL)
 		if !opts.Force {
-			return err
+			return fmt.Errorf("verifyAnnotations: %w", err)
 		}
 		glog.Warning(err)
 	}
@@ -204,11 +204,15 @@ func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, witnessURL stri
 }
 
 func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
-	mc := client.MapClient{}
+	mc, err := client.NewMapClient(mapURL)
+	if err != nil {
+		return fmt.Errorf("failed to create map client: %w", err)
+	}
 	mcp, err := mc.MapCheckpoint()
 	if err != nil {
 		return fmt.Errorf("failed to get map checkpoint: %w", err)
 	}
+	glog.V(1).Infof("%s", mcp.LogCheckpoint)
 	var lcp api.LogCheckpoint
 	if err := json.Unmarshal(mcp.LogCheckpoint, &lcp); err != nil {
 		return fmt.Errorf("failed to unmarshal log checkpoint: %w", err)

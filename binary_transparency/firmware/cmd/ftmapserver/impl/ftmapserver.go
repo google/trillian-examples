@@ -26,6 +26,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/ftmap"
 	"github.com/google/trillian/experimental/batchmap"
+	"github.com/google/trillian/types"
 
 	"github.com/gorilla/mux"
 
@@ -34,7 +35,7 @@ import (
 
 type MapReader interface {
 	// LatestRevision gets the metadata for the last completed write.
-	LatestRevision() (rev int, logroot []byte, count int64, err error)
+	LatestRevision() (rev int, logroot types.LogRootV1, count int64, err error)
 
 	// Tile gets the tile at the given path in the given revision of the map.
 	Tile(revision int, path []byte) (*batchmap.Tile, error)
@@ -81,20 +82,30 @@ type Server struct {
 
 // getCheckpoint returns a recent MapCheckpoint.
 func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
-	rev, root, count, err := s.db.LatestRevision()
+	rev, logRootV1, count, err := s.db.LatestRevision()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	glog.V(1).Infof("Latest revision: %d", rev)
+	glog.V(1).Infof("Latest revision: %d %+v", rev, logRootV1)
 	tile, err := s.db.Tile(rev, []byte{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	lcp := api.LogCheckpoint{
+		TreeSize:       logRootV1.TreeSize,
+		RootHash:       logRootV1.RootHash,
+		TimestampNanos: logRootV1.TimestampNanos,
+	}
+	lcpEncoded, err := json.Marshal(lcp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	checkpoint := api.MapCheckpoint{
-		LogCheckpoint: root,
+		LogCheckpoint: lcpEncoded,
 		LogSize:       uint64(count),
 		Revision:      uint64(rev),
 		RootHash:      tile.RootHash,

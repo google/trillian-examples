@@ -15,14 +15,16 @@
 package client
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
 	"net/url"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
 type MapClient struct {
-	URL *url.URL
+	mapURL *url.URL
 }
 
 func NewMapClient(mapURL string) (*MapClient, error) {
@@ -31,7 +33,7 @@ func NewMapClient(mapURL string) (*MapClient, error) {
 		return nil, err
 	}
 	return &MapClient{
-		URL: u,
+		mapURL: u,
 	}, nil
 }
 
@@ -42,8 +44,24 @@ func NewMapClient(mapURL string) (*MapClient, error) {
 // * A Log Checkpoint for the MapCheckpointLog
 // * An inclusion proof for this checkpoint within it
 func (c *MapClient) MapCheckpoint() (api.MapCheckpoint, error) {
-	// TODO(mhutchinson): http://mapserver/latest
-	return api.MapCheckpoint{}, errors.New("unimplemented")
+	mcp := api.MapCheckpoint{}
+	u, err := c.mapURL.Parse(api.MapHTTPGetCheckpoint)
+	if err != nil {
+		return mcp, err
+	}
+	r, err := http.Get(u.String())
+	if err != nil {
+		return mcp, err
+	}
+	if r.StatusCode != 200 {
+		return mcp, errFromResponse("failed to fetch checkpoint", r)
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&mcp); err != nil {
+		return mcp, err
+	}
+	// TODO(mhutchinson): Check signature
+	return mcp, nil
 }
 
 // Aggregation returns the value committed to by the map under the given key,

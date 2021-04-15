@@ -32,7 +32,7 @@ import (
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 )
 
-func defaultLocalStorage() string {
+func defaultCacheLocation() string {
 	hd, err := os.UserCacheDir()
 	if err != nil {
 		glog.Warningf("Failed to determine user cache dir: %q", err)
@@ -41,8 +41,8 @@ func defaultLocalStorage() string {
 }
 
 var (
-	storageURL = flag.String("storage_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
-	cacheDir   = flag.String("cache_dir", defaultLocalStorage(), "Where to cache client state for logs, if empty don't store anything locally.")
+	logURL   = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
+	cacheDir = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
 )
 
 func usage() {
@@ -54,13 +54,13 @@ func usage() {
 func main() {
 	flag.Parse()
 
-	if len(*storageURL) == 0 {
-		glog.Exitf("--storage_url must be provided")
+	if len(*logURL) == 0 {
+		glog.Exitf("--log_url must be provided")
 	}
 
-	rootURL, err := url.Parse(*storageURL)
+	rootURL, err := url.Parse(*logURL)
 	if err != nil {
-		glog.Exitf("Invalid storage URL: %q", err)
+		glog.Exitf("Invalid log URL: %q", err)
 	}
 
 	// TODO(al) derive this from log pub key

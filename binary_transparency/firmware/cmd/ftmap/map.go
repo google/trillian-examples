@@ -31,6 +31,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/google/trillian/experimental/batchmap"
+	"github.com/google/trillian/types"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/ftmap"
@@ -205,11 +206,27 @@ func newTrillianDBFromFlags() (*trillianDB, error) {
 
 // Head gets the STH and the total number of entries available to process.
 func (m *trillianDB) Head() ([]byte, int64, error) {
-	var cp []byte
-	var leafCount int64
+	// This implementation taken from Trillian's storage/mysql/log_storage.go#fetchLatestRoot
+	var timestamp, treeSize, treeRevision int64
+	var rootHash []byte
+	if err := m.db.QueryRow("SELECT TreeHeadTimestamp,TreeSize,RootHash,TreeRevision FROM TreeHead ORDER BY TreeRevision DESC LIMIT 1").Scan(
+		&timestamp, &treeSize, &rootHash, &treeRevision,
+	); err != nil {
+		// It's possible there are no roots for this tree yet
+		return []byte{}, 0, fmt.Errorf("failed to read TreeHead table: %w", err)
+	}
 
-	// TODO(mhutchinson): This should construct the full signed root; see Trillian's storage/mysql/log_storage.go#fetchLatestRoot
-	return cp, leafCount, m.db.QueryRow("SELECT TreeSize, RootHash From TreeHead ORDER BY TreeRevision DESC LIMIT 1").Scan(&leafCount, &cp)
+	// Put logRoot back together. Fortunately LogRoot has a deterministic serialization.
+	cp, err := (&types.LogRootV1{
+		RootHash:       rootHash,
+		TimestampNanos: uint64(timestamp),
+		Revision:       uint64(treeRevision),
+		TreeSize:       uint64(treeSize),
+	}).MarshalBinary()
+	if err != nil {
+		return []byte{}, 0, fmt.Errorf("failed to marshal LogRoot: %w", err)
+	}
+	return cp, treeSize, nil
 }
 
 const sequencedLeafDataQuery = `

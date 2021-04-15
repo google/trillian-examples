@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/trillian/experimental/batchmap"
+	"github.com/google/trillian/types"
 )
 
 // NoRevisionsFound is returned when the DB appears valid but has no revisions in it.
@@ -77,15 +78,19 @@ func (d *MapDB) NextWriteRevision() (int, error) {
 }
 
 // LatestRevision gets the metadata for the last completed write.
-func (d *MapDB) LatestRevision() (rev int, logroot []byte, count int64, err error) {
+func (d *MapDB) LatestRevision() (rev int, logroot types.LogRootV1, count int64, err error) {
 	var sqlRev sql.NullInt32
-	if err := d.db.QueryRow("SELECT revision, logroot, count FROM revisions ORDER BY revision DESC LIMIT 1").Scan(&sqlRev, &logroot, &count); err != nil {
-		return 0, nil, 0, fmt.Errorf("failed to get latest revision: %v", err)
+	var lcpRaw []byte
+	if err := d.db.QueryRow("SELECT revision, logroot, count FROM revisions ORDER BY revision DESC LIMIT 1").Scan(&sqlRev, &lcpRaw, &count); err != nil {
+		return 0, types.LogRootV1{}, 0, fmt.Errorf("failed to get latest revision: %v", err)
 	}
 	if sqlRev.Valid {
+		if err := logroot.UnmarshalBinary(lcpRaw); err != nil {
+			return 0, types.LogRootV1{}, 0, fmt.Errorf("failed to get unmarshal log root: %v", err)
+		}
 		return int(sqlRev.Int32), logroot, count, nil
 	}
-	return 0, nil, 0, NoRevisionsFound(errors.New("no revisions found"))
+	return 0, types.LogRootV1{}, 0, NoRevisionsFound(errors.New("no revisions found"))
 }
 
 // Tile gets the tile at the given path in the given revision of the map.

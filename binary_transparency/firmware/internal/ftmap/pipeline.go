@@ -44,6 +44,7 @@ func init() {
 // InputLog allows access to entries from the FT Log.
 type InputLog interface {
 	// Head returns the metadata of available entries.
+	// The log checkpoint is a serialized LogRootV1.
 	Head() (checkpoint []byte, count int64, err error)
 	// Entries returns a PCollection of InputLogLeaf, containing entries in range [start, end).
 	Entries(s beam.Scope, start, end int64) beam.PCollection

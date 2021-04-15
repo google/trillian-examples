@@ -22,24 +22,30 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	"github.com/google/trillian/experimental/batchmap"
+	"github.com/google/trillian/types"
 )
 
 func TestRoot(t *testing.T) {
 	for _, test := range []struct {
 		desc     string
 		rev      int
-		logroot  []byte
+		logroot  types.LogRootV1
 		count    int64
 		rootHash []byte
 		wantBody string
 	}{
 		{
-			desc:     "valid 1",
-			rev:      42,
-			logroot:  []byte{0x12, 0x34},
+			desc: "valid 1",
+			rev:  42,
+			logroot: types.LogRootV1{
+				TreeSize:       42,
+				RootHash:       []byte{0x12, 0x34},
+				Revision:       2,
+				TimestampNanos: 12345,
+			},
 			count:    111,
 			rootHash: []byte{0x34, 0x12},
-			wantBody: `{"LogCheckpoint":"EjQ=","LogSize":111,"RootHash":"NBI=","Revision":42}`,
+			wantBody: `{"LogCheckpoint":"eyJUcmVlU2l6ZSI6NDIsIlJvb3RIYXNoIjoiRWpRPSIsIlRpbWVzdGFtcE5hbm9zIjoxMjM0NX0=","LogSize":111,"RootHash":"NBI=","Revision":42}`,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {

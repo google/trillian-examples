@@ -8,6 +8,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	batchmap "github.com/google/trillian/experimental/batchmap"
+	types "github.com/google/trillian/types"
 )
 
 // MockMapReader is a mock of MapReader interface.
@@ -34,11 +35,11 @@ func (m *MockMapReader) EXPECT() *MockMapReaderMockRecorder {
 }
 
 // LatestRevision mocks base method.
-func (m *MockMapReader) LatestRevision() (int, []byte, int64, error) {
+func (m *MockMapReader) LatestRevision() (int, types.LogRootV1, int64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LatestRevision")
 	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].([]byte)
+	ret1, _ := ret[1].(types.LogRootV1)
 	ret2, _ := ret[2].(int64)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3

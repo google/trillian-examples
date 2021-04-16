@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/types"
 )
@@ -104,6 +105,18 @@ func (d *MapDB) Tile(revision int, path []byte) (*batchmap.Tile, error) {
 		return nil, fmt.Errorf("failed to parse tile at revision=%d, path=%x: %v", revision, path, err)
 	}
 	return tile, nil
+}
+
+// Aggregation gets the aggregation for the firmware at the given log index.
+func (d *MapDB) Aggregation(revision int, fwLogIndex uint64) (api.AggregatedFirmware, error) {
+	var good int
+	if err := d.db.QueryRow("SELECT good FROM aggregations WHERE fwLogIndex=? AND revision=?", fwLogIndex, revision).Scan(&good); err != nil {
+		return api.AggregatedFirmware{}, err
+	}
+	return api.AggregatedFirmware{
+		Index: fwLogIndex,
+		Good:  good > 0,
+	}, nil
 }
 
 // WriteRevision writes the metadata for a completed run into the database.

@@ -41,7 +41,7 @@ func TestCreate(t *testing.T) {
 			treeID: 12345,
 			count:  1,
 
-			wantRoot: "825bf65fd8fe537c6e39836405fbe86b457d08890c21e8abd3b39190fff643fe",
+			wantRoot: "865bbd0034750dd6abe512470722fad51c85ba95d96316818e8ec8a2a55679c0",
 			wantLogs: []string{"dummy: [1]"},
 		},
 		{
@@ -49,7 +49,7 @@ func TestCreate(t *testing.T) {
 			treeID: 12345,
 			count:  -1,
 
-			wantRoot: "496c3192b94184786e899d8199bd92106cb6e669fbe5b113e29378d56d295f6d",
+			wantRoot: "daa0e0c66d69162abbe27ba9aa54a8bdb8850f1100e0626e45ea477cea4765e6",
 			wantLogs: []string{"dummy: [1 5 3]", "fish: [42]"},
 		},
 	}

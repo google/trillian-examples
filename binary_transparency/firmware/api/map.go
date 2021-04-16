@@ -24,9 +24,8 @@ const (
 // AggregatedFirmware represents the results of aggregating a single piece of firmware
 // according to the rules described in #Aggregate().
 type AggregatedFirmware struct {
-	Index    uint64
-	Firmware *FirmwareMetadata
-	Good     bool
+	Index uint64
+	Good  bool
 }
 
 // DeviceReleaseLog represents firmware releases found for a single device ID.

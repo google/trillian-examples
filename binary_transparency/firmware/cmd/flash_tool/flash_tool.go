@@ -26,6 +26,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 
 	"github.com/golang/glog"
@@ -45,7 +46,7 @@ var (
 func main() {
 	flag.Parse()
 
-	if err := impl.Main(impl.FlashOpts{
+	if err := impl.Main(context.Background(), impl.FlashOpts{
 		DeviceID:      *deviceID,
 		LogURL:        *logURL,
 		MapURL:        *mapURL,

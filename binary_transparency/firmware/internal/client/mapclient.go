@@ -15,12 +15,22 @@
 package client
 
 import (
+	"context"
+	"crypto/sha512"
+	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian/merkle/coniks"
+	"github.com/google/trillian/merkle/hashers"
+	"github.com/google/trillian/merkle/smt"
+	"github.com/google/trillian/storage/tree"
+	"golang.org/x/sync/errgroup"
 )
 
 type MapClient struct {
@@ -53,7 +63,7 @@ func (c *MapClient) MapCheckpoint() (api.MapCheckpoint, error) {
 	if err != nil {
 		return mcp, err
 	}
-	if r.StatusCode != 200 {
+	if r.StatusCode != http.StatusOK {
 		return mcp, errFromResponse("failed to fetch checkpoint", r)
 	}
 
@@ -66,19 +76,128 @@ func (c *MapClient) MapCheckpoint() (api.MapCheckpoint, error) {
 
 // Aggregation returns the value committed to by the map under the given key,
 // with an inclusion proof.
-func (c *MapClient) Aggregation(mcp api.MapCheckpoint, fwIndex uint64) (api.AggregatedFirmware, api.MapInclusionProof, error) {
-	// TODO(mhutchinson): Fill out according to psuedocode below
+func (c *MapClient) Aggregation(ctx context.Context, rev uint64, fwIndex uint64) (api.AggregatedFirmware, api.MapInclusionProof, error) {
+	start := time.Now()
 
+	errs, _ := errgroup.WithContext(ctx)
 	// Simultaneously fetch all tiles:
-	// key := fmt.Sprintf("summary:%d", fwIndex)
-	// kbs := sha512.Sum512_256([]byte(key))
-	// for _, path := range tilePathsForKey(kbs) {
-	//   tiles += fetch(http://mapserver/ftmap/v0/tile/in-revision/$mcp.Revision/at-path/$path)
-	// }
+	tiles := make([]api.MapTile, api.MapPrefixStrata+1)
+	kbs := sha512.Sum512_256([]byte(fmt.Sprintf("summary:%d", fwIndex)))
+	for i := range tiles {
+		i := i
+		errs.Go(func() error {
+			path := kbs[:i]
+			var t api.MapTile
+			err := c.fetch(fmt.Sprintf("%s/in-revision/%d/at-path/%s", api.MapHTTPGetTile, rev, base64.URLEncoding.EncodeToString(path)), &t)
+			if err != nil {
+				return err
+			}
+			tiles[i] = t
+			return nil
+		})
+	}
 
-	// In parallel to the above:
-	// agg := fetch(http://mapserver/ftmap/v0/aggregation/in-revision/$mcp.Revision/for-firmware-at-index/$fwIndex)
+	var agg api.AggregatedFirmware
+	errs.Go(func() error {
+		return c.fetch(fmt.Sprintf("%s/in-revision/%d/for-firmware-at-index/%d", api.MapHTTPGetAggregation, rev, fwIndex), &agg)
+	})
 
-	// Confirm the value returned matches the leafhash, return it all
-	return api.AggregatedFirmware{}, api.MapInclusionProof{}, errors.New("unimplemented")
+	if err := errs.Wait(); err != nil {
+		return api.AggregatedFirmware{}, api.MapInclusionProof{}, err
+	}
+
+	ipt := newInclusionProofTree(api.MapTreeID, coniks.Default, kbs[:])
+	for i := api.MapPrefixStrata; i >= 0; i-- {
+		tile := tiles[i]
+		nodes := make([]smt.Node, len(tile.Leaves))
+		for j, l := range tile.Leaves {
+			nodes[j] = toNode(tile.Path, l)
+		}
+		hs, err := smt.NewHStar3(nodes, ipt.hasher.HashChildren,
+			uint(len(tile.Path)+len(tile.Leaves[0].Path))*8, uint(len(tile.Path))*8)
+		if err != nil {
+			return agg, api.MapInclusionProof{}, fmt.Errorf("failed to create HStar3 for tile %x: %v", tile.Path, err)
+		}
+		res, err := hs.Update(ipt)
+		if err != nil {
+			return agg, api.MapInclusionProof{}, fmt.Errorf("failed to hash tile %x: %v", tile.Path, err)
+		} else if got, want := len(res), 1; got != want {
+			return agg, api.MapInclusionProof{}, fmt.Errorf("wrong number of roots for tile %x: got %v, want %v", tile.Path, got, want)
+		}
+	}
+
+	glog.V(1).Infof("Got aggregation (%s): %+v", time.Since(start), agg)
+	return agg, *ipt.proof, nil
+}
+
+// fetch gets the JSON object from the given path and decodes it into the result type.
+// This may need to be extended to return the raw bytes too for operations that need to
+// hash the raw bytes.
+func (c *MapClient) fetch(path string, result interface{}) error {
+	u, err := c.mapURL.Parse(path)
+	if err != nil {
+		return err
+	}
+	r, err := http.Get(u.String())
+	if err != nil {
+		return err
+	}
+	if r.StatusCode != http.StatusOK {
+		return errFromResponse(fmt.Sprintf("failed to fetch %s", path), r)
+	}
+	body := r.Body
+	defer body.Close()
+	if err := json.NewDecoder(body).Decode(result); err != nil {
+		return err
+	}
+	return nil
+}
+
+// toNode converts a MapTileLeaf into the equivalent Node for HStar3.
+func toNode(prefix []byte, l api.MapTileLeaf) smt.Node {
+	path := make([]byte, 0, len(prefix)+len(l.Path))
+	path = append(append(path, prefix...), l.Path...)
+	return smt.Node{
+		ID:   tree.NewNodeID2(string(path), uint(len(path))*8),
+		Hash: l.Hash,
+	}
+}
+
+// inclusionProofTree is a NodeAccessor for an empty tree with the given ID.
+// As values are set on the tree, an inclusion proof is generated containing
+// the siblings computed.
+type inclusionProofTree struct {
+	treeID int64
+	hasher hashers.MapHasher
+	target tree.NodeID2
+	proof  *api.MapInclusionProof
+}
+
+func newInclusionProofTree(treeID int64, hasher hashers.MapHasher, target []byte) inclusionProofTree {
+	return inclusionProofTree{
+		treeID: treeID,
+		hasher: hasher,
+		target: tree.NewNodeID2(string(target), 256),
+		proof: &api.MapInclusionProof{
+			Key:   target,
+			Proof: make([][]byte, 256),
+		},
+	}
+}
+
+func (e inclusionProofTree) Get(id tree.NodeID2) ([]byte, error) {
+	return e.hasher.HashEmpty(e.treeID, id), nil
+}
+
+func (e inclusionProofTree) Set(id tree.NodeID2, hash []byte) {
+	if id == e.target {
+		e.proof.Value = hash
+		glog.V(2).Infof("inclusionProofTree: set value for target: %x", hash)
+		return
+	}
+	stem := e.target.Prefix(id.BitLen())
+	if stem == id.Sibling() {
+		e.proof.Proof[id.BitLen()-1] = hash
+		glog.V(2).Infof("inclusionProofTree: set sibling at depth %d: %x", id.BitLen(), hash)
+	}
 }

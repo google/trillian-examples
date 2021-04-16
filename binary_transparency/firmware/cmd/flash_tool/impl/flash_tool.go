@@ -18,6 +18,8 @@
 package impl
 
 import (
+	"bytes"
+	"context"
 	"crypto/sha512"
 	"encoding/json"
 	"errors"
@@ -32,6 +34,8 @@ import (
 	armory_flash "github.com/google/trillian-examples/binary_transparency/firmware/devices/usbarmory/flash"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"github.com/google/trillian/merkle/coniks"
+	"github.com/google/trillian/storage/tree"
 )
 
 // FlashOpts encapsulates flash tool parameters.
@@ -45,7 +49,7 @@ type FlashOpts struct {
 	DeviceStorage string
 }
 
-func Main(opts FlashOpts) error {
+func Main(ctx context.Context, opts FlashOpts) error {
 	logURL, err := url.Parse(opts.LogURL)
 	if err != nil {
 		return fmt.Errorf("log_url is invalid: %w", err)
@@ -74,18 +78,22 @@ func Main(opts FlashOpts) error {
 
 	if len(opts.WitnessURL) > 0 {
 		err := verifyWitness(c, pb, opts.WitnessURL)
-		if !opts.Force {
-			return err
+		if err != nil {
+			if !opts.Force {
+				return err
+			}
+			glog.Warning(err)
 		}
-		glog.Warning(err)
 	}
 
 	if len(opts.MapURL) > 0 {
-		err := verifyAnnotations(c, pb, fwMeta, opts.MapURL)
-		if !opts.Force {
-			return fmt.Errorf("verifyAnnotations: %w", err)
+		err := verifyAnnotations(ctx, c, pb, fwMeta, opts.MapURL)
+		if err != nil {
+			if !opts.Force {
+				return fmt.Errorf("verifyAnnotations: %w", err)
+			}
+			glog.Warning(err)
 		}
-		glog.Warning(err)
 	}
 	glog.Info("Update verified, about to apply to device...")
 
@@ -202,7 +210,7 @@ func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, witnessURL stri
 	return nil
 }
 
-func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
+func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
 	mc, err := client.NewMapClient(mapURL)
 	if err != nil {
 		return fmt.Errorf("failed to create map client: %w", err)
@@ -211,7 +219,11 @@ func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.
 	if err != nil {
 		return fmt.Errorf("failed to get map checkpoint: %w", err)
 	}
-	glog.V(1).Infof("%s", mcp.LogCheckpoint)
+	// The map checkpoint should be stored in a log, and this client should follow
+	// the log, checking consistency proofs and maintaining a golden checkpoint.
+	// Without this, the client is at risk of being given a custom map root that
+	// nobody else in the world sees.
+	glog.V(1).Infof("Received map checkpoint: %s", mcp.LogCheckpoint)
 	var lcp api.LogCheckpoint
 	if err := json.Unmarshal(mcp.LogCheckpoint, &lcp); err != nil {
 		return fmt.Errorf("failed to unmarshal log checkpoint: %w", err)
@@ -224,13 +236,65 @@ func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.
 		return fmt.Errorf("failed to verify update with map checkpoint: %w", err)
 	}
 
-	// TODO(mhutchinson): Check the inclusion proof and use the values returned by the map.
-	afw, _, err := mc.Aggregation(mcp, pb.InclusionProof.LeafIndex)
+	// Get the aggregation and proof, and then check everything about it.
+	// This is a little paranoid as the inclusion proof is generated client-side.
+	// The pretense here is that there is a trust boundary between the code in this class,
+	// and everything else. In a production system, it is likely that the proof generation
+	// would live elsewhere (e.g. in the OTA packaging process), and the shorter proof
+	// bundle would be provided to the device.
+	afw, ip, err := mc.Aggregation(ctx, mcp.Revision, pb.InclusionProof.LeafIndex)
 	if err != nil {
 		return fmt.Errorf("failed to get map value for %q: %w", pb.InclusionProof.LeafIndex, err)
 	}
+	// 1. Check: the proof is for the correct key.
+	kbs := sha512.Sum512_256([]byte(fmt.Sprintf("summary:%d", pb.InclusionProof.LeafIndex)))
+	if !bytes.Equal(ip.Key, kbs[:]) {
+		return fmt.Errorf("received inclusion proof for key %x but wanted %x", ip.Key, kbs[:])
+	}
+	// 2. Check: the proof is for the correct value.
+	preimage, err := json.Marshal(afw)
+	if err != nil {
+		return fmt.Errorf("failed to marshal aggregation to compute preimage: %w", err)
+	}
+	leafID := tree.NewNodeID2(string(kbs[:]), 256)
+	hasher := coniks.Default
+	expectedCommitment := hasher.HashLeaf(api.MapTreeID, leafID, preimage)
+	if !bytes.Equal(ip.Value, expectedCommitment) {
+		// This could happen if the JSON roundtripping was not stable. If we see that happen,
+		// then we'll need to pass out the raw bytes received from the server and parse into
+		// the struct at a higher level.
+		// It could also happen because the value returned is not actually committed to by the map.
+		return fmt.Errorf("received inclusion proof for value %x but wanted %x", ip.Value, expectedCommitment)
+	}
+	// 3. Check: the inclusion proof evaluates to the map root that we've obtained.
+	// The calculation starts from the leaf, and uses the siblings from the inclusion proof
+	// to generate the root, which is then compared with the map checkpoint.
+	calc := expectedCommitment
+	for pd := hasher.BitLen(); pd > 0; pd-- {
+		sib := ip.Proof[pd-1]
+		stem := leafID.Prefix(uint(pd))
+		if sib == nil {
+			sib = hasher.HashEmpty(api.MapTreeID, stem.Sibling())
+		}
+		left, right := calc, sib
+		if !isLeftChild(stem) {
+			left, right = right, left
+		}
+		calc = hasher.HashChildren(left, right)
+	}
+	if !bytes.Equal(calc, mcp.RootHash) {
+		return fmt.Errorf("inclusion proof calculated root %x but wanted %x", calc, mcp.RootHash)
+	}
+
+	// Now we're certain that the aggregation is contained in the map, we can use the value.
 	if !afw.Good {
 		return errors.New("firmware is marked as bad")
 	}
 	return nil
+}
+
+// isLeftChild returns whether the given node is a left child.
+func isLeftChild(id tree.NodeID2) bool {
+	last, bits := id.LastByte()
+	return last&(1<<(8-bits)) == 0
 }

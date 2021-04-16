@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"reflect"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
@@ -229,9 +228,6 @@ func verifyAnnotations(c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.
 	afw, _, err := mc.Aggregation(mcp, pb.InclusionProof.LeafIndex)
 	if err != nil {
 		return fmt.Errorf("failed to get map value for %q: %w", pb.InclusionProof.LeafIndex, err)
-	}
-	if !reflect.DeepEqual(fwMeta, *afw.Firmware) {
-		return fmt.Errorf("got aggregated response for %q, but expected %q", afw.Firmware, fwMeta)
 	}
 	if !afw.Good {
 		return errors.New("firmware is marked as bad")

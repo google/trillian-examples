@@ -63,9 +63,8 @@ func aggregationFn(fwIndex uint64, fwit func(**firmwareLogEntry) bool, amit func
 	}
 
 	return &api.AggregatedFirmware{
-		Index:    fwIndex,
-		Firmware: &fwle.Firmware,
-		Good:     good,
+		Index: fwIndex,
+		Good:  good,
 	}, nil
 }
 

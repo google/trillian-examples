@@ -69,13 +69,16 @@ func (c *MapClient) MapCheckpoint() (api.MapCheckpoint, error) {
 func (c *MapClient) Aggregation(mcp api.MapCheckpoint, fwIndex uint64) (api.AggregatedFirmware, api.MapInclusionProof, error) {
 	// TODO(mhutchinson): Fill out according to psuedocode below
 
+	// Simultaneously fetch all tiles:
 	// key := fmt.Sprintf("summary:%d", fwIndex)
 	// kbs := sha512.Sum512_256([]byte(key))
-	// tiles := fetch(http://mapserver/tiles/$kbs)
-	// leafhash := get the value hash at key from `tiles`
-	// Simultaneously:
-	//   * compute inclusion proof locally from tiles
-	//   * value := fetch(http://mapserver/value/$leafhash)
+	// for _, path := range tilePathsForKey(kbs) {
+	//   tiles += fetch(http://mapserver/ftmap/v0/tile/in-revision/$mcp.Revision/at-path/$path)
+	// }
+
+	// In parallel to the above:
+	// agg := fetch(http://mapserver/ftmap/v0/aggregation/in-revision/$mcp.Revision/for-firmware-at-index/$fwIndex)
+
 	// Confirm the value returned matches the leafhash, return it all
 	return api.AggregatedFirmware{}, api.MapInclusionProof{}, errors.New("unimplemented")
 }

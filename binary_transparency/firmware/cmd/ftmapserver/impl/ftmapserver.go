@@ -17,10 +17,12 @@ package impl
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
@@ -39,6 +41,9 @@ type MapReader interface {
 
 	// Tile gets the tile at the given path in the given revision of the map.
 	Tile(revision int, path []byte) (*batchmap.Tile, error)
+
+	// Aggregation gets the aggregation for the firmware at the given log index.
+	Aggregation(revision int, fwLogIndex uint64) (api.AggregatedFirmware, error)
 }
 
 // MapServerOpts encapsulates options for running an FT map server.
@@ -119,7 +124,93 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	w.Write(js)
 }
 
+// getTile returns the tile at the given revision & path.
+func (s *Server) getTile(w http.ResponseWriter, r *http.Request) {
+	rev, err := parseIntParam(r, "revision")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	path, err := parseBase64Param(r, "path")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	bmt, err := s.db.Tile(int(rev), path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	leaves := make([]api.MapTileLeaf, len(bmt.Leaves))
+	for i, l := range bmt.Leaves {
+		leaves[i] = api.MapTileLeaf{
+			Path: l.Path,
+			Hash: l.Hash,
+		}
+	}
+	tile := api.MapTile{
+		Path:   bmt.Path,
+		Leaves: leaves,
+	}
+	js, err := json.Marshal(tile)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}
+
+// getAggregation returns the aggregation for the firware at the given log index.
+func (s *Server) getAggregation(w http.ResponseWriter, r *http.Request) {
+	rev, err := parseIntParam(r, "revision")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	fwIndex, err := parseIntParam(r, "fwIndex")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	agg, err := s.db.Aggregation(int(rev), fwIndex)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	js, err := json.Marshal(agg)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(js)
+}
+
 // RegisterHandlers registers HTTP handlers for the endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
 	r.HandleFunc(fmt.Sprintf("/%s", api.MapHTTPGetCheckpoint), s.getCheckpoint).Methods("GET")
+	// Empty tile path is normal for requesting the root tile
+	r.HandleFunc(fmt.Sprintf("/%s/in-revision/{revision:[0-9]+}/at-path/", api.MapHTTPGetTile), s.getTile).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/in-revision/{revision:[0-9]+}/at-path/{path}", api.MapHTTPGetTile), s.getTile).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/in-revision/{revision:[0-9]+}/for-firmware-at-index/{fwIndex:[0-9]+}", api.MapHTTPGetAggregation), s.getAggregation).Methods("GET")
+}
+
+func parseBase64Param(r *http.Request, name string) ([]byte, error) {
+	v := mux.Vars(r)
+	b, err := base64.URLEncoding.DecodeString(v[name])
+	if err != nil {
+		return nil, fmt.Errorf("%s should be URL-safe base64 (%q)", name, err)
+	}
+	return b, nil
+}
+
+func parseIntParam(r *http.Request, name string) (uint64, error) {
+	v := mux.Vars(r)
+	i, err := strconv.ParseUint(v[name], 0, 64)
+	if err != nil {
+		return 0, fmt.Errorf("%s should be an integer (%q)", name, err)
+	}
+	return i, nil
 }

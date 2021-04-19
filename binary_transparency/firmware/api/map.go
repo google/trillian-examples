@@ -19,6 +19,10 @@ import "fmt"
 const (
 	// MapHTTPGetCheckpoint is the path of the URL to get a recent map checkpoint.
 	MapHTTPGetCheckpoint = "ftmap/v0/get-checkpoint"
+	// MapHTTPGetTile is the path of the URL to get a map tile at a revision.
+	MapHTTPGetTile = "ftmap/v0/tile"
+	// MapHTTPGetAggregation is the path of the URL to get aggregated FW info.
+	MapHTTPGetAggregation = "ftmap/v0/aggregation"
 )
 
 // AggregatedFirmware represents the results of aggregating a single piece of firmware
@@ -46,6 +50,25 @@ type MapCheckpoint struct {
 	LogSize       uint64
 	RootHash      []byte
 	Revision      uint64
+}
+
+// MapTile is a subtree of the whole map.
+type MapTile struct {
+	// The path from the root of the map to the root of this tile.
+	Path []byte
+	// All non-empty leaves in this tile, sorted left-to-right.
+	Leaves []MapTileLeaf
+}
+
+// MapTileLeaf is a leaf value of a MapTile.
+// If it belongs to a leaf tile then this represents one of the values that the
+// map commits to. Otherwise, this leaf represents the root of the subtree in
+// the stratum below.
+type MapTileLeaf struct {
+	// The path from the root of the container MapTile to this leaf.
+	Path []byte
+	// The hash value being committed to.
+	Hash []byte
 }
 
 // MapInclusionProof contains the value at the requested key and the proof to the

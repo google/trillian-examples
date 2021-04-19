@@ -7,6 +7,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	api "github.com/google/trillian-examples/binary_transparency/firmware/api"
 	batchmap "github.com/google/trillian/experimental/batchmap"
 	types "github.com/google/trillian/types"
 )
@@ -32,6 +33,21 @@ func NewMockMapReader(ctrl *gomock.Controller) *MockMapReader {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMapReader) EXPECT() *MockMapReaderMockRecorder {
 	return m.recorder
+}
+
+// Aggregation mocks base method.
+func (m *MockMapReader) Aggregation(arg0 int, arg1 uint64) (api.AggregatedFirmware, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Aggregation", arg0, arg1)
+	ret0, _ := ret[0].(api.AggregatedFirmware)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Aggregation indicates an expected call of Aggregation.
+func (mr *MockMapReaderMockRecorder) Aggregation(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Aggregation", reflect.TypeOf((*MockMapReader)(nil).Aggregation), arg0, arg1)
 }
 
 // LatestRevision mocks base method.

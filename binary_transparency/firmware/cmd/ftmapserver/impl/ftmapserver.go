@@ -126,7 +126,7 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 
 // getTile returns the tile at the given revision & path.
 func (s *Server) getTile(w http.ResponseWriter, r *http.Request) {
-	rev, err := parseIntParam(r, "revision")
+	rev, err := parseUintParam(r, "revision")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -163,12 +163,12 @@ func (s *Server) getTile(w http.ResponseWriter, r *http.Request) {
 
 // getAggregation returns the aggregation for the firware at the given log index.
 func (s *Server) getAggregation(w http.ResponseWriter, r *http.Request) {
-	rev, err := parseIntParam(r, "revision")
+	rev, err := parseUintParam(r, "revision")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fwIndex, err := parseIntParam(r, "fwIndex")
+	fwIndex, err := parseUintParam(r, "fwIndex")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -206,7 +206,7 @@ func parseBase64Param(r *http.Request, name string) ([]byte, error) {
 	return b, nil
 }
 
-func parseIntParam(r *http.Request, name string) (uint64, error) {
+func parseUintParam(r *http.Request, name string) (uint64, error) {
 	v := mux.Vars(r)
 	i, err := strconv.ParseUint(v[name], 0, 64)
 	if err != nil {

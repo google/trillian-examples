@@ -28,6 +28,8 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/layout"
 	"github.com/google/trillian/merkle"
 	"github.com/google/trillian/merkle/compact"
+	"github.com/google/trillian/merkle/hashers"
+	"github.com/google/trillian/merkle/logverifier"
 )
 
 // FetcherFunc is the signature of a function which can retrieve arbitrary files from
@@ -37,15 +39,20 @@ type FetcherFunc func(path string) ([]byte, error)
 
 // GetLogState fetches and parses the latest LogState from the log.
 func GetLogState(f FetcherFunc) (*api.LogState, error) {
+	s, _, err := fetchLogStateAndParse(f)
+	return s, err
+}
+
+func fetchLogStateAndParse(f FetcherFunc) (*api.LogState, []byte, error) {
 	sRaw, err := f(layout.StatePath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var ls api.LogState
 	if err := json.Unmarshal(sRaw, &ls); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal logstate: %w", err)
+		return nil, nil, fmt.Errorf("failed to unmarshal logstate: %w", err)
 	}
-	return &ls, nil
+	return &ls, sRaw, nil
 }
 
 // ProofBuilder knows how to build inclusion and consistency proofs from tiles.
@@ -219,4 +226,94 @@ func LookupIndex(f FetcherFunc, lh []byte) (uint64, error) {
 		return 0, fmt.Errorf("failed to fetch leafhash->seq file: %w", err)
 	}
 	return strconv.ParseUint(string(sRaw), 16, 64)
+}
+
+// LogStateTracker represents a client-side view of a target log's state.
+// This tracker handles verification that updates to the tracked log state are
+// consistent with previously seen states.
+type LogStateTracker struct {
+	Hasher   hashers.LogHasher
+	Verifier logverifier.LogVerifier
+	Fetcher  FetcherFunc
+
+	// LatestConsistentRaw holds the raw bytes of the latest proven-consistent
+	// LogState seen by this tracker.
+	LatestConsistentRaw []byte
+
+	// LatestConsistent is the deserialised form of LatestConsistentRaw
+	LatestConsistent api.LogState
+}
+
+// NewLogStateTracker creates a newly initialised tracker.
+// If a serialised LogState representation is provided then this is used as the
+// initial tracked state, otherwise a log state is fetched from the target log.
+func NewLogStateTracker(f FetcherFunc, h hashers.LogHasher, logStateRaw []byte) (LogStateTracker, error) {
+	ret := LogStateTracker{
+		Fetcher:          f,
+		Hasher:           h,
+		Verifier:         logverifier.New(h),
+		LatestConsistent: api.LogState{},
+	}
+	if len(logStateRaw) > 0 {
+		ret.LatestConsistentRaw = logStateRaw
+		if err := json.Unmarshal(logStateRaw, &ret.LatestConsistent); err != nil {
+			return ret, err
+		}
+		return ret, nil
+	}
+	return ret, ret.Update()
+}
+
+// ErrInconsistency should be returned when there has been an error proving consistency
+// between log states.
+// The raw log state representations are included as-returned by the target log, this
+// ensures that evidence of inconsistent log updates are available to the caller of
+// the method(s) returning this error.
+type ErrInconsistency struct {
+	SmallerRaw []byte
+	LargerRaw  []byte
+	Proof      [][]byte
+
+	Wrapped error
+}
+
+func (e ErrInconsistency) Unwrap() error {
+	return e.Wrapped
+}
+
+func (e ErrInconsistency) Error() string {
+	return fmt.Sprintf("log consistency check failed: %s", e.Wrapped)
+}
+
+// Update attempts to update the local view of the target log's state.
+// If a more recent logstate is found, this method will attempt to prove
+// that it is consistent with the local state before updating the tracker's
+// view.
+func (lst *LogStateTracker) Update() error {
+	c, cRaw, err := fetchLogStateAndParse(lst.Fetcher)
+	if err != nil {
+		return err
+	}
+	if lst.LatestConsistent.Size > 0 {
+		if c.Size > lst.LatestConsistent.Size {
+			builder, err := NewProofBuilder(*c, lst.Hasher.HashChildren, lst.Fetcher)
+			if err != nil {
+				return fmt.Errorf("failed to create proof builder: %w", err)
+			}
+			p, err := builder.ConsistencyProof(lst.LatestConsistent.Size, c.Size)
+			if err != nil {
+				return err
+			}
+			if err := lst.Verifier.VerifyConsistencyProof(int64(lst.LatestConsistent.Size), int64(c.Size), lst.LatestConsistent.RootHash, c.RootHash, p); err != nil {
+				return ErrInconsistency{
+					SmallerRaw: lst.LatestConsistentRaw,
+					LargerRaw:  cRaw,
+					Proof:      p,
+					Wrapped:    err,
+				}
+			}
+		}
+	}
+	lst.LatestConsistentRaw, lst.LatestConsistent = cRaw, *c
+	return nil
 }

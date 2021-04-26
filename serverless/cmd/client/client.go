@@ -16,23 +16,33 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/client"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 )
 
+func defaultLocalStorage() string {
+	hd, err := os.UserCacheDir()
+	if err != nil {
+		glog.Warningf("Failed to determine user cache dir: %q", err)
+	}
+	return fmt.Sprintf("%s/serverless", hd)
+}
+
 var (
 	storageURL = flag.String("storage_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
+	cacheDir   = flag.String("cache_dir", defaultLocalStorage(), "Where to cache client state for logs, if empty don't store anything locally.")
 )
 
 func usage() {
@@ -52,10 +62,14 @@ func main() {
 	if err != nil {
 		glog.Exitf("Invalid storage URL: %q", err)
 	}
+
+	// TODO(al) derive this from log pub key
+	const logID = "test"
+
 	f := newFetcher(rootURL)
-	logState, err := client.GetLogState(f)
+	lc, err := newLogClientTool(logID, f)
 	if err != nil {
-		glog.Exitf("Failed to fetch log state: %q", err)
+		glog.Exitf("Failed to create new client: %q", err)
 	}
 
 	args := flag.Args()
@@ -64,7 +78,7 @@ func main() {
 	}
 	switch args[0] {
 	case "inclusion":
-		err = inclusionProof(*logState, f, args[1:])
+		err = c.inclusionProof(args[1:])
 	default:
 		usage()
 	}
@@ -73,7 +87,35 @@ func main() {
 	}
 }
 
-func inclusionProof(state api.LogState, f client.FetcherFunc, args []string) error {
+func newLogClientTool(logID string, f client.FetcherFunc) (log, error) {
+	logStateRaw, err := loadLocalLogState(logID)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		glog.Exitf("Failed to load cached log state: %q", err)
+	}
+
+	hasher := hasher.DefaultHasher
+	lv := logverifier.New(hasher)
+	tracker, err := client.NewLogStateTracker(f, hasher, logStateRaw)
+	if err != nil {
+		glog.Exitf("Failed to create LogStateTracker: %q", err)
+	}
+
+	return logClientTool{
+		Fetcher:  f,
+		Hasher:   hasher,
+		Verifier: lv,
+		Tracker:  tracker,
+	}, nil
+}
+
+type logClientTool struct {
+	Fetcher  client.FetcherFunc
+	Hasher   *hasher.Hasher
+	Verifier logverifier.LogVerifier
+	Tracker  client.LogStateTracker
+}
+
+func (l *logClientTool) inclusionProof(args []string) error {
 	if l := len(args); l < 1 || l > 2 {
 		return fmt.Errorf("usage: inclusion <file> [index-in-log]")
 	}
@@ -81,9 +123,7 @@ func inclusionProof(state api.LogState, f client.FetcherFunc, args []string) err
 	if err != nil {
 		return fmt.Errorf("failed to read entry from %q: %w", args[0], err)
 	}
-
-	h := hasher.DefaultHasher
-	lh := h.HashLeaf(entry)
+	lh := l.Hasher.HashLeaf(entry)
 
 	var idx uint64
 	if len(args) == 2 {
@@ -92,14 +132,17 @@ func inclusionProof(state api.LogState, f client.FetcherFunc, args []string) err
 			return fmt.Errorf("invalid index-in-log %q: %w", args[1], err)
 		}
 	} else {
-		idx, err = client.LookupIndex(f, lh)
+		idx, err = client.LookupIndex(l.Fetcher, lh)
 		if err != nil {
 			return fmt.Errorf("failed to lookup leaf index: %w", err)
 		}
 		glog.Infof("Leaf %q found at index %d", args[0], idx)
 	}
 
-	builder, err := client.NewProofBuilder(state, h.HashChildren, f)
+	// TODO(al): wait for growth if necessary
+
+	state := l.Tracker.LatestConsistent
+	builder, err := client.NewProofBuilder(state, l.Hasher.HashChildren, l.Fetcher)
 	if err != nil {
 		return fmt.Errorf("failed to create proof builder: %w", err)
 	}
@@ -111,8 +154,7 @@ func inclusionProof(state api.LogState, f client.FetcherFunc, args []string) err
 
 	glog.V(1).Infof("Built inclusion proof: %#x", proof)
 
-	lv := logverifier.New(hasher.DefaultHasher)
-	if err := lv.VerifyInclusionProof(int64(idx), int64(state.Size), proof, state.RootHash, lh); err != nil {
+	if err := l.Verifier.VerifyInclusionProof(int64(idx), int64(state.Size), proof, state.RootHash, lh); err != nil {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
 	}
 
@@ -151,4 +193,22 @@ func readHTTP(u *url.URL) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	return ioutil.ReadAll(resp.Body)
+}
+
+func loadLocalLogState(logID string) ([]byte, error) {
+	statePath := filepath.Join(*cacheDir, logID, "state")
+	return ioutil.ReadFile(statePath)
+}
+
+func storeLocalLogState(logID string, stateRaw []byte) error {
+	stateDir := filepath.Join(*cacheDir, logID)
+	if err := os.MkdirAll(stateDir, 0700); err != nil {
+		return err
+	}
+	statePath := filepath.Join(stateDir, "state")
+	statePathTmp := fmt.Sprintf("%s.tmp", statePath)
+	if err := ioutil.WriteFile(statePathTmp, stateRaw, 0x644); err != nil {
+		return err
+	}
+	return os.Rename(statePathTmp, statePath)
 }

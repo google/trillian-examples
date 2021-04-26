@@ -43,9 +43,14 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 		leavesPerLoop = 257
 	)
 
+	lst, err := client.NewLogStateTracker(f, lh, nil)
+	if err != nil {
+		t.Fatalf("Failed to create new log state tracker: %q", err)
+	}
+
 	for i := 0; i < loops; i++ {
 		glog.Infof("----------------%d--------------", i)
-		state := s.LogState()
+		state := lst.LatestConsistent
 
 		// Sequence some leaves:
 		leaves := sequenceNLeaves(t, s, lh, i*leavesPerLoop, leavesPerLoop)
@@ -55,7 +60,11 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 			t.Fatalf("Integrate = %v", err)
 		}
 
-		newState := s.LogState()
+		// State tracker will verify consistency of larger tree
+		if err := lst.Update(); err != nil {
+			t.Fatalf("Failed to update tracked log state: %q", err)
+		}
+		newState := lst.LatestConsistent
 		if got, want := newState.Size-state.Size, uint64(leavesPerLoop); got != want {
 			t.Errorf("Integrate missed some entries, got %d want %d", got, want)
 		}
@@ -63,17 +72,6 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 		pb, err := client.NewProofBuilder(newState, lh.HashChildren, f)
 		if err != nil {
 			t.Fatalf("Failed to create ProofBuilder: %q", err)
-		}
-
-		if state.Size > 0 {
-			cp, err := pb.ConsistencyProof(state.Size, newState.Size)
-			if err != nil {
-				t.Fatalf("Failed to fetch consistency proof from %d to %d: %q", state.Size, newState.Size, err)
-			}
-			if err := lv.VerifyConsistencyProof(int64(state.Size), int64(newState.Size), state.RootHash, newState.RootHash, cp); err != nil {
-				t.Fatalf("Failed to verify consistency proof: %q", err)
-			}
-			glog.Infof("Consistency proof 0x%x->0x%x verified", state.Size, newState.Size)
 		}
 
 		for _, l := range leaves {

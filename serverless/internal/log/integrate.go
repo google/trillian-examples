@@ -22,6 +22,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/internal/client"
 	"github.com/google/trillian-examples/serverless/internal/layout"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/hashers"
@@ -60,7 +61,12 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 
 	// Fetch previously stored state
 	state := st.LogState()
-	baseRange, err := rf.NewRange(0, state.Size, state.Hashes)
+	nc := client.NewNodeCache(st.GetTile)
+	hashes, err := client.FetchRangeNodes(state.Size, &nc)
+	if err != nil {
+		return fmt.Errorf("failed to fetch compact range nodes: %w", err)
+	}
+	baseRange, err := rf.NewRange(0, state.Size, hashes)
 	if err != nil {
 		return fmt.Errorf("failed to create range covering existing log: %w", err)
 	}
@@ -128,7 +134,6 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	newState := api.LogState{
 		RootHash: newRoot,
 		Size:     baseRange.End(),
-		Hashes:   baseRange.Hashes(),
 	}
 	if err := st.UpdateState(newState); err != nil {
 		return fmt.Errorf("failed to update stored state: %w", err)

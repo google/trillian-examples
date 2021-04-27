@@ -60,7 +60,7 @@ func fetchLogStateAndParse(f FetcherFunc) (*api.LogState, []byte, error) {
 // more complex as proofs can touch "ephemeral" nodes, so these need to be synthesized.
 type ProofBuilder struct {
 	ls        api.LogState
-	nodeCache nodeCache
+	nodeCache NodeCache
 	h         compact.HashFn
 }
 
@@ -70,11 +70,11 @@ type ProofBuilder struct {
 func NewProofBuilder(s api.LogState, h compact.HashFn, f FetcherFunc) (*ProofBuilder, error) {
 	pb := &ProofBuilder{
 		ls:        s,
-		nodeCache: newNodeCache(f),
+		nodeCache: NewNodeCache(newTileFetcher(f)),
 		h:         h,
 	}
 
-	hashes, err := fetchRangeNodes(s.Size, &pb.nodeCache)
+	hashes, err := FetchRangeNodes(s.Size, &pb.nodeCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch range nodes: %w", err)
 	}
@@ -141,9 +141,9 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 	return hashes, nil
 }
 
-// fetchRangeNodes returns the set of nodes representing the compact range covering
+// FetchRangeNodes returns the set of nodes representing the compact range covering
 // a log of size s.
-func fetchRangeNodes(s uint64, nc *nodeCache) ([][]byte, error) {
+func FetchRangeNodes(s uint64, nc *NodeCache) ([][]byte, error) {
 	nIDs := compact.RangeNodes(0, s)
 	ret := make([][]byte, len(nIDs))
 	for i, n := range nIDs {
@@ -156,15 +156,19 @@ func fetchRangeNodes(s uint64, nc *nodeCache) ([][]byte, error) {
 	return ret, nil
 }
 
-// nodeCache hides the tiles abstraction away, and improves
+// NodeCache hides the tiles abstraction away, and improves
 // performance by caching tiles it's seen.
 // Not threadsafe, and intended to be only used throughout the course
 // of a single request.
-type nodeCache struct {
+type NodeCache struct {
 	ephemeral map[compact.NodeID][]byte
 	tiles     map[tileKey]api.Tile
-	fetcher   FetcherFunc
+	getTile   GetTileFunc
 }
+
+// GetTileFunc is the signature of a function which knows how to fetch a
+// specific tile.
+type GetTileFunc func(level, index, logSize uint64) (*api.Tile, error)
 
 // tileKey is used as a key in nodeCache's tile map.
 type tileKey struct {
@@ -172,17 +176,17 @@ type tileKey struct {
 	tileIndex uint64
 }
 
-// newNodeCache creates a new nodeCache instance.
-func newNodeCache(f FetcherFunc) nodeCache {
-	return nodeCache{
+// NewNodeCache creates a new nodeCache instance.
+func NewNodeCache(f GetTileFunc) NodeCache {
+	return NodeCache{
 		ephemeral: make(map[compact.NodeID][]byte),
 		tiles:     make(map[tileKey]api.Tile),
-		fetcher:   f,
+		getTile:   f,
 	}
 }
 
 // SetEphemeralNode stored a derived "ephemeral" tree node.
-func (n *nodeCache) SetEphemeralNode(id compact.NodeID, h []byte) {
+func (n *NodeCache) SetEphemeralNode(id compact.NodeID, h []byte) {
 	n.ephemeral[id] = h
 }
 
@@ -190,7 +194,7 @@ func (n *nodeCache) SetEphemeralNode(id compact.NodeID, h []byte) {
 // A previously set ephemeral node will be returned if id matches, otherwise
 // the tile containing the requested node will be fetched and cached, and the
 // node hash returned.
-func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
+func (n *NodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
 	// First check for ephemeral nodes:
 	if e := n.ephemeral[id]; len(e) != 0 {
 		return e, nil
@@ -214,23 +218,25 @@ func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
 	return node, nil
 }
 
-// getTile retrieves and parses the tile containing the specified node.
-func (n *nodeCache) getTile(level, index, logSize uint64) (*api.Tile, error) {
-	tileSize := layout.PartialTileSize(level, index, logSize)
-	p := filepath.Join(layout.TilePath("", level, index, tileSize))
-	t, err := n.fetcher(p)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
+// newTileFetcher returns a GetTileFunc based on the passed in FetcherFunc.
+func newTileFetcher(f FetcherFunc) GetTileFunc {
+	return func(level, index, logSize uint64) (*api.Tile, error) {
+		tileSize := layout.PartialTileSize(level, index, logSize)
+		p := filepath.Join(layout.TilePath("", level, index, tileSize))
+		t, err := f(p)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
+			}
+			return nil, err
 		}
-		return nil, err
-	}
 
-	var tile api.Tile
-	if err := json.Unmarshal(t, &tile); err != nil {
-		return nil, fmt.Errorf("failed to parse tile: %w", err)
+		var tile api.Tile
+		if err := json.Unmarshal(t, &tile); err != nil {
+			return nil, fmt.Errorf("failed to parse tile: %w", err)
+		}
+		return &tile, nil
 	}
-	return &tile, nil
 }
 
 // LookupIndex fetches the leafhash->seq mapping file from the log, and returns

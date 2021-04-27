@@ -107,7 +107,6 @@ func Create(rootDir string, emptyHash []byte) (*Storage, error) {
 	logState := api.LogState{
 		Size:     0,
 		RootHash: emptyHash,
-		Hashes:   [][]byte{},
 	}
 
 	if err := fs.UpdateState(logState); err != nil {

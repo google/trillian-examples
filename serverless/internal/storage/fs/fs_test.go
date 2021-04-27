@@ -44,9 +44,6 @@ func TestCreate(t *testing.T) {
 	if got, want := ls.RootHash, empty; !bytes.Equal(got, want) {
 		t.Errorf("New logstate roothash %x, want %x", got, want)
 	}
-	if got, want := len(ls.Hashes), 0; got != want {
-		t.Errorf("New logstate hashes is size %d, want %d", got, want)
-	}
 }
 
 func TestCreateForExistingDirectory(t *testing.T) {

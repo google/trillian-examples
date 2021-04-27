@@ -36,6 +36,7 @@ func defaultCacheLocation() string {
 	hd, err := os.UserCacheDir()
 	if err != nil {
 		glog.Warningf("Failed to determine user cache dir: %q", err)
+		return ""
 	}
 	return fmt.Sprintf("%s/serverless", hd)
 }
@@ -86,8 +87,11 @@ func main() {
 		glog.Exitf("Command %q failed: %q", args[0], err)
 	}
 
-	if err := storeLocalLogState(logID, lc.Tracker.LatestConsistentRaw); err != nil {
-		glog.Exitf("Failed to persist local log state: %q", err)
+	// Persist new view of log state, if required.
+	if len(*cacheDir) > 0 {
+		if err := storeLocalLogState(logID, lc.Tracker.LatestConsistentRaw); err != nil {
+			glog.Exitf("Failed to persist local log state: %q", err)
+		}
 	}
 }
 
@@ -102,9 +106,15 @@ type logClientTool struct {
 }
 
 func newLogClientTool(logID string, f client.FetcherFunc) (logClientTool, error) {
-	logStateRaw, err := loadLocalLogState(logID)
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		glog.Exitf("Failed to load cached log state: %q", err)
+	var logStateRaw []byte
+	var err error
+	if len(*cacheDir) > 0 {
+		logStateRaw, err = loadLocalLogState(logID)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			glog.Exitf("Failed to load cached log state: %q", err)
+		}
+	} else {
+		glog.Info("Local log state cache disabled")
 	}
 
 	hasher := hasher.DefaultHasher

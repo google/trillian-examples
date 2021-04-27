@@ -78,16 +78,30 @@ func main() {
 	}
 	switch args[0] {
 	case "inclusion":
-		err = c.inclusionProof(args[1:])
+		err = lc.inclusionProof(args[1:])
 	default:
 		usage()
 	}
 	if err != nil {
 		glog.Exitf("Command %q failed: %q", args[0], err)
 	}
+
+	if err := storeLocalLogState(logID, lc.Tracker.LatestConsistentRaw); err != nil {
+		glog.Exitf("Failed to persist local log state: %q", err)
+	}
 }
 
-func newLogClientTool(logID string, f client.FetcherFunc) (log, error) {
+// logClientTool encapsulates the "application level" interaction with the log.
+// It relies heavily on the components provided by the `internal/client` package
+// to accomplish this.
+type logClientTool struct {
+	Fetcher  client.FetcherFunc
+	Hasher   *hasher.Hasher
+	Verifier logverifier.LogVerifier
+	Tracker  client.LogStateTracker
+}
+
+func newLogClientTool(logID string, f client.FetcherFunc) (logClientTool, error) {
 	logStateRaw, err := loadLocalLogState(logID)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		glog.Exitf("Failed to load cached log state: %q", err)
@@ -106,13 +120,6 @@ func newLogClientTool(logID string, f client.FetcherFunc) (log, error) {
 		Verifier: lv,
 		Tracker:  tracker,
 	}, nil
-}
-
-type logClientTool struct {
-	Fetcher  client.FetcherFunc
-	Hasher   *hasher.Hasher
-	Verifier logverifier.LogVerifier
-	Tracker  client.LogStateTracker
 }
 
 func (l *logClientTool) inclusionProof(args []string) error {
@@ -195,11 +202,15 @@ func readHTTP(u *url.URL) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
+// loadLocalLogState reads the serialised state for the given logID from the
+// local client cache.
 func loadLocalLogState(logID string) ([]byte, error) {
 	statePath := filepath.Join(*cacheDir, logID, "state")
 	return ioutil.ReadFile(statePath)
 }
 
+// storeLocalLogState updates the local client cache for the specified log with
+// the provided serialised log state.
 func storeLocalLogState(logID string, stateRaw []byte) error {
 	stateDir := filepath.Join(*cacheDir, logID)
 	if err := os.MkdirAll(stateDir, 0700); err != nil {
@@ -207,7 +218,7 @@ func storeLocalLogState(logID string, stateRaw []byte) error {
 	}
 	statePath := filepath.Join(stateDir, "state")
 	statePathTmp := fmt.Sprintf("%s.tmp", statePath)
-	if err := ioutil.WriteFile(statePathTmp, stateRaw, 0x644); err != nil {
+	if err := ioutil.WriteFile(statePathTmp, stateRaw, 0644); err != nil {
 		return err
 	}
 	return os.Rename(statePathTmp, statePath)

@@ -74,8 +74,12 @@ func NewProofBuilder(s api.LogState, h compact.HashFn, f FetcherFunc) (*ProofBui
 		h:         h,
 	}
 
+	hashes, err := fetchRangeNodes(s.Size, &pb.nodeCache)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch range nodes: %w", err)
+	}
 	// Create a compact range which represents the state of the log.
-	r, err := (&compact.RangeFactory{Hash: h}).NewRange(0, s.Size, s.Hashes)
+	r, err := (&compact.RangeFactory{Hash: h}).NewRange(0, s.Size, hashes)
 	if err != nil {
 		return nil, err
 	}
@@ -135,6 +139,21 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 		hashes = append(hashes, h)
 	}
 	return hashes, nil
+}
+
+// fetchRangeNodes returns the set of nodes representing the compact range covering
+// a log of size s.
+func fetchRangeNodes(s uint64, nc *nodeCache) ([][]byte, error) {
+	nIDs := compact.RangeNodes(0, s)
+	ret := make([][]byte, len(nIDs))
+	for i, n := range nIDs {
+		h, err := nc.GetNode(n, s)
+		if err != nil {
+			return nil, err
+		}
+		ret[i] = h
+	}
+	return ret, nil
 }
 
 // nodeCache hides the tiles abstraction away, and improves

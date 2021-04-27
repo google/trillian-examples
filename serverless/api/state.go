@@ -22,9 +22,6 @@ type LogState struct {
 
 	// SHA256 log root, RFC6962 flavour.
 	RootHash []byte
-
-	// Hashes are the roots of the minimal set of perfect subtrees contained by this log.
-	Hashes [][]byte
 }
 
 // Tile represents a subtree tile, containing inner nodes of a log tree.

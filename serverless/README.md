@@ -108,7 +108,7 @@ We can verify the inclusion of a given leaf in the tree with the `client inclusi
 command:
 
 ```bash
-$ go run ./serverless/cmd/client/ --logtostderr --storage_url=file:///${LOG_DIR}/ inclusion ./CONTRIBUTING.md
+$ go run ./serverless/cmd/client/ --logtostderr --log_url=file:///${LOG_DIR}/ inclusion ./CONTRIBUTING.md
 I0413 17:09:48.335324 4158369 client.go:99] Leaf "./CONTRIBUTING.md" found at index 0
 I0413 17:09:48.335468 4158369 client.go:119] Inclusion verified in tree size 3, with root 0x615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
 ```
@@ -116,13 +116,13 @@ I0413 17:09:48.335468 4158369 client.go:119] Inclusion verified in tree size 3, 
 As expected, requesting an inclusion proof for something not in the log will fail:
 
 ```bash
-$ go run ./serverless/cmd/client/ --logtostderr --storage_url=file:///${LOG_DIR}/ inclusion ./go.mod
+$ go run ./serverless/cmd/client/ --logtostderr --log_url=file:///${LOG_DIR}/ inclusion ./go.mod
 F0413 17:13:04.148676 4158991 client.go:72] Command "inclusion" failed: "failed to lookup leaf index: leafhash unknown (open /${LOG_DIR}/leaves/67/48/64/2df7219529a9f2303e8668d60b70a6d7600f22e22fc612c26bd3c399ef: no such file or directory)"
 exit status 1
 ```
 
 > :frog: </br>
-> Note that the `--storage_url` parameter is a URL, it understands `file://`
+> Note that the `--log_url` parameter is a URL, it understands `file://`
 > URLs for local filesystem access, but also works with `http[s]://` URLs too - so
 > you can directly serve the filesystem contents in `${LOG_DIR}` via HTTP[S] and point
 > the client at that server instead and it should work just fine.
@@ -135,7 +135,7 @@ exit status 1
 > and in another terminal:
 >
 > ```bash
-> $ go run ./serverless/cmd/client/ --logtostderr --storage_url=http://localhost:8000 inclusion ./CONTRIBUTING.md
+> $ go run ./serverless/cmd/client/ --logtostderr --log_url=http://localhost:8000 inclusion ./CONTRIBUTING.md
 > I0413 17:25:05.799998 4163606 client.go:99] Leaf "./CONTRIBUTING.md" found at index 0
 > I0413 17:25:05.801354 4163606 client.go:119] Inclusion verified in tree size 3, with root 0x615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
 > ```

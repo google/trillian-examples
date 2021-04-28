@@ -183,14 +183,18 @@ func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
 			// This is a brand new tile.
 			created = true
 			tile = &api.Tile{
-				Nodes: make([][]byte, 256*2),
+				Nodes: make([][]byte, 0, 256*2),
 			}
 		}
 		glog.V(1).Infof("GetTile: %v new: %v", tileKey, created)
 		tc.m[tileKey] = tile
 	}
 	// Update the tile with the new node hash.
-	tile.Nodes[api.TileNodeKey(nodeLevel, nodeIndex)] = hash
+	idx := api.TileNodeKey(nodeLevel, nodeIndex)
+	if l := uint(len(tile.Nodes)); idx >= l {
+		tile.Nodes = append(tile.Nodes, make([][]byte, idx-l+1)...)
+	}
+	tile.Nodes[idx] = hash
 	// Update the number of 'tile leaves', if necessary.
 	if nodeLevel == 0 && nodeIndex >= uint64(tile.NumLeaves) {
 		tile.NumLeaves = uint(nodeIndex + 1)

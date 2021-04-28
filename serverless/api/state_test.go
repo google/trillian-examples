@@ -88,3 +88,96 @@ func TestMarshalTileRoundtrip(t *testing.T) {
 		}
 	}
 }
+
+func TestMarshalLogState(t *testing.T) {
+	for _, test := range []struct {
+		s    api.LogState
+		want string
+	}{
+		{
+			s: api.LogState{
+				Size:     123,
+				RootHash: []byte("bananas"),
+			},
+			want: "Log Checkpoint v0\n123\nYmFuYW5hcw==\n",
+		}, {
+			s: api.LogState{
+				Size:     9944,
+				RootHash: []byte("the view from the tree tops is great!"),
+			},
+			want: "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
+		},
+	} {
+		t.Run(string(test.s.RootHash), func(t *testing.T) {
+			got, err := test.s.MarshalText()
+			if err != nil {
+				t.Fatalf("MarshalText = %v", err)
+			}
+			if string(got) != test.want {
+				t.Fatalf("MarshalText = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestUnmarshalLogState(t *testing.T) {
+	for _, test := range []struct {
+		desc    string
+		m       string
+		want    api.LogState
+		wantErr bool
+	}{
+		{
+			desc: "valid one",
+			m:    "Log Checkpoint v0\n123\nYmFuYW5hcw==\n",
+			want: api.LogState{
+				Size:     123,
+				RootHash: []byte("bananas"),
+			},
+		}, {
+			desc: "valid two",
+			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
+			want: api.LogState{
+				Size:     9944,
+				RootHash: []byte("the view from the tree tops is great!"),
+			},
+		}, {
+			desc: "valid with trailing data",
+			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\nHere's some associated data.",
+			want: api.LogState{
+				Size:     9944,
+				RootHash: []byte("the view from the tree tops is great!"),
+			},
+		}, {
+			desc:    "invalid header",
+			m:       "Log Bananas v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
+			wantErr: true,
+		}, {
+			desc:    "invalid size - not a number",
+			m:       "Log Checkpoint v0\nbananas\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
+			wantErr: true,
+		}, {
+			desc:    "invalid size - negative",
+			m:       "Log Checkpoint v0\n-34\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
+			wantErr: true,
+		}, {
+			desc:    "invalid size - too large",
+			m:       "Log Checkpoint v0\n3438945738945739845734895735\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
+			wantErr: true,
+		}, {
+			desc:    "invalid roothash - not base64",
+			m:       "Log Checkpoint v0\n123\nThisIsn'tBase64\n",
+			wantErr: true,
+		},
+	} {
+		t.Run(string(test.desc), func(t *testing.T) {
+			var got api.LogState
+			if gotErr := got.UnmarshalText([]byte(test.m)); (gotErr != nil) != test.wantErr {
+				t.Fatalf("UnmarshalText = %q, wantErr: %T", gotErr, test.wantErr)
+			}
+			if diff := cmp.Diff(test.want, got); len(diff) != 0 {
+				t.Fatalf("UnmarshalText = diff %s", diff)
+			}
+		})
+	}
+}

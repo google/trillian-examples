@@ -18,10 +18,14 @@ package api
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 )
+
+// CheckpointHeader is the first line of a marshaled log checkpoint.
+const CheckpointHeader = "Log Checkpoint v0"
 
 // LogState represents the state of a serverless log
 type LogState struct {
@@ -30,6 +34,44 @@ type LogState struct {
 
 	// SHA256 log root, RFC6962 flavour.
 	RootHash []byte
+}
+
+// MarshalText implements golang's encoding/TextMarshaler interface, and renders
+// the LogState into a UTF8 text based format:
+//
+// Log Checkpoint v0\n
+// <decimal log size>\n
+// <base64 encoded root hash>\n
+func (s LogState) MarshalText() ([]byte, error) {
+	r := fmt.Sprintf("%s\n%d\n%s\n", CheckpointHeader, s.Size, base64.StdEncoding.EncodeToString(s.RootHash))
+	return []byte(r), nil
+}
+
+// UnmarshalText implements golang's encoding/TextUnmarshaler interface, and
+// populates this struct with the parsed values from the supplied text.
+//
+// This method reads the data serialised by the MarshalText method above,
+// and it ignores any trailing.
+func (s *LogState) UnmarshalText(raw []byte) error {
+	text := string(raw)
+	l := strings.Split(text, "\n")
+	if len(l) < 3 {
+		return errors.New("invalid checkpoint - too few lines")
+	}
+	if l[0] != CheckpointHeader {
+		return errors.New("invalid checkpoint - incorrect header")
+	}
+	size, err := strconv.ParseUint(l[1], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid checkpoint - size invalid: %w", err)
+	}
+	rh, err := base64.StdEncoding.DecodeString(l[2])
+	if err != nil {
+		return fmt.Errorf("invalid checkpoint - invalid roothash: %w", err)
+
+	}
+	s.Size, s.RootHash = size, rh
+	return nil
 }
 
 // Tile represents a subtree tile, containing inner nodes of a log tree.

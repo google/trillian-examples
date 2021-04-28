@@ -17,7 +17,6 @@ package client
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -49,7 +48,7 @@ func fetchLogStateAndParse(f FetcherFunc) (*api.LogState, []byte, error) {
 		return nil, nil, err
 	}
 	var ls api.LogState
-	if err := json.Unmarshal(sRaw, &ls); err != nil {
+	if err := ls.UnmarshalText(sRaw); err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal logstate: %w", err)
 	}
 	return &ls, sRaw, nil
@@ -281,7 +280,7 @@ func NewLogStateTracker(f FetcherFunc, h hashers.LogHasher, logStateRaw []byte) 
 	}
 	if len(logStateRaw) > 0 {
 		ret.LatestConsistentRaw = logStateRaw
-		if err := json.Unmarshal(logStateRaw, &ret.LatestConsistent); err != nil {
+		if err := ret.LatestConsistent.UnmarshalText(logStateRaw); err != nil {
 			return ret, err
 		}
 		return ret, nil

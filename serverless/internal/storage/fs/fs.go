@@ -16,7 +16,6 @@
 package fs
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -124,7 +123,7 @@ func (fs *Storage) LogState() api.LogState {
 func (fs *Storage) UpdateState(newState api.LogState) error {
 	fs.state = newState
 	fs.nextSeq = newState.Size
-	lsRaw, err := json.Marshal(newState)
+	lsRaw, err := newState.MarshalText()
 	if err != nil {
 		return fmt.Errorf("failed to marshal LogState: %w", err)
 	}
@@ -344,7 +343,7 @@ func loadLogState(s string) (*api.LogState, error) {
 	}
 
 	var ls api.LogState
-	if err := json.Unmarshal(raw, &ls); err != nil {
+	if err := ls.UnmarshalText(raw); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal logstate: %w", err)
 	}
 	return &ls, nil

@@ -32,7 +32,8 @@ type LogState struct {
 	// Size is the number of leaves in the log
 	Size uint64
 
-	// SHA256 log root, RFC6962 flavour.
+	// RootHash holds the Merkle tree root hash for the log at the
+	// given size.
 	RootHash []byte
 }
 

@@ -68,7 +68,6 @@ func (s *LogState) UnmarshalText(raw []byte) error {
 	rh, err := base64.StdEncoding.DecodeString(l[2])
 	if err != nil {
 		return fmt.Errorf("invalid checkpoint - invalid roothash: %w", err)
-
 	}
 	s.Size, s.RootHash = size, rh
 	return nil

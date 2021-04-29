@@ -232,7 +232,7 @@ func newTileFetcher(f FetcherFunc) GetTileFunc {
 		}
 
 		var tile api.Tile
-		if err := json.Unmarshal(t, &tile); err != nil {
+		if err := tile.UnmarshalText(t); err != nil {
 			return nil, fmt.Errorf("failed to parse tile: %w", err)
 		}
 		return &tile, nil

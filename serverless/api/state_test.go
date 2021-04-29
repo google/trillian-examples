@@ -16,9 +16,11 @@
 package api_test
 
 import (
+	"crypto/rand"
 	"fmt"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/serverless/api"
 )
 
@@ -47,5 +49,42 @@ func TestNodeKey(t *testing.T) {
 				t.Fatalf("got %d want %d", got, want)
 			}
 		})
+	}
+}
+
+func emptyHashes(n uint) [][]byte {
+	r := make([][]byte, n)
+	for i := range r {
+		r[i] = make([]byte, 32)
+	}
+	return r
+}
+
+func TestMarshalTileRoundtrip(t *testing.T) {
+	tile := api.Tile{
+		Nodes: make([][]byte, 0, 256),
+	}
+	for i := 1; i < 256; i++ {
+		tile.NumLeaves = uint(i)
+		idx := api.TileNodeKey(0, uint64(i-1))
+		if l := uint(len(tile.Nodes)); idx >= l {
+			tile.Nodes = append(tile.Nodes, emptyHashes(idx-l+1)...)
+		}
+		// Fill in the leaf index
+		rand.Read(tile.Nodes[idx])
+
+		raw, err := tile.MarshalText()
+		if err != nil {
+			t.Fatalf("MarshalText() = %v", err)
+		}
+
+		tile2 := api.Tile{}
+		if err := tile2.UnmarshalText(raw); err != nil {
+			t.Fatalf("UnmarshalText() = %v", err)
+		}
+
+		if diff := cmp.Diff(tile, tile2); len(diff) != 0 {
+			t.Fatalf("Got tile with diff: %s", diff)
+		}
 	}
 }

@@ -15,6 +15,14 @@
 // Package api contains the "public" API/artifacts of the serverless log.
 package api
 
+import (
+	"bytes"
+	"encoding/base64"
+	"fmt"
+	"strconv"
+	"strings"
+)
+
 // LogState represents the state of a serverless log
 type LogState struct {
 	// Size is the number of leaves in the log
@@ -35,6 +43,56 @@ type Tile struct {
 	// straight-forward.
 	// Note that only non-ephemeral nodes are stored.
 	Nodes [][]byte
+}
+
+// MarshalText implements encoding/TextMarshaller and writes out a Tile
+// instance in the following format:
+//
+// <hash size in decimal>\n
+// <num tile leaves in decimal>\n
+// <Nodes[0] base64 encoded>\n
+// ...
+// <Nodes[n] base64 encoded>\n
+func (t Tile) MarshalText() ([]byte, error) {
+	b := &bytes.Buffer{}
+	_, err := fmt.Fprintf(b, "%d\n%d\n", 32, t.NumLeaves)
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range t.Nodes {
+		_, err := fmt.Fprintf(b, "%s\n", base64.StdEncoding.EncodeToString(n))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return b.Bytes(), nil
+}
+
+// UnmarshalText implements encoding/TextUnmarshaler and reads tiles
+// which were written by the MarshalText method above.
+func (t *Tile) UnmarshalText(raw []byte) error {
+	lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+	hs, err := strconv.ParseUint(lines[0], 10, 16)
+	if err != nil {
+		return fmt.Errorf("unable to parse hash size: %w", err)
+	}
+	if hs != 32 {
+		return fmt.Errorf("invalid hash size %d", hs)
+	}
+	numLeaves, err := strconv.ParseUint(lines[1], 10, 16)
+	if err != nil {
+		return fmt.Errorf("unable to parse numLeaves: %w", err)
+	}
+	nodes := make([][]byte, 0, numLeaves*2)
+	for l := 2; l < len(lines); l++ {
+		h, err := base64.StdEncoding.DecodeString(lines[l])
+		if err != nil {
+			return fmt.Errorf("unable to parse nodehash on line %d; %w", l, err)
+		}
+		nodes = append(nodes, h)
+	}
+	t.NumLeaves, t.Nodes = uint(numLeaves), nodes
+	return nil
 }
 
 // TileNodeKey generates keys used in Tile.Nodes array.

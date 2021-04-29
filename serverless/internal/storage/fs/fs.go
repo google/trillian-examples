@@ -276,7 +276,7 @@ func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
 	}
 
 	var tile api.Tile
-	if err := json.Unmarshal(t, &tile); err != nil {
+	if err := tile.UnmarshalText(t); err != nil {
 		return nil, fmt.Errorf("failed to parse tile: %w", err)
 	}
 	return &tile, nil
@@ -292,7 +292,7 @@ func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 	if tileSize == 0 || tileSize > 256 {
 		return fmt.Errorf("tileSize %d must be > 0 and <= 256", tileSize)
 	}
-	t, err := json.Marshal(tile)
+	t, err := tile.MarshalText()
 	if err != nil {
 		return fmt.Errorf("failed to marshal tile: %w", err)
 	}

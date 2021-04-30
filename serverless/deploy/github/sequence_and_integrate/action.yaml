@@ -1,0 +1,13 @@
+# action.yml
+name: 'Sequence and integrate'
+description: 'Serverless log: sequence pending entries and integrate into log'
+inputs:
+  log_dir: # Root of the log state files
+    description: 'Location of the log files in the repo'
+    required: true
+    default: '.'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.log_dir }}

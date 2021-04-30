@@ -1,9 +1,9 @@
 FROM golang:1.16-alpine AS build
 
 WORKDIR /src/
-COPY ../../../ .
-RUN CGO_ENABLED=0 go build -o /bin/integrate ./serverless/cmd/integrate
-RUN CGO_ENABLED=0 go build -o /bin/sequence ./serverless/cmd/sequence
+COPY . ./
+RUN CGO_ENABLED=0 go build -o /bin/integrate github.com/google/trillian-examples/serverless/cmd/integrate
+RUN CGO_ENABLED=0 go build -o /bin/sequence github.com/google/trillian-examples/serverless/cmd/sequence
 
 FROM alpine
 

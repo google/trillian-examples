@@ -1,7 +1,7 @@
 # action.yml
 name: 'Sequence and integrate'
 description: 'Serverless log: sequence pending entries and integrate into log'
-concurrency: ${{ github.repository }}
+concurrency: master
 inputs:
   log_dir: # Root of the log state files
     description: 'Location of the log files in the repo'

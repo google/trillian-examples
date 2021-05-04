@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 
@@ -46,7 +47,16 @@ func main() {
 	if *create {
 		st, err = fs.Create(*storageDir, h.EmptyRoot())
 	} else {
-		st, err = fs.Load(*storageDir)
+		var stateRaw []byte
+		stateRaw, err = fs.ReadLogState(*storageDir)
+		if err != nil {
+			glog.Exitf("Failed to read log state: %q", err)
+		}
+		var state api.LogState
+		if err := state.UnmarshalText(stateRaw); err != nil {
+			glog.Exitf("Failed to unmarshal state: %q", err)
+		}
+		st, err = fs.Load(*storageDir, &state)
 	}
 	if err != nil {
 		glog.Exitf("Failed to initialise storage: %q", err)

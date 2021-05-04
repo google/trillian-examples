@@ -59,7 +59,7 @@ type Storage struct {
 const leavesPendingPathFmt = "leaves/pending/%0x"
 
 // Load returns a Storage instance initialised from the filesystem.
-func Load(rootDir string) (*Storage, error) {
+func Load(rootDir string, state *api.LogState) (*Storage, error) {
 	fi, err := os.Stat(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat %q: %w", rootDir, err)
@@ -69,15 +69,10 @@ func Load(rootDir string) (*Storage, error) {
 		return nil, fmt.Errorf("%q is not a directory", rootDir)
 	}
 
-	s, err := loadLogState(filepath.Join(rootDir, layout.StatePath))
-	if err != nil {
-		return nil, err
-	}
-
 	return &Storage{
 		rootDir: rootDir,
-		state:   *s,
-		nextSeq: s.Size,
+		state:   *state,
+		nextSeq: state.Size,
 	}, nil
 }
 
@@ -101,38 +96,19 @@ func Create(rootDir string, emptyHash []byte) (*Storage, error) {
 
 	fs := &Storage{
 		rootDir: rootDir,
+		nextSeq: 0,
+		state: api.LogState{
+			Size:     0,
+			RootHash: emptyHash,
+		},
 	}
 
-	logState := api.LogState{
-		Size:     0,
-		RootHash: emptyHash,
-	}
-
-	if err := fs.UpdateState(logState); err != nil {
-		return nil, err
-	}
 	return fs, nil
 }
 
 // LogState returns the current LogState.
 func (fs *Storage) LogState() api.LogState {
 	return fs.state
-}
-
-// UpdateState updates the stored log state.
-func (fs *Storage) UpdateState(newState api.LogState) error {
-	fs.state = newState
-	fs.nextSeq = newState.Size
-	lsRaw, err := newState.MarshalText()
-	if err != nil {
-		return fmt.Errorf("failed to marshal LogState: %w", err)
-	}
-	oPath := filepath.Join(fs.rootDir, layout.StatePath)
-	tmp := fmt.Sprintf("%s.tmp", oPath)
-	if err := createExclusive(tmp, lsRaw); err != nil {
-		return fmt.Errorf("failed to create temporary state file: %w", err)
-	}
-	return os.Rename(tmp, oPath)
 }
 
 // Sequence assigns the given leaf entry to the next available sequence number.
@@ -336,15 +312,18 @@ func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 	return nil
 }
 
-func loadLogState(s string) (*api.LogState, error) {
-	raw, err := ioutil.ReadFile(s)
-	if err != nil {
-		return nil, err
+// WriteLogState stores a raw log state on disk.
+func (fs Storage) WriteLogState(newStateRaw []byte) error {
+	oPath := filepath.Join(fs.rootDir, layout.StatePath)
+	tmp := fmt.Sprintf("%s.tmp", oPath)
+	if err := createExclusive(tmp, newStateRaw); err != nil {
+		return fmt.Errorf("failed to create temporary state file: %w", err)
 	}
+	return os.Rename(tmp, oPath)
+}
 
-	var ls api.LogState
-	if err := ls.UnmarshalText(raw); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal logstate: %w", err)
-	}
-	return &ls, nil
+// ReadLogState reads and returns the contents of the log state file.
+func ReadLogState(rootDir string) ([]byte, error) {
+	s := filepath.Join(rootDir, layout.StatePath)
+	return ioutil.ReadFile(s)
 }

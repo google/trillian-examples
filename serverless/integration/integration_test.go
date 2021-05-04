@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
@@ -56,8 +57,18 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 		leaves := sequenceNLeaves(t, s, lh, i*leavesPerLoop, leavesPerLoop)
 
 		// Integrate those leaves
-		if err := log.Integrate(s, lh); err != nil {
-			t.Fatalf("Integrate = %v", err)
+		{
+			update, err := log.Integrate(s, lh)
+			if err != nil {
+				t.Fatalf("Integrate = %v", err)
+			}
+			r, err := update.MarshalText()
+			if err != nil {
+				t.Fatalf("Failed to marshal updated state: %q", err)
+			}
+			if s.WriteLogState(r); err != nil {
+				t.Fatalf("Failed to write updated state file: %q", err)
+			}
 		}
 
 		// State tracker will verify consistency of larger tree
@@ -98,6 +109,11 @@ func TestServerlessViaFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}
+	// Create empty state
+	r, _ := api.LogState{}.MarshalText()
+	if err := fs.WriteLogState(r); err != nil {
+		t.Fatalf("Failed to create empty log state: %q", err)
+	}
 
 	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
@@ -122,6 +138,11 @@ func TestServerlessViaHTTP(t *testing.T) {
 	fs, err := fs.Create(root, []byte("empty"))
 	if err != nil {
 		t.Fatalf("Create = %v", err)
+	}
+	// Create empty state
+	r, _ := api.LogState{}.MarshalText()
+	if err := fs.WriteLogState(r); err != nil {
+		t.Fatalf("Failed to create empty log state: %q", err)
 	}
 
 	// Arrange for its files to be served via HTTP

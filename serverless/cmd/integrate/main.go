@@ -20,6 +20,7 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
@@ -32,13 +33,34 @@ var (
 func main() {
 	flag.Parse()
 	h := hasher.DefaultHasher
+
 	// init storage
-	st, err := fs.Load(*storageDir)
+	stateRaw, err := fs.ReadLogState(*storageDir)
+	if err != nil {
+		glog.Exitf("Failed to read log state: %q", err)
+	}
+	var state api.LogState
+	if err := state.UnmarshalText(stateRaw); err != nil {
+		glog.Exitf("Failed to unmarshal state: %q", err)
+	}
+	st, err := fs.Load(*storageDir, &state)
 	if err != nil {
 		glog.Exitf("Failed to load storage: %q", err)
 	}
 
-	if err := log.Integrate(st, h); err != nil {
+	// Integrate new entries
+	newState, err := log.Integrate(st, h)
+	if err != nil {
 		glog.Exitf("Failed to integrate: %q", err)
+	}
+
+	// Persist new log state.
+	newStateRaw, err := newState.MarshalText()
+	if err != nil {
+		glog.Exitf("Failed to marshal state: %q", err)
+	}
+
+	if err := st.WriteLogState(newStateRaw); err != nil {
+		glog.Exitf("Failed to store new log state: %q", err)
 	}
 }

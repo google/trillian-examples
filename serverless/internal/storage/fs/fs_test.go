@@ -18,13 +18,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/serverless/internal/layout"
+	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 )
 
@@ -65,35 +64,20 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("Create = %v", err)
 	}
 
-	if _, err := Load(d); err != nil {
+	s := api.LogState{}
+
+	if _, err := Load(d, &s); err != nil {
 		t.Fatalf("Load = %v, want no error", err)
 	}
 }
 
 func TestLoadForNonExistentDir(t *testing.T) {
-	if _, err := Load("5oi4egdf93uyjigedfk"); !errors.Is(err, os.ErrNotExist) {
+	if _, err := Load("5oi4egdf93uyjigedfk", nil); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("Load = %v, want not exists error", err)
 	}
 }
 
-func TestLoadWithCorruptState(t *testing.T) {
-	empty := []byte("empty")
-
-	d := filepath.Join(t.TempDir(), "storage")
-	_, err := Create(d, empty)
-	if err != nil {
-		t.Fatalf("Create = %v", err)
-	}
-
-	if err := ioutil.WriteFile(filepath.Join(d, layout.StatePath), []byte("][bananas!"), 0644); err != nil {
-		t.Fatalf("Failed to write corrupt log state file; %q", err)
-	}
-
-	if _, err := Load(d); err == nil {
-		t.Fatal("Load = nil, want err")
-	}
-}
-func TestUpdateState(t *testing.T) {
+func TestWriteLoadState(t *testing.T) {
 	empty := []byte("empty")
 
 	d := filepath.Join(t.TempDir(), "storage")
@@ -102,16 +86,18 @@ func TestUpdateState(t *testing.T) {
 		t.Fatalf("Create = %v", err)
 	}
 
-	ls := s.LogState()
-	ls.Size++
+	a := []byte("hello")
 
-	if err := s.UpdateState(ls); err != nil {
-		t.Fatalf("UpdateState = %v", err)
+	if err := s.WriteLogState(a); err != nil {
+		t.Fatalf("WriteLogState = %v", err)
 	}
 
-	ls2 := s.LogState()
+	b, err := ReadLogState(d)
+	if err != nil {
+		t.Fatalf("ReadLogState = %v", err)
+	}
 
-	if diff := cmp.Diff(ls2, ls); len(diff) != 0 {
+	if diff := cmp.Diff(b, a); len(diff) != 0 {
 		t.Errorf("Updated state had diff %s", diff)
 	}
 }

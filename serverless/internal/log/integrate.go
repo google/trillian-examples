@@ -39,8 +39,8 @@ type Storage interface {
 	// LogState returns the current state of the stored log.
 	LogState() api.LogState
 
-	// UpdateState stores a newly updated log state.
-	UpdateState(newState api.LogState) error
+	// WriteLogState stores a newly updated log state.
+	WriteLogState(newStateRaw []byte) error
 
 	// ScanSequenced calls f for each contiguous sequenced log entry >= begin.
 	// It should stop scanning if the call to f returns an error.
@@ -56,7 +56,8 @@ type Storage interface {
 }
 
 // Integrate adds sequenced but not-yet-included entries into the tree state.
-func Integrate(st Storage, h hashers.LogHasher) error {
+// Returns an updated LogState, or an error.
+func Integrate(st Storage, h hashers.LogHasher) (*api.LogState, error) {
 	rf := compact.RangeFactory{Hash: h.HashChildren}
 
 	// Fetch previously stored state
@@ -64,17 +65,17 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 	nc := client.NewNodeCache(st.GetTile)
 	hashes, err := client.FetchRangeNodes(state.Size, &nc)
 	if err != nil {
-		return fmt.Errorf("failed to fetch compact range nodes: %w", err)
+		return nil, fmt.Errorf("failed to fetch compact range nodes: %w", err)
 	}
 	baseRange, err := rf.NewRange(0, state.Size, hashes)
 	if err != nil {
-		return fmt.Errorf("failed to create range covering existing log: %w", err)
+		return nil, fmt.Errorf("failed to create range covering existing log: %w", err)
 	}
 
 	// Initialise a compact range representation, and verify the stored state.
 	r, err := baseRange.GetRootHash(nil)
 	if err != nil {
-		return fmt.Errorf("invalid log state, unable to recalculate root: %w", err)
+		return nil, fmt.Errorf("invalid log state, unable to recalculate root: %w", err)
 	}
 
 	glog.Infof("Loaded state with roothash %x", r)
@@ -94,24 +95,24 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 			return nil
 		})
 	if err != nil {
-		return fmt.Errorf("error while integrating: %w", err)
+		return nil, fmt.Errorf("error while integrating: %w", err)
 	}
 	if n == 0 {
 		glog.Infof("Nothing to do.")
 		// Nothing to do, nothing done.
-		return nil
+		return nil, nil
 	}
 
 	// Merge the update range into the old tree
 	if err := baseRange.AppendRange(newRange, tc.Visit); err != nil {
-		return fmt.Errorf("failed to merge new range onto existing log: %w", err)
+		return nil, fmt.Errorf("failed to merge new range onto existing log: %w", err)
 	}
 
 	// Calculate the new root hash - don't pass in the tileCache visitor here since
 	// this will construct any emphemeral nodes and we do not want to store those.
 	newRoot, err := baseRange.GetRootHash(nil)
 	if err != nil {
-		return fmt.Errorf("failed to calculate new root hash: %w", err)
+		return nil, fmt.Errorf("failed to calculate new root hash: %w", err)
 	}
 
 	// All calculation is now complete, all that remains is to store the new
@@ -120,25 +121,23 @@ func Integrate(st Storage, h hashers.LogHasher) error {
 
 	for k, t := range tc.m {
 		if err := st.StoreTile(k.level, k.index, t); err != nil {
-			return fmt.Errorf("failed to store tile at level %d index %d: %w", k.level, k.index, err)
+			return nil, fmt.Errorf("failed to store tile at level %d index %d: %w", k.level, k.index, err)
 		}
 	}
 
-	// Finally, write out the new log state which subsequent runs will use.
-	// Because the sequencing is already completed (by the sequence tool), any
+	// Finally, return a new state struct to the caller, so they can sign &
+	// persist it.
+	// Since the sequencing is already completed (by the sequence tool), any
 	// failures to write/update the tree are idempotent and can be safely
-	// re-tried with a subsequent run of this method. Also, until UpdateState
-	// is complete, clients have no root hash for a larger tree so it's
-	// meaningless for them to attempt to construct inclusion/consistency
+	// re-tried with a subsequent run of this method. Also, until WriteLogState
+	// is successfully invoked, clients have no root hash for a larger tree so
+	// it's meaningless for them to attempt to construct inclusion/consistency
 	// proofs.
 	newState := api.LogState{
 		RootHash: newRoot,
 		Size:     baseRange.End(),
 	}
-	if err := st.UpdateState(newState); err != nil {
-		return fmt.Errorf("failed to update stored state: %w", err)
-	}
-	return nil
+	return &newState, nil
 }
 
 // tileKey is a level/index key for the tile cache below.

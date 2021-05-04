@@ -242,7 +242,7 @@ func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, pb api.Pro
 	// and everything else. In a production system, it is likely that the proof generation
 	// would live elsewhere (e.g. in the OTA packaging process), and the shorter proof
 	// bundle would be provided to the device.
-	afw, ip, err := mc.Aggregation(ctx, mcp.Revision, pb.InclusionProof.LeafIndex)
+	preimage, ip, err := mc.Aggregation(ctx, mcp.Revision, pb.InclusionProof.LeafIndex)
 	if err != nil {
 		return fmt.Errorf("failed to get map value for %q: %w", pb.InclusionProof.LeafIndex, err)
 	}
@@ -252,10 +252,6 @@ func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, pb api.Pro
 		return fmt.Errorf("received inclusion proof for key %x but wanted %x", ip.Key, kbs[:])
 	}
 	// 2. Check: the proof is for the correct value.
-	preimage, err := json.Marshal(afw)
-	if err != nil {
-		return fmt.Errorf("failed to marshal aggregation to compute preimage: %w", err)
-	}
 	leafID := tree.NewNodeID2(string(kbs[:]), 256)
 	hasher := coniks.Default
 	expectedCommitment := hasher.HashLeaf(api.MapTreeID, leafID, preimage)
@@ -286,8 +282,12 @@ func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, pb api.Pro
 		return fmt.Errorf("inclusion proof calculated root %x but wanted %x", calc, mcp.RootHash)
 	}
 
+	var agg api.AggregatedFirmware
+	if err := json.NewDecoder(bytes.NewReader(preimage)).Decode(&agg); err != nil {
+		return fmt.Errorf("failed to decode aggregation: %w", err)
+	}
 	// Now we're certain that the aggregation is contained in the map, we can use the value.
-	if !afw.Good {
+	if !agg.Good {
 		return errors.New("firmware is marked as bad")
 	}
 	return nil

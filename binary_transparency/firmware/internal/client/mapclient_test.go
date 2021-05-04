@@ -15,6 +15,7 @@
 package client_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net/http"
@@ -83,7 +84,7 @@ func TestAggregation(t *testing.T) {
 		desc       string
 		rev, index uint64
 		bodies     map[string]string
-		wantAgg    api.AggregatedFirmware
+		wantAgg    []byte
 		wantErr    bool
 	}{
 		{
@@ -95,10 +96,7 @@ func TestAggregation(t *testing.T) {
 				"/ftmap/v0/tile/in-revision/1/at-path/Rg==":                   `{"Path":"Rg==","Leaves":[{"Path":"IRCmyCYwSorPfJ/NXqlkZdVYvs4KKtRYuV27zLJjCg==","Hash":"sE0GFv87tf0j7YciRBVFk4pFKExwVRhwykxdPz70Dxw="}]}`,
 				"/ftmap/v0/aggregation/in-revision/1/for-firmware-at-index/0": `{"Index":0,"Good":true}`,
 			},
-			wantAgg: api.AggregatedFirmware{
-				Index: 0,
-				Good:  true,
-			},
+			wantAgg: []byte(`{"Index":0,"Good":true}`),
 		}, {
 			desc:  "valid 2",
 			rev:   2,
@@ -108,10 +106,7 @@ func TestAggregation(t *testing.T) {
 				"/ftmap/v0/tile/in-revision/2/at-path/7A==":                   `{"Path":"7A==","Leaves":[{"Path":"Kk19hKuMqnXxlJGG0LQ5y8LbzyPhmCCDMxRmPAowFw==","Hash":"+d6n+Cubqrkvx6vwQg0f2M3ZPub3a8jf/HICam0T3sM="},{"Path":"z+HuPYEme3qpfllqffSoL8jKc8VLtf3njh/nVoksCA==","Hash":"rxQDwfN/PhVD+lF2FtVkzUb9ha1G+4OHE7ZaIvSow9Y="}]}`,
 				"/ftmap/v0/aggregation/in-revision/2/for-firmware-at-index/1": `{"Index":1,"Good":false}`,
 			},
-			wantAgg: api.AggregatedFirmware{
-				Index: 1,
-				Good:  false,
-			},
+			wantAgg: []byte(`{"Index":1,"Good":false}`),
 		}, {
 			desc:  "garbage",
 			rev:   42,
@@ -127,7 +122,7 @@ func TestAggregation(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if body, ok := test.bodies[r.URL.Path]; ok {
-					fmt.Fprintln(w, body)
+					fmt.Fprint(w, body)
 				} else {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
@@ -147,8 +142,8 @@ func TestAggregation(t *testing.T) {
 			case err != nil && test.wantErr:
 				// expected error
 			default:
-				if d := cmp.Diff(agg, test.wantAgg); len(d) != 0 {
-					t.Errorf("Got aggregation with diff: %s", d)
+				if !bytes.Equal(agg, test.wantAgg) {
+					t.Errorf("Got wrong aggregation (%x != %x)", agg, test.wantAgg)
 				}
 				// TODO(mhutchinson): more fully test the generated inclusion proof.
 				if proof.Key == nil || proof.Value == nil || len(proof.Proof) != 256 {

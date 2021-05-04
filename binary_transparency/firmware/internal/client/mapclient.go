@@ -15,14 +15,15 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
@@ -76,9 +77,7 @@ func (c *MapClient) MapCheckpoint() (api.MapCheckpoint, error) {
 
 // Aggregation returns the value committed to by the map under the given key,
 // with an inclusion proof.
-func (c *MapClient) Aggregation(ctx context.Context, rev uint64, fwIndex uint64) (api.AggregatedFirmware, api.MapInclusionProof, error) {
-	start := time.Now()
-
+func (c *MapClient) Aggregation(ctx context.Context, rev uint64, fwIndex uint64) ([]byte, api.MapInclusionProof, error) {
 	errs, _ := errgroup.WithContext(ctx)
 	// Simultaneously fetch all tiles:
 	tiles := make([]api.MapTile, api.MapPrefixStrata+1)
@@ -88,8 +87,11 @@ func (c *MapClient) Aggregation(ctx context.Context, rev uint64, fwIndex uint64)
 		errs.Go(func() error {
 			path := kbs[:i]
 			var t api.MapTile
-			err := c.fetch(fmt.Sprintf("%s/in-revision/%d/at-path/%s", api.MapHTTPGetTile, rev, base64.URLEncoding.EncodeToString(path)), &t)
+			tbs, err := c.fetch(fmt.Sprintf("%s/in-revision/%d/at-path/%s", api.MapHTTPGetTile, rev, base64.URLEncoding.EncodeToString(path)))
 			if err != nil {
+				return err
+			}
+			if err := json.NewDecoder(bytes.NewReader(tbs)).Decode(&t); err != nil {
 				return err
 			}
 			tiles[i] = t
@@ -97,13 +99,15 @@ func (c *MapClient) Aggregation(ctx context.Context, rev uint64, fwIndex uint64)
 		})
 	}
 
-	var agg api.AggregatedFirmware
+	var agg []byte
 	errs.Go(func() error {
-		return c.fetch(fmt.Sprintf("%s/in-revision/%d/for-firmware-at-index/%d", api.MapHTTPGetAggregation, rev, fwIndex), &agg)
+		var err error
+		agg, err = c.fetch(fmt.Sprintf("%s/in-revision/%d/for-firmware-at-index/%d", api.MapHTTPGetAggregation, rev, fwIndex))
+		return err
 	})
 
 	if err := errs.Wait(); err != nil {
-		return api.AggregatedFirmware{}, api.MapInclusionProof{}, err
+		return nil, api.MapInclusionProof{}, err
 	}
 
 	ipt := newInclusionProofTree(api.MapTreeID, coniks.Default, kbs[:])
@@ -126,31 +130,25 @@ func (c *MapClient) Aggregation(ctx context.Context, rev uint64, fwIndex uint64)
 		}
 	}
 
-	glog.V(1).Infof("Got aggregation (%s): %+v", time.Since(start), agg)
 	return agg, *ipt.proof, nil
 }
 
-// fetch gets the JSON object from the given path and decodes it into the result type.
-// This may need to be extended to return the raw bytes too for operations that need to
-// hash the raw bytes.
-func (c *MapClient) fetch(path string, result interface{}) error {
+// fetch gets the body from the given path.
+func (c *MapClient) fetch(path string) ([]byte, error) {
 	u, err := c.mapURL.Parse(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	r, err := http.Get(u.String())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if r.StatusCode != http.StatusOK {
-		return errFromResponse(fmt.Sprintf("failed to fetch %s", path), r)
+		return nil, errFromResponse(fmt.Sprintf("failed to fetch %s", path), r)
 	}
 	body := r.Body
 	defer body.Close()
-	if err := json.NewDecoder(body).Decode(result); err != nil {
-		return err
-	}
-	return nil
+	return ioutil.ReadAll(body)
 }
 
 // toNode converts a MapTileLeaf into the equivalent Node for HStar3.

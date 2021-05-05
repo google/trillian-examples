@@ -15,7 +15,6 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
@@ -91,7 +90,7 @@ func (c *MapClient) Aggregation(ctx context.Context, rev uint64, fwIndex uint64)
 			if err != nil {
 				return err
 			}
-			if err := json.NewDecoder(bytes.NewReader(tbs)).Decode(&t); err != nil {
+			if err := json.Unmarshal(tbs, &t); err != nil {
 				return err
 			}
 			tiles[i] = t

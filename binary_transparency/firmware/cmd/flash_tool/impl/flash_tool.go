@@ -283,7 +283,7 @@ func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, pb api.Pro
 	}
 
 	var agg api.AggregatedFirmware
-	if err := json.NewDecoder(bytes.NewReader(preimage)).Decode(&agg); err != nil {
+	if err := json.Unmarshal(preimage, &agg); err != nil {
 		return fmt.Errorf("failed to decode aggregation: %w", err)
 	}
 	// Now we're certain that the aggregation is contained in the map, we can use the value.

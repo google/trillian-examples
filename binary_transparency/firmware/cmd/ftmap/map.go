@@ -44,8 +44,6 @@ var (
 	trillianMySQL = flag.String("trillian_mysql", "", "The connection string to the Trillian MySQL database.")
 	mapDBString   = flag.String("map_db", "", "Connection path for output database where the map tiles will be written.")
 	count         = flag.Int64("count", -1, "The total number of entries starting from the beginning of the log to use, or -1 to use all. This can be used to independently create maps of the same size.")
-	treeID        = flag.Int64("tree_id", 12345, "The ID of the tree. Used as a salt in hashing.")
-	prefixStrata  = flag.Int("prefix_strata", 2, "The number of strata of 8-bit strata before the final strata.")
 	batchSize     = flag.Int("write_batch_size", 250, "Number of tiles to write per batch")
 )
 
@@ -68,7 +66,9 @@ func main() {
 		glog.Exitf("Failed to initialize Map DB: %v", err)
 	}
 
-	pb := ftmap.NewMapBuilder(trillianDB, *treeID, *prefixStrata)
+	// The tree & strata config is part of the API for clients. If we make this configurable then
+	// there needs to be some dynamic way to get this to clients (e.g. in a MapCheckpoint).
+	pb := ftmap.NewMapBuilder(trillianDB, api.MapTreeID, api.MapPrefixStrata)
 
 	beam.Init()
 	beamlog.SetLogger(&BeamGLogger{InfoLogAtVerbosity: 2})

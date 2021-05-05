@@ -23,6 +23,11 @@ const (
 	MapHTTPGetTile = "ftmap/v0/tile"
 	// MapHTTPGetAggregation is the path of the URL to get aggregated FW info.
 	MapHTTPGetAggregation = "ftmap/v0/aggregation"
+
+	// MapPrefixStrata is the number of prefix strata in the FT map.
+	MapPrefixStrata = 1
+	// MapTreeID is the unique tree ID salted into the map's hash functions.
+	MapTreeID = 12345
 )
 
 // AggregatedFirmware represents the results of aggregating a single piece of firmware
@@ -76,6 +81,9 @@ type MapTileLeaf struct {
 type MapInclusionProof struct {
 	Key   []byte
 	Value []byte
+	// Proof is all of the sibling hashes down the path, keyed by the bit length of the parent node ID.
+	// A nil entry means that this branch is empty.
+	// The parent node ID is used because the root does not have a sibling.
 	Proof [][]byte
 }
 

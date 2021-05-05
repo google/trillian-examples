@@ -99,7 +99,7 @@ func TestFTIntegration(t *testing.T) {
 		}, {
 			desc: "Force flashing device (init)",
 			step: func() error {
-				return i_flash.Main(i_flash.FlashOpts{
+				return i_flash.Main(ctx, i_flash.FlashOpts{
 					LogURL:        pAddr,
 					WitnessURL:    "",
 					DeviceID:      "dummy",
@@ -130,7 +130,7 @@ func TestFTIntegration(t *testing.T) {
 		}, {
 			desc: "Flashing device (update)",
 			step: func() error {
-				return i_flash.Main(i_flash.FlashOpts{
+				return i_flash.Main(ctx, i_flash.FlashOpts{
 					LogURL:        pAddr,
 					WitnessURL:    "",
 					DeviceID:      "dummy",
@@ -236,7 +236,7 @@ func TestFTIntegration(t *testing.T) {
 				<-time.After(5 * time.Second)
 				// Now flash the bundle normally, it will install because it's been logged
 				// and so is now discoverable.
-				if err := i_flash.Main(i_flash.FlashOpts{
+				if err := i_flash.Main(ctx, i_flash.FlashOpts{
 					LogURL:        pAddr,
 					WitnessURL:    "",
 					DeviceID:      "dummy",
@@ -292,7 +292,7 @@ func TestFTIntegration(t *testing.T) {
 				// Wait witness to view the device checkpoint
 				<-time.After(5 * time.Second)
 
-				if err := i_flash.Main(i_flash.FlashOpts{
+				if err := i_flash.Main(ctx, i_flash.FlashOpts{
 					LogURL:        pAddr,
 					WitnessURL:    wAddr,
 					DeviceID:      "dummy",

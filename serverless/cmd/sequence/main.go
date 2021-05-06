@@ -39,18 +39,16 @@ var (
 
 func main() {
 	flag.Parse()
-	var err error
 
 	toAdd, err := filepath.Glob(*entries)
 	if err != nil {
 		glog.Exitf("Failed to glob entries %q: %q", *entries, err)
 	}
-	if toAdd == nil {
-		glog.Exitf("Sequence must be run with at least one valid entry")
+	if len(toAdd) == 0 {
+		glog.Exit("Sequence must be run with at least one valid entry")
 	}
 
 	h := hasher.DefaultHasher
-
 	// init storage
 	var st *fs.Storage
 	if *create {

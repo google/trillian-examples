@@ -39,11 +39,20 @@ var (
 
 func main() {
 	flag.Parse()
+	var err error
+
+	toAdd, err := filepath.Glob(*entries)
+	if err != nil {
+		glog.Exitf("Failed to glob entries %q: %q", *entries, err)
+	}
+	if toAdd == nil {
+		glog.Exitf("Sequence must be run with at least one valid entry")
+	}
 
 	h := hasher.DefaultHasher
+
 	// init storage
 	var st *fs.Storage
-	var err error
 	if *create {
 		st, err = fs.Create(*storageDir, h.EmptyRoot())
 		r, _ := api.LogState{}.MarshalText()
@@ -68,10 +77,6 @@ func main() {
 	}
 
 	// sequence entries
-	toAdd, err := filepath.Glob(*entries)
-	if err != nil {
-		glog.Exitf("Failed to glob entries %q: %q", *entries, err)
-	}
 
 	// entryInfo binds the actual bytes to be added as a leaf with a
 	// user-recognisable name for the source of those bytes.

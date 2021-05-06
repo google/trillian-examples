@@ -46,6 +46,11 @@ func main() {
 	var err error
 	if *create {
 		st, err = fs.Create(*storageDir, h.EmptyRoot())
+		r, _ := api.LogState{}.MarshalText()
+		if err := st.WriteLogState(r); err != nil {
+			glog.Exitf("Failed to create empty log state: %q", err)
+		}
+
 	} else {
 		var stateRaw []byte
 		stateRaw, err = fs.ReadLogState(*storageDir)

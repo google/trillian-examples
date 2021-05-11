@@ -17,26 +17,24 @@
 package main
 
 import (
+	"crypto/rand"
 	"flag"
 	"fmt"
-	"io"
 
 	"github.com/golang/glog"
 	"golang.org/x/mod/sumdb/note"
 )
 
-var (
-	server = flag.String("server", "default", "Server name for the key identity")
-)
+var keyName = flag.String("key_name", "", "Name for the key identity")
 
 func main() {
-
 	flag.Parse()
 
-	var reader io.Reader
-	skey, _, err := note.GenerateKey(reader, *server)
+	// Check flag is valid
+
+	skey, _, err := note.GenerateKey(rand.Reader, *keyName)
 	if err != nil {
-		glog.Exit("Unable to create key")
+		glog.Exitf("Unable to create key: %q", err)
 	}
-	fmt.Printf("ASTRA_KEY=%v", skey)
+	fmt.Println(skey)
 }

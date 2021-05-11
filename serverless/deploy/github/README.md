@@ -76,6 +76,8 @@ jobs:
     name: Validate pending leaves
     steps:
     - uses: actions/checkout@v2
+      with:
+         fetch-depth: 0
     - name: Leaf validator step
       id: leaf_validator
       uses: google/trillian-examples/serverless/deploy/github/leaf_validator@master

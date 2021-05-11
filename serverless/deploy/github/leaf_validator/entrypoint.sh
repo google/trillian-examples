@@ -19,11 +19,10 @@ function main {
     echo "::debug:Pending leaf directory is ${PENDING_DIR}"
 
     # Now grab a list of all the modified/added/removed files in the PR
-    PR_NUMBER=$(echo ${GITHUB_REF} | awk 'BEGIN { FS = "/" } ; { print $3 }')
-    URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files"
-    FILES=$(curl -s -X GET -G ${URL} | jq -r '.[] | .filename')
+    FILES=$(git diff origin/master HEAD --name-only)
 
     # Finally, validate each of the modified/added/removed files
+    local is_bad=0
     while IFS= read -r f; do
         LEAF=$(readlink -f -n ${f})
         if [[ ${LEAF} = ${PENDING_DIR}/* ]]; then
@@ -31,10 +30,15 @@ function main {
             # Checks on the format/quality of the leaf could be done here, along
             # with signature verification etc.
         else
-            echo "::error:Added/Modified file outside of pending directory: ${LEAF}"
-            exit 1
+            echo "::warning file=${f}::Added/Modified file outside of \`${INPUT_LOG_DIR}/leaves/pending\` directory"
+            is_bad=1
         fi
     done <<< ${FILES}
+
+    if [[ ${is_bad} -ne 0 ]]; then
+        echo "::error::Found one or more invalid leaves in PR"
+        exit 1
+    fi
 }
 
 main

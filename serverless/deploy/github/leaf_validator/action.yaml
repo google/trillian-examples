@@ -11,3 +11,7 @@ runs:
   image: 'Dockerfile'
   args:
     - ${{ inputs.log_dir }}
+
+branding:
+  icon: 'loader'
+  color: 'orange'

@@ -31,7 +31,7 @@ function main {
             # Checks on the format/quality of the leaf could be done here, along
             # with signature verification etc.
         else
-            echo "::debug:Added/Modified file outside of pending directory: ${LEAF}"
+            echo "::error:Added/Modified file outside of pending directory: ${LEAF}"
             exit 1
         fi
     done <<< ${FILES}

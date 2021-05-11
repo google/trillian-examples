@@ -38,5 +38,5 @@ func main() {
 	if err != nil {
 		glog.Exit("Unable to create key")
 	}
-	fmt.Println(skey)
+	fmt.Printf("ASTRA_KEY=%v", skey)
 }

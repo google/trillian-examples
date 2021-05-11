@@ -1,0 +1,13 @@
+# action.yml
+name: 'Leaf validator'
+description: 'Serverless log: example leaf validator'
+inputs:
+  log_dir: # Root of the log state files
+    description: 'Location of the log files in the repo'
+    required: true
+    default: '.'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.log_dir }}

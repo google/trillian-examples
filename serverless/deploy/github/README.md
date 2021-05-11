@@ -19,6 +19,8 @@ Yes, dear reader; read on!
 We can configure our log repository to use GitHub Actions to automate much of
 this process.
 
+### Sequencing & integration
+
 Here is a GitHub actions workflow config which will automate the sequencing
 and integration of "leaves" which have been added to the `leaves/pending`
 directory of a serverless log:
@@ -53,6 +55,29 @@ the following steps:
 - integrates all sequenced but unintegrated leaves
 - commits all changes from the sequencing/integration,
 - pushes this commit to master, thereby updating the public state of the log repo.
+
+### Verifying "queue leaf" PRs
+
+Here is a GitHub actions workflow config which will automate the validation of
+incoming "queue leaf" request PRs, it uses the `leaf_validator` action which
+does the bare minimum to demonstrate the idea - if you were doing this for real
+you'd likely want to validate format, signatures, etc. too.
+
+```yaml
+on: [pull_request]
+
+jobs:
+  leaf_validator_job:
+    runs-on: ubuntu-latest
+    name: Validate pending leaves
+    steps:
+    - uses: actions/checkout@v2
+    - name: Leaf validator step
+      id: leaf_validator
+      uses: AlCutter/trillian-examples/serverless/deploy/github/leaf_validator@serverless_leaf_validator
+      with:
+        log_dir: './log'
+```
 
 ## Try it out yourself
 

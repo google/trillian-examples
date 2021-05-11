@@ -17,6 +17,10 @@ Currently the examples here are:
    showing how to apply transparency bring discoverability to device firmware
    updates, but the principles are also more generally applicable to all kinds
    of binaries/updates.
+* [serverless](serverless): A suite of command-line tools for managing
+   transparency logs whose state is entirely composed of on-disk file, along
+   with examples of how to use GitHub/GitHub Actions to host & publicly serve
+   the log.
 * [sumdbaudit](sumdbaudit): Demonstration of an auditor for the
    [GoLang SumDB](https://go.googlesource.com/proposal/+/master/design/25530-sumdb.md)
    module proxy, which clones a log and verifies the data in it.

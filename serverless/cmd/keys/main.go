@@ -13,7 +13,6 @@
 // limitations under the License.
 
 // Package main provides a command line tool for managing signing keys
-
 package main
 
 import (

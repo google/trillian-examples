@@ -19,9 +19,13 @@ Yes, dear reader; read on!
 We can configure our log repository to use GitHub Actions to automate much of
 this process.
 
+### Sequencing & integration
+
 Here is a GitHub actions workflow config which will automate the sequencing
 and integration of "leaves" which have been added to the `leaves/pending`
 directory of a serverless log:
+
+`push_to_master.yaml`
 
 ```yaml
 on: [push]
@@ -54,6 +58,33 @@ the following steps:
 - commits all changes from the sequencing/integration,
 - pushes this commit to master, thereby updating the public state of the log repo.
 
+### Verifying "queue leaf" PRs
+
+Here is a GitHub actions workflow config which will automate the validation of
+incoming "queue leaf" request PRs, it uses the `leaf_validator` action which
+does the bare minimum to demonstrate the idea - if you were doing this for real
+you'd likely want to validate format, signatures, etc. too.
+
+`leaves_pr.yaml`
+
+```yaml
+on: [pull_request]
+
+jobs:
+  leaf_validator_job:
+    runs-on: ubuntu-latest
+    name: Validate pending leaves
+    steps:
+    - uses: actions/checkout@v2
+      with:
+         fetch-depth: 0
+    - name: Leaf validator step
+      id: leaf_validator
+      uses: google/trillian-examples/serverless/deploy/github/leaf_validator@master
+      with:
+        log_dir: './log'
+```
+
 ## Try it out yourself
 
 To try it out:
@@ -71,13 +102,15 @@ To try it out:
        git commit -m "Initialise my log"
        ```
 
-3. Place the above github actions config into `.github/workflows/main.yaml` in
+3. Place the above github action configs into the `.github/workflows` directory in
    your log repo, and commit that too.
 4. Push these commits up to github.
 
-From now on, you can add commits which drop files into the `log/leaves/pending`
-directory, and you should see the `Sequence and integrate` action running in response
-(check the `Actions` tab on the github repo's page).
+Now you can raise "pending leaf" PRs which drop files into the
+`log/leaves/pending` directory, whereupon the `Validate pending leaves` action
+should check the contents, and when the "pending leaf" PRs are merged you
+should see the `Sequence and integrate` action running in response (check the
+`Actions` tab on your github repo's page).
 
 You can use the `client` tool to interact with your new log by using the GitHub
 raw URL address of your log's repo with the `storage_url` parameter:
@@ -92,7 +125,6 @@ I0430 17:49:34.648439 3389781 client.go:178] Inclusion verified in tree size 3, 
 
 ## Going further
 
-We could take it further, and have a GitHub Action which examined incoming
-PRs for ones which contained _only_ additions of files to a "pending"
-directory. These PRs could be automatically merged if those file(s)
-met some specific validation criteria, and otherwise rejected.
+We could take it further, and have the `validate pending leaves` action
+automatically merge valid PRs and close others, but this is currently left as
+an exercise for the reader.

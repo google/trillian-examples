@@ -29,7 +29,9 @@ var keyName = flag.String("key_name", "", "Name for the key identity")
 func main() {
 	flag.Parse()
 
-	// Check flag is valid
+	if len(*keyName) == 0 {
+		glog.Exit("--key_name required")
+	}
 
 	skey, _, err := note.GenerateKey(rand.Reader, *keyName)
 	if err != nil {

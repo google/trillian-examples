@@ -23,8 +23,6 @@ import (
 
 	"github.com/google/trillian"
 	"github.com/google/trillian/client"
-	"github.com/google/trillian/crypto/keyspb"
-	"github.com/google/trillian/crypto/sigpb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -73,19 +71,11 @@ func (s *TreeStorage) createTree(ctx context.Context, conn grpc.ClientConnInterf
 
 	ctr := &trillian.CreateTreeRequest{
 		Tree: &trillian.Tree{
-			TreeState:          trillian.TreeState_ACTIVE,
-			TreeType:           trillian.TreeType_LOG,
-			HashStrategy:       trillian.HashStrategy_RFC6962_SHA256,
-			HashAlgorithm:      sigpb.DigitallySigned_SHA256,
-			SignatureAlgorithm: sigpb.DigitallySigned_ECDSA,
-			DisplayName:        "ft",
-			Description:        "binary transparency log",
-			MaxRootDuration:    durationpb.New(time.Hour),
-		},
-		KeySpec: &keyspb.Specification{
-			Params: &keyspb.Specification_EcdsaParams{
-				EcdsaParams: &keyspb.Specification_ECDSA{},
-			},
+			TreeState:       trillian.TreeState_ACTIVE,
+			TreeType:        trillian.TreeType_LOG,
+			DisplayName:     "ft",
+			Description:     "binary transparency log",
+			MaxRootDuration: durationpb.New(time.Hour),
 		},
 	}
 

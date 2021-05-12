@@ -12,9 +12,8 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.5.2
-	github.com/google/certificate-transparency-go v1.0.22-0.20200708065856-b8561831ac3c // indirect
 	github.com/google/go-cmp v0.5.5
-	github.com/google/trillian v1.3.14-0.20210412084322-76058cc0ea25
+	github.com/google/trillian v1.3.14-0.20210511103300-67b5f349eefa
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

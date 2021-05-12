@@ -20,7 +20,7 @@
 // TODO(al): Extend monitor to verify claims.
 //
 // Start the monitor using:
-// go run ./cmd/ft_monitor/main.go --logtostderr -v=2 --ftlog=http://localhost:8000/
+// go run ./cmd/ft_monitor/main.go --logtostderr -v=2 --ftlog=http://localhost:8000/  --state_file=/tmp/ftmon.state
 package main
 
 import (
@@ -38,6 +38,7 @@ var (
 	pollInterval = flag.Duration("poll_interval", 5*time.Second, "Duration to wait between polling for new entries")
 	keyWord      = flag.String("keyword", "trojan", "Example keyword for malware")
 	annotate     = flag.Bool("annotate", false, "If true then this will add annotations to the log in addition to local logging")
+	stateFile    = flag.String("state_file", "", "Filepath to persist monitor state to")
 )
 
 func main() {
@@ -50,7 +51,8 @@ func main() {
 		Matched: func(idx uint64, fw api.FirmwareMetadata) {
 			glog.Warningf("Malware detected at log index %d, in firmware: %v", idx, fw)
 		},
-		Annotate: *annotate,
+		Annotate:  *annotate,
+		StateFile: *stateFile,
 	}); err != nil {
 		glog.Exitf(err.Error())
 	}

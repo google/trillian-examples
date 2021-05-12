@@ -127,7 +127,7 @@ and consider that any binary containing that string is a bad one.
   the command below to start a monitor:
 
 ```bash
-go run ./cmd/ft_monitor/ --logtostderr --keyword="H4x0r3d"
+go run ./cmd/ft_monitor/ --logtostderr --keyword="H4x0r3d" --state_file=/tmp/ftmon.state
 ```
 
 #### Terminal 3 - Firmware Vendor

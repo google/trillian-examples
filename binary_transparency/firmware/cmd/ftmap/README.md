@@ -18,7 +18,7 @@ The map in this demonstration creates two types of entry in the map:
  * For each logged piece of firmware, all annotations for it are aggregated together
 
 The first of these is a proof of concept and isn't currently read by clients (TODO(mhutchinson): remove this if needed for simplicity).
-The second of these can be used as an additional check when flashing firmware to check that no scanners have found malware in it.
+The second of these is used as an additional check when flashing firmware to check that no scanners have found malware in it, if the `map_url` argument is provided to the flash tool.
 
 TODO(mhutchinson): make the map and reduce functions super clear in the code and refer to them from here.
 

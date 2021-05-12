@@ -103,7 +103,10 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		case entry = <-ec:
 		}
 
-		processEntry(entry, c, opts, matcher)
+		if err := processEntry(entry, c, opts, matcher); err != nil {
+			// TODO(mhutchinson): Consider a flag that causes processing errors to hard-fail.
+			glog.Warningf("Warning processing entry at index %d: %q", entry.Index, err)
+		}
 
 		if entry.Index == entry.Root.TreeSize-1 {
 			// If we have processed all leaves in the current checkpoint, then persist this checkpoint
@@ -118,18 +121,17 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 	}
 }
 
-func processEntry(entry client.LogEntry, c client.ReadonlyClient, opts MonitorOpts, matcher *regexp.Regexp) {
+func processEntry(entry client.LogEntry, c client.ReadonlyClient, opts MonitorOpts, matcher *regexp.Regexp) error {
 	stmt := entry.Value
 	if stmt.Type != api.FirmwareMetadataType {
 		// Only analyze firmware statements in the monitor.
-		return
+		return nil
 	}
 
 	// Parse the firmware metadata:
 	var meta api.FirmwareMetadata
 	if err := json.Unmarshal(stmt.Statement, &meta); err != nil {
-		glog.Warningf("Unable to decode FW Metadata from Statement %q", err)
-		return
+		return fmt.Errorf("unable to decode FW Metadata from Statement %q", err)
 	}
 
 	glog.Infof("Found firmware (@%d): %s", entry.Index, meta)
@@ -137,14 +139,12 @@ func processEntry(entry client.LogEntry, c client.ReadonlyClient, opts MonitorOp
 	// Fetch the Image from FT Personality
 	image, err := c.GetFirmwareImage(meta.FirmwareImageSHA512)
 	if err != nil {
-		glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
-		return
+		return fmt.Errorf("unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
 	}
 	// Verify Image Hash from log Manifest matches the actual image hash
 	h := sha512.Sum512(image)
 	if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
-		glog.Warningf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
-		return
+		return fmt.Errorf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
 	}
 	glog.V(1).Infof("Image Hash Verified for image at leaf index %d", entry.Index)
 
@@ -165,17 +165,16 @@ func processEntry(entry client.LogEntry, c client.ReadonlyClient, opts MonitorOp
 		glog.V(1).Infof("Annotating %s", ms)
 		js, err := createStatementJSON(ms)
 		if err != nil {
-			glog.Warningf("failed to create annotation: %q", err)
-			return
+			return fmt.Errorf("failed to create annotation: %q", err)
 		}
 		sc := client.SubmitClient{
 			ReadonlyClient: &c,
 		}
 		if err := sc.PublishAnnotationMalware(js); err != nil {
-			glog.Warningf("failed to publish annotation: %q", err)
-			return
+			return fmt.Errorf("failed to publish annotation: %q", err)
 		}
 	}
+	return nil
 }
 
 func createStatementJSON(m api.MalwareStatement) ([]byte, error) {

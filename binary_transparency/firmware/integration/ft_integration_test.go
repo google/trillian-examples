@@ -254,8 +254,13 @@ func TestFTIntegration(t *testing.T) {
 				}
 
 				// Wait and see if the monitor spots the malware
-				if foundMalware := chanNotEmptyAfter(matchedChan, 30*time.Second); !foundMalware {
+				select {
+				case <-time.After(30 * time.Second):
 					t.Fatal("Monitor didn't spot logged malware")
+				case err := <-mErrChan:
+					t.Fatalf("Monitor errored: %q", err)
+				case <-matchedChan:
+					// We found it
 				}
 
 				return nil
@@ -321,18 +326,6 @@ func TestFTIntegration(t *testing.T) {
 	}
 }
 
-// chanNotEmptyAfter return true if c contains at least one message
-// before duration elapses.
-func chanNotEmptyAfter(c <-chan bool, d time.Duration) bool {
-	select {
-	case <-time.After(d):
-		//
-	case <-c:
-		return true
-	}
-	return false
-}
-
 func testContext(t *testing.T) (context.Context, func()) {
 	ctx := context.Background()
 	c := func() {}
@@ -386,11 +379,14 @@ func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string) 
 func runMonitor(ctx context.Context, t *testing.T, serverAddr string, pattern string, matched i_monitor.MatchFunc) error {
 	t.Helper()
 
+	r := t.TempDir()
+
 	err := i_monitor.Main(ctx, i_monitor.MonitorOpts{
 		LogURL:       serverAddr,
 		PollInterval: 1 * time.Second,
 		Keyword:      "H4x0r3d",
 		Matched:      matched,
+		StateFile:    filepath.Join(r, "ft-monitor.state"),
 	})
 	if err != http.ErrServerClosed {
 		return err

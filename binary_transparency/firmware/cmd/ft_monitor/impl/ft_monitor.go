@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"regexp"
@@ -72,7 +73,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 
 	// Initialize the checkpoint from persisted state.
 	var latestCP api.LogCheckpoint
-	if state, err := os.ReadFile(opts.StateFile); err != nil {
+	if state, err := ioutil.ReadFile(opts.StateFile); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("failed to read state: %w", err)
 		}
@@ -111,7 +112,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 			if err != nil {
 				return fmt.Errorf("failed to marshal checkpoint: %w", err)
 			}
-			os.WriteFile(opts.StateFile, bs, 0o755)
+			ioutil.WriteFile(opts.StateFile, bs, 0o755)
 			glog.Infof("Persisted state: %v", entry.Root)
 		}
 	}
@@ -164,14 +165,14 @@ func processEntry(entry client.LogEntry, c client.ReadonlyClient, opts MonitorOp
 		glog.V(1).Infof("Annotating %s", ms)
 		js, err := createStatementJSON(ms)
 		if err != nil {
-			glog.Warningf("failed to create annotation: %w", err)
+			glog.Warningf("failed to create annotation: %q", err)
 			return
 		}
 		sc := client.SubmitClient{
 			ReadonlyClient: &c,
 		}
 		if err := sc.PublishAnnotationMalware(js); err != nil {
-			glog.Warningf("failed to publish annotation: %w", err)
+			glog.Warningf("failed to publish annotation: %q", err)
 			return
 		}
 	}

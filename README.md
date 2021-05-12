@@ -18,7 +18,7 @@ Currently the examples here are:
    updates, but the principles are also more generally applicable to all kinds
    of binaries/updates.
 * [serverless](serverless): A suite of command-line tools for managing
-   transparency logs whose state is entirely composed of on-disk file, along
+   transparency logs whose state is entirely composed of on-disk files, along
    with examples of how to use GitHub/GitHub Actions to host & publicly serve
    the log.
 * [sumdbaudit](sumdbaudit): Demonstration of an auditor for the

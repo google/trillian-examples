@@ -77,8 +77,8 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("failed to read state: %w", err)
 		}
-		// Silently continue if the file doesn't exist.
 		// This could fail here unless a force flag is provided, for better security.
+		glog.Warningf("State file %q did not exist; first log checkpoint will be trusted implicitly", opts.StateFile)
 	} else {
 		if err := json.Unmarshal(state, &latestCP); err != nil {
 			return fmt.Errorf("failed to read state: %w", err)

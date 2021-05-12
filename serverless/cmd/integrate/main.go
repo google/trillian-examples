@@ -53,6 +53,9 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to integrate: %q", err)
 	}
+	if newState == nil {
+		glog.Exit("Nothing to integrate")
+	}
 
 	// Persist new log state.
 	newStateRaw, err := newState.MarshalText()

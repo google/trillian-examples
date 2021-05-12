@@ -28,6 +28,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"os"
 	"regexp"
 	"time"
 
@@ -48,11 +49,15 @@ type MonitorOpts struct {
 	Keyword      string
 	Matched      MatchFunc
 	Annotate     bool
+	StateFile    string
 }
 
 func Main(ctx context.Context, opts MonitorOpts) error {
 	if len(opts.LogURL) == 0 {
 		return errors.New("log URL is required")
+	}
+	if len(opts.StateFile) == 0 {
+		return errors.New("state file is required")
 	}
 
 	ftURL, err := url.Parse(opts.LogURL)
@@ -65,15 +70,23 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 
 	c := client.ReadonlyClient{LogURL: ftURL}
 
-	// TODO(mhutchinson): This checkpoint and tracker for number of processed entries
-	// should be serialized so the monitor persists its golden state between runs.
-	// In particular this will prevent the annotator from adding multiple annotations
-	// for the same firmware each time the monitor is started.
+	// Initialize the checkpoint from persisted state.
 	var latestCP api.LogCheckpoint
-	var head uint64
+	if state, err := os.ReadFile(opts.StateFile); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("failed to read state: %w", err)
+		}
+		// Silently continue if the file doesn't exist.
+		// This could fail here unless a force flag is provided, for better security.
+	} else {
+		if err := json.Unmarshal(state, &latestCP); err != nil {
+			return fmt.Errorf("failed to read state: %w", err)
+		}
+	}
+	head := latestCP.TreeSize
 	follow := client.NewLogFollower(c)
 
-	glog.Infof("Monitoring FT log %q...", opts.LogURL)
+	glog.Infof("Monitoring FT log (%q) starting from index %d", opts.LogURL, head)
 	cpc, cperrc := follow.Checkpoints(ctx, opts.PollInterval, latestCP)
 	ec, eerrc := follow.Entries(ctx, cpc, head)
 
@@ -89,60 +102,77 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		case entry = <-ec:
 		}
 
-		stmt := entry.Value
-		if stmt.Type != api.FirmwareMetadataType {
-			// Only analyze firmware statements in the monitor.
-			continue
-		}
+		processEntry(entry, c, opts, matcher)
 
-		// Parse the firmware metadata:
-		var meta api.FirmwareMetadata
-		if err := json.Unmarshal(stmt.Statement, &meta); err != nil {
-			glog.Warningf("Unable to decode FW Metadata from Statement %q", err)
-			continue
-		}
-
-		glog.Infof("Found firmware (@%d): %s", entry.Index, meta)
-
-		// Fetch the Image from FT Personality
-		image, err := c.GetFirmwareImage(meta.FirmwareImageSHA512)
-		if err != nil {
-			glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
-			continue
-		}
-		// Verify Image Hash from log Manifest matches the actual image hash
-		h := sha512.Sum512(image)
-		if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
-			glog.Warningf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
-			continue
-		}
-		glog.V(1).Infof("Image Hash Verified for image at leaf index %d", entry.Index)
-
-		// Search for specific keywords inside firmware image
-		malwareDetected := matcher.Match(image)
-
-		if malwareDetected {
-			opts.Matched(entry.Index, meta)
-		}
-		if opts.Annotate {
-			ms := api.MalwareStatement{
-				FirmwareID: api.FirmwareID{
-					LogIndex:            entry.Index,
-					FirmwareImageSHA512: h[:],
-				},
-				Good: !malwareDetected,
-			}
-			glog.V(1).Infof("Annotating %s", ms)
-			js, err := createStatementJSON(ms)
+		if entry.Index == entry.Root.TreeSize-1 {
+			// If we have processed all leaves in the current checkpoint, then persist this checkpoint
+			// so that we don't repeat work on startup.
+			bs, err := json.Marshal(entry.Root)
 			if err != nil {
-				return fmt.Errorf("failed to create annotation: %w", err)
+				return fmt.Errorf("failed to marshal checkpoint: %w", err)
 			}
-			sc := client.SubmitClient{
-				ReadonlyClient: &c,
-			}
-			if err := sc.PublishAnnotationMalware(js); err != nil {
-				return fmt.Errorf("failed to publish annotation: %w", err)
-			}
+			os.WriteFile(opts.StateFile, bs, 0o755)
+			glog.Infof("Persisted state: %v", entry.Root)
+		}
+	}
+}
+
+func processEntry(entry client.LogEntry, c client.ReadonlyClient, opts MonitorOpts, matcher *regexp.Regexp) {
+	stmt := entry.Value
+	if stmt.Type != api.FirmwareMetadataType {
+		// Only analyze firmware statements in the monitor.
+		return
+	}
+
+	// Parse the firmware metadata:
+	var meta api.FirmwareMetadata
+	if err := json.Unmarshal(stmt.Statement, &meta); err != nil {
+		glog.Warningf("Unable to decode FW Metadata from Statement %q", err)
+		return
+	}
+
+	glog.Infof("Found firmware (@%d): %s", entry.Index, meta)
+
+	// Fetch the Image from FT Personality
+	image, err := c.GetFirmwareImage(meta.FirmwareImageSHA512)
+	if err != nil {
+		glog.Warningf("Unable to GetFirmwareImage for Firmware with Hash 0x%x , reason %q", meta.FirmwareImageSHA512, err)
+		return
+	}
+	// Verify Image Hash from log Manifest matches the actual image hash
+	h := sha512.Sum512(image)
+	if !bytes.Equal(h[:], meta.FirmwareImageSHA512) {
+		glog.Warningf("downloaded image does not match SHA512 in metadata (%x != %x)", h[:], meta.FirmwareImageSHA512)
+		return
+	}
+	glog.V(1).Infof("Image Hash Verified for image at leaf index %d", entry.Index)
+
+	// Search for specific keywords inside firmware image
+	malwareDetected := matcher.Match(image)
+
+	if malwareDetected {
+		opts.Matched(entry.Index, meta)
+	}
+	if opts.Annotate {
+		ms := api.MalwareStatement{
+			FirmwareID: api.FirmwareID{
+				LogIndex:            entry.Index,
+				FirmwareImageSHA512: h[:],
+			},
+			Good: !malwareDetected,
+		}
+		glog.V(1).Infof("Annotating %s", ms)
+		js, err := createStatementJSON(ms)
+		if err != nil {
+			glog.Warningf("failed to create annotation: %w", err)
+			return
+		}
+		sc := client.SubmitClient{
+			ReadonlyClient: &c,
+		}
+		if err := sc.PublishAnnotationMalware(js); err != nil {
+			glog.Warningf("failed to publish annotation: %w", err)
+			return
 		}
 	}
 }

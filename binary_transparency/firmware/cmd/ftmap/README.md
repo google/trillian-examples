@@ -25,7 +25,7 @@ go run ./cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2021-10-10T15
 go run ./cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T23:00:00.00Z" --binary_path=./testdata/firmware/dummy_device/hacked.wasm --output_path=/tmp/bad_update.ota --device=dummy
 
 # Run the monitor to annotate
-go run ./cmd/ft_monitor/ --logtostderr --v=1 --keyword="H4x0r3d" --annotate
+go run ./cmd/ft_monitor/ --logtostderr --v=1 --keyword="H4x0r3d" --state_file=/tmp/ftmon.state --annotate
 ```
 
 Now to generate the map:

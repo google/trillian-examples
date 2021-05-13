@@ -1,24 +1,28 @@
-package format
+package format_test
 
 import (
 	"bytes"
+	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/trillian-examples/format"
 )
 
 func TestUnmarshalLogState(t *testing.T) {
 	for _, test := range []struct {
 		desc     string
 		m        string
-		want     Checkpoint
+		want     format.Checkpoint
 		wantRest []byte
 		wantErr  bool
 	}{
 		{
 			desc: "valid one",
 			m:    "Log Checkpoint v0\n123\nYmFuYW5hcw==\n",
-			want: Checkpoint{
+			want: format.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      123,
 				RootHash:  []byte("bananas"),
@@ -26,7 +30,7 @@ func TestUnmarshalLogState(t *testing.T) {
 		}, {
 			desc: "valid with different ecosystem",
 			m:    "Banana Checkpoint v1\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
-			want: Checkpoint{
+			want: format.Checkpoint{
 				Ecosystem: "Banana Checkpoint v1",
 				Size:      9944,
 				RootHash:  []byte("the view from the tree tops is great!"),
@@ -34,7 +38,7 @@ func TestUnmarshalLogState(t *testing.T) {
 		}, {
 			desc: "valid with trailing data",
 			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\nHere's some associated data.\n",
-			want: Checkpoint{
+			want: format.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      9944,
 				RootHash:  []byte("the view from the tree tops is great!"),
@@ -63,7 +67,7 @@ func TestUnmarshalLogState(t *testing.T) {
 		},
 	} {
 		t.Run(string(test.desc), func(t *testing.T) {
-			var got Checkpoint
+			var got format.Checkpoint
 			var gotErr error
 			var gotRest []byte
 			if gotRest, gotErr = got.Unmarshal([]byte(test.m)); (gotErr != nil) != test.wantErr {
@@ -76,5 +80,60 @@ func TestUnmarshalLogState(t *testing.T) {
 				t.Fatalf("got rest %x, want %x", gotRest, test.wantRest)
 			}
 		})
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Below is an example of embedding the minimal checkpoint as one way to extend
+// it to include additional ecosystem-specific data.
+// Reimplementing parsing of the full extended structure would be fine too.
+
+// moonLogCheckpoint is a hypothetical checkpoint for an ecosystem which requires
+// its checkpoints to commit to more data than the minimum common checkpoint does.
+type moonLogCheckpoint struct {
+	format.Checkpoint
+	Timestamp uint64
+	Phase     string
+}
+
+// Unmarshal knows how to unmarshal the moon log data.
+// It delegates to the embedded Checkpoint to unmarshal itself first, before
+// attempting to unmarshal the Moon ecosystem specific data.
+func (m *moonLogCheckpoint) Unmarshal(data []byte) error {
+	const delim = "\n"
+	rest, err := m.Checkpoint.Unmarshal(data)
+	if err != nil {
+		return err
+	}
+	l := strings.Split(strings.TrimRight(string(rest), delim), delim)
+	if el := len(l); el != 2 {
+		return fmt.Errorf("want 2 lines of other data, got %d", el)
+	}
+	ts, err := strconv.ParseUint(l[0], 16, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse timestamp: %w", err)
+	}
+	m.Timestamp, m.Phase = ts, l[1]
+	return nil
+}
+
+func TestExtendCheckpoint(t *testing.T) {
+	const raw = "Moon Log Checkpoint v0\n4027504\naXQncyBhIHJvb3QgaGFzaA==\n6086d1a9\nWaxing gibbous\n"
+	want := moonLogCheckpoint{
+		Checkpoint: format.Checkpoint{
+			Ecosystem: "Moon Log Checkpoint v0",
+			Size:      4027504,
+			RootHash:  []byte("it's a root hash"),
+		},
+		Timestamp: 0x6086d1a9,
+		Phase:     "Waxing gibbous",
+	}
+
+	var got moonLogCheckpoint
+	if err := got.Unmarshal([]byte(raw)); err != nil {
+		t.Fatalf("Unmarshal = %q", err)
+	}
+	if diff := cmp.Diff(got, want); len(diff) != 0 {
+		t.Fatalf("Unmarshal = diff %s", diff)
 	}
 }

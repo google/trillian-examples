@@ -1,6 +1,7 @@
 package format
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -8,10 +9,11 @@ import (
 
 func TestUnmarshalLogState(t *testing.T) {
 	for _, test := range []struct {
-		desc    string
-		m       string
-		want    Checkpoint
-		wantErr bool
+		desc     string
+		m        string
+		want     Checkpoint
+		wantRest []byte
+		wantErr  bool
 	}{
 		{
 			desc: "valid one",
@@ -31,12 +33,13 @@ func TestUnmarshalLogState(t *testing.T) {
 			},
 		}, {
 			desc: "valid with trailing data",
-			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\nHere's some associated data.",
+			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\nHere's some associated data.\n",
 			want: Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      9944,
 				RootHash:  []byte("the view from the tree tops is great!"),
 			},
+			wantRest: []byte("Here's some associated data.\n"),
 		}, {
 			desc:    "invalid empty header",
 			m:       "\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
@@ -61,11 +64,16 @@ func TestUnmarshalLogState(t *testing.T) {
 	} {
 		t.Run(string(test.desc), func(t *testing.T) {
 			var got Checkpoint
-			if gotErr := got.Unmarshal([]byte(test.m)); (gotErr != nil) != test.wantErr {
+			var gotErr error
+			var gotRest []byte
+			if gotRest, gotErr = got.Unmarshal([]byte(test.m)); (gotErr != nil) != test.wantErr {
 				t.Fatalf("Unmarshal = %q, wantErr: %T", gotErr, test.wantErr)
 			}
 			if diff := cmp.Diff(test.want, got); len(diff) != 0 {
-				t.Fatalf("Unmarshal = diff %s", diff)
+				t.Fatalf("Unmarshalled Checkpoint with diff %s", diff)
+			}
+			if !bytes.Equal(test.wantRest, gotRest) {
+				t.Fatalf("got rest %x, want %x", gotRest, test.wantRest)
 			}
 		})
 	}

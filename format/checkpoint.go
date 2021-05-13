@@ -17,11 +17,11 @@
 package format
 
 import (
+	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 )
 
 // Checkpoint represents a minimal log checkpoint (STH).
@@ -37,28 +37,37 @@ type Checkpoint struct {
 // Unmarshal parses the common formatted checkpoint data and stores the result
 // in the Checkpoint.
 //
-// The supplied data is expected to begin with the following 3 lines of text:
+// The supplied data is expected to begin with the following 3 lines of text,
+// each followed by a newline:
 //  - <ecosystem/version string>
 //  - <decimal representation of log size>
 //  - <base64 representation of root hash>
-// trailing data may be present, but will be ignored.
-func (c *Checkpoint) Unmarshal(data []byte) error {
-	l := strings.Split(string(data), "\n")
+// Any trailing data after this will be returned.
+func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
+	l := bytes.SplitN(data, []byte("\n"), 4)
 	if len(l) < 3 {
-		return errors.New("invalid checkpoint - too few lines")
+		return nil, errors.New("invalid checkpoint - too few lines")
 	}
-	eco := l[0]
+	eco := string(l[0])
 	if len(eco) == 0 {
-		return errors.New("invalid checkpoint - empty ecosystem")
+		return nil, errors.New("invalid checkpoint - empty ecosystem")
 	}
-	size, err := strconv.ParseUint(l[1], 10, 64)
+	size, err := strconv.ParseUint(string(l[1]), 10, 64)
 	if err != nil {
-		return fmt.Errorf("invalid checkpoint - size invalid: %w", err)
+		return nil, fmt.Errorf("invalid checkpoint - size invalid: %w", err)
 	}
-	rh, err := base64.StdEncoding.DecodeString(l[2])
+	rh, err := base64.StdEncoding.DecodeString(string(l[2]))
 	if err != nil {
-		return fmt.Errorf("invalid checkpoint - invalid roothash: %w", err)
+		return nil, fmt.Errorf("invalid checkpoint - invalid roothash: %w", err)
 	}
-	c.Ecosystem, c.Size, c.RootHash = eco, size, rh
-	return nil
+	var rest []byte
+	if len(l) >= 4 {
+		rest = l[3]
+	}
+	*c = Checkpoint{
+		Ecosystem: eco,
+		Size:      size,
+		RootHash:  rh,
+	}
+	return rest, nil
 }

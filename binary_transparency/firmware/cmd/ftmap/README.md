@@ -3,19 +3,19 @@ Verifiable Maps
 
 The verifiable map in this firmware transparency demonstrates how annotations (also known as attestations) about a piece of firmware can be verifiably presented to clients.
 The naive way of doing this would be to simply give the client inclusion proofs to the annotations in the log.
-The problem with this approach is that there is no way to prove to the client that they have been presented *all* relevant annotations; logs do not support non-inclusion proofs.
+The problem with this approach is that there is no way to prove to the client that they have been presented *all* relevant annotations; logs do not support proofs of non-inclusion.
 
-The map is constructed *entirely from the log*, which means that the state of a map at a given size depends only on:
+The map is constructed *exclusively from the data in the log*, which means that the state of a map at a given size depends only on:
  * The number of entries it consumes from the log
  * The map and reduce functions that are applied to convert the log entries into map entries
 
 Map Checkpoints contain the Log Checkpoint they were constructed from, along with the number of entries the map consumed.
-The functions used in the map are public knowledge.
+The functions used in the map are deterministic, and public knowledge.
 These two facts mean that anybody with sufficient computing power to process the log can verify the map state by running the same map building calculation, and comparing root hashes.
 
 The map in this demonstration creates two types of entry in the map:
  * A log of all firmware for each device
- * For each logged piece of firmware, all annotations for it are aggregated together
+ * For each logged piece of firmware, the aggregation of all corresponding annotations
 
 The first of these is a proof of concept and isn't currently read by clients (TODO(mhutchinson): remove this if needed for simplicity).
 The second of these is used as an additional check when flashing firmware to check that no scanners have found malware in it, if the `map_url` argument is provided to the flash tool.

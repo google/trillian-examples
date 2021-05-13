@@ -20,6 +20,39 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func TestMarshalProof(t *testing.T) {
+	for _, test := range []struct {
+		desc string
+		p    Proof
+		want string
+	}{
+		{
+			desc: "valid",
+			p: Proof{
+				[]byte("one"), []byte("two"), []byte("three"),
+			},
+			want: "b25l\ndHdv\ndGhyZWU=\n",
+		}, {
+			desc: "valid empty",
+			p:    Proof{},
+			want: "",
+		}, {
+			desc: "valid default entry",
+			p: Proof{
+				[]byte("one"), []byte{}, []byte("three"),
+			},
+			want: "b25l\n\ndGhyZWU=\n",
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			got := test.p.Marshal()
+			if got != test.want {
+				t.Fatalf("Got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestUnmarshalProof(t *testing.T) {
 	for _, test := range []struct {
 		desc    string

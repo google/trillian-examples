@@ -25,6 +25,36 @@ import (
 	"github.com/google/trillian-examples/format"
 )
 
+func TestMarshal(t *testing.T) {
+	for _, test := range []struct {
+		c    format.Checkpoint
+		want string
+	}{
+		{
+			c: format.Checkpoint{
+				Ecosystem: "Log Checkpoint v0",
+				Size:      123,
+				RootHash:  []byte("bananas"),
+			},
+			want: "Log Checkpoint v0\n123\nYmFuYW5hcw==\n",
+		}, {
+			c: format.Checkpoint{
+				Ecosystem: "Banana Checkpoint v5",
+				Size:      9944,
+				RootHash:  []byte("the view from the tree tops is great!"),
+			},
+			want: "Banana Checkpoint v5\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
+		},
+	} {
+		t.Run(string(test.c.RootHash), func(t *testing.T) {
+			got := test.c.Marshal()
+			if string(got) != test.want {
+				t.Fatalf("Marshal = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
 func TestUnmarshalLogState(t *testing.T) {
 	for _, test := range []struct {
 		desc     string

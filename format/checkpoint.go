@@ -71,3 +71,8 @@ func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 	}
 	return rest, nil
 }
+
+// Marshal returns the common format representation of this Checkpoint.
+func (c Checkpoint) Marshal() string {
+	return fmt.Sprintf("%s\n%d\n%s\n", c.Ecosystem, c.Size, base64.StdEncoding.EncodeToString(c.RootHash))
+}

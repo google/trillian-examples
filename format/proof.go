@@ -25,6 +25,16 @@ import (
 // Interpretation of the proof bytes is ecosystem dependent.
 type Proof [][]byte
 
+// Marshal returns the common format representation of this proof.
+func (p Proof) Marshal() string {
+	b := strings.Builder{}
+	for _, l := range p {
+		b.WriteString(base64.StdEncoding.EncodeToString(l))
+		b.WriteRune('\n')
+	}
+	return b.String()
+}
+
 // Unmarshal parses common proof format data and stores the result in the
 // Proof struct.
 func (p *Proof) Unmarshal(data []byte) error {

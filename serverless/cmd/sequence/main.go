@@ -23,7 +23,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 
@@ -54,16 +54,16 @@ func main() {
 	if *create {
 		st, err = fs.Create(*storageDir, h.EmptyRoot())
 	} else {
-		var stateRaw []byte
-		stateRaw, err = fs.ReadLogState(*storageDir)
+		var cpRaw []byte
+		cpRaw, err = fs.ReadCheckpoint(*storageDir)
 		if err != nil {
-			glog.Exitf("Failed to read log state: %q", err)
+			glog.Exitf("Failed to read log checkpoint: %q", err)
 		}
-		var state api.LogState
-		if err := state.UnmarshalText(stateRaw); err != nil {
-			glog.Exitf("Failed to unmarshal state: %q", err)
+		var cp *log.Checkpoint
+		if _, err := cp.Unmarshal(cpRaw); err != nil {
+			glog.Exitf("Failed to unmarshal checkpoint: %q", err)
 		}
-		st, err = fs.Load(*storageDir, &state)
+		st, err = fs.Load(*storageDir, cp)
 	}
 	if err != nil {
 		glog.Exitf("Failed to initialise storage: %q", err)

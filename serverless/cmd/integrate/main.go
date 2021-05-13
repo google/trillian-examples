@@ -20,10 +20,11 @@ import (
 	"flag"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
+
+	fmtlog "github.com/google/trillian-examples/formats/log"
 )
 
 var (
@@ -35,35 +36,30 @@ func main() {
 	h := hasher.DefaultHasher
 
 	// init storage
-	stateRaw, err := fs.ReadLogState(*storageDir)
+	cpRaw, err := fs.ReadCheckpoint(*storageDir)
 	if err != nil {
-		glog.Exitf("Failed to read log state: %q", err)
+		glog.Exitf("Failed to read log checkpoint: %q", err)
 	}
-	var state api.LogState
-	if err := state.UnmarshalText(stateRaw); err != nil {
-		glog.Exitf("Failed to unmarshal state: %q", err)
+	var cp fmtlog.Checkpoint
+	if _, err := cp.Unmarshal(cpRaw); err != nil {
+		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
 	}
-	st, err := fs.Load(*storageDir, &state)
+	st, err := fs.Load(*storageDir, &cp)
 	if err != nil {
 		glog.Exitf("Failed to load storage: %q", err)
 	}
 
 	// Integrate new entries
-	newState, err := log.Integrate(st, h)
+	newCp, err := log.Integrate(st, h)
 	if err != nil {
 		glog.Exitf("Failed to integrate: %q", err)
 	}
-	if newState == nil {
+	if newCp == nil {
 		glog.Exit("Nothing to integrate")
 	}
 
-	// Persist new log state.
-	newStateRaw, err := newState.MarshalText()
-	if err != nil {
-		glog.Exitf("Failed to marshal state: %q", err)
-	}
-
-	if err := st.WriteLogState(newStateRaw); err != nil {
-		glog.Exitf("Failed to store new log state: %q", err)
+	// Persist new log checkpoint.
+	if err := st.WriteCheckpoint([]byte(newCp.Marshal())); err != nil {
+		glog.Exitf("Failed to store new log checkpoint: %q", err)
 	}
 }

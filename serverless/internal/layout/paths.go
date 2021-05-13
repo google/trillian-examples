@@ -27,8 +27,8 @@ import (
 )
 
 const (
-	// StatePath is the location of the file containing the log checkpoint.
-	StatePath = "state"
+	// CheckpointPath is the location of the file containing the log checkpoint.
+	CheckpointPath = "checkpoint"
 )
 
 // SeqPath builds the directory path and relative filename for the entry at the given

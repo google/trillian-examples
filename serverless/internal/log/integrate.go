@@ -21,6 +21,7 @@ import (
 	"os"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/client"
 	"github.com/google/trillian-examples/serverless/internal/layout"
@@ -36,11 +37,11 @@ type Storage interface {
 	// StoreTile stores the tile at the given level & index.
 	StoreTile(level, index uint64, tile *api.Tile) error
 
-	// LogState returns the current state of the stored log.
-	LogState() api.LogState
+	// Checkpoint returns the current checkpoint of the stored log.
+	Checkpoint() log.Checkpoint
 
-	// WriteLogState stores a newly updated log state.
-	WriteLogState(newStateRaw []byte) error
+	// WriteCheckpoint stores a newly updated log checkpoint.
+	WriteCheckpoint(newCPRaw []byte) error
 
 	// ScanSequenced calls f for each contiguous sequenced log entry >= begin.
 	// It should stop scanning if the call to f returns an error.
@@ -55,19 +56,19 @@ type Storage interface {
 	Sequence(leafhash []byte, leaf []byte) (uint64, error)
 }
 
-// Integrate adds sequenced but not-yet-included entries into the tree state.
-// Returns an updated LogState, or an error.
-func Integrate(st Storage, h hashers.LogHasher) (*api.LogState, error) {
+// Integrate adds sequenced but not-yet-included entries into the tree.
+// Returns an updated Checkpoint, or an error.
+func Integrate(st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
 	rf := compact.RangeFactory{Hash: h.HashChildren}
 
 	// Fetch previously stored state
-	state := st.LogState()
+	checkpoint := st.Checkpoint()
 	nc := client.NewNodeCache(st.GetTile)
-	hashes, err := client.FetchRangeNodes(state.Size, &nc)
+	hashes, err := client.FetchRangeNodes(checkpoint.Size, &nc)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch compact range nodes: %w", err)
 	}
-	baseRange, err := rf.NewRange(0, state.Size, hashes)
+	baseRange, err := rf.NewRange(0, checkpoint.Size, hashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create range covering existing log: %w", err)
 	}
@@ -81,11 +82,11 @@ func Integrate(st Storage, h hashers.LogHasher) (*api.LogState, error) {
 	glog.Infof("Loaded state with roothash %x", r)
 
 	// Create a new compact range which represents the update to the tree
-	newRange := rf.NewEmptyRange(state.Size)
+	newRange := rf.NewEmptyRange(checkpoint.Size)
 	tc := tileCache{m: make(map[tileKey]*api.Tile), getTile: func(l, i uint64) (*api.Tile, error) {
-		return st.GetTile(l, i, state.Size)
+		return st.GetTile(l, i, checkpoint.Size)
 	}}
-	n, err := st.ScanSequenced(state.Size,
+	n, err := st.ScanSequenced(checkpoint.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
 			// Set leafhash on zeroth level
@@ -125,19 +126,19 @@ func Integrate(st Storage, h hashers.LogHasher) (*api.LogState, error) {
 		}
 	}
 
-	// Finally, return a new state struct to the caller, so they can sign &
+	// Finally, return a new checkpoint struct to the caller, so they can sign &
 	// persist it.
 	// Since the sequencing is already completed (by the sequence tool), any
 	// failures to write/update the tree are idempotent and can be safely
-	// re-tried with a subsequent run of this method. Also, until WriteLogState
+	// re-tried with a subsequent run of this method. Also, until WriteCheckpoint
 	// is successfully invoked, clients have no root hash for a larger tree so
 	// it's meaningless for them to attempt to construct inclusion/consistency
 	// proofs.
-	newState := api.LogState{
+	newCP := log.Checkpoint{
 		RootHash: newRoot,
 		Size:     baseRange.End(),
 	}
-	return &newState, nil
+	return &newCP, nil
 }
 
 // tileKey is a level/index key for the tile cache below.

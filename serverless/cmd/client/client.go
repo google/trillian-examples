@@ -89,7 +89,7 @@ func main() {
 
 	// Persist new view of log state, if required.
 	if len(*cacheDir) > 0 {
-		if err := storeLocalLogState(logID, lc.Tracker.LatestConsistentRaw); err != nil {
+		if err := storeLocalCheckpoint(logID, lc.Tracker.LatestConsistentRaw); err != nil {
 			glog.Exitf("Failed to persist local log state: %q", err)
 		}
 	}
@@ -106,12 +106,12 @@ type logClientTool struct {
 }
 
 func newLogClientTool(logID string, f client.FetcherFunc) (logClientTool, error) {
-	var logStateRaw []byte
+	var cpRaw []byte
 	var err error
 	if len(*cacheDir) > 0 {
-		logStateRaw, err = loadLocalLogState(logID)
+		cpRaw, err = loadLocalCheckpoint(logID)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			glog.Exitf("Failed to load cached log state: %q", err)
+			glog.Exitf("Failed to load cached checkpoint: %q", err)
 		}
 	} else {
 		glog.Info("Local log state cache disabled")
@@ -119,7 +119,7 @@ func newLogClientTool(logID string, f client.FetcherFunc) (logClientTool, error)
 
 	hasher := hasher.DefaultHasher
 	lv := logverifier.New(hasher)
-	tracker, err := client.NewLogStateTracker(f, hasher, logStateRaw)
+	tracker, err := client.NewLogStateTracker(f, hasher, cpRaw)
 	if err != nil {
 		glog.Exitf("Failed to create LogStateTracker: %q", err)
 	}
@@ -158,8 +158,8 @@ func (l *logClientTool) inclusionProof(args []string) error {
 
 	// TODO(al): wait for growth if necessary
 
-	state := l.Tracker.LatestConsistent
-	builder, err := client.NewProofBuilder(state, l.Hasher.HashChildren, l.Fetcher)
+	cp := l.Tracker.LatestConsistent
+	builder, err := client.NewProofBuilder(cp, l.Hasher.HashChildren, l.Fetcher)
 	if err != nil {
 		return fmt.Errorf("failed to create proof builder: %w", err)
 	}
@@ -171,11 +171,11 @@ func (l *logClientTool) inclusionProof(args []string) error {
 
 	glog.V(1).Infof("Built inclusion proof: %#x", proof)
 
-	if err := l.Verifier.VerifyInclusionProof(int64(idx), int64(state.Size), proof, state.RootHash, lh); err != nil {
+	if err := l.Verifier.VerifyInclusionProof(int64(idx), int64(cp.Size), proof, cp.RootHash, lh); err != nil {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
 	}
 
-	glog.Infof("Inclusion verified in tree size %d, with root 0x%0x", state.Size, state.RootHash)
+	glog.Infof("Inclusion verified in tree size %d, with root 0x%0x", cp.Size, cp.RootHash)
 	return nil
 }
 
@@ -212,24 +212,24 @@ func readHTTP(u *url.URL) ([]byte, error) {
 	return ioutil.ReadAll(resp.Body)
 }
 
-// loadLocalLogState reads the serialised state for the given logID from the
+// loadLocalCheckpoint reads the serialised checkpoint for the given logID from the
 // local client cache.
-func loadLocalLogState(logID string) ([]byte, error) {
-	statePath := filepath.Join(*cacheDir, logID, "state")
-	return ioutil.ReadFile(statePath)
+func loadLocalCheckpoint(logID string) ([]byte, error) {
+	cpPath := filepath.Join(*cacheDir, logID, "checkpoint")
+	return ioutil.ReadFile(cpPath)
 }
 
-// storeLocalLogState updates the local client cache for the specified log with
-// the provided serialised log state.
-func storeLocalLogState(logID string, stateRaw []byte) error {
-	stateDir := filepath.Join(*cacheDir, logID)
-	if err := os.MkdirAll(stateDir, 0700); err != nil {
+// storeLocalCheckpoint updates the local client cache for the specified log with
+// the provided serialised log checkpoint.
+func storeLocalCheckpoint(logID string, cpRaw []byte) error {
+	cpDir := filepath.Join(*cacheDir, logID)
+	if err := os.MkdirAll(cpDir, 0700); err != nil {
 		return err
 	}
-	statePath := filepath.Join(stateDir, "state")
-	statePathTmp := fmt.Sprintf("%s.tmp", statePath)
-	if err := ioutil.WriteFile(statePathTmp, stateRaw, 0644); err != nil {
+	cpPath := filepath.Join(cpDir, "checkpoint")
+	cpPathTmp := fmt.Sprintf("%s.tmp", cpPath)
+	if err := ioutil.WriteFile(cpPathTmp, cpRaw, 0644); err != nil {
 		return err
 	}
-	return os.Rename(statePathTmp, statePath)
+	return os.Rename(cpPathTmp, cpPath)
 }

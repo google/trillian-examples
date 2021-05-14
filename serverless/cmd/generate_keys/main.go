@@ -69,11 +69,11 @@ func main() {
 func writeFileIfNotExists(filename string, key string) error {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
-		return fmt.Errorf("unable to create new key file in %q: %w", filename, err)
+		return fmt.Errorf("unable to create new key file %q: %w", filename, err)
 	}
 	_, err = file.WriteString(key)
 	if err != nil {
-		return fmt.Errorf("unable to write new key file in %q: %w", filename, err)
+		return fmt.Errorf("unable to write new key file %q: %w", filename, err)
 	}
 	file.Close()
 	return nil

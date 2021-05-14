@@ -32,6 +32,8 @@ import (
 	"github.com/google/trillian/merkle/hashers"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
+
+	fmtlog "github.com/google/trillian-examples/formats/log"
 )
 
 func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
@@ -51,7 +53,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 
 	for i := 0; i < loops; i++ {
 		glog.Infof("----------------%d--------------", i)
-		state := lst.LatestConsistent
+		checkpoint := lst.LatestConsistent
 
 		// Sequence some leaves:
 		leaves := sequenceNLeaves(t, s, lh, i*leavesPerLoop, leavesPerLoop)
@@ -62,12 +64,9 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 			if err != nil {
 				t.Fatalf("Integrate = %v", err)
 			}
-			r, err := update.MarshalText()
-			if err != nil {
-				t.Fatalf("Failed to marshal updated state: %q", err)
-			}
-			if s.WriteLogState(r); err != nil {
-				t.Fatalf("Failed to write updated state file: %q", err)
+			update.Ecosystem = api.CheckpointHeaderV0
+			if s.WriteCheckpoint(update.Marshal()); err != nil {
+				t.Fatalf("Failed to write updated checkpoint file: %q", err)
 			}
 		}
 
@@ -75,12 +74,12 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 		if err := lst.Update(); err != nil {
 			t.Fatalf("Failed to update tracked log state: %q", err)
 		}
-		newState := lst.LatestConsistent
-		if got, want := newState.Size-state.Size, uint64(leavesPerLoop); got != want {
+		newCheckpoint := lst.LatestConsistent
+		if got, want := newCheckpoint.Size-checkpoint.Size, uint64(leavesPerLoop); got != want {
 			t.Errorf("Integrate missed some entries, got %d want %d", got, want)
 		}
 
-		pb, err := client.NewProofBuilder(newState, lh.HashChildren, f)
+		pb, err := client.NewProofBuilder(newCheckpoint, lh.HashChildren, f)
 		if err != nil {
 			t.Fatalf("Failed to create ProofBuilder: %q", err)
 		}
@@ -95,7 +94,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 			if err != nil {
 				t.Fatalf("Failed to fetch inclusion proof for %d: %v", idx, err)
 			}
-			if err := lv.VerifyInclusionProof(int64(idx), int64(newState.Size), ip, newState.RootHash, h); err != nil {
+			if err := lv.VerifyInclusionProof(int64(idx), int64(newCheckpoint.Size), ip, newCheckpoint.RootHash, h); err != nil {
 				t.Fatalf("Invalid inclusion proof for %d: %x", idx, ip)
 			}
 		}
@@ -109,10 +108,12 @@ func TestServerlessViaFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}
-	// Create empty state
-	r, _ := api.LogState{}.MarshalText()
-	if err := fs.WriteLogState(r); err != nil {
-		t.Fatalf("Failed to create empty log state: %q", err)
+	// Create empty checkpoint
+	r := []byte(fmtlog.Checkpoint{
+		Ecosystem: api.CheckpointHeaderV0,
+	}.Marshal())
+	if err := fs.WriteCheckpoint(r); err != nil {
+		t.Fatalf("Failed to create empty log checkpoint: %q", err)
 	}
 
 	// Create file fetcher
@@ -139,10 +140,12 @@ func TestServerlessViaHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}
-	// Create empty state
-	r, _ := api.LogState{}.MarshalText()
-	if err := fs.WriteLogState(r); err != nil {
-		t.Fatalf("Failed to create empty log state: %q", err)
+	// Create empty checkpoint
+	r := []byte(fmtlog.Checkpoint{
+		Ecosystem: api.CheckpointHeaderV0,
+	}.Marshal())
+	if err := fs.WriteCheckpoint(r); err != nil {
+		t.Fatalf("Failed to create empty log checkpoint: %q", err)
 	}
 
 	// Arrange for its files to be served via HTTP

@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 )
 
@@ -36,12 +36,12 @@ func TestCreate(t *testing.T) {
 		t.Fatalf("Create = %v", err)
 	}
 
-	ls := s.LogState()
-	if got, want := ls.Size, uint64(0); got != want {
-		t.Errorf("New logstate has size %d, want %d", got, want)
+	cp := s.Checkpoint()
+	if got, want := cp.Size, uint64(0); got != want {
+		t.Errorf("New checkpoint has size %d, want %d", got, want)
 	}
-	if got, want := ls.RootHash, empty; !bytes.Equal(got, want) {
-		t.Errorf("New logstate roothash %x, want %x", got, want)
+	if got, want := cp.RootHash, empty; !bytes.Equal(got, want) {
+		t.Errorf("New checkpoint roothash %x, want %x", got, want)
 	}
 }
 
@@ -64,9 +64,9 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("Create = %v", err)
 	}
 
-	s := api.LogState{}
+	cp := log.Checkpoint{}
 
-	if _, err := Load(d, &s); err != nil {
+	if _, err := Load(d, &cp); err != nil {
 		t.Fatalf("Load = %v, want no error", err)
 	}
 }
@@ -88,17 +88,17 @@ func TestWriteLoadState(t *testing.T) {
 
 	a := []byte("hello")
 
-	if err := s.WriteLogState(a); err != nil {
-		t.Fatalf("WriteLogState = %v", err)
+	if err := s.WriteCheckpoint(a); err != nil {
+		t.Fatalf("WriteCheckpoint = %v", err)
 	}
 
-	b, err := ReadLogState(d)
+	b, err := ReadCheckpoint(d)
 	if err != nil {
-		t.Fatalf("ReadLogState = %v", err)
+		t.Fatalf("ReadCheckpoint = %v", err)
 	}
 
 	if diff := cmp.Diff(b, a); len(diff) != 0 {
-		t.Errorf("Updated state had diff %s", diff)
+		t.Errorf("Updated checkpoint had diff %s", diff)
 	}
 }
 

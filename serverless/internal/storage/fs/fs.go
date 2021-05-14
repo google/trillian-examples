@@ -24,6 +24,7 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/layout"
 	"github.com/google/trillian-examples/serverless/internal/storage"
@@ -41,7 +42,7 @@ const (
 //  <rootDir>/leaves/pending/aabbccddeeff...
 //  <rootDir>/seq/aa/bb/cc/ddeeff...
 //  <rootDir>/tile/<level>/aa/bb/ccddee...
-//  <rootDir>/state
+//  <rootDir>/checkpoint
 //
 // The functions on this struct are not thread-safe.
 type Storage struct {
@@ -52,14 +53,14 @@ type Storage struct {
 	// Note that nextSeq may be <= than the actual next available number, but
 	// never greater.
 	nextSeq uint64
-	// state is the latest known state of the log.
-	state api.LogState
+	// checkpoint is the latest known checkpoint of the log.
+	checkpoint log.Checkpoint
 }
 
 const leavesPendingPathFmt = "leaves/pending/%0x"
 
 // Load returns a Storage instance initialised from the filesystem.
-func Load(rootDir string, state *api.LogState) (*Storage, error) {
+func Load(rootDir string, checkpoint *log.Checkpoint) (*Storage, error) {
 	fi, err := os.Stat(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat %q: %w", rootDir, err)
@@ -70,9 +71,9 @@ func Load(rootDir string, state *api.LogState) (*Storage, error) {
 	}
 
 	return &Storage{
-		rootDir: rootDir,
-		state:   *state,
-		nextSeq: state.Size,
+		rootDir:    rootDir,
+		checkpoint: *checkpoint,
+		nextSeq:    checkpoint.Size,
 	}, nil
 }
 
@@ -97,7 +98,7 @@ func Create(rootDir string, emptyHash []byte) (*Storage, error) {
 	fs := &Storage{
 		rootDir: rootDir,
 		nextSeq: 0,
-		state: api.LogState{
+		checkpoint: log.Checkpoint{
 			Size:     0,
 			RootHash: emptyHash,
 		},
@@ -106,9 +107,9 @@ func Create(rootDir string, emptyHash []byte) (*Storage, error) {
 	return fs, nil
 }
 
-// LogState returns the current LogState.
-func (fs *Storage) LogState() api.LogState {
-	return fs.state
+// Checkpoint returns the current Checkpoint.
+func (fs *Storage) Checkpoint() log.Checkpoint {
+	return fs.checkpoint
 }
 
 // Sequence assigns the given leaf entry to the next available sequence number.
@@ -150,7 +151,7 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 	}()
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
-	// if Sequence has been called since the last time an Integrate/UpdateState
+	// if Sequence has been called since the last time an Integrate/WriteCheckpoint
 	// was called.
 	for {
 		seq := fs.nextSeq
@@ -312,18 +313,18 @@ func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 	return nil
 }
 
-// WriteLogState stores a raw log state on disk.
-func (fs Storage) WriteLogState(newStateRaw []byte) error {
-	oPath := filepath.Join(fs.rootDir, layout.StatePath)
+// WriteCheckpoint stores a raw log checkpoint on disk.
+func (fs Storage) WriteCheckpoint(newCPRaw []byte) error {
+	oPath := filepath.Join(fs.rootDir, layout.CheckpointPath)
 	tmp := fmt.Sprintf("%s.tmp", oPath)
-	if err := createExclusive(tmp, newStateRaw); err != nil {
-		return fmt.Errorf("failed to create temporary state file: %w", err)
+	if err := createExclusive(tmp, newCPRaw); err != nil {
+		return fmt.Errorf("failed to create temporary checkpoint file: %w", err)
 	}
 	return os.Rename(tmp, oPath)
 }
 
-// ReadLogState reads and returns the contents of the log state file.
-func ReadLogState(rootDir string) ([]byte, error) {
-	s := filepath.Join(rootDir, layout.StatePath)
+// ReadCheckpoint reads and returns the contents of the log checkpoint file.
+func ReadCheckpoint(rootDir string) ([]byte, error) {
+	s := filepath.Join(rootDir, layout.CheckpointPath)
 	return ioutil.ReadFile(s)
 }

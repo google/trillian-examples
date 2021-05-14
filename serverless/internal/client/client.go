@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/layout"
 	"github.com/google/trillian/merkle"
@@ -36,29 +37,29 @@ import (
 // The path parameter is relative to the root of the log storage.
 type FetcherFunc func(path string) ([]byte, error)
 
-// GetLogState fetches and parses the latest LogState from the log.
-func GetLogState(f FetcherFunc) (*api.LogState, error) {
-	s, _, err := fetchLogStateAndParse(f)
+// GetCheckpoint fetches and parses the latest LogState from the log.
+func GetCheckpoint(f FetcherFunc) (*log.Checkpoint, error) {
+	s, _, err := fetchCheckpointAndParse(f)
 	return s, err
 }
 
-func fetchLogStateAndParse(f FetcherFunc) (*api.LogState, []byte, error) {
-	sRaw, err := f(layout.StatePath)
+func fetchCheckpointAndParse(f FetcherFunc) (*log.Checkpoint, []byte, error) {
+	cpRaw, err := f(layout.CheckpointPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	var ls api.LogState
-	if err := ls.UnmarshalText(sRaw); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal logstate: %w", err)
+	cp := log.Checkpoint{}
+	if _, err := (&cp).Unmarshal(cpRaw); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal checkpoint: %w", err)
 	}
-	return &ls, sRaw, nil
+	return &cp, cpRaw, nil
 }
 
 // ProofBuilder knows how to build inclusion and consistency proofs from tiles.
 // Since the tiles commit only to immutable nodes, the job of building proofs is slightly
 // more complex as proofs can touch "ephemeral" nodes, so these need to be synthesized.
 type ProofBuilder struct {
-	ls        api.LogState
+	cp        log.Checkpoint
 	nodeCache NodeCache
 	h         compact.HashFn
 }
@@ -66,19 +67,19 @@ type ProofBuilder struct {
 // NewProofBuilder creates a new ProofBuilder object for a given tree size.
 // The returned ProofBuilder can be re-used for proofs related to a given tree size, but
 // it is not thread-safe and should not be accessed concurrently.
-func NewProofBuilder(s api.LogState, h compact.HashFn, f FetcherFunc) (*ProofBuilder, error) {
+func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f FetcherFunc) (*ProofBuilder, error) {
 	pb := &ProofBuilder{
-		ls:        s,
+		cp:        cp,
 		nodeCache: NewNodeCache(newTileFetcher(f)),
 		h:         h,
 	}
 
-	hashes, err := FetchRangeNodes(s.Size, &pb.nodeCache)
+	hashes, err := FetchRangeNodes(cp.Size, &pb.nodeCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch range nodes: %w", err)
 	}
 	// Create a compact range which represents the state of the log.
-	r, err := (&compact.RangeFactory{Hash: h}).NewRange(0, s.Size, hashes)
+	r, err := (&compact.RangeFactory{Hash: h}).NewRange(0, cp.Size, hashes)
 	if err != nil {
 		return nil, err
 	}
@@ -91,8 +92,8 @@ func NewProofBuilder(s api.LogState, h compact.HashFn, f FetcherFunc) (*ProofBui
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(s.RootHash, sr) {
-		return nil, fmt.Errorf("invalid logstate roothash %x, expected %x", s.RootHash, sr)
+	if !bytes.Equal(cp.RootHash, sr) {
+		return nil, fmt.Errorf("invalid checkpoint roothash %x, expected %x", cp.RootHash, sr)
 	}
 	return pb, nil
 }
@@ -102,7 +103,7 @@ func NewProofBuilder(s api.LogState, h compact.HashFn, f FetcherFunc) (*ProofBui
 // This function uses the passed-in function to retrieve tiles containing any log tree
 // nodes necessary to build the proof.
 func (pb *ProofBuilder) InclusionProof(index uint64) ([][]byte, error) {
-	nodes, err := merkle.CalcInclusionProofNodeAddresses(int64(pb.ls.Size), int64(index), int64(pb.ls.Size))
+	nodes, err := merkle.CalcInclusionProofNodeAddresses(int64(pb.cp.Size), int64(index), int64(pb.cp.Size))
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate inclusion proof node list: %w", err)
 	}
@@ -110,7 +111,7 @@ func (pb *ProofBuilder) InclusionProof(index uint64) ([][]byte, error) {
 	ret := make([][]byte, 0)
 	// TODO(al) parallelise this.
 	for _, n := range nodes {
-		h, err := pb.nodeCache.GetNode(n.ID, pb.ls.Size)
+		h, err := pb.nodeCache.GetNode(n.ID, pb.cp.Size)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node (%v): %w", n.ID, err)
 		}
@@ -123,7 +124,7 @@ func (pb *ProofBuilder) InclusionProof(index uint64) ([][]byte, error) {
 // This function uses the passed-in function to retrieve tiles containing any log tree
 // nodes necessary to build the proof.
 func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, error) {
-	nodes, err := merkle.CalcConsistencyProofNodeAddresses(int64(smaller), int64(larger), int64(pb.ls.Size))
+	nodes, err := merkle.CalcConsistencyProofNodeAddresses(int64(smaller), int64(larger), int64(pb.cp.Size))
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate consistency proof node list: %w", err)
 	}
@@ -131,7 +132,7 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 	hashes := make([][]byte, 0)
 	// TODO(al) parallelise this.
 	for _, n := range nodes {
-		h, err := pb.nodeCache.GetNode(n.ID, pb.ls.Size)
+		h, err := pb.nodeCache.GetNode(n.ID, pb.cp.Size)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node (%v): %w", n.ID, err)
 		}
@@ -265,22 +266,22 @@ type LogStateTracker struct {
 	LatestConsistentRaw []byte
 
 	// LatestConsistent is the deserialised form of LatestConsistentRaw
-	LatestConsistent api.LogState
+	LatestConsistent log.Checkpoint
 }
 
 // NewLogStateTracker creates a newly initialised tracker.
 // If a serialised LogState representation is provided then this is used as the
 // initial tracked state, otherwise a log state is fetched from the target log.
-func NewLogStateTracker(f FetcherFunc, h hashers.LogHasher, logStateRaw []byte) (LogStateTracker, error) {
+func NewLogStateTracker(f FetcherFunc, h hashers.LogHasher, checkpointRaw []byte) (LogStateTracker, error) {
 	ret := LogStateTracker{
 		Fetcher:          f,
 		Hasher:           h,
 		Verifier:         logverifier.New(h),
-		LatestConsistent: api.LogState{},
+		LatestConsistent: log.Checkpoint{},
 	}
-	if len(logStateRaw) > 0 {
-		ret.LatestConsistentRaw = logStateRaw
-		if err := ret.LatestConsistent.UnmarshalText(logStateRaw); err != nil {
+	if len(checkpointRaw) > 0 {
+		ret.LatestConsistentRaw = checkpointRaw
+		if _, err := ret.LatestConsistent.Unmarshal(checkpointRaw); err != nil {
 			return ret, err
 		}
 		return ret, nil
@@ -314,7 +315,7 @@ func (e ErrInconsistency) Error() string {
 // that it is consistent with the local state before updating the tracker's
 // view.
 func (lst *LogStateTracker) Update() error {
-	c, cRaw, err := fetchLogStateAndParse(lst.Fetcher)
+	c, cRaw, err := fetchCheckpointAndParse(lst.Fetcher)
 	if err != nil {
 		return err
 	}

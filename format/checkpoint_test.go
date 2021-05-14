@@ -158,6 +158,16 @@ type moonLogCheckpoint struct {
 	Phase     string
 }
 
+// Marshal knows how to marshal the moon log data checkpoint.
+// It delegates to the embedded Checkedpoint to marshal itself first, before
+// marshalling the Moon ecosystem specific checkpoint data.
+func (m moonLogCheckpoint) Marshal() []byte {
+	b := bytes.Buffer{}
+	b.Write(m.Checkpoint.Marshal())
+	b.WriteString(fmt.Sprintf("%x\n%s\n", m.Timestamp, m.Phase))
+	return b.Bytes()
+}
+
 // Unmarshal knows how to unmarshal the moon log data.
 // It delegates to the embedded Checkpoint to unmarshal itself first, before
 // attempting to unmarshal the Moon ecosystem specific data.
@@ -197,5 +207,25 @@ func TestExtendCheckpoint(t *testing.T) {
 	}
 	if diff := cmp.Diff(got, want); len(diff) != 0 {
 		t.Fatalf("Unmarshal = diff %s", diff)
+	}
+}
+
+func TestExtendRoundTrip(t *testing.T) {
+	want := moonLogCheckpoint{
+		Checkpoint: format.Checkpoint{
+			Ecosystem: "Moon Log Checkpoint v0",
+			Size:      4027504,
+			RootHash:  []byte("it's a root hash"),
+		},
+		Timestamp: 0x6086d1a9,
+		Phase:     "Waxing gibbous",
+	}
+
+	var got moonLogCheckpoint
+	if err := got.Unmarshal(want.Marshal()); err != nil {
+		t.Fatalf("Unmarshal = %q", err)
+	}
+	if diff := cmp.Diff(want, got); len(diff) != 0 {
+		t.Fatalf("Roundtrip gave diff: %s", diff)
 	}
 }

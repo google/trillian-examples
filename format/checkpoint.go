@@ -34,6 +34,11 @@ type Checkpoint struct {
 	RootHash []byte
 }
 
+// Marshal returns the common format representation of this Checkpoint.
+func (c Checkpoint) Marshal() []byte {
+	return []byte(fmt.Sprintf("%s\n%d\n%s\n", c.Ecosystem, c.Size, base64.StdEncoding.EncodeToString(c.RootHash)))
+}
+
 // Unmarshal parses the common formatted checkpoint data and stores the result
 // in the Checkpoint.
 //
@@ -70,9 +75,4 @@ func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 		RootHash:  rh,
 	}
 	return rest, nil
-}
-
-// Marshal returns the common format representation of this Checkpoint.
-func (c Checkpoint) Marshal() []byte {
-	return []byte(fmt.Sprintf("%s\n%d\n%s\n", c.Ecosystem, c.Size, base64.StdEncoding.EncodeToString(c.RootHash)))
 }

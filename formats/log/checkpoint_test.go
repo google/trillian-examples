@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package format_test
+package log_test
 
 import (
 	"bytes"
@@ -22,23 +22,23 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/format"
+	"github.com/google/trillian-examples/formats/log"
 )
 
 func TestMarshal(t *testing.T) {
 	for _, test := range []struct {
-		c    format.Checkpoint
+		c    log.Checkpoint
 		want string
 	}{
 		{
-			c: format.Checkpoint{
+			c: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      123,
 				RootHash:  []byte("bananas"),
 			},
 			want: "Log Checkpoint v0\n123\nYmFuYW5hcw==\n",
 		}, {
-			c: format.Checkpoint{
+			c: log.Checkpoint{
 				Ecosystem: "Banana Checkpoint v5",
 				Size:      9944,
 				RootHash:  []byte("the view from the tree tops is great!"),
@@ -59,14 +59,14 @@ func TestUnmarshalLogState(t *testing.T) {
 	for _, test := range []struct {
 		desc     string
 		m        string
-		want     format.Checkpoint
+		want     log.Checkpoint
 		wantRest []byte
 		wantErr  bool
 	}{
 		{
 			desc: "valid one",
 			m:    "Log Checkpoint v0\n123\nYmFuYW5hcw==\n",
-			want: format.Checkpoint{
+			want: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      123,
 				RootHash:  []byte("bananas"),
@@ -74,7 +74,7 @@ func TestUnmarshalLogState(t *testing.T) {
 		}, {
 			desc: "valid with different ecosystem",
 			m:    "Banana Checkpoint v1\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
-			want: format.Checkpoint{
+			want: log.Checkpoint{
 				Ecosystem: "Banana Checkpoint v1",
 				Size:      9944,
 				RootHash:  []byte("the view from the tree tops is great!"),
@@ -82,7 +82,7 @@ func TestUnmarshalLogState(t *testing.T) {
 		}, {
 			desc: "valid with trailing data",
 			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\nHere's some associated data.\n",
-			want: format.Checkpoint{
+			want: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      9944,
 				RootHash:  []byte("the view from the tree tops is great!"),
@@ -91,7 +91,7 @@ func TestUnmarshalLogState(t *testing.T) {
 		}, {
 			desc: "valid with multiple trailing data lines",
 			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\nlots\nof\nlines\n",
-			want: format.Checkpoint{
+			want: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      9944,
 				RootHash:  []byte("the view from the tree tops is great!"),
@@ -100,7 +100,7 @@ func TestUnmarshalLogState(t *testing.T) {
 		}, {
 			desc: "valid with trailing newlines",
 			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n\n\n\n",
-			want: format.Checkpoint{
+			want: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      9944,
 				RootHash:  []byte("the view from the tree tops is great!"),
@@ -129,7 +129,7 @@ func TestUnmarshalLogState(t *testing.T) {
 		},
 	} {
 		t.Run(string(test.desc), func(t *testing.T) {
-			var got format.Checkpoint
+			var got log.Checkpoint
 			var gotErr error
 			var gotRest []byte
 			if gotRest, gotErr = got.Unmarshal([]byte(test.m)); (gotErr != nil) != test.wantErr {
@@ -153,7 +153,7 @@ func TestUnmarshalLogState(t *testing.T) {
 // moonLogCheckpoint is a hypothetical checkpoint for an ecosystem which requires
 // its checkpoints to commit to more data than the minimum common checkpoint does.
 type moonLogCheckpoint struct {
-	format.Checkpoint
+	log.Checkpoint
 	Timestamp uint64
 	Phase     string
 }
@@ -192,7 +192,7 @@ func (m *moonLogCheckpoint) Unmarshal(data []byte) error {
 func TestExtendCheckpoint(t *testing.T) {
 	const raw = "Moon Log Checkpoint v0\n4027504\naXQncyBhIHJvb3QgaGFzaA==\n6086d1a9\nWaxing gibbous\n"
 	want := moonLogCheckpoint{
-		Checkpoint: format.Checkpoint{
+		Checkpoint: log.Checkpoint{
 			Ecosystem: "Moon Log Checkpoint v0",
 			Size:      4027504,
 			RootHash:  []byte("it's a root hash"),
@@ -212,7 +212,7 @@ func TestExtendCheckpoint(t *testing.T) {
 
 func TestExtendRoundTrip(t *testing.T) {
 	want := moonLogCheckpoint{
-		Checkpoint: format.Checkpoint{
+		Checkpoint: log.Checkpoint{
 			Ecosystem: "Moon Log Checkpoint v0",
 			Size:      4027504,
 			RootHash:  []byte("it's a root hash"),

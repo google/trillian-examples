@@ -12,33 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package format
+package log_test
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/trillian-examples/formats/log"
 )
 
 func TestMarshalProof(t *testing.T) {
 	for _, test := range []struct {
 		desc string
-		p    Proof
+		p    log.Proof
 		want string
 	}{
 		{
 			desc: "valid",
-			p: Proof{
+			p: log.Proof{
 				[]byte("one"), []byte("two"), []byte("three"),
 			},
 			want: "b25l\ndHdv\ndGhyZWU=\n",
 		}, {
 			desc: "valid empty",
-			p:    Proof{},
+			p:    log.Proof{},
 			want: "",
 		}, {
 			desc: "valid default entry",
-			p: Proof{
+			p: log.Proof{
 				[]byte("one"), []byte{}, []byte("three"),
 			},
 			want: "b25l\n\ndGhyZWU=\n",
@@ -57,21 +58,21 @@ func TestUnmarshalProof(t *testing.T) {
 	for _, test := range []struct {
 		desc    string
 		m       string
-		want    Proof
+		want    log.Proof
 		wantErr bool
 	}{
 		{
 			desc: "valid one",
 			m:    "b25l\ndHdv\ndGhyZWU=\n",
-			want: Proof{[]byte("one"), []byte("two"), []byte("three")},
+			want: log.Proof{[]byte("one"), []byte("two"), []byte("three")},
 		}, {
 			desc: "valid two",
 			m:    "Zm91cg==\nZml2ZQ==\nc2l4\nc2V2ZW4=\nZWlnaHQ=",
-			want: Proof{[]byte("four"), []byte("five"), []byte("six"), []byte("seven"), []byte("eight")},
+			want: log.Proof{[]byte("four"), []byte("five"), []byte("six"), []byte("seven"), []byte("eight")},
 		}, {
 			desc: "valid trailing newline",
 			m:    "c2l4\nc2V2ZW4=\nZWlnaHQ=\n",
-			want: Proof{[]byte("six"), []byte("seven"), []byte("eight")},
+			want: log.Proof{[]byte("six"), []byte("seven"), []byte("eight")},
 		}, {
 			desc:    "invalid base64",
 			m:       "c2l4=\nNOT-BASE64!\nZWlnaHQ=\n",
@@ -79,7 +80,7 @@ func TestUnmarshalProof(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			var got Proof
+			var got log.Proof
 			if gotErr := got.Unmarshal([]byte(test.m)); (gotErr != nil) != test.wantErr {
 				t.Fatalf("Unmarshal = %q, wantErr: %T", gotErr, test.wantErr)
 			}

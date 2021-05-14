@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package format provides basic support for the common checkpoint and proof
+// Package log provides basic support for the common log checkpoint and proof
 // format described by the README in this directory.
-package format
+package log
 
 import (
 	"bytes"

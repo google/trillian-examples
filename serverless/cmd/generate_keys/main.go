@@ -65,7 +65,7 @@ func main() {
 	}
 }
 
-// Writes key files. Ensures files do not already exist to avoid accidental overwriting.
+// writeFileIfNotExists writes key files. Ensures files do not already exist to avoid accidental overwriting.
 func writeFileIfNotExists(filename string, key string) error {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
@@ -75,6 +75,5 @@ func writeFileIfNotExists(filename string, key string) error {
 	if err != nil {
 		return fmt.Errorf("unable to write new key file %q: %w", filename, err)
 	}
-	file.Close()
-	return nil
+	return file.Close()
 }

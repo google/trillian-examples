@@ -65,8 +65,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc) {
 				t.Fatalf("Integrate = %v", err)
 			}
 			update.Ecosystem = api.CheckpointHeaderV0
-			r := []byte(update.Marshal())
-			if s.WriteCheckpoint(r); err != nil {
+			if s.WriteCheckpoint(update.Marshal()); err != nil {
 				t.Fatalf("Failed to write updated checkpoint file: %q", err)
 			}
 		}

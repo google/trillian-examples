@@ -59,7 +59,7 @@ func main() {
 	}
 
 	// Persist new log checkpoint.
-	if err := st.WriteCheckpoint([]byte(newCp.Marshal())); err != nil {
+	if err := st.WriteCheckpoint(newCp.Marshal()); err != nil {
 		glog.Exitf("Failed to store new log checkpoint: %q", err)
 	}
 }

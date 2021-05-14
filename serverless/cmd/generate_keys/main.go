@@ -56,25 +56,25 @@ func main() {
 	}
 
 	if len(*outPriv) > 0 && len(*outPub) > 0 {
-		privKeyFile, err := os.OpenFile(*outPriv, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
-		if err != nil {
-			glog.Exitf("Unable to create new private key file: %q", err)
+		if err := writeFileIfNotExists(*outPriv, skey); err != nil {
+			glog.Exit(err)
 		}
-		_, err = privKeyFile.WriteString(skey)
-		if err != nil {
-			glog.Exitf("Unable to write private key file: %q", err)
+		if err := writeFileIfNotExists(*outPub, vkey); err != nil {
+			glog.Exit(err)
 		}
-		privKeyFile.Close()
-
-		pubKeyFile, err := os.OpenFile(*outPub, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
-		if err != nil {
-			glog.Exitf("Unable to create new public key file: %q", err)
-		}
-		_, err = pubKeyFile.WriteString(skey)
-		if err != nil {
-			glog.Exitf("Unable to write public key file: %q", err)
-		}
-		pubKeyFile.Close()
 	}
+}
 
+// Writes key files. Ensures files do not already exist to avoid accidental overwriting.
+func writeFileIfNotExists(filename string, key string) error {
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return fmt.Errorf("unable to create new key file in %q: %w", filename, err)
+	}
+	_, err = file.WriteString(key)
+	if err != nil {
+		return fmt.Errorf("unable to write new key file in %q: %w", filename, err)
+	}
+	file.Close()
+	return nil
 }

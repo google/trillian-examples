@@ -89,6 +89,24 @@ func TestUnmarshalLogState(t *testing.T) {
 			},
 			wantRest: []byte("Here's some associated data.\n"),
 		}, {
+			desc: "valid with multiple trailing data lines",
+			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\nlots\nof\nlines\n",
+			want: format.Checkpoint{
+				Ecosystem: "Log Checkpoint v0",
+				Size:      9944,
+				RootHash:  []byte("the view from the tree tops is great!"),
+			},
+			wantRest: []byte("lots\nof\nlines\n"),
+		}, {
+			desc: "valid with trailing newlines",
+			m:    "Log Checkpoint v0\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n\n\n\n",
+			want: format.Checkpoint{
+				Ecosystem: "Log Checkpoint v0",
+				Size:      9944,
+				RootHash:  []byte("the view from the tree tops is great!"),
+			},
+			wantRest: []byte("\n\n\n"),
+		}, {
 			desc:    "invalid empty header",
 			m:       "\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
 			wantErr: true,

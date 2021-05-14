@@ -23,7 +23,12 @@ this process.
 
 Here is a GitHub actions workflow config which will automate the sequencing
 and integration of "leaves" which have been added to the `leaves/pending`
-directory of a serverless log:
+directory of a serverless log.
+
+> :shipit: Note that it expects a pair of GitHub secrets called
+`SERVERLESS_LOG_PRIVATE_KEY` and `SERVERLESS_LOG_PUBLIC_KEY` to exist, see 
+the [GitHub secrets docs](https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-a-repository)
+for details on how to do this.
 
 `push_to_master.yaml`
 
@@ -41,6 +46,7 @@ jobs:
       uses: google/trillian-examples/serverless/deploy/github/sequence_and_integrate@master
       with:
         log_dir: './log'
+      env:
         SERVERLESS_LOG_PRIVATE_KEY: ${{ secrets.SERVERLESS_LOG_PRIVATE_KEY }}
         SERVERLESS_LOG_PUBLIC_KEY: ${{ secrets.SERVERLESS_LOG_PUBLIC_KEY }}
     - uses: stefanzweifel/git-auto-commit-action@v4

@@ -107,8 +107,16 @@ func TestUnmarshalLogState(t *testing.T) {
 			},
 			wantRest: []byte("\n\n\n"),
 		}, {
-			desc:    "invalid empty header",
+			desc:    "invalid - insufficient lines",
+			m:       "Head\n9944\n",
+			wantErr: true,
+		}, {
+			desc:    "invalid - empty header",
 			m:       "\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
+			wantErr: true,
+		}, {
+			desc:    "invalid - missing newline on roothash",
+			m:       "Log Checkpoint v0\n123\nYmFuYW5hcw==",
 			wantErr: true,
 		}, {
 			desc:    "invalid size - not a number",

@@ -50,8 +50,8 @@ func (c Checkpoint) Marshal() []byte {
 // Any trailing data after this will be returned.
 func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 	l := bytes.SplitN(data, []byte("\n"), 4)
-	if len(l) < 3 {
-		return nil, errors.New("invalid checkpoint - too few lines")
+	if len(l) < 4 {
+		return nil, errors.New("invalid checkpoint - too few newlines")
 	}
 	eco := string(l[0])
 	if len(eco) == 0 {
@@ -66,7 +66,7 @@ func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 		return nil, fmt.Errorf("invalid checkpoint - invalid roothash: %w", err)
 	}
 	var rest []byte
-	if len(l) >= 4 {
+	if len(l[3]) > 0 {
 		rest = l[3]
 	}
 	*c = Checkpoint{

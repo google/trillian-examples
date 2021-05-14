@@ -16,6 +16,7 @@ package log
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -39,7 +40,14 @@ func (p Proof) Marshal() string {
 // Proof struct.
 func (p *Proof) Unmarshal(data []byte) error {
 	const delim = "\n"
-	lines := strings.Split(strings.TrimRight(string(data), delim), delim)
+	s := string(data)
+	if !strings.HasSuffix(s, delim) {
+		return errors.New("data should have trailing newline on last hash too")
+	}
+	lines := strings.Split(s, delim)
+	// We expect there to be one too many fields here since the final hash
+	// should be terminated with a newline too.
+	lines = lines[:len(lines)-1]
 	r := make([][]byte, len(lines))
 	for i, l := range lines {
 		b, err := base64.StdEncoding.DecodeString(l)

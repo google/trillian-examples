@@ -67,12 +67,12 @@ func TestUnmarshalProof(t *testing.T) {
 			want: log.Proof{[]byte("one"), []byte("two"), []byte("three")},
 		}, {
 			desc: "valid two",
-			m:    "Zm91cg==\nZml2ZQ==\nc2l4\nc2V2ZW4=\nZWlnaHQ=",
+			m:    "Zm91cg==\nZml2ZQ==\nc2l4\nc2V2ZW4=\nZWlnaHQ=\n",
 			want: log.Proof{[]byte("four"), []byte("five"), []byte("six"), []byte("seven"), []byte("eight")},
 		}, {
-			desc: "valid trailing newline",
-			m:    "c2l4\nc2V2ZW4=\nZWlnaHQ=\n",
-			want: log.Proof{[]byte("six"), []byte("seven"), []byte("eight")},
+			desc:    "invalid - missing newline after last hash",
+			m:       "c2l4\nc2V2ZW4=\nZWlnaHQ=",
+			wantErr: true,
 		}, {
 			desc:    "invalid base64",
 			m:       "c2l4=\nNOT-BASE64!\nZWlnaHQ=\n",

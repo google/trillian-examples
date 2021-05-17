@@ -62,7 +62,6 @@ func main() {
 		if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
 			glog.Exitf("Failed to store new log checkpoint: %q", err)
 		}
-
 	}
 
 	// init storage

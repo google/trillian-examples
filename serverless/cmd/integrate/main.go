@@ -18,30 +18,69 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"golang.org/x/mod/sumdb/note"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"
 )
 
 var (
 	storageDir = flag.String("storage_dir", "", "Root directory to store log data.")
+	initial    = flag.Bool("initial", false, "Set when creating a new log to initialise the structure.")
 )
 
 func main() {
 	flag.Parse()
 	h := hasher.DefaultHasher
 
+	privKey := os.Getenv("SERVERLESS_LOG_PRIVATE_KEY")
+	pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+
+	var cpNote note.Note
+	s, err := note.NewSigner(privKey)
+	if err != nil {
+		glog.Exitf("Failed to instantiate signer: %q", err)
+	}
+	if *initial {
+		st, err := fs.Create(*storageDir, h.EmptyRoot())
+		if err != nil {
+			glog.Exitf("Failed to create log: %q", err)
+		}
+		cp := st.Checkpoint()
+		cp.Ecosystem = api.CheckpointHeaderV0
+		cpNote.Text = string(cp.Marshal())
+		cpNoteSigned, err := note.Sign(&cpNote, s)
+		if err != nil {
+			glog.Exitf("Failed to sign Checkpoint: %q", err)
+		}
+		if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
+			glog.Exitf("Failed to store new log checkpoint: %q", err)
+		}
+
+	}
+
 	// init storage
 	cpRaw, err := fs.ReadCheckpoint(*storageDir)
 	if err != nil {
 		glog.Exitf("Failed to read log checkpoint: %q", err)
 	}
+
+	// Check signatures
+	v, _ := note.NewVerifier(pubKey)
+	verifiers := note.VerifierList(v)
+	vCp, err := note.Open(cpRaw, verifiers)
+	if err != nil {
+		glog.Exitf("Failed to open Checkpoint: %q", err)
+	}
+
 	var cp fmtlog.Checkpoint
-	if _, err := cp.Unmarshal(cpRaw); err != nil {
+	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
 		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
 	}
 	st, err := fs.Load(*storageDir, &cp)
@@ -58,8 +97,17 @@ func main() {
 		glog.Exit("Nothing to integrate")
 	}
 
+	newCp.Ecosystem = api.CheckpointHeaderV0
+
+	// Sign the note
+	cpNote.Text = string(newCp.Marshal())
+	cpNoteSigned, err := note.Sign(&cpNote, s)
+	if err != nil {
+		glog.Exitf("Failed to sign Checkpoint: %q", err)
+	}
+
 	// Persist new log checkpoint.
-	if err := st.WriteCheckpoint(newCp.Marshal()); err != nil {
+	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
 		glog.Exitf("Failed to store new log checkpoint: %q", err)
 	}
 }

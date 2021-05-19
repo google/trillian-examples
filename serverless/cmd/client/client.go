@@ -171,11 +171,11 @@ func (l *logClientTool) inclusionProof(args []string) error {
 
 	glog.V(1).Infof("Built inclusion proof: %#x", proof)
 
-	if err := l.Verifier.VerifyInclusionProof(int64(idx), int64(cp.Size), proof, cp.RootHash, lh); err != nil {
+	if err := l.Verifier.VerifyInclusionProof(int64(idx), int64(cp.Size), proof, cp.Hash, lh); err != nil {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
 	}
 
-	glog.Infof("Inclusion verified in tree size %d, with root 0x%0x", cp.Size, cp.RootHash)
+	glog.Infof("Inclusion verified in tree size %d, with root 0x%0x", cp.Size, cp.Hash)
 	return nil
 }
 

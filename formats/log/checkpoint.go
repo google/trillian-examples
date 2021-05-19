@@ -30,13 +30,13 @@ type Checkpoint struct {
 	Ecosystem string
 	// Size is the number of entries in the log at this checkpoint.
 	Size uint64
-	// RootHash is the hash which commits to the contents of the entire log.
-	RootHash []byte
+	// Hash is the hash which commits to the contents of the entire log.
+	Hash []byte
 }
 
 // Marshal returns the common format representation of this Checkpoint.
 func (c Checkpoint) Marshal() []byte {
-	return []byte(fmt.Sprintf("%s\n%d\n%s\n", c.Ecosystem, c.Size, base64.StdEncoding.EncodeToString(c.RootHash)))
+	return []byte(fmt.Sprintf("%s\n%d\n%s\n", c.Ecosystem, c.Size, base64.StdEncoding.EncodeToString(c.Hash)))
 }
 
 // Unmarshal parses the common formatted checkpoint data and stores the result
@@ -61,9 +61,9 @@ func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid checkpoint - size invalid: %w", err)
 	}
-	rh, err := base64.StdEncoding.DecodeString(string(l[2]))
+	h, err := base64.StdEncoding.DecodeString(string(l[2]))
 	if err != nil {
-		return nil, fmt.Errorf("invalid checkpoint - invalid roothash: %w", err)
+		return nil, fmt.Errorf("invalid checkpoint - invalid hash: %w", err)
 	}
 	var rest []byte
 	if len(l[3]) > 0 {
@@ -72,7 +72,7 @@ func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 	*c = Checkpoint{
 		Ecosystem: eco,
 		Size:      size,
-		RootHash:  rh,
+		Hash:      h,
 	}
 	return rest, nil
 }

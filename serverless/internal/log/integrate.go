@@ -135,8 +135,8 @@ func Integrate(st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
 	// it's meaningless for them to attempt to construct inclusion/consistency
 	// proofs.
 	newCP := log.Checkpoint{
-		RootHash: newRoot,
-		Size:     baseRange.End(),
+		Hash: newRoot,
+		Size: baseRange.End(),
 	}
 	return &newCP, nil
 }

@@ -34,19 +34,19 @@ func TestMarshal(t *testing.T) {
 			c: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      123,
-				RootHash:  []byte("bananas"),
+				Hash:      []byte("bananas"),
 			},
 			want: "Log Checkpoint v0\n123\nYmFuYW5hcw==\n",
 		}, {
 			c: log.Checkpoint{
 				Ecosystem: "Banana Checkpoint v5",
 				Size:      9944,
-				RootHash:  []byte("the view from the tree tops is great!"),
+				Hash:      []byte("the view from the tree tops is great!"),
 			},
 			want: "Banana Checkpoint v5\n9944\ndGhlIHZpZXcgZnJvbSB0aGUgdHJlZSB0b3BzIGlzIGdyZWF0IQ==\n",
 		},
 	} {
-		t.Run(string(test.c.RootHash), func(t *testing.T) {
+		t.Run(string(test.c.Hash), func(t *testing.T) {
 			got := test.c.Marshal()
 			if string(got) != test.want {
 				t.Fatalf("Marshal = %q, want %q", got, test.want)
@@ -69,7 +69,7 @@ func TestUnmarshalLogState(t *testing.T) {
 			want: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      123,
-				RootHash:  []byte("bananas"),
+				Hash:      []byte("bananas"),
 			},
 		}, {
 			desc: "valid with different ecosystem",
@@ -77,7 +77,7 @@ func TestUnmarshalLogState(t *testing.T) {
 			want: log.Checkpoint{
 				Ecosystem: "Banana Checkpoint v1",
 				Size:      9944,
-				RootHash:  []byte("the view from the tree tops is great!"),
+				Hash:      []byte("the view from the tree tops is great!"),
 			},
 		}, {
 			desc: "valid with trailing data",
@@ -85,7 +85,7 @@ func TestUnmarshalLogState(t *testing.T) {
 			want: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      9944,
-				RootHash:  []byte("the view from the tree tops is great!"),
+				Hash:      []byte("the view from the tree tops is great!"),
 			},
 			wantRest: []byte("Here's some associated data.\n"),
 		}, {
@@ -94,7 +94,7 @@ func TestUnmarshalLogState(t *testing.T) {
 			want: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      9944,
-				RootHash:  []byte("the view from the tree tops is great!"),
+				Hash:      []byte("the view from the tree tops is great!"),
 			},
 			wantRest: []byte("lots\nof\nlines\n"),
 		}, {
@@ -103,7 +103,7 @@ func TestUnmarshalLogState(t *testing.T) {
 			want: log.Checkpoint{
 				Ecosystem: "Log Checkpoint v0",
 				Size:      9944,
-				RootHash:  []byte("the view from the tree tops is great!"),
+				Hash:      []byte("the view from the tree tops is great!"),
 			},
 			wantRest: []byte("\n\n\n"),
 		}, {
@@ -203,7 +203,7 @@ func TestExtendCheckpoint(t *testing.T) {
 		Checkpoint: log.Checkpoint{
 			Ecosystem: "Moon Log Checkpoint v0",
 			Size:      4027504,
-			RootHash:  []byte("it's a root hash"),
+			Hash:      []byte("it's a root hash"),
 		},
 		Timestamp: 0x6086d1a9,
 		Phase:     "Waxing gibbous",
@@ -223,7 +223,7 @@ func TestExtendRoundTrip(t *testing.T) {
 		Checkpoint: log.Checkpoint{
 			Ecosystem: "Moon Log Checkpoint v0",
 			Size:      4027504,
-			RootHash:  []byte("it's a root hash"),
+			Hash:      []byte("it's a root hash"),
 		},
 		Timestamp: 0x6086d1a9,
 		Phase:     "Waxing gibbous",

@@ -99,8 +99,8 @@ func Create(rootDir string, emptyHash []byte) (*Storage, error) {
 		rootDir: rootDir,
 		nextSeq: 0,
 		checkpoint: log.Checkpoint{
-			Size:     0,
-			RootHash: emptyHash,
+			Size: 0,
+			Hash: emptyHash,
 		},
 	}
 

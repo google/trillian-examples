@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -36,12 +37,31 @@ import (
 var (
 	storageDir = flag.String("storage_dir", "", "Root directory to store log data.")
 	entries    = flag.String("entries", "", "File path glob of entries to add to the log.")
+	pubKeyFile = flag.String("public_key", "", "Location of public key file.")
 )
 
 func main() {
 	flag.Parse()
 
-	pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+	// Read log public key from file or environment variable
+	var pubKey string
+	if len(*pubKeyFile) > 0 {
+		pubKeyURL, err := url.Parse(*pubKeyFile)
+		if err != nil {
+			glog.Exitf("failed to parse public_key path: %q", err)
+		}
+		k, err := ioutil.ReadFile(pubKeyURL.Path)
+		if err != nil {
+			glog.Exitf("failed to read public_key file: %q", err)
+		}
+		pubKey = string(k)
+	} else {
+		pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+		if len(pubKey) == 0 {
+			glog.Exit(`supply public key file path using --public_key 
+				or set SERVERLESS_LOG_PUBLIC_KEY environment variable`)
+		}
+	}
 
 	toAdd, err := filepath.Glob(*entries)
 	if err != nil {
@@ -61,7 +81,10 @@ func main() {
 	}
 
 	// Check signatures
-	v, _ := note.NewVerifier(pubKey)
+	v, err := note.NewVerifier(pubKey)
+	if err != nil {
+		glog.Exitf("Failed to instantiate Verifier: %q", err)
+	}
 	verifiers := note.VerifierList(v)
 	vCp, err := note.Open(cpRaw, verifiers)
 	if err != nil {

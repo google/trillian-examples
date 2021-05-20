@@ -32,16 +32,18 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/devices/usbarmory"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 // PublishOpts encapsulates parameters for the publish Main below.
 type PublishOpts struct {
-	LogURL     string
-	DeviceID   string
-	Revision   uint64
-	BinaryPath string
-	Timestamp  string
-	OutputPath string
+	LogURL         string
+	LogSigVerifier note.Verifier
+	DeviceID       string
+	Revision       uint64
+	BinaryPath     string
+	Timestamp      string
+	OutputPath     string
 }
 
 // Main is the entrypoint for the implementation of the publisher.
@@ -65,7 +67,8 @@ func Main(ctx context.Context, opts PublishOpts) error {
 
 	c := &client.SubmitClient{
 		ReadonlyClient: &client.ReadonlyClient{
-			LogURL: logURL,
+			LogURL:         logURL,
+			LogSigVerifier: opts.LogSigVerifier,
 		},
 	}
 
@@ -96,7 +99,7 @@ func Main(ctx context.Context, opts PublishOpts) error {
 		pb, err := json.Marshal(
 			api.ProofBundle{
 				ManifestStatement: js,
-				Checkpoint:        cp,
+				Checkpoint:        cp.Envelope,
 				InclusionProof:    ip,
 			})
 		if err != nil {

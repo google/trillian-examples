@@ -36,17 +36,19 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 	"github.com/google/trillian/merkle/coniks"
 	"github.com/google/trillian/storage/tree"
+	"golang.org/x/mod/sumdb/note"
 )
 
 // FlashOpts encapsulates flash tool parameters.
 type FlashOpts struct {
-	DeviceID      string
-	LogURL        string
-	MapURL        string
-	WitnessURL    string
-	UpdateFile    string
-	Force         bool
-	DeviceStorage string
+	DeviceID       string
+	LogURL         string
+	LogSigVerifier note.Verifier
+	MapURL         string
+	WitnessURL     string
+	UpdateFile     string
+	Force          bool
+	DeviceStorage  string
 }
 
 func Main(ctx context.Context, opts FlashOpts) error {
@@ -60,14 +62,13 @@ func Main(ctx context.Context, opts FlashOpts) error {
 	if err != nil {
 		return fmt.Errorf("failed to read update package file: %w", err)
 	}
-	// TODO(al): check signature on checkpoints when they're added.
 
 	dev, err := getDevice(opts)
 	if err != nil {
 		return fmt.Errorf("failed to get device: %w", err)
 	}
 
-	pb, fwMeta, err := verifyUpdate(c, up, dev)
+	pb, fwMeta, err := verifyUpdate(c, opts.LogSigVerifier, up, dev)
 	if err != nil {
 		err := fmt.Errorf("failed to validate update: %w", err)
 		if !opts.Force {
@@ -77,7 +78,7 @@ func Main(ctx context.Context, opts FlashOpts) error {
 	}
 
 	if len(opts.WitnessURL) > 0 {
-		err := verifyWitness(c, pb, opts.WitnessURL)
+		err := verifyWitness(c, opts.LogSigVerifier, pb, opts.WitnessURL)
 		if err != nil {
 			if !opts.Force {
 				return err
@@ -87,7 +88,7 @@ func Main(ctx context.Context, opts FlashOpts) error {
 	}
 
 	if len(opts.MapURL) > 0 {
-		err := verifyAnnotations(ctx, c, pb, fwMeta, opts.MapURL)
+		err := verifyAnnotations(ctx, c, opts.LogSigVerifier, pb, fwMeta, opts.MapURL)
 		if err != nil {
 			if !opts.Force {
 				return fmt.Errorf("verifyAnnotations: %w", err)
@@ -171,46 +172,57 @@ func getConsistencyFunc(c *client.ReadonlyClient) func(from, to uint64) ([][]byt
 }
 
 // verifyUpdate checks that an update package is self-consistent and returns a verified proof bundle
-func verifyUpdate(c *client.ReadonlyClient, up api.UpdatePackage, dev devices.Device) (api.ProofBundle, api.FirmwareMetadata, error) {
+func verifyUpdate(c *client.ReadonlyClient, cpSigVerifier note.Verifier, up api.UpdatePackage, dev devices.Device) (api.ProofBundle, api.FirmwareMetadata, error) {
 	var pb api.ProofBundle
 	var fwMeta api.FirmwareMetadata
 
 	// Get the consistency proof for the bundle
-	dc, err := dev.DeviceCheckpoint()
+	n, err := dev.DeviceCheckpoint()
 	if err != nil {
 		return pb, fwMeta, fmt.Errorf("failed to fetch the device checkpoint: %w", err)
+	}
+	dcNote, err := note.Open(n, note.VerifierList(cpSigVerifier))
+	if err != nil {
+		return pb, fwMeta, fmt.Errorf("failed to open the device checkpoint: %w", err)
+	}
+	dc := api.LogCheckpoint{Envelope: []byte(n)}
+	if err := dc.Unmarshal([]byte(dcNote.Text)); err != nil {
+		return pb, fwMeta, fmt.Errorf("failed to unmarshal the device checkpoint: %w", err)
 	}
 
 	cpFunc := getConsistencyFunc(c)
 	fwHash := sha512.Sum512(up.FirmwareImage)
-	pb, fwMeta, err = verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc)
+	pb, fwMeta, err = verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc, cpSigVerifier)
 	if err != nil {
 		return pb, fwMeta, fmt.Errorf("failed to verify proof bundle: %w", err)
 	}
 	return pb, fwMeta, nil
 }
 
-func verifyWitness(c *client.ReadonlyClient, pb api.ProofBundle, witnessURL string) error {
+func verifyWitness(c *client.ReadonlyClient, cpSigVerifier note.Verifier, pb api.ProofBundle, witnessURL string) error {
 	wURL, err := url.Parse(witnessURL)
 	if err != nil {
 		return fmt.Errorf("witness_url is invalid: %w", err)
 	}
-	wc := client.WitnessClient{URL: wURL}
+	wc := client.WitnessClient{
+		URL:            wURL,
+		LogSigVerifier: cpSigVerifier,
+	}
 
 	wcp, err := wc.GetWitnessCheckpoint()
 	if err != nil {
 		return fmt.Errorf("failed to fetch the witness checkpoint: %w", err)
 	}
-	if wcp.TreeSize == 0 {
+	if wcp.Size == 0 {
 		return fmt.Errorf("no witness checkpoint to verify")
 	}
-	if err := verify.BundleConsistency(pb, *wcp, getConsistencyFunc(c)); err != nil {
+	if err := verify.BundleConsistency(pb, *wcp, getConsistencyFunc(c), cpSigVerifier); err != nil {
 		return fmt.Errorf("failed to verify checkpoint consistency against witness: %w", err)
 	}
 	return nil
 }
 
-func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
+func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, cpSigVerifier note.Verifier, pb api.ProofBundle, fwMeta api.FirmwareMetadata, mapURL string) error {
 	mc, err := client.NewMapClient(mapURL)
 	if err != nil {
 		return fmt.Errorf("failed to create map client: %w", err)
@@ -232,7 +244,7 @@ func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, pb api.Pro
 	// in order to detect a class of fork; it could be that the checkpoint in the update
 	// is consistent with the map and the witness, but the map and the witness aren't
 	// consistent with each other.
-	if err := verify.BundleConsistency(pb, lcp, getConsistencyFunc(c)); err != nil {
+	if err := verify.BundleConsistency(pb, lcp, getConsistencyFunc(c), cpSigVerifier); err != nil {
 		return fmt.Errorf("failed to verify update with map checkpoint: %w", err)
 	}
 

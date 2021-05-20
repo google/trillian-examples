@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/f-secure-foundry/tamago/soc/imx6/dcp"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"golang.org/x/mod/sumdb/note"
 )
 
 const (
@@ -41,8 +43,9 @@ func verifyIntegrity(proof, firmware *Partition) error {
 		return fmt.Errorf("failed to hash firmware partition: %w\n", err)
 	}
 	fmt.Printf("firmware partition hash: 0x%x\n", h)
+	cpSigVerifier, err := note.NewVerifier(crypto.TestFTPersonalityPub)
 
-	if err := verify.BundleForBoot(rawBundle, h); err != nil {
+	if err := verify.BundleForBoot(rawBundle, h, note.VerifierList(cpSigVerifier)); err != nil {
 		return fmt.Errorf("failed to verify bundle: %w", err)
 	}
 	return nil

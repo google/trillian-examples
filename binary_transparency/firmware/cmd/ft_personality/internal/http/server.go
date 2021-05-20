@@ -32,8 +32,10 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
+	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -69,15 +71,17 @@ type CAS interface {
 
 // Server is the core state & handler implementation of the FT personality.
 type Server struct {
-	c   Trillian
-	cas CAS
+	c      Trillian
+	cas    CAS
+	signer note.Signer
 }
 
 // NewServer creates a new server that interfaces with the given Trillian logger.
-func NewServer(c Trillian, cas CAS) *Server {
+func NewServer(c Trillian, cas CAS, signer note.Signer) *Server {
 	return &Server{
-		c:   c,
-		cas: cas,
+		c:      c,
+		cas:    cas,
+		signer: signer,
 	}
 }
 
@@ -311,17 +315,23 @@ func (s *Server) getManifestEntryAndProof(w http.ResponseWriter, r *http.Request
 func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 	sth := s.c.Root()
 	checkpoint := api.LogCheckpoint{
-		TreeSize:       sth.TreeSize,
-		RootHash:       sth.RootHash,
+		Checkpoint: log.Checkpoint{
+			Ecosystem: api.FTLogCheckpointEcosystemv0,
+			Size:      sth.TreeSize,
+			Hash:      sth.RootHash,
+		},
 		TimestampNanos: sth.TimestampNanos,
 	}
-	js, err := json.Marshal(checkpoint)
+	n := &note.Note{
+		Text: string(checkpoint.Marshal()),
+	}
+	b, err := note.Sign(n, s.signer)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-
+		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(b)
 }
 
 // getFirmwareImage returns a firmware image stored in the CAS.

@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/formats/log"
 )
 
 func TestLogCheckpointString(t *testing.T) {
@@ -29,7 +30,13 @@ func TestLogCheckpointString(t *testing.T) {
 			cp:   api.LogCheckpoint{},
 			want: "{size 0 @ 0 root: 0x}",
 		}, {
-			cp:   api.LogCheckpoint{TreeSize: 10, TimestampNanos: 234, RootHash: []byte{0x12, 0x34, 0x56}},
+			cp: api.LogCheckpoint{
+				Checkpoint: log.Checkpoint{
+					Size: 10,
+					Hash: []byte{0x12, 0x34, 0x56},
+				},
+				TimestampNanos: 234,
+			},
 			want: "{size 10 @ 234 root: 0x123456}",
 		},
 	} {

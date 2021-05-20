@@ -28,7 +28,7 @@ type ProofBundle struct {
 	// ManifestStatement is the json representation of an `api.SignedStatement` struct.
 	ManifestStatement []byte
 	// Checkpoint must represent a tree which includes the ManifestStatement.
-	Checkpoint LogCheckpoint
+	Checkpoint []byte
 	// InclusionProof is a proof to Checkpoint for ManifestStatement.
 	InclusionProof InclusionProof
 }

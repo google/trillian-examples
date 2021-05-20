@@ -15,20 +15,21 @@
 package client
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/status"
 )
 
 // WitnessClient is an HTTP client for the FT witness.
 type WitnessClient struct {
 	// URL is the base URL for the FT witness.
-	URL *url.URL
+	URL            *url.URL
+	LogSigVerifier note.Verifier
 }
 
 // GetWitnessCheckpoint returns a checkpoint from witness server
@@ -41,15 +42,23 @@ func (c WitnessClient) GetWitnessCheckpoint() (*api.LogCheckpoint, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Body.Close()
 	if r.StatusCode != 200 {
-		return &api.LogCheckpoint{}, errFromRsp("failed to fetch checkpoint", r)
+		return nil, errFromRsp("failed to fetch checkpoint", r)
 	}
 
-	var wcp api.LogCheckpoint
-	if err := json.NewDecoder(r.Body).Decode(&wcp); err != nil {
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read body: %w", err)
+	}
+	n, err := note.Open(b, note.VerifierList(c.LogSigVerifier))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open returned checkpoint: %w", err)
+	}
+	wcp := api.LogCheckpoint{Envelope: b}
+	if err := wcp.Unmarshal([]byte(n.Text)); err != nil {
 		return nil, err
 	}
-	// TODO(yd): Check signature, when it is added
 	return &wcp, nil
 }
 

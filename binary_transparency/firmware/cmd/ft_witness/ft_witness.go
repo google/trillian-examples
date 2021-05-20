@@ -22,6 +22,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_witness/impl"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 var (
@@ -34,12 +36,15 @@ var (
 func main() {
 	flag.Parse()
 
+	testVerifier, _ := note.NewVerifier(crypto.TestFTPersonalityPub)
+
 	ctx := context.Background()
 	if err := impl.Main(ctx, impl.WitnessOpts{
-		ListenAddr:   *listenAddr,
-		WSFile:       *wsFile,
-		FtLogURL:     *ftLogURL,
-		PollInterval: *pollInterval,
+		ListenAddr:       *listenAddr,
+		WSFile:           *wsFile,
+		FtLogURL:         *ftLogURL,
+		FtLogSigVerifier: testVerifier,
+		PollInterval:     *pollInterval,
 	}); err != nil {
 		glog.Exit(err.Error())
 	}

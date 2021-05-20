@@ -21,7 +21,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 const (
@@ -30,22 +31,28 @@ const (
 )
 
 func TestGetWitnessCheckpoint(t *testing.T) {
+	testSigner, _ := note.NewSigner(crypto.TestFTPersonalityPriv)
+	testVerifier, _ := note.NewVerifier(crypto.TestFTPersonalityPub)
 	for _, test := range []struct {
 		desc     string
-		cp       api.LogCheckpoint
 		wantBody string
 	}{
 		{
 			desc:     "Successful Witness Checkpoint retrieval",
-			cp:       api.LogCheckpoint{TreeSize: 1, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}},
-			wantBody: `{"TreeSize":1,"RootHash":"EjQ=","TimestampNanos":123}`,
+			wantBody: "Firmware Transparency Log v0\n1\nEjQ=\n123\n",
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-
-			witness, err := NewWitness(FakeStore{test.cp, true}, dummyURL, dummyPollInterval)
+			n := &note.Note{
+				Text: test.wantBody,
+			}
+			ns, err := note.Sign(n, testSigner)
 			if err != nil {
-				t.Errorf("error creating witness: %v", err)
+				t.Fatalf("Failed to sign checkpoint: %v", err)
+			}
+			witness, err := NewWitness(FakeStore{ns, true}, dummyURL, testVerifier, dummyPollInterval)
+			if err != nil {
+				t.Fatalf("error creating witness: %v", err)
 			}
 			ts := httptest.NewServer(http.HandlerFunc(witness.getCheckpoint))
 			defer ts.Close()
@@ -62,27 +69,30 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to read body: %v", err)
 			}
-			if string(body) != test.wantBody {
-				t.Errorf("got '%s' want '%s'", string(body), test.wantBody)
+			got, err := note.Open(body, note.VerifierList(testVerifier))
+			if err != nil {
+				t.Fatalf("Failed to open returned body: %v :\n%s", err, body)
+			}
+			if got.Text != test.wantBody {
+				t.Errorf("got '%s' want '%s'", got.Text, test.wantBody)
 			}
 		})
 	}
 }
 
 func TestFailedWitnessCreation(t *testing.T) {
+	testVerifier, _ := note.NewVerifier(crypto.TestFTPersonalityPub)
 	for _, test := range []struct {
 		desc      string
-		cp        api.LogCheckpoint
 		wantError string
 	}{
 		{
 			desc:      "Failed Witness Creation",
-			cp:        api.LogCheckpoint{},
 			wantError: "new witness failed due to storage retrieval: unable to access store",
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			_, err := NewWitness(FakeStore{test.cp, false}, dummyURL, dummyPollInterval)
+			_, err := NewWitness(FakeStore{[]byte{}, false}, dummyURL, testVerifier, dummyPollInterval)
 			if err == nil {
 				t.Errorf("error witness creation happened smoothly: %v", err)
 			}
@@ -95,11 +105,11 @@ func TestFailedWitnessCreation(t *testing.T) {
 }
 
 type FakeStore struct {
-	scp         api.LogCheckpoint
+	scp         []byte
 	storeaccess bool
 }
 
-func (f FakeStore) StoreCP(wcp api.LogCheckpoint) error {
+func (f FakeStore) StoreCP(wcp []byte) error {
 	if !f.storeaccess {
 		return fmt.Errorf("unable to access store")
 	}
@@ -107,9 +117,9 @@ func (f FakeStore) StoreCP(wcp api.LogCheckpoint) error {
 	return nil
 }
 
-func (f FakeStore) RetrieveCP() (api.LogCheckpoint, error) {
+func (f FakeStore) RetrieveCP() ([]byte, error) {
 	if !f.storeaccess {
-		return api.LogCheckpoint{}, fmt.Errorf("unable to access store")
+		return nil, fmt.Errorf("unable to access store")
 	}
 	return f.scp, nil
 }

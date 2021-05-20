@@ -27,6 +27,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/ftmap"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/types"
 
@@ -100,17 +101,15 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	lcp := api.LogCheckpoint{
-		TreeSize:       logRootV1.TreeSize,
-		RootHash:       logRootV1.RootHash,
+		Checkpoint: log.Checkpoint{
+			Ecosystem: api.FTLogCheckpointEcosystemv0,
+			Size:      logRootV1.TreeSize,
+			Hash:      logRootV1.RootHash,
+		},
 		TimestampNanos: logRootV1.TimestampNanos,
 	}
-	lcpEncoded, err := json.Marshal(lcp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	checkpoint := api.MapCheckpoint{
-		LogCheckpoint: lcpEncoded,
+		LogCheckpoint: lcp.Marshal(),
 		LogSize:       uint64(count),
 		Revision:      uint64(rev),
 		RootHash:      tile.RootHash,

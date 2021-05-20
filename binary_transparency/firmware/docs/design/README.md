@@ -235,7 +235,7 @@ _discoverability_ that Firmware Transparency leverages.
 **STH Witness**:
 
 May use the [`ft_witness`](/binary_transparency/firmware/cmd/ft_witness) to
-support verfication of log operator, for consistent log operation:
+support verification of log operator, by enabling detection of log split views.
 
 * Verifier<sup>FIRMWARE_LOG</sup>
 

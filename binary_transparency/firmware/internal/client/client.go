@@ -29,6 +29,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/status"
 )
 
@@ -38,6 +39,8 @@ import (
 type ReadonlyClient struct {
 	// LogURL is the base URL for the FT log.
 	LogURL *url.URL
+
+	LogSigVerifier note.Verifier
 }
 
 // SubmitClient extends ReadonlyClient to also know how to submit entries
@@ -131,18 +134,28 @@ func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 		return &api.LogCheckpoint{}, errFromResponse("failed to fetch checkpoint", r)
 	}
 
-	var cp api.LogCheckpoint
-	if err := json.NewDecoder(r.Body).Decode(&cp); err != nil {
+	b, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read body: %w", err)
+	}
+	defer r.Body.Close()
+
+	n, err := note.Open(b, note.VerifierList(c.LogSigVerifier))
+	if err != nil {
 		return nil, err
 	}
-	// TODO(al): Check signature
+
+	cp := api.LogCheckpoint{Envelope: b}
+	if err := cp.Unmarshal([]byte(n.Text)); err != nil {
+		return nil, err
+	}
 	return &cp, nil
 }
 
 // GetInclusion returns an inclusion proof for the statement under the given checkpoint.
 func (c ReadonlyClient) GetInclusion(statement []byte, cp api.LogCheckpoint) (api.InclusionProof, error) {
 	hash := verify.HashLeaf(statement)
-	u, err := c.LogURL.Parse(fmt.Sprintf("%s/for-leaf-hash/%s/in-tree-of/%d", api.HTTPGetInclusion, base64.URLEncoding.EncodeToString(hash), cp.TreeSize))
+	u, err := c.LogURL.Parse(fmt.Sprintf("%s/for-leaf-hash/%s/in-tree-of/%d", api.HTTPGetInclusion, base64.URLEncoding.EncodeToString(hash), cp.Size))
 	if err != nil {
 		return api.InclusionProof{}, err
 	}

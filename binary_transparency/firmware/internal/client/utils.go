@@ -41,26 +41,25 @@ func AwaitInclusion(ctx context.Context, c *ReadonlyClient, cp api.LogCheckpoint
 		if err != nil {
 			return api.LogCheckpoint{}, api.ConsistencyProof{}, api.InclusionProof{}, err
 		}
-		// TODO(al): check signature on checkpoint when they're added.
 
-		if newCP.TreeSize <= cp.TreeSize {
+		if newCP.Size <= cp.Size {
 			glog.V(1).Info("Waiting for tree to integrate new leaves")
 			continue
 		}
 		var consistency api.ConsistencyProof
-		if cp.TreeSize > 0 {
-			cproof, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: cp.TreeSize, To: newCP.TreeSize})
+		if cp.Size > 0 {
+			cproof, err := c.GetConsistencyProof(api.GetConsistencyRequest{From: cp.Size, To: newCP.Size})
 			if err != nil {
 				glog.Warningf("Received error while fetching consistency proof: %q", err)
 				continue
 			}
 			consistency = *cproof
-			if err := lv.VerifyConsistencyProof(int64(cp.TreeSize), int64(newCP.TreeSize), cp.RootHash, newCP.RootHash, consistency.Proof); err != nil {
+			if err := lv.VerifyConsistencyProof(int64(cp.Size), int64(newCP.Size), cp.Hash, newCP.Hash, consistency.Proof); err != nil {
 				// Whoa Nelly, this is bad - bail!
 				glog.Warning("Invalid consistency proof received!")
-				return cp, consistency, api.InclusionProof{}, fmt.Errorf("invalid inclusion proof received: %w", err)
+				return *newCP, consistency, api.InclusionProof{}, fmt.Errorf("invalid inclusion proof received: %w", err)
 			}
-			glog.Infof("Consistency proof between %d and %d verified", cp.TreeSize, newCP.TreeSize)
+			glog.Infof("Consistency proof between %d and %d verified", cp.Size, newCP.Size)
 		}
 		cp = *newCP
 
@@ -69,7 +68,7 @@ func AwaitInclusion(ctx context.Context, c *ReadonlyClient, cp api.LogCheckpoint
 			glog.Warningf("Received error while fetching inclusion proof: %q", err)
 			continue
 		}
-		if err := lv.VerifyInclusionProof(int64(ip.LeafIndex), int64(cp.TreeSize), ip.Proof, cp.RootHash, lh); err != nil {
+		if err := lv.VerifyInclusionProof(int64(ip.LeafIndex), int64(cp.Size), ip.Proof, cp.Hash, lh); err != nil {
 			// Whoa Nelly, this is bad - bail!
 			glog.Warning("Invalid inclusion proof received!")
 			return cp, consistency, ip, fmt.Errorf("invalid inclusion proof received: %w", err)

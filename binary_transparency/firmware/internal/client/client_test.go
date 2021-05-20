@@ -29,7 +29,32 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"github.com/google/trillian-examples/formats/log"
+	"golang.org/x/mod/sumdb/note"
 )
+
+func mustSignCPNote(t *testing.T, b string) []byte {
+	t.Helper()
+	s, err := note.NewSigner(crypto.TestFTPersonalityPriv)
+	if err != nil {
+		t.Fatalf("failed to create signer: %q", err)
+	}
+	n, err := note.Sign(&note.Note{Text: b}, s)
+	if err != nil {
+		t.Fatalf("failed to sign note: %q", err)
+	}
+	return n
+}
+
+func mustGetCPVerifier(t *testing.T) note.Verifier {
+	t.Helper()
+	v, err := note.NewVerifier(crypto.TestFTPersonalityPub)
+	if err != nil {
+		t.Fatalf("failed to create verifier: %q", err)
+	}
+	return v
+}
 
 func TestPublish(t *testing.T) {
 	for _, test := range []struct {
@@ -136,21 +161,35 @@ func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
 func TestGetCheckpoint(t *testing.T) {
 	for _, test := range []struct {
 		desc    string
-		body    string
+		body    []byte
 		want    api.LogCheckpoint
 		wantErr bool
 	}{
 		{
 			desc: "valid 1",
-			body: `{ "TreeSize": 1, "TimestampNanos": 123, "RootHash": "EjQ="}`,
-			want: api.LogCheckpoint{TreeSize: 1, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}},
+			body: mustSignCPNote(t, "Firmware Transparency Log v0\n1\nEjQ=\n123\n"),
+			want: api.LogCheckpoint{
+				Checkpoint: log.Checkpoint{
+					Ecosystem: "Firmware Transparency Log v0",
+					Size:      1,
+					Hash:      []byte{0x12, 0x34},
+				},
+				TimestampNanos: 123,
+			},
 		}, {
 			desc: "valid 2",
-			body: `{ "TreeSize": 10, "TimestampNanos": 1230, "RootHash": "NBI="}`,
-			want: api.LogCheckpoint{TreeSize: 10, TimestampNanos: 1230, RootHash: []byte{0x34, 0x12}},
+			body: mustSignCPNote(t, "Firmware Transparency Log v0\n10\nNBI=\n1230\n"),
+			want: api.LogCheckpoint{
+				Checkpoint: log.Checkpoint{
+					Ecosystem: "Firmware Transparency Log v0",
+					Size:      10,
+					Hash:      []byte{0x34, 0x12},
+				},
+				TimestampNanos: 1230,
+			},
 		}, {
 			desc:    "garbage",
-			body:    `garbage`,
+			body:    []byte(`garbage`),
 			wantErr: true,
 		},
 	} {
@@ -159,7 +198,7 @@ func TestGetCheckpoint(t *testing.T) {
 				if !strings.HasSuffix(r.URL.Path, api.HTTPGetRoot) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
-				fmt.Fprintln(w, test.body)
+				fmt.Fprint(w, string(test.body))
 			}))
 			defer ts.Close()
 
@@ -167,7 +206,10 @@ func TestGetCheckpoint(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			c := client.ReadonlyClient{LogURL: tsURL}
+			c := client.ReadonlyClient{
+				LogURL:         tsURL,
+				LogSigVerifier: mustGetCPVerifier(t),
+			}
 			cp, err := c.GetCheckpoint()
 			switch {
 			case err != nil && !test.wantErr:
@@ -177,6 +219,8 @@ func TestGetCheckpoint(t *testing.T) {
 			case err != nil && test.wantErr:
 				// expected error
 			default:
+				// Ignore the envelope data:
+				cp.Envelope = nil
 				if d := cmp.Diff(*cp, test.want); len(d) != 0 {
 					t.Fatalf("Got checkpoint with diff: %s", d)
 				}
@@ -187,7 +231,9 @@ func TestGetCheckpoint(t *testing.T) {
 
 func TestGetInclusion(t *testing.T) {
 	cp := api.LogCheckpoint{
-		TreeSize: 30,
+		Checkpoint: log.Checkpoint{
+			Size: 30,
+		},
 	}
 	for _, test := range []struct {
 		desc    string

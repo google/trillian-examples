@@ -25,11 +25,13 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/internal/client"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"golang.org/x/mod/sumdb/note"
 )
 
 func defaultCacheLocation() string {
@@ -42,8 +44,9 @@ func defaultCacheLocation() string {
 }
 
 var (
-	logURL   = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
-	cacheDir = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
+	logURL     = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
+	cacheDir   = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
+	pubKeyFile = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
 )
 
 func usage() {
@@ -55,6 +58,25 @@ func usage() {
 func main() {
 	flag.Parse()
 
+	// Read log public key from file or environment variable
+	var pubKey string
+	if len(*pubKeyFile) > 0 {
+		pubKeyURL, err := url.Parse(*pubKeyFile)
+		if err != nil {
+			glog.Exitf("failed to parse public_key path: %q", err)
+		}
+		k, err := ioutil.ReadFile(pubKeyURL.Path)
+		if err != nil {
+			glog.Exitf("failed to read public_key file: %q", err)
+		}
+		pubKey = string(k)
+	} else {
+		pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+		if len(pubKey) == 0 {
+			glog.Exit("supply public key file path using --public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+		}
+	}
+
 	if len(*logURL) == 0 {
 		glog.Exitf("--log_url must be provided")
 	}
@@ -64,11 +86,12 @@ func main() {
 		glog.Exitf("Invalid log URL: %q", err)
 	}
 
-	// TODO(al) derive this from log pub key
-	const logID = "test"
+	// Derive logID from log public key
+	k := strings.Split(pubKey, "+")
+	logID := k[0]
 
 	f := newFetcher(rootURL)
-	lc, err := newLogClientTool(logID, f)
+	lc, err := newLogClientTool(logID, f, pubKey)
 	if err != nil {
 		glog.Exitf("Failed to create new client: %q", err)
 	}
@@ -105,7 +128,7 @@ type logClientTool struct {
 	Tracker  client.LogStateTracker
 }
 
-func newLogClientTool(logID string, f client.FetcherFunc) (logClientTool, error) {
+func newLogClientTool(logID string, f client.FetcherFunc, pubKey string) (logClientTool, error) {
 	var cpRaw []byte
 	var err error
 	if len(*cacheDir) > 0 {
@@ -119,7 +142,11 @@ func newLogClientTool(logID string, f client.FetcherFunc) (logClientTool, error)
 
 	hasher := hasher.DefaultHasher
 	lv := logverifier.New(hasher)
-	tracker, err := client.NewLogStateTracker(f, hasher, cpRaw)
+	v, err := note.NewVerifier(pubKey)
+	if err != nil {
+		glog.Exitf("Failed to instantiate Verifier: %q", err)
+	}
+	tracker, err := client.NewLogStateTracker(f, hasher, cpRaw, v)
 	if err != nil {
 		glog.Exitf("Failed to create LogStateTracker: %q", err)
 	}

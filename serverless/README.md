@@ -47,11 +47,11 @@ These are supplied by providing the path to the key files using
 
 
 ### Generating keys
-To create a new private key pair, usee the `generate_keys` command. Three flags must
-be passed:  
-`--key_name` a name for the signing entity,  
-`--out_pub` path and filename for the public key,  
-`--out_priv` path and filename for the private key
+To create a new private key pair, use the `generate_keys` command with `--key_name`, a name 
+for the signing entity. You can output the public and private keys to files using   
+`--out_pub` path and filename for the public key,     
+`--out_priv` path and filename for the private key   
+and stdout, private key, then public key, over 2 lines, using `--print`
 
 ```bash
 $ go run ./serverless/cmd/generate_keys --key_name=astra --out_pub=key.pub --out_priv=key
@@ -62,7 +62,7 @@ To create a new log state directory, use the `integrate` command with the `--ini
 flag, and either passing key files or with environment variables set:
 
 ```bash
-$ go run ./serverless/cmd/integrate --initialise --storage_dir=${LOG_DIR} --logtostderr
+$ go run ./serverless/cmd/integrate --initialise --storage_dir=${LOG_DIR} --logtostderr --public_key=key.pub --private_key=key
 ```
 
 ### Sequencing entries into a log
@@ -71,7 +71,7 @@ To add the contents of some files to a log, use the `sequence` command with the
 file or with the environment variable set:
 
 ```bash
-$ go run ./serverless/cmd/sequence --storage_dir=${LOG_DIR} --entries '*.md' --logtostderr
+$ go run ./serverless/cmd/sequence --storage_dir=${LOG_DIR} --entries '*.md' --logtostderr --public_key=key.pub
 I0413 16:54:52.708433 4154632 main.go:97] 0: CONTRIBUTING.md
 I0413 16:54:52.709114 4154632 main.go:97] 1: README.md
 ```
@@ -85,7 +85,7 @@ tool telling you that you're trying to add duplicate entries, along with their
 originally assigned sequence numbers:
 
 ```
-$ go run ./serverless/cmd/sequence --storage_dir=${LOG_DIR} --entries 'C*' --logtostderr
+$ go run ./serverless/cmd/sequence --storage_dir=${LOG_DIR} --entries 'C*' --logtostderr --public_key=key.pub
 I0413 16:58:08.956402 4155499 main.go:97] 0: CONTRIBUTING.md (dupe)
 I0413 16:58:08.956938 4155499 main.go:97] 2: CONTRIBUTORS
 ```
@@ -107,7 +107,7 @@ We use the `integrate` tool for that, again either passing key files or with the
 environment variables set:
 
 ```bash
-$ go run ./serverless/cmd/integrate --storage_dir=${LOG_DIR} --logtostderr
+$ go run ./serverless/cmd/integrate --storage_dir=${LOG_DIR} --logtostderr --public_key=key.pub --private_key=key
 I0413 17:03:19.239293 4156550 integrate.go:74] Loaded state with roothash
 I0413 17:03:19.239468 4156550 integrate.go:113] New log state: size 0x3 hash: 615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
 ```
@@ -119,7 +119,7 @@ Unless further entries are sequenced as above, re-running the `integrate` comman
 will have no effect:
 
 ```bash
-$ go run ./serverless/cmd/integrate --storage_dir=${LOG_DIR} --logtostderr
+$ go run ./serverless/cmd/integrate --storage_dir=${LOG_DIR} --logtostderr --public_key=key.pub --private_key=key
 I0413 17:05:10.040900 4156921 integrate.go:74] Loaded state with roothash 615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
 I0413 17:05:10.040976 4156921 integrate.go:94] Nothing to do.
 ```
@@ -135,7 +135,7 @@ We can verify the inclusion of a given leaf in the tree with the `client inclusi
 command:
 
 ```bash
-$ go run ./serverless/cmd/client/ --logtostderr --log_url=file:///${LOG_DIR}/ inclusion ./CONTRIBUTING.md
+$ go run ./serverless/cmd/client/ --logtostderr --public_key=key.pub --log_url=file:///${LOG_DIR}/ inclusion ./CONTRIBUTING.md
 I0413 17:09:48.335324 4158369 client.go:99] Leaf "./CONTRIBUTING.md" found at index 0
 I0413 17:09:48.335468 4158369 client.go:119] Inclusion verified in tree size 3, with root 0x615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
 ```

@@ -37,7 +37,7 @@ import (
 var (
 	storageDir = flag.String("storage_dir", "", "Root directory to store log data.")
 	entries    = flag.String("entries", "", "File path glob of entries to add to the log.")
-	pubKeyFile = flag.String("public_key", "", "Location of public key file.")
+	pubKeyFile = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
 )
 
 func main() {
@@ -58,8 +58,7 @@ func main() {
 	} else {
 		pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
 		if len(pubKey) == 0 {
-			glog.Exit(`supply public key file path using --public_key 
-				or set SERVERLESS_LOG_PUBLIC_KEY environment variable`)
+			glog.Exit("supply public key file path using --public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
 		}
 	}
 
@@ -85,8 +84,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to instantiate Verifier: %q", err)
 	}
-	verifiers := note.VerifierList(v)
-	vCp, err := note.Open(cpRaw, verifiers)
+	vCp, err := note.Open(cpRaw, note.VerifierList(v))
 	if err != nil {
 		glog.Exitf("Failed to open Checkpoint: %q", err)
 	}

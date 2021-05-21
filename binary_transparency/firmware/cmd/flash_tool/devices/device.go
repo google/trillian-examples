@@ -27,8 +27,8 @@ type ErrNeedsInit = error
 // Drivers for individual devices would be bound to this interface, which
 // allows a generic flash tool to control the secure update process.
 type Device interface {
-	// DeviceCheckpoint returns the log checkpoint used during the last firmware update.
-	DeviceCheckpoint() (api.LogCheckpoint, error)
+	// DeviceCheckpoint returns the log checkpoint note used during the last firmware update.
+	DeviceCheckpoint() ([]byte, error)
 	// ApplyUpdate applies the provided update to the device.
 	ApplyUpdate(api.UpdatePackage) error
 }

@@ -31,11 +31,15 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian/types"
 	"github.com/gorilla/mux"
+	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 func TestRoot(t *testing.T) {
+	testSigner, _ := note.NewSigner(crypto.TestFTPersonalityPriv)
+	testVerifier, _ := note.NewVerifier(crypto.TestFTPersonalityPub)
+
 	for _, test := range []struct {
 		desc     string
 		root     types.LogRootV1
@@ -44,17 +48,17 @@ func TestRoot(t *testing.T) {
 		{
 			desc:     "valid 1",
 			root:     types.LogRootV1{TreeSize: 1, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}},
-			wantBody: `{"TreeSize":1,"RootHash":"EjQ=","TimestampNanos":123}`,
+			wantBody: "Firmware Transparency Log v0\n1\nEjQ=\n123\n",
 		}, {
 			desc:     "valid 2",
 			root:     types.LogRootV1{TreeSize: 10, TimestampNanos: 1230, RootHash: []byte{0x34, 0x12}},
-			wantBody: `{"TreeSize":10,"RootHash":"NBI=","TimestampNanos":1230}`,
+			wantBody: "Firmware Transparency Log v0\n10\nNBI=\n1230\n",
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt, FakeCAS{})
+			server := NewServer(mt, FakeCAS{}, testSigner)
 
 			mt.EXPECT().Root().Return(&test.root)
 
@@ -73,8 +77,12 @@ func TestRoot(t *testing.T) {
 			if err != nil {
 				t.Errorf("failed to read body: %v", err)
 			}
-			if string(body) != test.wantBody {
-				t.Errorf("got '%s' want '%s'", string(body), test.wantBody)
+			got, err := note.Open(body, note.VerifierList(testVerifier))
+			if err != nil {
+				t.Fatalf("Failed to open returned checkpoint: %q", err)
+			}
+			if got := got.Text; got != test.wantBody {
+				t.Errorf("got '%s' want '%s'", got, test.wantBody)
 			}
 		})
 	}
@@ -89,6 +97,7 @@ func b64Decode(t *testing.T, b64 string) []byte {
 	return st
 }
 func TestAddFirmware(t *testing.T) {
+	testSigner, _ := note.NewSigner(crypto.TestFTPersonalityPriv)
 	st := b64Decode(t, "eyJEZXZpY2VJRCI6IlRhbGtpZVRvYXN0ZXIiLCJGaXJtd2FyZVJldmlzaW9uIjoxLCJGaXJtd2FyZUltYWdlU0hBNTEyIjoiMTRxN0JVSnphR1g1UndSU0ZnbkNNTnJBT2k4Mm5RUTZ3aExXa3p1UlFRNEdPWjQzK2NYTWlFTnFNWE56TU1ISTdNc3NMNTgzVFdMM0ZrTXFNdFVQckE9PSIsIkV4cGVjdGVkRmlybXdhcmVNZWFzdXJlbWVudCI6IiIsIkJ1aWxkVGltZXN0YW1wIjoiMjAyMC0xMS0xN1QxMzozMDoxNFoifQ==")
 	sign, err := crypto.Publisher.SignMessage(api.FirmwareMetadataType, st)
 	if err != nil {
@@ -169,7 +178,7 @@ func TestAddFirmware(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt, FakeCAS{})
+			server := NewServer(mt, FakeCAS{}, testSigner)
 
 			if test.wantTrillianCall {
 				mt.EXPECT().AddSignedStatement(gomock.Any(), gomock.Eq([]byte(test.wantManifest))).
@@ -196,6 +205,7 @@ func TestAddFirmware(t *testing.T) {
 }
 
 func TestGetConsistency(t *testing.T) {
+	testSigner, _ := note.NewSigner(crypto.TestFTPersonalityPriv)
 	root := types.LogRootV1{TreeSize: 24, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}}
 	for _, test := range []struct {
 		desc             string
@@ -238,7 +248,7 @@ func TestGetConsistency(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt, FakeCAS{})
+			server := NewServer(mt, FakeCAS{}, testSigner)
 			mt.EXPECT().Root().AnyTimes().
 				Return(&root)
 
@@ -275,6 +285,7 @@ func TestGetConsistency(t *testing.T) {
 }
 
 func TestGetManifestEntries(t *testing.T) {
+	testSigner, _ := note.NewSigner(crypto.TestFTPersonalityPriv)
 	root := types.LogRootV1{TreeSize: 24, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}}
 	for _, test := range []struct {
 		desc                string
@@ -325,7 +336,7 @@ func TestGetManifestEntries(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt, FakeCAS{})
+			server := NewServer(mt, FakeCAS{}, testSigner)
 
 			mt.EXPECT().Root().AnyTimes().
 				Return(&root)
@@ -363,6 +374,7 @@ func TestGetManifestEntries(t *testing.T) {
 }
 
 func TestGetInclusionProofByHash(t *testing.T) {
+	testSigner, _ := note.NewSigner(crypto.TestFTPersonalityPriv)
 	root := types.LogRootV1{TreeSize: 24, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}}
 	for _, test := range []struct {
 		desc          string
@@ -402,7 +414,7 @@ func TestGetInclusionProofByHash(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			mt := NewMockTrillian(ctrl)
-			server := NewServer(mt, FakeCAS{})
+			server := NewServer(mt, FakeCAS{}, testSigner)
 
 			mt.EXPECT().Root().AnyTimes().
 				Return(&root)

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package client_test
 
 import (
 	"fmt"
@@ -24,26 +24,42 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/formats/log"
 )
 
 func TestGetWitnessCheckpoint(t *testing.T) {
 	for _, test := range []struct {
 		desc    string
-		body    string
+		body    []byte
 		want    api.LogCheckpoint
 		wantErr bool
 	}{
 		{
 			desc: "valid 1",
-			body: `{ "TreeSize": 1, "TimestampNanos": 123, "RootHash": "EjQ="}`,
-			want: api.LogCheckpoint{TreeSize: 1, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}},
+			body: mustSignCPNote(t, "Firmware Transparency Log v0\n1\nEjQ=\n123\n"),
+			want: api.LogCheckpoint{
+				Checkpoint: log.Checkpoint{
+					Ecosystem: "Firmware Transparency Log v0",
+					Size:      1,
+					Hash:      []byte{0x12, 0x34},
+				},
+				TimestampNanos: 123,
+			},
 		}, {
 			desc: "valid 2",
-			body: `{ "TreeSize": 10, "TimestampNanos": 1230, "RootHash": "NBI="}`,
-			want: api.LogCheckpoint{TreeSize: 10, TimestampNanos: 1230, RootHash: []byte{0x34, 0x12}},
+			body: mustSignCPNote(t, "Firmware Transparency Log v0\n10\nNBI=\n1230\n"),
+			want: api.LogCheckpoint{
+				Checkpoint: log.Checkpoint{
+					Ecosystem: "Firmware Transparency Log v0",
+					Size:      10,
+					Hash:      []byte{0x34, 0x12},
+				},
+				TimestampNanos: 1230,
+			},
 		}, {
 			desc:    "garbage",
-			body:    `garbage`,
+			body:    []byte("garbage"),
 			wantErr: true,
 		},
 	} {
@@ -52,7 +68,7 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 				if !strings.HasSuffix(r.URL.Path, api.WitnessGetCheckpoint) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
-				fmt.Fprintln(w, test.body)
+				fmt.Fprint(w, string(test.body))
 			}))
 			defer ts.Close()
 
@@ -60,7 +76,10 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to parse test server URL: %v", err)
 			}
-			wc := WitnessClient{URL: tsURL}
+			wc := client.WitnessClient{
+				URL:            tsURL,
+				LogSigVerifier: mustGetLogSigVerifier(t),
+			}
 			cp, err := wc.GetWitnessCheckpoint()
 			switch {
 			case err != nil && !test.wantErr:
@@ -70,6 +89,9 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 			case err != nil && test.wantErr:
 				// expected error
 			default:
+				// TODO(al): fix sigs here
+				cp.Envelope = nil
+
 				if d := cmp.Diff(*cp, test.want); len(d) != 0 {
 					t.Fatalf("Got checkpoint with diff: %s", d)
 				}

@@ -17,7 +17,6 @@ package http
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -28,50 +27,61 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/gorilla/mux"
+	"golang.org/x/mod/sumdb/note"
 )
 
 // WitnessStore is the interface to the  Witness Store, for storage of latest checkpoint
 type WitnessStore interface {
 	// Store puts the checkpoint into Witness Store
-	StoreCP(wcp api.LogCheckpoint) error
+	StoreCP([]byte) error
 
 	// Retrieve gets the stored checkpoint.
-	RetrieveCP() (api.LogCheckpoint, error)
+	RetrieveCP() ([]byte, error)
 }
 
 // Witness is the core state & handler implementation of the FT Witness
 type Witness struct {
-	ws           WitnessStore
-	gcp          api.LogCheckpoint
-	logURL       string
-	pollInterval time.Duration
-	witnessLock  sync.Mutex
+	ws             WitnessStore
+	gcp            api.LogCheckpoint
+	logURL         string
+	logSigVerifier note.Verifier
+	pollInterval   time.Duration
+	witnessLock    sync.Mutex
 }
 
 // NewWitness creates a new Witness.
-func NewWitness(ws WitnessStore, logURL string, pollInterval time.Duration) (*Witness, error) {
-	gcp, err := ws.RetrieveCP()
+func NewWitness(ws WitnessStore, logURL string, logSigVerifier note.Verifier, pollInterval time.Duration) (*Witness, error) {
+	gcpRaw, err := ws.RetrieveCP()
 	if err != nil {
 		return nil, fmt.Errorf("new witness failed due to storage retrieval: %w", err)
 	}
+	gcp := api.LogCheckpoint{
+		Envelope: gcpRaw,
+	}
+	if len(gcpRaw) > 0 {
+		n, err := note.Open(gcpRaw, note.VerifierList(logSigVerifier))
+		if err != nil {
+			return nil, fmt.Errorf("failed to open stored checkpoint: %w", err)
+		}
+		if err := gcp.Unmarshal([]byte(n.Text)); err != nil {
+			return nil, fmt.Errorf("failed to parse stored checkpoint: %w", err)
+		}
+	}
+
 	return &Witness{
-		ws:           ws,
-		gcp:          gcp,
-		logURL:       logURL,
-		pollInterval: pollInterval,
+		ws:             ws,
+		gcp:            gcp,
+		logURL:         logURL,
+		logSigVerifier: logSigVerifier,
+		pollInterval:   pollInterval,
 	}, nil
 }
 
 // getCheckpoint returns a checkpoint which is registered with witness
 func (s *Witness) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	s.witnessLock.Lock()
-	js, err := json.Marshal(s.gcp)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-	s.witnessLock.Unlock()
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(s.gcp.Envelope)
 }
 
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.
@@ -86,7 +96,10 @@ func (s *Witness) Poll(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to parse FT log URL: %w", err)
 	}
-	c := client.ReadonlyClient{LogURL: ftURL}
+	c := client.ReadonlyClient{
+		LogURL:         ftURL,
+		LogSigVerifier: s.logSigVerifier,
+	}
 	follow := client.NewLogFollower(c)
 
 	glog.Infof("Polling FT log %q...", ftURL)
@@ -103,7 +116,7 @@ func (s *Witness) Poll(ctx context.Context) error {
 		}
 
 		s.witnessLock.Lock()
-		if err = s.ws.StoreCP(cp); err != nil {
+		if err = s.ws.StoreCP(cp.Envelope); err != nil {
 			glog.Warningf("Failed to save new logcheckpoint into store: %q", err)
 			s.witnessLock.Unlock()
 			continue

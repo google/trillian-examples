@@ -24,6 +24,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/impl"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 var (
@@ -40,6 +42,11 @@ var (
 func main() {
 	flag.Parse()
 
+	signer, err := note.NewSigner(crypto.TestFTPersonalityPriv)
+	if err != nil {
+		panic(err)
+	}
+
 	ctx := context.Background()
 	if err := impl.Main(ctx, impl.PersonalityOpts{
 		ListenAddr:     *listenAddr,
@@ -47,7 +54,8 @@ func main() {
 		TrillianAddr:   *trillianAddr,
 		CASFile:        *casDBFile,
 		STHRefresh:     *sthRefresh,
+		Signer:         signer,
 	}); err != nil {
-		glog.Exit(err.Error())
+		glog.Exitf("Error running personality: %q", err)
 	}
 }

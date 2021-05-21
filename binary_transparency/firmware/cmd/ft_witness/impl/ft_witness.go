@@ -27,16 +27,18 @@ import (
 	ih "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_witness/internal/http"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_witness/internal/ws"
 	"github.com/gorilla/mux"
+	"golang.org/x/mod/sumdb/note"
 
 	_ "github.com/google/trillian/merkle/rfc6962/hasher" // Load hashers
 )
 
 // WitnessOpts encapsulates options for running an FT witness.
 type WitnessOpts struct {
-	ListenAddr   string
-	WSFile       string
-	FtLogURL     string
-	PollInterval time.Duration
+	ListenAddr       string
+	WSFile           string
+	FtLogURL         string
+	FtLogSigVerifier note.Verifier
+	PollInterval     time.Duration
 }
 
 // Main kickstarts the witness
@@ -51,7 +53,7 @@ func Main(ctx context.Context, opts WitnessOpts) error {
 	}
 
 	glog.Infof("Starting FT witness server...")
-	witness, err := ih.NewWitness(ws, opts.FtLogURL, opts.PollInterval)
+	witness, err := ih.NewWitness(ws, opts.FtLogURL, opts.FtLogSigVerifier, opts.PollInterval)
 	if err != nil {
 		return fmt.Errorf("failed to create new witness: %w", err)
 	}

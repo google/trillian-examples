@@ -31,6 +31,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trees"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trillian"
 	"github.com/gorilla/mux"
+	"golang.org/x/mod/sumdb/note"
 
 	_ "github.com/google/trillian/merkle/rfc6962/hasher" // Load hashers
 	_ "github.com/mattn/go-sqlite3"                      // Load drivers for sqlite3
@@ -43,6 +44,7 @@ type PersonalityOpts struct {
 	TrillianAddr   string
 	ConnectTimeout time.Duration
 	STHRefresh     time.Duration
+	Signer         note.Signer
 }
 
 func Main(ctx context.Context, opts PersonalityOpts) error {
@@ -86,7 +88,7 @@ func Main(ctx context.Context, opts PersonalityOpts) error {
 	}()
 
 	glog.Infof("Starting FT personality server...")
-	srv := ih.NewServer(tclient, cas)
+	srv := ih.NewServer(tclient, cas, opts.Signer)
 	r := mux.NewRouter()
 	srv.RegisterHandlers(r)
 	hServer := &http.Server{

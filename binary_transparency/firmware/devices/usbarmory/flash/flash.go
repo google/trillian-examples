@@ -83,7 +83,7 @@ func New(storage string) (*Device, error) {
 }
 
 // DeviceCheckpoint returns the latest log checkpoint stored on the device.
-func (d Device) DeviceCheckpoint() (api.LogCheckpoint, error) {
+func (d Device) DeviceCheckpoint() ([]byte, error) {
 	return d.bundle.Checkpoint, nil
 }
 

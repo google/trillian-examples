@@ -16,13 +16,10 @@
 package ws
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"os"
 	"sync"
-
-	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
 const (
@@ -60,7 +57,7 @@ func (ws *Storage) init() error {
 }
 
 // StoreCP saves the given checkpoint into DB.
-func (ws *Storage) StoreCP(wcp api.LogCheckpoint) error {
+func (ws *Storage) StoreCP(wcp []byte) error {
 
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()
@@ -72,11 +69,7 @@ func (ws *Storage) StoreCP(wcp api.LogCheckpoint) error {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 
-	data, err := json.MarshalIndent(wcp, "", " ")
-	if err != nil {
-		return fmt.Errorf("JSON marshaling failed: %w", err)
-	}
-	if _, err := f.Write(data); err != nil {
+	if _, err := f.Write(wcp); err != nil {
 		f.Close()
 		return fmt.Errorf("failed to write data to witness db file: %w", err)
 	}
@@ -87,20 +80,9 @@ func (ws *Storage) StoreCP(wcp api.LogCheckpoint) error {
 }
 
 // RetrieveCP gets the checkpoint previously stored.
-func (ws *Storage) RetrieveCP() (api.LogCheckpoint, error) {
-	var wcp api.LogCheckpoint
+func (ws *Storage) RetrieveCP() ([]byte, error) {
 
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()
-	// Check if the file exists, open for read
-	f, err := os.OpenFile(ws.fp, os.O_RDONLY, fileMask)
-	if err != nil {
-		f.Close()
-		return wcp, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer f.Close()
-	if err := json.NewDecoder(f).Decode(&wcp); (err != nil) && (err != io.EOF) {
-		return wcp, fmt.Errorf("Failed to parse witness log checkpoint file: %w", err)
-	}
-	return wcp, nil
+	return ioutil.ReadFile(ws.fp)
 }

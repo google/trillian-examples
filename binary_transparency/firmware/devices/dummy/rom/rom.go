@@ -21,7 +21,10 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/common"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+
+	"golang.org/x/mod/sumdb/note"
 )
 
 const (
@@ -68,7 +71,11 @@ func Reset(storagePath string) (Chain, error) {
 	}
 
 	// validate bundle
-	if err := verify.BundleForBoot(bundleRaw, fwMeasurement[:]); err != nil {
+	v, err := note.NewVerifier(crypto.TestFTPersonalityPub)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create sig verifier: %w", err)
+	}
+	if err := verify.BundleForBoot(bundleRaw, fwMeasurement[:], note.VerifierList(v)); err != nil {
 		return nil, fmt.Errorf("failed to verify bundle: %w", err)
 	}
 

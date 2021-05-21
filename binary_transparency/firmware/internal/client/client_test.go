@@ -47,7 +47,7 @@ func mustSignCPNote(t *testing.T, b string) []byte {
 	return n
 }
 
-func mustGetCPVerifier(t *testing.T) note.Verifier {
+func mustGetLogSigVerifier(t *testing.T) note.Verifier {
 	t.Helper()
 	v, err := note.NewVerifier(crypto.TestFTPersonalityPub)
 	if err != nil {
@@ -208,7 +208,7 @@ func TestGetCheckpoint(t *testing.T) {
 			}
 			c := client.ReadonlyClient{
 				LogURL:         tsURL,
-				LogSigVerifier: mustGetCPVerifier(t),
+				LogSigVerifier: mustGetLogSigVerifier(t),
 			}
 			cp, err := c.GetCheckpoint()
 			switch {

@@ -43,9 +43,9 @@ func verifyIntegrity(proof, firmware *Partition) error {
 		return fmt.Errorf("failed to hash firmware partition: %w\n", err)
 	}
 	fmt.Printf("firmware partition hash: 0x%x\n", h)
-	cpSigVerifier, err := note.NewVerifier(crypto.TestFTPersonalityPub)
+	logSigVerifier, err := note.NewVerifier(crypto.TestFTPersonalityPub)
 
-	if err := verify.BundleForBoot(rawBundle, h, note.VerifierList(cpSigVerifier)); err != nil {
+	if err := verify.BundleForBoot(rawBundle, h, note.VerifierList(logSigVerifier)); err != nil {
 		return fmt.Errorf("failed to verify bundle: %w", err)
 	}
 	return nil

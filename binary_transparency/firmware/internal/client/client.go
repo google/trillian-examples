@@ -130,6 +130,7 @@ func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer r.Body.Close()
 	if r.StatusCode != 200 {
 		return &api.LogCheckpoint{}, errFromResponse("failed to fetch checkpoint", r)
 	}
@@ -138,7 +139,6 @@ func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
-	defer r.Body.Close()
 
 	n, err := note.Open(b, note.VerifierList(c.LogSigVerifier))
 	if err != nil {

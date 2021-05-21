@@ -56,6 +56,6 @@ func main() {
 		STHRefresh:     *sthRefresh,
 		Signer:         signer,
 	}); err != nil {
-		glog.Exit(err.Error())
+		glog.Exitf("Error running personality: %q", err)
 	}
 }

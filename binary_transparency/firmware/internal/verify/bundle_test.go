@@ -38,7 +38,7 @@ const (
 	goldenFirmwareHashB64 = "6tUWyykzwfoonGugnf1dL+cgd6bEWUholANaDL8JYKWtdmPcEeYvgO6nMr/ILgWPcUYggvAArrtaSBman5H4Kg=="
 )
 
-func mustGetCPVerifier(t *testing.T) note.Verifier {
+func mustGetLogSigVerifier(t *testing.T) note.Verifier {
 	t.Helper()
 	v, err := note.NewVerifier(crypto.TestFTPersonalityPub)
 	if err != nil {
@@ -84,7 +84,7 @@ func TestBundleForUpdate(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			imgHash := sha512.Sum512(test.img)
-			_, _, err := verify.BundleForUpdate([]byte(goldenProofBundle), imgHash[:], dc, proof, mustGetCPVerifier(t))
+			_, _, err := verify.BundleForUpdate([]byte(goldenProofBundle), imgHash[:], dc, proof, mustGetLogSigVerifier(t))
 			if (err != nil) != test.wantErr {
 				var lve logverifier.RootMismatchError
 				if errors.As(err, &lve) {
@@ -122,7 +122,7 @@ func TestBundleForBoot(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			err := verify.BundleForBoot([]byte(goldenProofBundle), test.measurement, note.VerifierList(mustGetCPVerifier(t)))
+			err := verify.BundleForBoot([]byte(goldenProofBundle), test.measurement, note.VerifierList(mustGetLogSigVerifier(t)))
 			if (err != nil) != test.wantErr {
 				t.Fatalf("want err %v, got %q", test.wantErr, err)
 			}

@@ -52,7 +52,7 @@ var (
 	trillianAddr = flag.String("trillian", "", "Host:port of Trillian Log RPC server")
 )
 
-func mustGetCPVerifier(t *testing.T) note.Verifier {
+func mustGetLogSigVerifier(t *testing.T) note.Verifier {
 	t.Helper()
 	v, err := note.NewVerifier(crypto.TestFTPersonalityPub)
 	if err != nil {
@@ -79,7 +79,7 @@ func TestFTIntegration(t *testing.T) {
 	pAddr := fmt.Sprintf("http://%s", pListen)
 
 	pErrChan := make(chan error)
-	cpVerifier := mustGetCPVerifier(t)
+	logSigVerifier := mustGetLogSigVerifier(t)
 
 	go func() {
 		if err := runPersonality(ctx, t, pListen); err != nil {
@@ -101,7 +101,7 @@ func TestFTIntegration(t *testing.T) {
 			step: func() error {
 				return i_publish.Main(ctx, i_publish.PublishOpts{
 					LogURL:         pAddr,
-					LogSigVerifier: cpVerifier,
+					LogSigVerifier: logSigVerifier,
 					DeviceID:       "dummy",
 					BinaryPath:     GoodFirmware,
 					Timestamp:      PublishTimestamp1,
@@ -114,7 +114,7 @@ func TestFTIntegration(t *testing.T) {
 			step: func() error {
 				return i_flash.Main(ctx, i_flash.FlashOpts{
 					LogURL:         pAddr,
-					LogSigVerifier: cpVerifier,
+					LogSigVerifier: logSigVerifier,
 					WitnessURL:     "",
 					DeviceID:       "dummy",
 					UpdateFile:     updatePath,
@@ -134,7 +134,7 @@ func TestFTIntegration(t *testing.T) {
 			step: func() error {
 				return i_publish.Main(ctx, i_publish.PublishOpts{
 					LogURL:         pAddr,
-					LogSigVerifier: cpVerifier,
+					LogSigVerifier: logSigVerifier,
 					DeviceID:       "dummy",
 					BinaryPath:     GoodFirmware,
 					Timestamp:      PublishTimestamp2,
@@ -147,7 +147,7 @@ func TestFTIntegration(t *testing.T) {
 			step: func() error {
 				return i_flash.Main(ctx, i_flash.FlashOpts{
 					LogURL:         pAddr,
-					LogSigVerifier: cpVerifier,
+					LogSigVerifier: logSigVerifier,
 					WitnessURL:     "",
 					DeviceID:       "dummy",
 					UpdateFile:     updatePath,
@@ -228,7 +228,7 @@ func TestFTIntegration(t *testing.T) {
 				mCtx, mCancel := context.WithCancel(context.Background())
 				defer mCancel()
 				go func() {
-					if err := runMonitor(mCtx, t, pAddr, "H4x0r3d", cpVerifier, func(idx uint64, fw api.FirmwareMetadata) {
+					if err := runMonitor(mCtx, t, pAddr, "H4x0r3d", logSigVerifier, func(idx uint64, fw api.FirmwareMetadata) {
 						t.Logf("Found malware firmware @%d", idx)
 						matchedChan <- true
 					}); err != nil && err != context.Canceled {
@@ -240,7 +240,7 @@ func TestFTIntegration(t *testing.T) {
 				// Log malware fw:
 				if err := i_publish.Main(ctx, i_publish.PublishOpts{
 					LogURL:         pAddr,
-					LogSigVerifier: cpVerifier,
+					LogSigVerifier: logSigVerifier,
 					DeviceID:       "dummy",
 					BinaryPath:     HackedFirmware,
 					Timestamp:      PublishMalwareTimestamp,
@@ -255,7 +255,7 @@ func TestFTIntegration(t *testing.T) {
 				// and so is now discoverable.
 				if err := i_flash.Main(ctx, i_flash.FlashOpts{
 					LogURL:         pAddr,
-					LogSigVerifier: cpVerifier,
+					LogSigVerifier: logSigVerifier,
 					WitnessURL:     "",
 					DeviceID:       "dummy",
 					UpdateFile:     updatePath,
@@ -292,7 +292,7 @@ func TestFTIntegration(t *testing.T) {
 				wCtx, wCancel := context.WithCancel(context.Background())
 				defer wCancel()
 				go func() {
-					if err := runWitness(wCtx, t, pAddr, wHost, cpVerifier); err != nil {
+					if err := runWitness(wCtx, t, pAddr, wHost, logSigVerifier); err != nil {
 						t.Errorf("Witness error: %q", err)
 					}
 				}()
@@ -301,7 +301,7 @@ func TestFTIntegration(t *testing.T) {
 				<-time.After(2 * time.Second)
 				if err := i_publish.Main(ctx, i_publish.PublishOpts{
 					LogURL:         pAddr,
-					LogSigVerifier: cpVerifier,
+					LogSigVerifier: logSigVerifier,
 					DeviceID:       "dummy",
 					BinaryPath:     GoodFirmware,
 					Timestamp:      PublishTimestamp3,
@@ -316,7 +316,7 @@ func TestFTIntegration(t *testing.T) {
 
 				if err := i_flash.Main(ctx, i_flash.FlashOpts{
 					LogURL:         pAddr,
-					LogSigVerifier: cpVerifier,
+					LogSigVerifier: logSigVerifier,
 					WitnessURL:     wAddr,
 					DeviceID:       "dummy",
 					UpdateFile:     updatePath,
@@ -383,7 +383,7 @@ func runPersonality(ctx context.Context, t *testing.T, serverAddr string) error 
 	return nil
 }
 
-func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string, cpVerifier note.Verifier) error {
+func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string, logSigVerifier note.Verifier) error {
 	t.Helper()
 	r := t.TempDir()
 
@@ -391,7 +391,7 @@ func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string, 
 		ListenAddr:       serverAddr,
 		WSFile:           filepath.Join(r, "ft-witness.db"),
 		FtLogURL:         persAddr,
-		FtLogSigVerifier: cpVerifier,
+		FtLogSigVerifier: logSigVerifier,
 		PollInterval:     5 * time.Second,
 	})
 	if err != http.ErrServerClosed {
@@ -400,14 +400,14 @@ func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string, 
 	return nil
 }
 
-func runMonitor(ctx context.Context, t *testing.T, serverAddr string, pattern string, cpVerifier note.Verifier, matched i_monitor.MatchFunc) error {
+func runMonitor(ctx context.Context, t *testing.T, serverAddr string, pattern string, logSigVerifier note.Verifier, matched i_monitor.MatchFunc) error {
 	t.Helper()
 
 	r := t.TempDir()
 
 	err := i_monitor.Main(ctx, i_monitor.MonitorOpts{
 		LogURL:         serverAddr,
-		LogSigVerifier: cpVerifier,
+		LogSigVerifier: logSigVerifier,
 		PollInterval:   1 * time.Second,
 		Keyword:        "H4x0r3d",
 		Matched:        matched,

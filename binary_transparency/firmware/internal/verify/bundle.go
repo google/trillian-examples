@@ -35,8 +35,8 @@ type ConsistencyProofFunc func(from, to uint64) ([][]byte, error)
 // the one in the bundle. It also checks consistency proof between update log point
 // and device log point (for non zero device tree size). Upon successful verification
 // returns a proof bundle
-func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc ConsistencyProofFunc, cpSigVerifier note.Verifier) (api.ProofBundle, api.FirmwareMetadata, error) {
-	proofBundle, fwMeta, err := verifyBundle(bundleRaw, note.VerifierList(cpSigVerifier))
+func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc ConsistencyProofFunc, logSigVerifier note.Verifier) (api.ProofBundle, api.FirmwareMetadata, error) {
+	proofBundle, fwMeta, err := verifyBundle(bundleRaw, note.VerifierList(logSigVerifier))
 	if err != nil {
 		return proofBundle, fwMeta, err
 	}
@@ -45,7 +45,7 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 		return proofBundle, fwMeta, fmt.Errorf("firmware update image hash does not match metadata (0x%x != 0x%x)", got, want)
 	}
 
-	pcNote, err := note.Open(proofBundle.Checkpoint, note.VerifierList(cpSigVerifier))
+	pcNote, err := note.Open(proofBundle.Checkpoint, note.VerifierList(logSigVerifier))
 	if err != nil {
 		return proofBundle, fwMeta, fmt.Errorf("failed to open the device checkpoint: %w", err)
 	}
@@ -70,7 +70,7 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 }
 
 // BundleConsistency verifies the log checkpoint in the bundle is consistent against a given checkpoint (e.g. one fetched from a witness).
-func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc ConsistencyProofFunc, cpSigVerifier note.Verifier) error {
+func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc ConsistencyProofFunc, logSigVerifier note.Verifier) error {
 	lv := NewLogVerifier()
 
 	glog.V(1).Infof("Remote TreeSize=%d, Inclusion Index=%d \n", rc.Size, pb.InclusionProof.LeafIndex)
@@ -78,7 +78,7 @@ func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc Consiste
 		return fmt.Errorf("remote verification failed wcp treesize(%d)<device cp index(%d)", rc.Size, pb.InclusionProof.LeafIndex)
 	}
 
-	bundleCPNote, err := note.Open(pb.Checkpoint, note.VerifierList(cpSigVerifier))
+	bundleCPNote, err := note.Open(pb.Checkpoint, note.VerifierList(logSigVerifier))
 	if err != nil {
 		return fmt.Errorf("failed to open the proof bundle checkpoint: %w", err)
 	}
@@ -104,8 +104,8 @@ func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc Consiste
 // BundleForBoot checks that the manifest, checkpoint, and proofs in a bundle
 // are all self-consistent, and that the provided firmware measurement matches
 // the one expected by the bundle.
-func BundleForBoot(bundleRaw, measurement []byte, cpSigVerifiers note.Verifiers) error {
-	_, fwMeta, err := verifyBundle(bundleRaw, cpSigVerifiers)
+func BundleForBoot(bundleRaw, measurement []byte, logSigVerifiers note.Verifiers) error {
+	_, fwMeta, err := verifyBundle(bundleRaw, logSigVerifiers)
 	if err != nil {
 		return err
 	}
@@ -117,13 +117,13 @@ func BundleForBoot(bundleRaw, measurement []byte, cpSigVerifiers note.Verifiers)
 }
 
 // verifyBundle parses a proof bundle and verifies its self-consistency.
-func verifyBundle(bundleRaw []byte, cpSigVerifiers note.Verifiers) (api.ProofBundle, api.FirmwareMetadata, error) {
+func verifyBundle(bundleRaw []byte, logSigVerifiers note.Verifiers) (api.ProofBundle, api.FirmwareMetadata, error) {
 	var pb api.ProofBundle
 	if err := json.Unmarshal(bundleRaw, &pb); err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to parse proof bundle: %w", err)
 	}
 
-	bundleCPNote, err := note.Open(pb.Checkpoint, cpSigVerifiers)
+	bundleCPNote, err := note.Open(pb.Checkpoint, logSigVerifiers)
 	if err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to open the proof bundle checkpoint: %w", err)
 	}

@@ -78,7 +78,7 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 			}
 			wc := client.WitnessClient{
 				URL:            tsURL,
-				LogSigVerifier: mustGetCPVerifier(t),
+				LogSigVerifier: mustGetLogSigVerifier(t),
 			}
 			cp, err := wc.GetWitnessCheckpoint()
 			switch {

@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -43,12 +44,12 @@ func main() {
 	h := hasher.DefaultHasher
 	// Read log public key from file or environment variable
 	var pubKey string
+	var err error
 	if len(*pubKeyFile) > 0 {
-		k, err := ioutil.ReadFile(*pubKeyFile)
+		pubKey, err = getKeyFile(*pubKeyFile)
 		if err != nil {
-			glog.Exitf("failed to read public_key file: %q", err)
+			glog.Exitf("unable to get public key: %q", err)
 		}
-		pubKey = string(k)
 	} else {
 		pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
 		if len(pubKey) == 0 {
@@ -58,11 +59,10 @@ func main() {
 	// Read log private key from file or environment variable
 	var privKey string
 	if len(*privKeyFile) > 0 {
-		k, err := ioutil.ReadFile(*privKeyFile)
+		privKey, err = getKeyFile(*privKeyFile)
 		if err != nil {
-			glog.Exitf("failed to read private_key file: %q", err)
+			glog.Exitf("unable to get public key: %q", err)
 		}
-		privKey = string(k)
 	} else {
 		privKey = os.Getenv("SERVERLESS_LOG_PRIVATE_KEY")
 		if len(privKey) == 0 {
@@ -82,8 +82,7 @@ func main() {
 			glog.Exitf("failed to create log: %q", err)
 		}
 		cp := st.Checkpoint()
-		err = signAndWrite(&cp, cpNote, s, st)
-		if err != nil {
+		if err := signAndWrite(&cp, cpNote, s, st); err != nil {
 			glog.Exitf("failed to sign: %q", err)
 		}
 		os.Exit(0)
@@ -128,15 +127,24 @@ func main() {
 	}
 }
 
+func getKeyFile(path string) (key string, err error) {
+	k, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read key file: %q", err)
+	}
+	key = string(k)
+	return key, nil
+}
+
 func signAndWrite(cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs.Storage) error {
 	cp.Ecosystem = api.CheckpointHeaderV0
 	cpNote.Text = string(cp.Marshal())
 	cpNoteSigned, err := note.Sign(&cpNote, s)
 	if err != nil {
-		glog.Errorf("failed to sign Checkpoint: %q", err)
+		return fmt.Errorf("failed to sign Checkpoint: %q", err)
 	}
 	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
-		glog.Errorf("failed to store new log checkpoint: %q", err)
+		return fmt.Errorf("failed to store new log checkpoint: %q", err)
 	}
-	return err
+	return nil
 }

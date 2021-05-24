@@ -60,11 +60,7 @@ func main() {
 	// Read log public key from file or environment variable
 	var pubKey string
 	if len(*pubKeyFile) > 0 {
-		pubKeyURL, err := url.Parse(*pubKeyFile)
-		if err != nil {
-			glog.Exitf("failed to parse public_key path: %q", err)
-		}
-		k, err := ioutil.ReadFile(pubKeyURL.Path)
+		k, err := ioutil.ReadFile(*pubKeyFile)
 		if err != nil {
 			glog.Exitf("failed to read public_key file: %q", err)
 		}
@@ -86,9 +82,11 @@ func main() {
 	}
 
 	// Derive logID from log public key
-	v, _ := note.NewVerifier(pubKey)
-	key_hash := v.KeyHash()
-	logID := fmt.Sprint(key_hash)
+	v, err := note.NewVerifier(pubKey)
+	if err != nil {
+		glog.Exitf("Failed to instantiate Verifier : %q", err)
+	}
+	logID := fmt.Sprint(v.KeyHash())
 
 	f := newFetcher(rootURL)
 	lc, err := newLogClientTool(logID, f, pubKey)

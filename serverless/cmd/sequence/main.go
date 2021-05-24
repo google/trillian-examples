@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -46,11 +45,7 @@ func main() {
 	// Read log public key from file or environment variable
 	var pubKey string
 	if len(*pubKeyFile) > 0 {
-		pubKeyURL, err := url.Parse(*pubKeyFile)
-		if err != nil {
-			glog.Exitf("failed to parse public_key path: %q", err)
-		}
-		k, err := ioutil.ReadFile(pubKeyURL.Path)
+		k, err := ioutil.ReadFile(*pubKeyFile)
 		if err != nil {
 			glog.Exitf("failed to read public_key file: %q", err)
 		}
@@ -72,7 +67,6 @@ func main() {
 
 	h := hasher.DefaultHasher
 	// init storage
-	var st *fs.Storage
 
 	cpRaw, err := fs.ReadCheckpoint(*storageDir)
 	if err != nil {
@@ -93,7 +87,7 @@ func main() {
 	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
 		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
 	}
-	st, err = fs.Load(*storageDir, &cp)
+	st, err := fs.Load(*storageDir, &cp)
 	if err != nil {
 		glog.Exitf("Failed to load storage: %q", err)
 	}

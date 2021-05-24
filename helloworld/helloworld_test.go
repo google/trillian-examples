@@ -24,6 +24,15 @@ import (
 
 	"github.com/google/trillian-examples/formats/log"
 	p "github.com/google/trillian-examples/helloworld/personality"
+	"golang.org/x/mod/sumdb/note"
+)
+
+const (
+	// testPrivateKey is the personalities key for signing its checkpoints.
+	testPrivateKey = "PRIVATE+KEY+helloworld+b51acf1b+ASW28PXJDCV8klh7JeacIgfJR3/Q60dklasmgnv4c9I7"
+	// testPublicKey is used for verifying the signatures on the checkpoints from
+	// the personality.
+	testPublicKey = "helloworld+b51acf1b+AZ2ZM0ZQ69GwDUyO7/x0JyLo09y3geyufyN1mFFMeUH3"
 )
 
 var (
@@ -31,6 +40,38 @@ var (
 	trillianAddr = flag.String("trillian", "localhost:50054", "Host:port of Trillian Log RPC server")
 	treeID       = flag.Int64("tree_id", 0, "Tree ID")
 )
+
+func mustGetSigner(t *testing.T) note.Signer {
+	t.Helper()
+	s, err := note.NewSigner(testPrivateKey)
+	if err != nil {
+		t.Fatalf("Failed to create signer: %q", err)
+	}
+	return s
+}
+
+func mustGetVerifier(t *testing.T) note.Verifier {
+	t.Helper()
+	v, err := note.NewVerifier(testPublicKey)
+	if err != nil {
+		t.Fatalf("Failed to create verifier: %q", err)
+	}
+	return v
+}
+
+func mustOpenCheckpoint(t *testing.T, cRaw []byte) *log.Checkpoint {
+	t.Helper()
+	r, err := note.Open(cRaw, note.VerifierList(mustGetVerifier(t)))
+	if err != nil {
+		t.Fatalf("Failed to open checkpoint: %q", err)
+	}
+	cp := &log.Checkpoint{}
+	_, err = cp.Unmarshal([]byte(r.Text))
+	if err != nil {
+		t.Fatalf("Failed to unmarshal checkpoint: %q", err)
+	}
+	return cp
+}
 
 // TestAppend appends a random entry to the log and ensures that the
 // checkpoint updates properly (locally on the personality's side).
@@ -42,22 +83,24 @@ func TestAppend(t *testing.T) {
 	name := "testAppend"
 	t.Run(name, func(t *testing.T) {
 		ctx := context.Background()
-		personality, err := p.NewPersonality(*trillianAddr, *treeID)
+		personality, err := p.NewPersonality(*trillianAddr, *treeID, mustGetSigner(t))
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
-		chkptOld, err := personality.GetChkpt(ctx)
+		chkptOldRaw, err := personality.GetChkpt(ctx)
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
+		chkptOld := mustOpenCheckpoint(t, chkptOldRaw)
 		// Add a random entry so we can be sure it's new.
 		entry := make([]byte, 10)
 		rand.Seed(time.Now().UnixNano())
 		rand.Read(entry)
-		chkptNew, err := personality.Append(ctx, entry)
+		chkptNewRaw, err := personality.Append(ctx, entry)
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
+		chkptNew := mustOpenCheckpoint(t, chkptNewRaw)
 		if chkptNew.Size <= chkptOld.Size {
 			t.Errorf("the log didn't grow properly in %v", name)
 		}
@@ -75,29 +118,30 @@ func TestUpdate(t *testing.T) {
 	name := "testUpdate"
 	t.Run(name, func(t *testing.T) {
 		ctx := context.Background()
-		personality, err := p.NewPersonality(*trillianAddr, *treeID)
+		personality, err := p.NewPersonality(*trillianAddr, *treeID, mustGetSigner(t))
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
-		client := NewClient(personality)
-		chkpt, err := personality.GetChkpt(ctx)
+		client := NewClient(personality, mustGetVerifier(t))
+		chkptRaw, err := personality.GetChkpt(ctx)
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
-		client.chkpt = chkpt
+		client.chkpt = mustOpenCheckpoint(t, chkptRaw)
 		entry := make([]byte, 10)
 		rand.Seed(time.Now().UnixNano())
 		rand.Read(entry)
 		personality.Append(ctx, entry)
-		chkptNew, pf, err := personality.UpdateChkpt(ctx, chkpt)
+		chkptNewRaw, pf, err := personality.UpdateChkpt(ctx, client.chkpt.Size)
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
-		got := client.UpdateChkpt(chkptNew, pf)
-		if !got {
-			t.Errorf("verifier failed to update checkpoint")
+		got := client.UpdateChkpt(chkptNewRaw, pf)
+		if got != nil {
+			t.Errorf("verifier failed to update checkpoint: %q", err)
 		}
-		fmt.Printf("success in %v, new log size is %v\n", name, chkpt.Size)
+		chkptNew := mustOpenCheckpoint(t, chkptNewRaw)
+		fmt.Printf("success in %v, new log size is %v\n", name, chkptNew.Size)
 	})
 }
 
@@ -138,26 +182,26 @@ func TestIncl(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			ctx := context.Background()
-			personality, err := p.NewPersonality(*trillianAddr, *treeID)
+			personality, err := p.NewPersonality(*trillianAddr, *treeID, mustGetSigner(t))
 			if err != nil {
 				t.Fatalf(err.Error())
 			}
-			var chkpt *log.Checkpoint
+			var chkptRaw []byte
 			// Append all the entries we plan to add, folding in
 			// the seed to avoid duplication of entries across tests.
 			for _, entry := range test.addEntries {
 				entry = entry + *seed
 				bs := []byte(entry)
-				chkpt, err = personality.Append(ctx, bs)
-				// If the checkpoint didn't update that's a problem.
+				chkptRaw, err = personality.Append(ctx, bs)
 				if err != nil {
+					// If the checkpoint didn't update that's a problem.
 					t.Fatalf(err.Error())
 				}
 			}
-			client := NewClient(personality)
+			client := NewClient(personality, mustGetVerifier(t))
 			// For the purposes of the test let's skip having the
 			// verifier update the right way and just assign their checkpoint.
-			client.chkpt = chkpt
+			client.chkpt = mustOpenCheckpoint(t, chkptRaw)
 			// Then prove and check inclusion of the other entries.
 			for i := range test.checkEntries {
 				entry := test.checkEntries[i] + *seed
@@ -165,7 +209,7 @@ func TestIncl(t *testing.T) {
 				// Ignore error here since it's okay if we
 				// don't have a valid inclusion proof (testing
 				// on entries that aren't there).
-				pf, err := personality.ProveIncl(ctx, chkpt, bs)
+				pf, err := personality.ProveIncl(ctx, client.chkpt.Size, bs)
 				got := false
 				if err == nil {
 					got = client.VerIncl(bs, pf)

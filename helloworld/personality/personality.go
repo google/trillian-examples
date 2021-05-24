@@ -25,6 +25,7 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 	tt "github.com/google/trillian/types"
+	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc"
 )
 
@@ -35,10 +36,11 @@ var (
 type TrillianP struct {
 	l      trillian.TrillianLogClient
 	treeID int64
+	signer note.Signer
 }
 
 // NewPersonality creates a new Trillian personality from the flags.
-func NewPersonality(logAddr string, treeID int64) (*TrillianP, error) {
+func NewPersonality(logAddr string, treeID int64, s note.Signer) (*TrillianP, error) {
 	if treeID <= 0 {
 		return nil, fmt.Errorf("tree_id must be provided and positive, got %d", treeID)
 	}
@@ -55,6 +57,7 @@ func NewPersonality(logAddr string, treeID int64) (*TrillianP, error) {
 	return &TrillianP{
 		l:      log,
 		treeID: treeID,
+		signer: s,
 	}, nil
 }
 
@@ -67,8 +70,8 @@ func (p *TrillianP) formLeaf(entry []byte) *trillian.LogLeaf {
 	}
 }
 
-// GetChkpt gets the latest checkpoint.
-func (p *TrillianP) GetChkpt(ctx context.Context) (*log.Checkpoint, error) {
+// getCheckpoint fetches the latest Trillian root and creates a checkpoint from it.
+func (p *TrillianP) getCheckpoint(ctx context.Context) (*log.Checkpoint, error) {
 	req := trillian.GetLatestSignedLogRootRequest{LogId: p.treeID}
 	resp, err := p.l.GetLatestSignedLogRoot(ctx, &req)
 	if err != nil {
@@ -88,10 +91,26 @@ func (p *TrillianP) GetChkpt(ctx context.Context) (*log.Checkpoint, error) {
 	}, nil
 }
 
+// GetChkpt gets the latest checkpoint.
+func (p *TrillianP) GetChkpt(ctx context.Context) ([]byte, error) {
+	cp, err := p.getCheckpoint(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Trillian checkpoint: %w", err)
+	}
+	s, err := note.Sign(&note.Note{Text: string(cp.Marshal())}, p.signer)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 // Append adds an entry to the Trillian log and waits to return the new checkpoint.
-func (p *TrillianP) Append(ctx context.Context, entry []byte) (*log.Checkpoint, error) {
+func (p *TrillianP) Append(ctx context.Context, entry []byte) ([]byte, error) {
 	// First get the latest checkpoint.
-	chkpt, _ := p.GetChkpt(ctx)
+	chkpt, err := p.getCheckpoint(ctx)
+	if err != nil {
+		return nil, err
+	}
 	leaf := p.formLeaf(entry)
 	req := trillian.QueueLeafRequest{LogId: p.treeID, Leaf: leaf}
 	if _, err := p.l.QueueLeaf(ctx, &req); err != nil {
@@ -100,26 +119,32 @@ func (p *TrillianP) Append(ctx context.Context, entry []byte) (*log.Checkpoint, 
 	// Now fetch the new checkpoint, keep going until it's there and
 	// return an error at some point if it isn't.
 	for start := time.Now(); time.Since(start) < 5*time.Second; {
-		chkptNew, err := p.GetChkpt(ctx)
+		chkptNew, err := p.getCheckpoint(ctx)
 		if err != nil {
 			return nil, err
 		}
+		// TODO(meiklejohn): should probably verify that the specific entry was
+		// incorporated into the tree too.
 		if chkpt.Size < chkptNew.Size {
-			return chkptNew, nil
+			s, err := note.Sign(&note.Note{Text: string(chkptNew.Marshal())}, p.signer)
+			if err != nil {
+				return nil, err
+			}
+			return s, nil
 		}
 	}
 	return nil, fmt.Errorf("did not get an updated checkpoint")
 }
 
 // ProveIncl returns an inclusion proof for a given checkpoint and entry.
-func (p *TrillianP) ProveIncl(ctx context.Context, chkpt *log.Checkpoint, entry []byte) (*trillian.Proof, error) {
+func (p *TrillianP) ProveIncl(ctx context.Context, chkptSize uint64, entry []byte) (*trillian.Proof, error) {
 	// Form the leaf from the entry.
 	leaf := p.formLeaf(entry)
 	// Form the request according to the Trillian API.
 	req := trillian.GetInclusionProofByHashRequest{
 		LogId:    p.treeID,
 		LeafHash: leaf.MerkleLeafHash,
-		TreeSize: int64(chkpt.Size),
+		TreeSize: int64(chkptSize),
 	}
 	// Process the response.
 	resp, err := p.l.GetInclusionProofByHash(ctx, &req)
@@ -131,18 +156,18 @@ func (p *TrillianP) ProveIncl(ctx context.Context, chkpt *log.Checkpoint, entry 
 
 // UpdateChkpt gets the latest checkpoint for the Trillian log and proves its
 // consistency with a provided one.
-func (p *TrillianP) UpdateChkpt(ctx context.Context, chkpt *log.Checkpoint) (*log.Checkpoint, *trillian.Proof, error) {
-	// First get the latest checkpoint.
-	chkptNew, err := p.GetChkpt(ctx)
+func (p *TrillianP) UpdateChkpt(ctx context.Context, chkptSize uint64) ([]byte, *trillian.Proof, error) {
+	// First get the latest checkpoint
+	chkptNew, err := p.getCheckpoint(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	// Now get a consistency proof if one is needed.
 	var pf *trillian.Proof
-	if chkptNew.Size > chkpt.Size {
+	if chkptNew.Size > chkptSize {
 		req := trillian.GetConsistencyProofRequest{
 			LogId:          p.treeID,
-			FirstTreeSize:  int64(chkpt.Size),
+			FirstTreeSize:  int64(chkptSize),
 			SecondTreeSize: int64(chkptNew.Size),
 		}
 		resp, err := p.l.GetConsistencyProof(ctx, &req)
@@ -151,5 +176,9 @@ func (p *TrillianP) UpdateChkpt(ctx context.Context, chkpt *log.Checkpoint) (*lo
 		}
 		pf = resp.GetProof()
 	}
-	return chkptNew, pf, nil
+	s, err := note.Sign(&note.Note{Text: string(chkptNew.Marshal())}, p.signer)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s, pf, nil
 }

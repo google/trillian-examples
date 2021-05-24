@@ -25,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/internal/client"
@@ -87,8 +86,9 @@ func main() {
 	}
 
 	// Derive logID from log public key
-	k := strings.Split(pubKey, "+")
-	logID := k[0]
+	v, _ := note.NewVerifier(pubKey)
+	key_hash := v.KeyHash()
+	logID := fmt.Sprint(key_hash)
 
 	f := newFetcher(rootURL)
 	lc, err := newLogClientTool(logID, f, pubKey)

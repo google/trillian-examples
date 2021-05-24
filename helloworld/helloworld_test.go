@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/trillian-examples/formats/log"
 	p "github.com/google/trillian-examples/helloworld/personality"
 )
 
@@ -57,10 +58,10 @@ func TestAppend(t *testing.T) {
 		if err != nil {
 			t.Fatalf(err.Error())
 		}
-		if chkptNew.LogSize <= chkptOld.LogSize {
+		if chkptNew.Size <= chkptOld.Size {
 			t.Errorf("the log didn't grow properly in %v", name)
 		}
-		fmt.Printf("success in %v, new log size is %v\n", name, chkptNew.LogSize)
+		fmt.Printf("success in %v, new log size is %v\n", name, chkptNew.Size)
 	})
 }
 
@@ -96,7 +97,7 @@ func TestUpdate(t *testing.T) {
 		if !got {
 			t.Errorf("verifier failed to update checkpoint")
 		}
-		fmt.Printf("success in %v, new log size is %v\n", name, chkpt.LogSize)
+		fmt.Printf("success in %v, new log size is %v\n", name, chkpt.Size)
 	})
 }
 
@@ -141,7 +142,7 @@ func TestIncl(t *testing.T) {
 			if err != nil {
 				t.Fatalf(err.Error())
 			}
-			var chkpt *p.Chkpt
+			var chkpt *log.Checkpoint
 			// Append all the entries we plan to add, folding in
 			// the seed to avoid duplication of entries across tests.
 			for _, entry := range test.addEntries {

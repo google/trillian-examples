@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	trillian "github.com/google/trillian"
-	"github.com/google/trillian-examples/helloworld/personality"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 
@@ -33,7 +32,7 @@ type Personality interface {
 	// Append stores an entry in the log and, once it is there, returns a
 	// new checkpoint that commits to the new entry (in addition to all
 	// previous ones).
-	Append(ctx context.Context, entry []byte) (personality.SignedCheckpoint, error)
+	Append(ctx context.Context, entry []byte) (log.SignedCheckpoint, error)
 
 	// ProveIncl proves the inclusion of a given entry in a given checkpoint size.
 	// It is the job of the client to verify this inclusion proof in order to convince
@@ -43,7 +42,7 @@ type Personality interface {
 	// UpdateChkpt provides a new checkpoint along with a consistency proof to it
 	// from the specified older checkpoint size.
 	// Again, it is the job of the client to verify this consistency proof.
-	UpdateChkpt(ctx context.Context, oldCPSize uint64) (personality.SignedCheckpoint, *trillian.Proof, error)
+	UpdateChkpt(ctx context.Context, oldCPSize uint64) (log.SignedCheckpoint, *trillian.Proof, error)
 }
 
 // A client is a verifier that maintains a checkpoint as state.
@@ -79,7 +78,7 @@ func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 // UpdateChkpt allows a client to update its stored checkpoint.  In a real use
 // case it would be important for the client to check the signature contained
 // in the checkpoint before verifying consistency.
-func (c Client) UpdateChkpt(chkptNewRaw personality.SignedCheckpoint, pf *trillian.Proof) error {
+func (c Client) UpdateChkpt(chkptNewRaw log.SignedCheckpoint, pf *trillian.Proof) error {
 	n, err := note.Open(chkptNewRaw, note.VerifierList(c.sigVerifier))
 	if err != nil {
 		return fmt.Errorf("failed to verify checkpoint: %w", err)

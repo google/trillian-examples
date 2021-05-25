@@ -24,6 +24,10 @@ import (
 	"strconv"
 )
 
+// SignedCheckpoint is a type for documenting that a string of bytes is actually
+// the serialised format of a signed note containing a checkpoint.
+type SignedCheckpoint []byte
+
 // Checkpoint represents a minimal log checkpoint (STH).
 type Checkpoint struct {
 	// Ecosystem is the ecosystem/version string

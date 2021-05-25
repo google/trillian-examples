@@ -157,7 +157,8 @@ func TestUnmarshalLogState(t *testing.T) {
 ////////////////////////////////////////////////////////////////////////////////
 // Below is an example of signing a checkpoint.
 
-func TestSignVerifyRoundTrip(t *testing.T) {
+func mustGetSignerVerifier(t *testing.T) (note.Signer, note.Verifier) {
+	t.Helper()
 	s, err := note.NewSigner("PRIVATE+KEY+example+26d4bc47+ATQrldK+nGt3dWFG2QYMLDot9YiPl+9kyx7jTWmcK7IY")
 	if err != nil {
 		t.Fatalf("Failed to create signer: %q", err)
@@ -166,26 +167,43 @@ func TestSignVerifyRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create verifier: %q", err)
 	}
+	return s, v
+}
+
+func mustSignCP(t *testing.T, cp *log.Checkpoint, s note.Signer) log.SignedCheckpoint {
+	signed, err := note.Sign(&note.Note{Text: string(cp.Marshal())}, s)
+	if err != nil {
+		t.Fatalf("Failed to sign checkpoint: %v", err)
+	}
+	return signed
+}
+
+func mustOpenCP(t *testing.T, signed log.SignedCheckpoint, v note.Verifier) *log.Checkpoint {
+	n, err := note.Open(signed, note.VerifierList(v))
+	if err != nil {
+		t.Fatalf("Failed to open note: %v", err)
+	}
+	cp := &log.Checkpoint{}
+	_, err = cp.Unmarshal([]byte(n.Text))
+	if err != nil {
+		t.Fatalf("Failed to unmarshal checkpoint: %v", err)
+	}
+	return cp
+}
+
+func TestSignVerifyRoundTrip(t *testing.T) {
+	s, v := mustGetSignerVerifier(t)
 
 	cp := &log.Checkpoint{
 		Ecosystem: "Signing Test Log",
 		Size:      1,
 		Hash:      []byte("It's a hash!"),
 	}
-	signed, err := note.Sign(&note.Note{Text: string(cp.Marshal())}, s)
-	if err != nil {
-		t.Fatalf("Failed to sign checkpoint: %v", err)
-	}
 
-	n, err := note.Open(signed, note.VerifierList(v))
-	if err != nil {
-		t.Fatalf("Failed to open note: %v", err)
-	}
-	cp2 := &log.Checkpoint{}
-	_, err = cp2.Unmarshal([]byte(n.Text))
-	if err != nil {
-		t.Fatalf("Failed to unmarshal checkpoint: %v", err)
-	}
+	signedCP := mustSignCP(t, cp, s)
+
+	cp2 := mustOpenCP(t, signedCP, v)
+
 	if diff := cmp.Diff(cp2, cp); len(diff) != 0 {
 		t.Fatalf("Got checkpoint with diff: %s", diff)
 	}

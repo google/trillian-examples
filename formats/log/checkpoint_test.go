@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/formats/log"
+	"golang.org/x/mod/sumdb/note"
 )
 
 func TestMarshal(t *testing.T) {
@@ -151,6 +152,44 @@ func TestUnmarshalLogState(t *testing.T) {
 			}
 		})
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Below is an example of signing a checkpoint.
+
+func TestSignVerifyRoundTrip(t *testing.T) {
+	s, err := note.NewSigner("PRIVATE+KEY+example+26d4bc47+ATQrldK+nGt3dWFG2QYMLDot9YiPl+9kyx7jTWmcK7IY")
+	if err != nil {
+		t.Fatalf("Failed to create signer: %q", err)
+	}
+	v, err := note.NewVerifier("example+26d4bc47+AeyFJCPC9V5SOZGcHNIEfKyTKnifr+bb2+cE9sChH6ey")
+	if err != nil {
+		t.Fatalf("Failed to create verifier: %q", err)
+	}
+
+	cp := &log.Checkpoint{
+		Ecosystem: "Signing Test Log",
+		Size:      1,
+		Hash:      []byte("It's a hash!"),
+	}
+	signed, err := note.Sign(&note.Note{Text: string(cp.Marshal())}, s)
+	if err != nil {
+		t.Fatalf("Failed to sign checkpoint: %v", err)
+	}
+
+	n, err := note.Open(signed, note.VerifierList(v))
+	if err != nil {
+		t.Fatalf("Failed to open note: %v", err)
+	}
+	cp2 := &log.Checkpoint{}
+	_, err = cp2.Unmarshal([]byte(n.Text))
+	if err != nil {
+		t.Fatalf("Failed to unmarshal checkpoint: %v", err)
+	}
+	if diff := cmp.Diff(cp2, cp); len(diff) != 0 {
+		t.Fatalf("Got checkpoint with diff: %s", diff)
+	}
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

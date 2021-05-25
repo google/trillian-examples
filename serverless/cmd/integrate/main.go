@@ -48,12 +48,12 @@ func main() {
 	if len(*pubKeyFile) > 0 {
 		pubKey, err = getKeyFile(*pubKeyFile)
 		if err != nil {
-			glog.Exitf("unable to get public key: %q", err)
+			glog.Exitf("Unable to get public key: %q", err)
 		}
 	} else {
 		pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
 		if len(pubKey) == 0 {
-			glog.Exit("supply public key file path using --public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+			glog.Exit("Supply public key file path using --public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
 		}
 	}
 	// Read log private key from file or environment variable
@@ -61,29 +61,29 @@ func main() {
 	if len(*privKeyFile) > 0 {
 		privKey, err = getKeyFile(*privKeyFile)
 		if err != nil {
-			glog.Exitf("unable to get public key: %q", err)
+			glog.Exitf("Unable to get private key: %q", err)
 		}
 	} else {
 		privKey = os.Getenv("SERVERLESS_LOG_PRIVATE_KEY")
 		if len(privKey) == 0 {
-			glog.Exit("supply private key file path using --private_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+			glog.Exit("Supply private key file path using --private_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
 		}
 	}
 
 	var cpNote note.Note
 	s, err := note.NewSigner(privKey)
 	if err != nil {
-		glog.Exitf("failed to instantiate signer: %q", err)
+		glog.Exitf("Failed to instantiate signer: %q", err)
 	}
 
 	if *initialise {
 		st, err := fs.Create(*storageDir, h.EmptyRoot())
 		if err != nil {
-			glog.Exitf("failed to create log: %q", err)
+			glog.Exitf("Failed to create log: %q", err)
 		}
 		cp := st.Checkpoint()
 		if err := signAndWrite(&cp, cpNote, s, st); err != nil {
-			glog.Exitf("failed to sign: %q", err)
+			glog.Exitf("Failed to sign: %q", err)
 		}
 		os.Exit(0)
 	}
@@ -91,7 +91,7 @@ func main() {
 	// init storage
 	cpRaw, err := fs.ReadCheckpoint(*storageDir)
 	if err != nil {
-		glog.Exitf("failed to read log checkpoint: %q", err)
+		glog.Exitf("Failed to read log checkpoint: %q", err)
 	}
 
 	// Check signatures
@@ -101,39 +101,38 @@ func main() {
 	}
 	vCp, err := note.Open(cpRaw, note.VerifierList(v))
 	if err != nil {
-		glog.Exitf("failed to open Checkpoint: %q", err)
+		glog.Exitf("Failed to open Checkpoint: %q", err)
 	}
 	var cp fmtlog.Checkpoint
 	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
-		glog.Exitf("failed to unmarshal checkpoint: %q", err)
+		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
 	}
 	st, err := fs.Load(*storageDir, &cp)
 	if err != nil {
-		glog.Exitf("failed to load storage: %q", err)
+		glog.Exitf("Failed to load storage: %q", err)
 	}
 
 	// Integrate new entries
 	newCp, err := log.Integrate(st, h)
 	if err != nil {
-		glog.Exitf("failed to integrate: %q", err)
+		glog.Exitf("Failed to integrate: %q", err)
 	}
 	if newCp == nil {
-		glog.Exit("nothing to integrate")
+		glog.Exit("Nothing to integrate")
 	}
 
 	err = signAndWrite(newCp, cpNote, s, st)
 	if err != nil {
-		glog.Exitf("failed to sign: %q", err)
+		glog.Exitf("Failed to sign: %q", err)
 	}
 }
 
-func getKeyFile(path string) (key string, err error) {
+func getKeyFile(path string) (string, error) {
 	k, err := ioutil.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to read key file: %q", err)
+		return "", fmt.Errorf("failed to read key file: %w", err)
 	}
-	key = string(k)
-	return key, nil
+	return string(k), nil
 }
 
 func signAndWrite(cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs.Storage) error {
@@ -144,7 +143,7 @@ func signAndWrite(cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs
 		return fmt.Errorf("failed to sign Checkpoint: %q", err)
 	}
 	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
-		return fmt.Errorf("failed to store new log checkpoint: %q", err)
+		return fmt.Errorf("failed to store new log checkpoint: %w", err)
 	}
 	return nil
 }

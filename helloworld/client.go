@@ -32,17 +32,17 @@ type Personality interface {
 	// Append stores an entry in the log and, once it is there, returns a
 	// new checkpoint that commits to the new entry (in addition to all
 	// previous ones).
-	Append(context.Context, []byte) ([]byte, error)
+	Append(ctx context.Context, entry []byte) (personality.SignedCheckpoint, error)
 
 	// ProveIncl proves the inclusion of a given entry in a given checkpoint size.
 	// It is the job of the client to verify this inclusion proof in order to convince
 	// itself that the entry really has been included in the log.
-	ProveIncl(context.Context, uint64, []byte) (*trillian.Proof, error)
+	ProveIncl(ctx context.Context, cpSize uint64, entry []byte) (*trillian.Proof, error)
 
-	// UpdateChkpt provides a new checkpoint and proves it is consistent
-	// with an old one.  Again, it is the job of the client to verify this
-	// consistency proof.
-	UpdateChkpt(context.Context, uint64) ([]byte, *trillian.Proof, error)
+	// UpdateChkpt provides a new checkpoint along with a consistency proof to it
+	// from the specified older checkpoint size.
+	// Again, it is the job of the client to verify this consistency proof.
+	UpdateChkpt(ctx context.Context, oldCPSize uint64) (personality.SignedCheckpoint, *trillian.Proof, error)
 }
 
 // A client is a verifier that maintains a checkpoint as state.

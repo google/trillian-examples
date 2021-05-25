@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	trillian "github.com/google/trillian"
+	"github.com/google/trillian-examples/helloworld/personality"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 
@@ -78,7 +79,7 @@ func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 // UpdateChkpt allows a client to update its stored checkpoint.  In a real use
 // case it would be important for the client to check the signature contained
 // in the checkpoint before verifying consistency.
-func (c Client) UpdateChkpt(chkptNewRaw []byte, pf *trillian.Proof) error {
+func (c Client) UpdateChkpt(chkptNewRaw personality.SignedCheckpoint, pf *trillian.Proof) error {
 	n, err := note.Open(chkptNewRaw, note.VerifierList(c.sigVerifier))
 	if err != nil {
 		return fmt.Errorf("failed to verify checkpoint: %w", err)

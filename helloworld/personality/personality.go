@@ -33,6 +33,9 @@ var (
 	connectTimeout = flag.Duration("connect_timeout", 5*time.Second, "the timeout for connecting to the backend")
 )
 
+// SignedCheckpoint is a serialised form of a checkpoint+signatures.
+type SignedCheckpoint []byte
+
 type TrillianP struct {
 	l      trillian.TrillianLogClient
 	treeID int64
@@ -92,7 +95,7 @@ func (p *TrillianP) getCheckpoint(ctx context.Context) (*log.Checkpoint, error) 
 }
 
 // GetChkpt gets the latest checkpoint.
-func (p *TrillianP) GetChkpt(ctx context.Context) ([]byte, error) {
+func (p *TrillianP) GetChkpt(ctx context.Context) (SignedCheckpoint, error) {
 	cp, err := p.getCheckpoint(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch Trillian checkpoint: %w", err)
@@ -105,7 +108,7 @@ func (p *TrillianP) GetChkpt(ctx context.Context) ([]byte, error) {
 }
 
 // Append adds an entry to the Trillian log and waits to return the new checkpoint.
-func (p *TrillianP) Append(ctx context.Context, entry []byte) ([]byte, error) {
+func (p *TrillianP) Append(ctx context.Context, entry []byte) (SignedCheckpoint, error) {
 	// First get the latest checkpoint.
 	chkpt, err := p.getCheckpoint(ctx)
 	if err != nil {
@@ -156,7 +159,7 @@ func (p *TrillianP) ProveIncl(ctx context.Context, chkptSize uint64, entry []byt
 
 // UpdateChkpt gets the latest checkpoint for the Trillian log and proves its
 // consistency with a provided one.
-func (p *TrillianP) UpdateChkpt(ctx context.Context, chkptSize uint64) ([]byte, *trillian.Proof, error) {
+func (p *TrillianP) UpdateChkpt(ctx context.Context, chkptSize uint64) (SignedCheckpoint, *trillian.Proof, error) {
 	// First get the latest checkpoint
 	chkptNew, err := p.getCheckpoint(ctx)
 	if err != nil {

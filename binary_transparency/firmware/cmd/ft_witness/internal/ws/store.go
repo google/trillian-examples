@@ -20,6 +20,8 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+
+	"github.com/google/trillian-examples/formats/log"
 )
 
 const (
@@ -57,7 +59,7 @@ func (ws *Storage) init() error {
 }
 
 // StoreCP saves the given checkpoint into DB.
-func (ws *Storage) StoreCP(wcp []byte) error {
+func (ws *Storage) StoreCP(wcp log.SignedCheckpoint) error {
 
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()
@@ -80,7 +82,7 @@ func (ws *Storage) StoreCP(wcp []byte) error {
 }
 
 // RetrieveCP gets the checkpoint previously stored.
-func (ws *Storage) RetrieveCP() ([]byte, error) {
+func (ws *Storage) RetrieveCP() (log.SignedCheckpoint, error) {
 
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()

@@ -23,6 +23,7 @@ import (
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/devices"
+	"github.com/google/trillian-examples/formats/log"
 )
 
 const (
@@ -70,7 +71,7 @@ func New(storage string) (*Device, error) {
 }
 
 // DeviceCheckpoint returns the latest log checkpoint stored on the device.
-func (d Device) DeviceCheckpoint() ([]byte, error) {
+func (d Device) DeviceCheckpoint() (log.SignedCheckpoint, error) {
 	return d.bundle.Checkpoint, nil
 }
 

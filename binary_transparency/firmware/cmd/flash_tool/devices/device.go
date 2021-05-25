@@ -16,6 +16,7 @@ package devices
 
 import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
+	"github.com/google/trillian-examples/formats/log"
 )
 
 // ErrNeedsInit error type indicates that the device is as yet uninitialised
@@ -28,7 +29,7 @@ type ErrNeedsInit = error
 // allows a generic flash tool to control the secure update process.
 type Device interface {
 	// DeviceCheckpoint returns the log checkpoint note used during the last firmware update.
-	DeviceCheckpoint() ([]byte, error)
+	DeviceCheckpoint() (log.SignedCheckpoint, error)
 	// ApplyUpdate applies the provided update to the device.
 	ApplyUpdate(api.UpdatePackage) error
 }

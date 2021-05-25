@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"github.com/google/trillian-examples/formats/log"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -109,7 +110,7 @@ type FakeStore struct {
 	storeaccess bool
 }
 
-func (f FakeStore) StoreCP(wcp []byte) error {
+func (f FakeStore) StoreCP(wcp log.SignedCheckpoint) error {
 	if !f.storeaccess {
 		return fmt.Errorf("unable to access store")
 	}
@@ -117,7 +118,7 @@ func (f FakeStore) StoreCP(wcp []byte) error {
 	return nil
 }
 
-func (f FakeStore) RetrieveCP() ([]byte, error) {
+func (f FakeStore) RetrieveCP() (log.SignedCheckpoint, error) {
 	if !f.storeaccess {
 		return nil, fmt.Errorf("unable to access store")
 	}

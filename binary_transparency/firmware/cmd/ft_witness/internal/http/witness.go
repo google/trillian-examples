@@ -26,6 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/gorilla/mux"
 	"golang.org/x/mod/sumdb/note"
 )
@@ -33,10 +34,10 @@ import (
 // WitnessStore is the interface to the  Witness Store, for storage of latest checkpoint
 type WitnessStore interface {
 	// Store puts the checkpoint into Witness Store
-	StoreCP([]byte) error
+	StoreCP(log.SignedCheckpoint) error
 
 	// Retrieve gets the stored checkpoint.
-	RetrieveCP() ([]byte, error)
+	RetrieveCP() (log.SignedCheckpoint, error)
 }
 
 // Witness is the core state & handler implementation of the FT Witness

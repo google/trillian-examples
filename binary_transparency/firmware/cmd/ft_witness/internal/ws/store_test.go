@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+
+	"github.com/google/trillian-examples/formats/log"
 )
 
 const (
@@ -28,14 +30,14 @@ const (
 func TestRoundTrip(t *testing.T) {
 	for _, test := range []struct {
 		desc string
-		data []byte
+		data log.SignedCheckpoint
 	}{
 		{
 			desc: "initial checkpoint test",
-			data: []byte("some checkpoint"),
+			data: log.SignedCheckpoint("some checkpoint"),
 		}, {
 			desc: "check over-write of checkpoint",
-			data: []byte("some more checkpoint"),
+			data: log.SignedCheckpoint("some more checkpoint"),
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {

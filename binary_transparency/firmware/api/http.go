@@ -52,7 +52,7 @@ type LogCheckpoint struct {
 	TimestampNanos uint64
 
 	// If set, Envelope contains the envelope from which this Checkpoint was parsed.
-	Envelope []byte
+	Envelope log.SignedCheckpoint
 }
 
 // String returns a compact printable representation of a LogCheckpoint.

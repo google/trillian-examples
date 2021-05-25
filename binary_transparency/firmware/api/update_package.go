@@ -14,6 +14,10 @@
 
 package api
 
+import (
+	"github.com/google/trillian-examples/formats/log"
+)
+
 // UpdatePackage represents an "OTA" update bundle.
 type UpdatePackage struct {
 	// FirmwareImage is the actual firmware image itself.
@@ -28,7 +32,7 @@ type ProofBundle struct {
 	// ManifestStatement is the json representation of an `api.SignedStatement` struct.
 	ManifestStatement []byte
 	// Checkpoint must represent a tree which includes the ManifestStatement.
-	Checkpoint []byte
+	Checkpoint log.SignedCheckpoint
 	// InclusionProof is a proof to Checkpoint for ManifestStatement.
 	InclusionProof InclusionProof
 }

@@ -17,11 +17,11 @@ package ws
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"testing"
 )
 
 const (
-	dbFp    = "/tmp/wdb.db"
 	undefFp = ""
 )
 
@@ -39,8 +39,8 @@ func TestRoundTrip(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-
-			store, err := NewStorage(dbFp)
+			dbFile := filepath.Join(t.TempDir(), "wsdb")
+			store, err := NewStorage(dbFile)
 			if err != nil {
 				t.Error("failed to create storage", err)
 			}

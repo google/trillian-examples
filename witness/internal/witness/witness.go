@@ -150,10 +150,9 @@ func (w *Witness) Update(fromRaw, toRaw []byte, proof log.Proof) error {
 			}
 			// If the consistency proof is good we store `to`.
 			return w.db.SetCheckpoint(logPK, Chkpt{Parsed: to, Raw: toRaw})
-		} else {
-			// Complain if `to` is bigger than `from`.
-			return fmt.Errorf("Cannot prove consistency backwards")
 		}
+		// Complain if `to` is bigger than `from`.
+		return fmt.Errorf("Cannot prove consistency backwards")
 	}
 	// Complain if the size of `from` is too small.
 	return fmt.Errorf("Invalid checkpoint given as source")

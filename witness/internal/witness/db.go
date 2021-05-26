@@ -13,7 +13,7 @@ type Database struct {
 // NewDatabase creates a new database, initializing it if needed.
 func NewDatabase(db *sql.DB) (*Database, error) {
 	d := &Database{
-		db : db,
+		db: db,
 	}
 	return d, d.init()
 }

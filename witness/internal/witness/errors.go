@@ -1,4 +1,3 @@
-
 package witness
 
 import (
@@ -33,5 +32,5 @@ type ErrStale struct {
 }
 
 func (e ErrStale) Error() string {
-	return fmt.Sprintf("stale checkpoint given as input")
+	return "stale checkpoint given as input"
 }

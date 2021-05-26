@@ -10,8 +10,8 @@ import (
 )
 
 type Chkpt struct {
-	Parsed	*log.Checkpoint
-	Raw	[]byte
+	Parsed *log.Checkpoint
+	Raw    []byte
 }
 
 type ChkptStorage interface {
@@ -23,11 +23,11 @@ type ChkptStorage interface {
 }
 
 type Witness struct {
-	db       ChkptStorage
-	Signer	 note.Signer
-	Hasher   hashers.LogHasher
-	LogV	 logverifier.LogVerifier
-	SigVs	 []note.Verifier
+	db     ChkptStorage
+	Signer note.Signer
+	Hasher hashers.LogHasher
+	LogV   logverifier.LogVerifier
+	SigVs  []note.Verifier
 }
 
 // NewWitness creates a new witness, which initially has no logs to follow.
@@ -37,16 +37,16 @@ func NewWitness(h hashers.LogHasher, db ChkptStorage, sk string) (*Witness, erro
 		return nil, err
 	}
 	return &Witness{
-		db:       db,
-		Signer:	  ns,
-		Hasher:   h,
-		LogV:	  logverifier.New(h),
-		SigVs:    []note.Verifier{},
+		db:     db,
+		Signer: ns,
+		Hasher: h,
+		LogV:   logverifier.New(h),
+		SigVs:  []note.Verifier{},
 	}, nil
 }
 
-// parse verifies the checkpoint under the given list of possible public keys.  
-// It returns the parsed checkpoint and the list of public keys under which the 
+// parse verifies the checkpoint under the given list of possible public keys.
+// It returns the parsed checkpoint and the list of public keys under which the
 // signature(s) verified.
 func (w *Witness) parse(chkptRaw []byte, verifiers []note.Verifier) (*log.Checkpoint, []string, error) {
 	n, err := note.Open(chkptRaw, note.VerifierList(verifiers...))
@@ -60,7 +60,7 @@ func (w *Witness) parse(chkptRaw []byte, verifiers []note.Verifier) (*log.Checkp
 	}
 	var keys []string
 	for _, sig := range n.Sigs {
-	    keys = append(keys, sig.Name)
+		keys = append(keys, sig.Name)
 	}
 	return chkpt, keys, nil
 }
@@ -148,4 +148,3 @@ func (w *Witness) Register(logPK string, chkptRaw []byte) error {
 	w.SigVs = append(w.SigVs, nv)
 	return w.db.SetCheckpoint(logPK, Chkpt{Parsed: chkpt, Raw: chkptRaw})
 }
-

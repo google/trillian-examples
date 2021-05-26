@@ -16,10 +16,10 @@ type Chkpt struct {
 
 type ChkptStorage interface {
 	// GetLatest returns the latest checkpoint for a given log.
-	GetLatest(logId string) (Chkpt, error)
+	GetLatest(logPK string) (*Chkpt, error)
 
 	// SetCheckpoint adds a checkpoint to the storage for a given log.
-	SetCheckpoint(logId string, c Chkpt) error
+	SetCheckpoint(logPK string, c Chkpt) error
 }
 
 type Witness struct {

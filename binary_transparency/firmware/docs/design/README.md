@@ -51,7 +51,7 @@ demo.
 
 To help reason about the security properties of the demo system, we'll frame
 the problem in terms of the
-[claimant model](https://github.com/google/trillian/master/docs/claimantmodel).
+[claimant model](https://github.com/google/trillian/tree/master/docs/claimantmodel).
 
 ### Assumptions/Requirements
 **All firmware metadata & image bytes are publicly available.**
@@ -213,7 +213,7 @@ and install the update bundle provided by the vendor onto the device.
 Device implementations:
 * [`emulator/dummy`](/binary_transparency/firmware/cmd/emulator/dummy) models
 a simple WASM VM device.
-* [`usbarmory`](/binary/transparency/firmware/devices/usbarmory) provides an
+* [`usbarmory`](/binary_transparency/firmware/devices/usbarmory) provides an
 enforcing EL3 bootloader for the F-Secure
 [USB Armory mkII](https://inversepath.com/usbarmory.html).
 
@@ -234,7 +234,8 @@ _discoverability_ that Firmware Transparency leverages.
 
 **STH Witness**:
 
-_Not yet implemented here._
+May use the [`ft_witness`](/binary_transparency/firmware/cmd/ft_witness) to
+support verification of log operator, by enabling detection of log split views.
 
 * Verifier<sup>FIRMWARE_LOG</sup>
 

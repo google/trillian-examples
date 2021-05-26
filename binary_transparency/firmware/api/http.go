@@ -14,7 +14,14 @@
 
 package api
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/google/trillian-examples/formats/log"
+)
 
 const (
 	// HTTPAddFirmware is the path of the URL to publish a firmware entry.
@@ -31,22 +38,53 @@ const (
 	HTTPGetFirmwareImage = "ft/v0/get-firmware-image"
 	// HTTPGetRoot is the path of the URL to get a recent log root.
 	HTTPGetRoot = "ft/v0/get-root"
+
+	// FTLogCheckpointEcosystemv0 is the v0 identifier for FT log checkpoints.
+	FTLogCheckpointEcosystemv0 = "Firmware Transparency Log v0"
 )
 
 // LogCheckpoint commits to the state of the log.
-// TODO(mhutchinson): This needs a signature to be worth anything, which
-// requires a known serialization. This will be changed in the future but works
-// well enough for the state of the demo at this time.
+// The serialisation format of this checkpoint is compatible with the format
+// specified at github.com/google/trillian-examples/tree/master/formats/log
 type LogCheckpoint struct {
-	TreeSize uint64
-	RootHash []byte
+	log.Checkpoint
 	// The number of nanoseconds since the Unix epoch.
 	TimestampNanos uint64
+
+	// If set, Envelope contains the envelope from which this Checkpoint was parsed.
+	Envelope []byte
 }
 
 // String returns a compact printable representation of a LogCheckpoint.
 func (l LogCheckpoint) String() string {
-	return fmt.Sprintf("{size %d @ %d root: 0x%x}", l.TreeSize, l.TimestampNanos, l.RootHash)
+	return fmt.Sprintf("{size %d @ %d root: 0x%x}", l.Size, l.TimestampNanos, l.Hash)
+}
+
+// Marshal serialises the checkpoint.
+func (l LogCheckpoint) Marshal() []byte {
+	b := bytes.Buffer{}
+	b.Write(l.Checkpoint.Marshal())
+	b.WriteString(fmt.Sprintf("%d\n", l.TimestampNanos))
+	return b.Bytes()
+}
+
+// Unmarshal knows how to deserialise a LogCheckpoint.
+func (l *LogCheckpoint) Unmarshal(data []byte) error {
+	const delim = "\n"
+	rest, err := l.Checkpoint.Unmarshal(data)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimRight(string(rest), delim), delim)
+	if el := len(lines); el != 1 {
+		return fmt.Errorf("expected 1 line of other data, got %d", el)
+	}
+	ts, err := strconv.ParseUint(lines[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse timestamp: %w", err)
+	}
+	l.TimestampNanos = ts
+	return nil
 }
 
 // GetConsistencyRequest is sent to ask for a proof that the tree at ToSize

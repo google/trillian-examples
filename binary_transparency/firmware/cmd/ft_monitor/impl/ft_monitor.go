@@ -37,6 +37,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 // MatchFunc is the signature of a function which can be called by the monitor
@@ -45,12 +46,13 @@ type MatchFunc func(index uint64, fw api.FirmwareMetadata)
 
 // MonitorOpts encapsulates options for running the monitor.
 type MonitorOpts struct {
-	LogURL       string
-	PollInterval time.Duration
-	Keyword      string
-	Matched      MatchFunc
-	Annotate     bool
-	StateFile    string
+	LogURL         string
+	LogSigVerifier note.Verifier
+	PollInterval   time.Duration
+	Keyword        string
+	Matched        MatchFunc
+	Annotate       bool
+	StateFile      string
 }
 
 func Main(ctx context.Context, opts MonitorOpts) error {
@@ -69,7 +71,10 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 	// Parse the input keywords as regular expression
 	matcher := regexp.MustCompile(opts.Keyword)
 
-	c := client.ReadonlyClient{LogURL: ftURL}
+	c := client.ReadonlyClient{
+		LogURL:         ftURL,
+		LogSigVerifier: opts.LogSigVerifier,
+	}
 
 	// Initialize the checkpoint from persisted state.
 	var latestCP api.LogCheckpoint
@@ -80,11 +85,16 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		// This could fail here unless a force flag is provided, for better security.
 		glog.Warningf("State file %q did not exist; first log checkpoint will be trusted implicitly", opts.StateFile)
 	} else {
-		if err := json.Unmarshal(state, &latestCP); err != nil {
-			return fmt.Errorf("failed to read state: %w", err)
+		n, err := note.Open(state, note.VerifierList(opts.LogSigVerifier))
+		if err != nil {
+			return fmt.Errorf("failed to open state: %w", err)
+		}
+		latestCP.Envelope = state
+		if err := (&latestCP).Unmarshal([]byte(n.Text)); err != nil {
+			return fmt.Errorf("failed to unmarshal state: %w", err)
 		}
 	}
-	head := latestCP.TreeSize
+	head := latestCP.Size
 	follow := client.NewLogFollower(c)
 
 	glog.Infof("Monitoring FT log (%q) starting from index %d", opts.LogURL, head)
@@ -108,15 +118,11 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 			glog.Warningf("Warning processing entry at index %d: %q", entry.Index, err)
 		}
 
-		if entry.Index == entry.Root.TreeSize-1 {
+		if entry.Index == entry.Root.Size-1 {
 			// If we have processed all leaves in the current checkpoint, then persist this checkpoint
 			// so that we don't repeat work on startup.
-			bs, err := json.Marshal(entry.Root)
-			if err != nil {
-				return fmt.Errorf("failed to marshal checkpoint: %w", err)
-			}
-			ioutil.WriteFile(opts.StateFile, bs, 0o755)
-			glog.Infof("Persisted state: %v", entry.Root)
+			ioutil.WriteFile(opts.StateFile, entry.Root.Envelope, 0o755)
+			glog.Infof("Persisted state: %v", entry.Root.Envelope)
 		}
 	}
 }

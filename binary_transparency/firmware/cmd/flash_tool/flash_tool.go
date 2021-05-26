@@ -31,6 +31,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/flash_tool/impl"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 var (
@@ -46,14 +48,20 @@ var (
 func main() {
 	flag.Parse()
 
+	v, err := note.NewVerifier(crypto.TestFTPersonalityPub)
+	if err != nil {
+		glog.Exitf("Failed to create CP verifier: %q", err)
+	}
+
 	if err := impl.Main(context.Background(), impl.FlashOpts{
-		DeviceID:      *deviceID,
-		LogURL:        *logURL,
-		MapURL:        *mapURL,
-		WitnessURL:    *witnessURL,
-		UpdateFile:    *updateFile,
-		Force:         *force,
-		DeviceStorage: *deviceStorage,
+		DeviceID:       *deviceID,
+		LogURL:         *logURL,
+		LogSigVerifier: v,
+		MapURL:         *mapURL,
+		WitnessURL:     *witnessURL,
+		UpdateFile:     *updateFile,
+		Force:          *force,
+		DeviceStorage:  *deviceStorage,
 	}); err != nil {
 		glog.Exit(err.Error())
 	}

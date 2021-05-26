@@ -49,7 +49,12 @@ func TestRoot(t *testing.T) {
 			},
 			count:    111,
 			rootHash: []byte{0x34, 0x12},
-			wantBody: `{"LogCheckpoint":"eyJUcmVlU2l6ZSI6NDIsIlJvb3RIYXNoIjoiRWpRPSIsIlRpbWVzdGFtcE5hbm9zIjoxMjM0NX0=","LogSize":111,"RootHash":"NBI=","Revision":42}`,
+			// LogCheckpoint below is base64 of:
+			// Firmware Transparency Log v0
+			// 42
+			// EjQ=
+			// 12345
+			wantBody: `{"LogCheckpoint":"RmlybXdhcmUgVHJhbnNwYXJlbmN5IExvZyB2MAo0MgpFalE9CjEyMzQ1Cg==","LogSize":111,"RootHash":"NBI=","Revision":42}`,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {

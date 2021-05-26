@@ -92,8 +92,8 @@ func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f FetcherFunc) (*Proof
 	if err != nil {
 		return nil, err
 	}
-	if !bytes.Equal(cp.RootHash, sr) {
-		return nil, fmt.Errorf("invalid checkpoint roothash %x, expected %x", cp.RootHash, sr)
+	if !bytes.Equal(cp.Hash, sr) {
+		return nil, fmt.Errorf("invalid checkpoint hash %x, expected %x", cp.Hash, sr)
 	}
 	return pb, nil
 }
@@ -329,7 +329,7 @@ func (lst *LogStateTracker) Update() error {
 			if err != nil {
 				return err
 			}
-			if err := lst.Verifier.VerifyConsistencyProof(int64(lst.LatestConsistent.Size), int64(c.Size), lst.LatestConsistent.RootHash, c.RootHash, p); err != nil {
+			if err := lst.Verifier.VerifyConsistencyProof(int64(lst.LatestConsistent.Size), int64(c.Size), lst.LatestConsistent.Hash, c.Hash, p); err != nil {
 				return ErrInconsistency{
 					SmallerRaw: lst.LatestConsistentRaw,
 					LargerRaw:  cRaw,

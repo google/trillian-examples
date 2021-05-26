@@ -101,16 +101,15 @@ func (f *LogFollower) Checkpoints(ctx context.Context, pollInterval time.Duratio
 				glog.Warningf("Failed to get latest Checkpoint: %q", err)
 				continue
 			}
-			// TODO(al): check signature on checkpoint when they're added.
 
-			if cp.TreeSize <= golden.TreeSize {
+			if cp.Size <= golden.Size {
 				continue
 			}
 			glog.V(1).Infof("Got newer checkpoint %s", cp)
 
 			// Perform consistency check only for non-zero initial tree size
-			if golden.TreeSize != 0 {
-				consistency, err := f.c.GetConsistencyProof(api.GetConsistencyRequest{From: golden.TreeSize, To: cp.TreeSize})
+			if golden.Size != 0 {
+				consistency, err := f.c.GetConsistencyProof(api.GetConsistencyRequest{From: golden.Size, To: cp.Size})
 				if err != nil {
 					glog.Warningf("Failed to fetch the Consistency: %q", err)
 					continue
@@ -119,14 +118,14 @@ func (f *LogFollower) Checkpoints(ctx context.Context, pollInterval time.Duratio
 				glog.V(1).Infof("Consistency Proof = %x", consistency.Proof)
 
 				// Verify the fetched consistency proof
-				if err := f.lv.VerifyConsistencyProof(int64(golden.TreeSize), int64(cp.TreeSize), golden.RootHash, cp.RootHash, consistency.Proof); err != nil {
+				if err := f.lv.VerifyConsistencyProof(int64(golden.Size), int64(cp.Size), golden.Hash, cp.Hash, consistency.Proof); err != nil {
 					errc <- ErrConsistency{
 						Golden: golden,
 						Latest: *cp,
 					}
 					return
 				}
-				glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.TreeSize)
+				glog.V(1).Infof("Consistency proof for Treesize %d verified", cp.Size)
 			}
 			golden = *cp
 			outc <- *cp
@@ -146,14 +145,14 @@ func (f *LogFollower) Entries(ctx context.Context, cpc <-chan api.LogCheckpoint,
 	go func() {
 		defer close(outc)
 		for cp := range cpc {
-			for ; head < cp.TreeSize; head++ {
-				proof, err := f.c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{Index: head, TreeSize: cp.TreeSize})
+			for ; head < cp.Size; head++ {
+				proof, err := f.c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{Index: head, TreeSize: cp.Size})
 				if err != nil {
 					glog.Warningf("Failed to fetch the Manifest: %q", err)
 					continue
 				}
 				lh := verify.HashLeaf(proof.Value)
-				if err := f.lv.VerifyInclusionProof(int64(proof.LeafIndex), int64(cp.TreeSize), proof.Proof, cp.RootHash, lh); err != nil {
+				if err := f.lv.VerifyInclusionProof(int64(proof.LeafIndex), int64(cp.Size), proof.Proof, cp.Hash, lh); err != nil {
 					errc <- ErrInclusion{
 						Checkpoint: cp,
 						Proof:      *proof,

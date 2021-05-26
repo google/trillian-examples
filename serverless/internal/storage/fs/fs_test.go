@@ -40,7 +40,7 @@ func TestCreate(t *testing.T) {
 	if got, want := cp.Size, uint64(0); got != want {
 		t.Errorf("New checkpoint has size %d, want %d", got, want)
 	}
-	if got, want := cp.RootHash, empty; !bytes.Equal(got, want) {
+	if got, want := cp.Hash, empty; !bytes.Equal(got, want) {
 		t.Errorf("New checkpoint roothash %x, want %x", got, want)
 	}
 }

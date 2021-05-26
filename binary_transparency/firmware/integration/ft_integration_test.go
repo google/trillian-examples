@@ -34,6 +34,8 @@ import (
 	i_witness "github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_witness/impl"
 	i_modify "github.com/google/trillian-examples/binary_transparency/firmware/cmd/hacker/modify_bundle/impl"
 	i_publish "github.com/google/trillian-examples/binary_transparency/firmware/cmd/publisher/impl"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 const (
@@ -49,6 +51,15 @@ const (
 var (
 	trillianAddr = flag.String("trillian", "", "Host:port of Trillian Log RPC server")
 )
+
+func mustGetLogSigVerifier(t *testing.T) note.Verifier {
+	t.Helper()
+	v, err := note.NewVerifier(crypto.TestFTPersonalityPub)
+	if err != nil {
+		t.Fatalf("Failed to create CP verifier: %q", err)
+	}
+	return v
+}
 
 func TestFTIntegration(t *testing.T) {
 	if len(*trillianAddr) == 0 {
@@ -68,6 +79,7 @@ func TestFTIntegration(t *testing.T) {
 	pAddr := fmt.Sprintf("http://%s", pListen)
 
 	pErrChan := make(chan error)
+	logSigVerifier := mustGetLogSigVerifier(t)
 
 	go func() {
 		if err := runPersonality(ctx, t, pListen); err != nil {
@@ -88,24 +100,26 @@ func TestFTIntegration(t *testing.T) {
 			desc: "Log initial firmware",
 			step: func() error {
 				return i_publish.Main(ctx, i_publish.PublishOpts{
-					LogURL:     pAddr,
-					DeviceID:   "dummy",
-					BinaryPath: GoodFirmware,
-					Timestamp:  PublishTimestamp1,
-					Revision:   1,
-					OutputPath: updatePath,
+					LogURL:         pAddr,
+					LogSigVerifier: logSigVerifier,
+					DeviceID:       "dummy",
+					BinaryPath:     GoodFirmware,
+					Timestamp:      PublishTimestamp1,
+					Revision:       1,
+					OutputPath:     updatePath,
 				})
 			},
 		}, {
 			desc: "Force flashing device (init)",
 			step: func() error {
 				return i_flash.Main(ctx, i_flash.FlashOpts{
-					LogURL:        pAddr,
-					WitnessURL:    "",
-					DeviceID:      "dummy",
-					UpdateFile:    updatePath,
-					DeviceStorage: devStoragePath,
-					Force:         true,
+					LogURL:         pAddr,
+					LogSigVerifier: logSigVerifier,
+					WitnessURL:     "",
+					DeviceID:       "dummy",
+					UpdateFile:     updatePath,
+					DeviceStorage:  devStoragePath,
+					Force:          true,
 				})
 			},
 		}, {
@@ -119,23 +133,25 @@ func TestFTIntegration(t *testing.T) {
 			desc: "Log updated firmware",
 			step: func() error {
 				return i_publish.Main(ctx, i_publish.PublishOpts{
-					LogURL:     pAddr,
-					DeviceID:   "dummy",
-					BinaryPath: GoodFirmware,
-					Timestamp:  PublishTimestamp2,
-					Revision:   2,
-					OutputPath: updatePath,
+					LogURL:         pAddr,
+					LogSigVerifier: logSigVerifier,
+					DeviceID:       "dummy",
+					BinaryPath:     GoodFirmware,
+					Timestamp:      PublishTimestamp2,
+					Revision:       2,
+					OutputPath:     updatePath,
 				})
 			},
 		}, {
 			desc: "Flashing device (update)",
 			step: func() error {
 				return i_flash.Main(ctx, i_flash.FlashOpts{
-					LogURL:        pAddr,
-					WitnessURL:    "",
-					DeviceID:      "dummy",
-					UpdateFile:    updatePath,
-					DeviceStorage: devStoragePath,
+					LogURL:         pAddr,
+					LogSigVerifier: logSigVerifier,
+					WitnessURL:     "",
+					DeviceID:       "dummy",
+					UpdateFile:     updatePath,
+					DeviceStorage:  devStoragePath,
 				})
 			},
 		}, {
@@ -212,7 +228,7 @@ func TestFTIntegration(t *testing.T) {
 				mCtx, mCancel := context.WithCancel(context.Background())
 				defer mCancel()
 				go func() {
-					if err := runMonitor(mCtx, t, pAddr, "H4x0r3d", func(idx uint64, fw api.FirmwareMetadata) {
+					if err := runMonitor(mCtx, t, pAddr, "H4x0r3d", logSigVerifier, func(idx uint64, fw api.FirmwareMetadata) {
 						t.Logf("Found malware firmware @%d", idx)
 						matchedChan <- true
 					}); err != nil && err != context.Canceled {
@@ -223,12 +239,13 @@ func TestFTIntegration(t *testing.T) {
 
 				// Log malware fw:
 				if err := i_publish.Main(ctx, i_publish.PublishOpts{
-					LogURL:     pAddr,
-					DeviceID:   "dummy",
-					BinaryPath: HackedFirmware,
-					Timestamp:  PublishMalwareTimestamp,
-					Revision:   1,
-					OutputPath: updatePath,
+					LogURL:         pAddr,
+					LogSigVerifier: logSigVerifier,
+					DeviceID:       "dummy",
+					BinaryPath:     HackedFirmware,
+					Timestamp:      PublishMalwareTimestamp,
+					Revision:       1,
+					OutputPath:     updatePath,
 				}); err != nil {
 					t.Fatalf("Failed to log malware: %q", err)
 				}
@@ -237,11 +254,12 @@ func TestFTIntegration(t *testing.T) {
 				// Now flash the bundle normally, it will install because it's been logged
 				// and so is now discoverable.
 				if err := i_flash.Main(ctx, i_flash.FlashOpts{
-					LogURL:        pAddr,
-					WitnessURL:    "",
-					DeviceID:      "dummy",
-					UpdateFile:    updatePath,
-					DeviceStorage: devStoragePath,
+					LogURL:         pAddr,
+					LogSigVerifier: logSigVerifier,
+					WitnessURL:     "",
+					DeviceID:       "dummy",
+					UpdateFile:     updatePath,
+					DeviceStorage:  devStoragePath,
 				}); err != nil {
 					t.Fatalf("Failed to flash malware update onto device: %q", err)
 				}
@@ -272,24 +290,23 @@ func TestFTIntegration(t *testing.T) {
 				wHost := "localhost:43565"
 				wAddr := fmt.Sprintf("http://%s", wHost)
 				wCtx, wCancel := context.WithCancel(context.Background())
-				wErrChan := make(chan error)
 				defer wCancel()
 				go func() {
-					if err := runWitness(wCtx, t, pAddr, wHost); err != nil {
-						pErrChan <- err
+					if err := runWitness(wCtx, t, pAddr, wHost, logSigVerifier); err != nil {
+						t.Errorf("Witness error: %q", err)
 					}
-					close(wErrChan)
 				}()
 
 				// Wait for few seconds before starting the test
 				<-time.After(2 * time.Second)
 				if err := i_publish.Main(ctx, i_publish.PublishOpts{
-					LogURL:     pAddr,
-					DeviceID:   "dummy",
-					BinaryPath: GoodFirmware,
-					Timestamp:  PublishTimestamp3,
-					Revision:   3,
-					OutputPath: updatePath,
+					LogURL:         pAddr,
+					LogSigVerifier: logSigVerifier,
+					DeviceID:       "dummy",
+					BinaryPath:     GoodFirmware,
+					Timestamp:      PublishTimestamp3,
+					Revision:       3,
+					OutputPath:     updatePath,
 				}); err != nil {
 					t.Fatalf("Failed to publish new bundle: %q", err)
 				}
@@ -298,14 +315,16 @@ func TestFTIntegration(t *testing.T) {
 				<-time.After(5 * time.Second)
 
 				if err := i_flash.Main(ctx, i_flash.FlashOpts{
-					LogURL:        pAddr,
-					WitnessURL:    wAddr,
-					DeviceID:      "dummy",
-					UpdateFile:    updatePath,
-					DeviceStorage: devStoragePath,
+					LogURL:         pAddr,
+					LogSigVerifier: logSigVerifier,
+					WitnessURL:     wAddr,
+					DeviceID:       "dummy",
+					UpdateFile:     updatePath,
+					DeviceStorage:  devStoragePath,
 				}); err != nil {
 					t.Fatalf("witness verification failed: %q", err)
 				}
+
 				return nil
 			},
 		},
@@ -343,32 +362,37 @@ func setupDeviceStorage(t *testing.T, devStoragePath string) {
 }
 
 func runPersonality(ctx context.Context, t *testing.T, serverAddr string) error {
-
 	t.Helper()
 	r := t.TempDir()
 
-	err := i_personality.Main(ctx, i_personality.PersonalityOpts{
+	signer, err := note.NewSigner(crypto.TestFTPersonalityPriv)
+	if err != nil {
+		return fmt.Errorf("failed to create CP signer: %w", err)
+	}
+
+	if err := i_personality.Main(ctx, i_personality.PersonalityOpts{
 		ListenAddr:     serverAddr,
 		CASFile:        filepath.Join(r, "ft-cas.db"),
 		TrillianAddr:   *trillianAddr,
 		ConnectTimeout: 10 * time.Second,
 		STHRefresh:     time.Second,
-	})
-	if err != http.ErrServerClosed {
+		Signer:         signer,
+	}); err != http.ErrServerClosed {
 		return err
 	}
 	return nil
 }
 
-func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string) error {
+func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string, logSigVerifier note.Verifier) error {
 	t.Helper()
 	r := t.TempDir()
 
 	err := i_witness.Main(ctx, i_witness.WitnessOpts{
-		ListenAddr:   serverAddr,
-		WSFile:       filepath.Join(r, "ft-witness.db"),
-		FtLogURL:     persAddr,
-		PollInterval: 5 * time.Second,
+		ListenAddr:       serverAddr,
+		WSFile:           filepath.Join(r, "ft-witness.db"),
+		FtLogURL:         persAddr,
+		FtLogSigVerifier: logSigVerifier,
+		PollInterval:     5 * time.Second,
 	})
 	if err != http.ErrServerClosed {
 		return err
@@ -376,17 +400,18 @@ func runWitness(ctx context.Context, t *testing.T, persAddr, serverAddr string) 
 	return nil
 }
 
-func runMonitor(ctx context.Context, t *testing.T, serverAddr string, pattern string, matched i_monitor.MatchFunc) error {
+func runMonitor(ctx context.Context, t *testing.T, serverAddr string, pattern string, logSigVerifier note.Verifier, matched i_monitor.MatchFunc) error {
 	t.Helper()
 
 	r := t.TempDir()
 
 	err := i_monitor.Main(ctx, i_monitor.MonitorOpts{
-		LogURL:       serverAddr,
-		PollInterval: 1 * time.Second,
-		Keyword:      "H4x0r3d",
-		Matched:      matched,
-		StateFile:    filepath.Join(r, "ft-monitor.state"),
+		LogURL:         serverAddr,
+		LogSigVerifier: logSigVerifier,
+		PollInterval:   1 * time.Second,
+		Keyword:        "H4x0r3d",
+		Matched:        matched,
+		StateFile:      filepath.Join(r, "ft-monitor.state"),
 	})
 	if err != http.ErrServerClosed {
 		return err

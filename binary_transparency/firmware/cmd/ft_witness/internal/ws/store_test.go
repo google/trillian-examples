@@ -15,10 +15,9 @@
 package ws
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
-
-	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
 
 const (
@@ -29,14 +28,14 @@ const (
 func TestRoundTrip(t *testing.T) {
 	for _, test := range []struct {
 		desc string
-		cp   api.LogCheckpoint
+		data []byte
 	}{
 		{
 			desc: "initial checkpoint test",
-			cp:   api.LogCheckpoint{TreeSize: 1, RootHash: []byte("Standard Root Hash"), TimestampNanos: 41672},
+			data: []byte("some checkpoint"),
 		}, {
 			desc: "check over-write of checkpoint",
-			cp:   api.LogCheckpoint{TreeSize: 2, RootHash: []byte("New  Root Hash"), TimestampNanos: 91982},
+			data: []byte("some more checkpoint"),
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -45,15 +44,15 @@ func TestRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Error("failed to create storage", err)
 			}
-			want := test.cp
-			if err := store.StoreCP(test.cp); err != nil {
+			want := test.data
+			if err := store.StoreCP(test.data); err != nil {
 				t.Error("failed to store into Witness Store", err)
 			}
 			got, err := store.RetrieveCP()
 			if err != nil {
 				t.Error("failed to retrieve from Witness Store", err)
 			}
-			if got.TimestampNanos != want.TimestampNanos {
+			if !bytes.Equal(got, want) {
 				t.Errorf("got '%s' want '%s'", got, want)
 			}
 

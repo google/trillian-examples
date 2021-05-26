@@ -10,8 +10,8 @@ import (
 // ErrInconsistency should be returned when there has been an error proving
 // consistency between two checkpoints.
 type ErrInconsistency struct {
-	Smaller *log.Checkpoint
-	Larger  *log.Checkpoint
+	Smaller []byte
+	Larger  []byte
 	Proof   log.Proof
 
 	Wrapped error

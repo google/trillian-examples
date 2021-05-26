@@ -9,96 +9,141 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
+type Chkpt struct {
+	Parsed	*log.Checkpoint
+	Raw	[]byte
+}
+
 type ChkptStorage interface {
 	// GetLatest returns the latest checkpoint for a given log.
-	GetLatest(logId string) (*log.Checkpoint, error)
+	GetLatest(logId string) (Chkpt, error)
 
 	// SetCheckpoint adds a checkpoint to the storage for a given log.
-	SetCheckpoint(logId string, c *log.Checkpoint) error
+	SetCheckpoint(logId string, c Chkpt) error
 }
 
 type Witness struct {
 	db       ChkptStorage
+	Signer	 note.Signer
 	Hasher   hashers.LogHasher
 	LogV	 logverifier.LogVerifier
-	SigV	 note.Verifier
+	SigVs	 []note.Verifier
 }
 
 // NewWitness creates a new witness, which initially has no logs to follow.
-func NewWitness(h hashers.LogHasher, db ChkptStorage, nv note.Verifier) *Witness {
+func NewWitness(h hashers.LogHasher, db ChkptStorage, sk string) (*Witness, error) {
+	ns, err := note.NewSigner(sk)
+	if err != nil {
+		return nil, err
+	}
 	return &Witness{
 		db:       db,
+		Signer:	  ns,
 		Hasher:   h,
-		LogV: logverifier.New(h),
-		SigV: nv,
+		LogV:	  logverifier.New(h),
+		SigVs:    []note.Verifier{},
+	}, nil
+}
+
+// parse verifies the checkpoint under the given list of possible public keys.  
+// It returns the parsed checkpoint and the list of public keys under which the 
+// signature(s) verified.
+func (w *Witness) parse(chkptRaw []byte, verifiers []note.Verifier) (*log.Checkpoint, []string, error) {
+	n, err := note.Open(chkptRaw, note.VerifierList(verifiers...))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to verify checkpoint: %w", err)
 	}
+	chkpt := &log.Checkpoint{}
+	_, err = chkpt.Unmarshal([]byte(n.Text))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshal new checkpoint: %w", err)
+	}
+	var keys []string
+	for _, sig := range n.Sigs {
+	    keys = append(keys, sig.Name)
+	}
+	return chkpt, keys, nil
 }
 
 // GetLatest gets the latest checkpoint for a given log, which should be
 // consistent with all other checkpoints for the same log.  It also signs it
 // under the witness' key.
-func (w *Witness) GetLatest(logId string) (*log.Checkpoint, error) {
-	return w.db.GetLatest(logId)
-}
-
-func (w *Witness) verifyParse(rawChkpt []byte) (*log.Checkpoint, error) {
-	n, err := note.Open(rawChkpt, note.VerifierList(w.SigV))
+func (w *Witness) GetLatest(logPK string) ([]byte, error) {
+	chkpt, err := w.db.GetLatest(logPK)
+	if err != nil {
+		return nil, err
+	}
+	// Add the witness' signature to the checkpoint.
+	// TODO find a way so we don't have to verify the signatures again.
+	n, err := note.Open(chkpt.Raw, note.VerifierList(w.SigVs...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify checkpoint: %w", err)
 	}
-	chkpt := &log.Checkpoint{}
-	_, err = chkpt.Unmarshal([]byte(n.Text))
+	cosigned, err := note.Sign(n, w.Signer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal new checkpoint: %w", err)
+		return nil, err
 	}
-	return chkpt, nil
+	return cosigned, nil
 }
 
 // Update updates latest checkpoint if `to` matches the current version (`from`).
-func (w *Witness) Update(logId string, from, to []byte, proof log.Proof) error {
+func (w *Witness) Update(logPK string, fromRaw, toRaw []byte, proof log.Proof) error {
 	// Check the signatures on both of the raw checkpoints and parse them
 	// into the log.Checkpoint format.
-	fromChkpt, err := w.verifyParse(from)
+	from, keysFrom, err := w.parse(fromRaw, w.SigVs)
 	if err != nil {
 		return err
 	}
-	toChkpt, err := w.verifyParse(to)
+	to, keysTo, err := w.parse(toRaw, w.SigVs)
 	if err != nil {
 		return err
+	}
+	// Make sure both verified with respect to the same public key.
+	if len(keysFrom) > 1 || len(keysTo) > 1 {
+		return fmt.Errorf("Bad signature verification")
+	}
+	if keysFrom[0] != keysTo[0] {
+		return fmt.Errorf("Checkpoints verified under different public keys")
 	}
 	// Get the latest one because we don't want consistency proofs with
 	// respect to older checkpoints.
-	latest, err := w.db.GetLatest(logId)
+	latest, err := w.db.GetLatest(logPK)
 	if err != nil {
 		return err
 	}
-	if fromChkpt.Size < latest.Size {
+	if from.Size < latest.Parsed.Size {
 		return ErrStale{
-			Smaller: fromChkpt,
-			Latest:  latest,
+			Smaller: from,
+			Latest:  latest.Parsed,
 		}
 	}
-	if fromChkpt.Size > 0 {
-		if toChkpt.Size > fromChkpt.Size {
-			if err := w.LogV.VerifyConsistencyProof(int64(fromChkpt.Size), int64(toChkpt.Size), fromChkpt.Hash, toChkpt.Hash, proof); err != nil {
+	if from.Size > 0 {
+		if to.Size > from.Size {
+			if err := w.LogV.VerifyConsistencyProof(int64(from.Size), int64(to.Size), from.Hash, to.Hash, proof); err != nil {
 				return ErrInconsistency{
-					Smaller: fromChkpt,
-					Larger:  toChkpt,
+					Smaller: fromRaw,
+					Larger:  toRaw,
 					Proof:   proof,
 					Wrapped: err,
 				}
 			}
 		}
 	}
-	return w.db.SetCheckpoint(logId, toChkpt)
+	return w.db.SetCheckpoint(logPK, Chkpt{Parsed: to, Raw: toRaw})
 }
 
 // Registers a new log with the TOFU checkpoint.
-// TODO provide a public key (or look it up using logId?) and check signature.
 func (w *Witness) Register(logPK string, chkptRaw []byte) error {
-	chkpt, err := w.verifyParse(chkptRaw)
+	nv, err := note.NewVerifier(logPK)
 	if err != nil {
 		return err
 	}
-	return w.db.SetCheckpoint(logPK, chkpt)
+	// Verify the signature on the checkpoint with respect to only this log.
+	chkpt, _, err := w.parse(chkptRaw, []note.Verifier{nv})
+	if err != nil {
+		return err
+	}
+	// Add a signature verifier for this public key.
+	w.SigVs = append(w.SigVs, nv)
+	return w.db.SetCheckpoint(logPK, Chkpt{Parsed: chkpt, Raw: chkptRaw})
 }

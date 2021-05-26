@@ -10,8 +10,8 @@ import (
 // ErrInconsistency should be returned when there has been an error proving
 // consistency between two checkpoints.
 type ErrInconsistency struct {
-	Smaller log.Checkpoint
-	Larger  log.Checkpoint
+	Smaller *log.Checkpoint
+	Larger  *log.Checkpoint
 	Proof   log.Proof
 
 	Wrapped error
@@ -28,7 +28,7 @@ func (e ErrInconsistency) Error() string {
 // ErrStale should be returned when Update has been called with `from` set to
 // something other than the latest checkpoint.
 type ErrStale struct {
-	Smaller log.Checkpoint
+	Smaller *log.Checkpoint
 	Latest  *log.Checkpoint
 }
 

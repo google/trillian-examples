@@ -50,7 +50,8 @@ var (
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Please specify one of the commands and its arguments:\n")
-	fmt.Fprintf(os.Stderr, "  inclusion <file> [index-in-log]\n")
+	fmt.Fprintf(os.Stderr, "  inclusion <file> [index-in-log]\n - verify inclusion of a file in the log\n")
+	fmt.Fprintf(os.Stderr, "  update - force the client to update its latest checkpoint\n")
 	os.Exit(-1)
 }
 
@@ -101,6 +102,8 @@ func main() {
 	switch args[0] {
 	case "inclusion":
 		err = lc.inclusionProof(args[1:])
+	case "update":
+		err = lc.updateCheckpoint(args[1:])
 	default:
 		usage()
 	}
@@ -200,7 +203,29 @@ func (l *logClientTool) inclusionProof(args []string) error {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
 	}
 
-	glog.Infof("Inclusion verified in tree size %d, with root 0x%0x", cp.Size, cp.Hash)
+	glog.Infof("Inclusion verified under checkpoint:\n%s", cp.Marshal())
+	return nil
+}
+
+func (l *logClientTool) updateCheckpoint(args []string) error {
+	if l := len(args); l != 0 {
+		return fmt.Errorf("usage: update")
+	}
+
+	glog.V(1).Infof("Original checkpoint:\n%s", l.Tracker.LatestConsistentRaw)
+	cp := l.Tracker.LatestConsistent
+
+	if err := l.Tracker.Update(); err != nil {
+		return fmt.Errorf("failed to update checkpoint: %w", err)
+	}
+
+	if lcp := l.Tracker.LatestConsistent; lcp.Size == cp.Size {
+		glog.Info("Log hasn't grown, nothing to update.")
+		return nil
+	}
+
+	glog.Infof("Updated checkpoint:\n%s", l.Tracker.LatestConsistentRaw)
+
 	return nil
 }
 

@@ -126,15 +126,21 @@ func (w *Witness) Update(fromRaw, toRaw []byte, proof log.Proof) error {
 	if err != nil {
 		return err
 	}
+	// Don't want `from` to be too small.
 	if from.Size < latest.Parsed.Size {
 		return ErrStale{
 			Smaller: from,
 			Latest:  latest.Parsed,
 		}
 	}
+	// Don't want `from` to be too big.
+	if from.Size > latest.Parsed.Size {
+		return fmt.Errorf("Checkpoints are disconnected from current view")
+	}
 	if from.Size > 0 {
 		if to.Size > from.Size {
 			if err := w.LogV.VerifyConsistencyProof(int64(from.Size), int64(to.Size), from.Hash, to.Hash, proof); err != nil {
+				// Complain if the checkpoints aren't consistent.
 				return ErrInconsistency{
 					Smaller: fromRaw,
 					Larger:  toRaw,
@@ -142,9 +148,15 @@ func (w *Witness) Update(fromRaw, toRaw []byte, proof log.Proof) error {
 					Wrapped: err,
 				}
 			}
+			// If the consistency proof is good we store `to`.
+			return w.db.SetCheckpoint(logPK, Chkpt{Parsed: to, Raw: toRaw})
+		} else {
+			// Complain if `to` is bigger than `from`.
+			return fmt.Errorf("Cannot prove consistency backwards")
 		}
 	}
-	return w.db.SetCheckpoint(logPK, Chkpt{Parsed: to, Raw: toRaw})
+	// Complain if the size of `from` is too small.
+	return fmt.Errorf("Invalid checkpoint given as source")
 }
 
 // Registers a new log with the TOFU checkpoint.

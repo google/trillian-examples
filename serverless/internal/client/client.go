@@ -44,12 +44,13 @@ func fetchCheckpointAndParse(f FetcherFunc, v note.Verifier) (*log.Checkpoint, [
 	if err != nil {
 		return nil, nil, err
 	}
-	vCp, err := note.Open(cpRaw, note.VerifierList(v))
+	n, err := note.Open(cpRaw, note.VerifierList(v))
 	if err != nil {
 		glog.Exitf("failed to open Checkpoint: %q", err)
 	}
 	cp := log.Checkpoint{}
-	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
+	if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {
+		glog.V(1).Infof("Bad checkpoint: %q", cpRaw)
 		return nil, nil, fmt.Errorf("failed to unmarshal checkpoint: %w", err)
 	}
 	return &cp, cpRaw, nil
@@ -332,6 +333,7 @@ func (lst *LogStateTracker) Update() error {
 			if err != nil {
 				return err
 			}
+			glog.V(1).Infof("Built consistency proof %x", p)
 			if err := lst.Verifier.VerifyConsistencyProof(int64(lst.LatestConsistent.Size), int64(c.Size), lst.LatestConsistent.Hash, c.Hash, p); err != nil {
 				return ErrInconsistency{
 					SmallerRaw: lst.LatestConsistentRaw,

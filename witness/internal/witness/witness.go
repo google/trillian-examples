@@ -87,7 +87,7 @@ func (w *Witness) GetLatest(logPK string) ([]byte, error) {
 }
 
 // Update updates latest checkpoint if `to` matches the current version (`from`).
-func (w *Witness) Update(logPK string, fromRaw, toRaw []byte, proof log.Proof) error {
+func (w *Witness) Update(fromRaw, toRaw []byte, proof log.Proof) error {
 	// Check the signatures on both of the raw checkpoints and parse them
 	// into the log.Checkpoint format.
 	from, keysFrom, err := w.parse(fromRaw, w.SigVs)
@@ -107,6 +107,7 @@ func (w *Witness) Update(logPK string, fromRaw, toRaw []byte, proof log.Proof) e
 	}
 	// Get the latest one because we don't want consistency proofs with
 	// respect to older checkpoints.
+	logPK := keysFrom[0]
 	latest, err := w.db.GetLatest(logPK)
 	if err != nil {
 		return err
@@ -147,3 +148,4 @@ func (w *Witness) Register(logPK string, chkptRaw []byte) error {
 	w.SigVs = append(w.SigVs, nv)
 	return w.db.SetCheckpoint(logPK, Chkpt{Parsed: chkpt, Raw: chkptRaw})
 }
+

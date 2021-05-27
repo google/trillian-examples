@@ -35,6 +35,11 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
+const (
+	pubKey  = "astra+cad5a3d2+AZJqeuyE/GnknsCNh1eCtDtwdAwKBddOlS8M2eI1Jt4b"
+	privKey = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
+)
+
 func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc, lh *hasher.Hasher, signer note.Signer) {
 
 	lv := logverifier.New(lh)
@@ -43,8 +48,6 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc, lh *hashe
 	const (
 		loops         = 50
 		leavesPerLoop = 257
-		pubKey        = "astra+cad5a3d2+AZJqeuyE/GnknsCNh1eCtDtwdAwKBddOlS8M2eI1Jt4b"
-		privKey       = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 	)
 
 	// Create signature verifier
@@ -72,14 +75,13 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc, lh *hashe
 				t.Fatalf("Integrate = %v", err)
 			}
 			update.Ecosystem = api.CheckpointHeaderV0
-			var cpNote note.Note
-			cpNote.Text = string(update.Marshal())
+			cpNote := note.Note{Text: string(update.Marshal())}
 			cpNoteSigned, err := note.Sign(&cpNote, signer)
 			if err != nil {
-				t.Fatalf("failed to sign Checkpoint: %q", err)
+				t.Fatalf("Failed to sign Checkpoint: %q", err)
 			}
 			if err := s.WriteCheckpoint(cpNoteSigned); err != nil {
-				t.Fatalf("failed to store new log checkpoint: %q", err)
+				t.Fatalf("Failed to store new log checkpoint: %q", err)
 			}
 		}
 
@@ -115,35 +117,16 @@ func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc, lh *hashe
 }
 
 func TestServerlessViaFile(t *testing.T) {
-
 	h := hasher.DefaultHasher
-	const privKey = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 
 	// Create log instance
 	root := filepath.Join(t.TempDir(), "log")
 
 	// Create signer
-	s, err := note.NewSigner(privKey)
-	if err != nil {
-		glog.Exitf("Failed to instantiate signer: %q", err)
-	}
+	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st, err := fs.Create(root, h.EmptyRoot())
-	if err != nil {
-		t.Fatalf("Create = %v", err)
-	}
-	cp := st.Checkpoint()
-	var cpNote note.Note
-	cp.Ecosystem = api.CheckpointHeaderV0
-	cpNote.Text = string(cp.Marshal())
-	cpNoteSigned, err := note.Sign(&cpNote, s)
-	if err != nil {
-		t.Fatalf("failed to sign Checkpoint: %q", err)
-	}
-	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
-		t.Fatalf("failed to store new log checkpoint: %q", err)
-	}
+	st := mustCreateEmptyCheckpoint(t, root, h, s)
 
 	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
@@ -164,33 +147,16 @@ func TestServerlessViaFile(t *testing.T) {
 
 func TestServerlessViaHTTP(t *testing.T) {
 	h := hasher.DefaultHasher
-	const privKey = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 
 	// Create log instance
 	root := filepath.Join(t.TempDir(), "log")
 
 	// Create signer
-	s, err := note.NewSigner(privKey)
-	if err != nil {
-		glog.Exitf("Failed to instantiate signer: %q", err)
-	}
+	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st, err := fs.Create(root, h.EmptyRoot())
-	if err != nil {
-		t.Fatalf("Create = %v", err)
-	}
-	cp := st.Checkpoint()
-	var cpNote note.Note
-	cp.Ecosystem = api.CheckpointHeaderV0
-	cpNote.Text = string(cp.Marshal())
-	cpNoteSigned, err := note.Sign(&cpNote, s)
-	if err != nil {
-		t.Fatalf("failed to sign Checkpoint: %q", err)
-	}
-	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
-		t.Fatalf("failed to store new log checkpoint: %q", err)
-	}
+	st := mustCreateEmptyCheckpoint(t, root, h, s)
+
 	// Arrange for its files to be served via HTTP
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -243,4 +209,30 @@ func httpFetcher(t *testing.T, u string) client.FetcherFunc {
 		defer resp.Body.Close()
 		return ioutil.ReadAll(resp.Body)
 	}
+}
+
+func mustGetSigner(t *testing.T, privKey string) note.Signer {
+	s, err := note.NewSigner(privKey)
+	if err != nil {
+		glog.Exitf("Failed to instantiate signer: %q", err)
+	}
+	return s
+}
+
+func mustCreateEmptyCheckpoint(t *testing.T, root string, h *hasher.Hasher, s note.Signer) *fs.Storage {
+	st, err := fs.Create(root, h.EmptyRoot())
+	if err != nil {
+		t.Fatalf("Create = %v", err)
+	}
+	cp := st.Checkpoint()
+	cp.Ecosystem = api.CheckpointHeaderV0
+	cpNote := note.Note{Text: string(cp.Marshal())}
+	cpNoteSigned, err := note.Sign(&cpNote, s)
+	if err != nil {
+		t.Fatalf("Failed to sign Checkpoint: %q", err)
+	}
+	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
+		t.Fatalf("Failed to store new log checkpoint: %q", err)
+	}
+	return st
 }

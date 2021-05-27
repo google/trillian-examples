@@ -41,6 +41,8 @@ jobs:
       uses: google/trillian-examples/serverless/deploy/github/sequence_and_integrate@master
       with:
         log_dir: './log'
+        SERVERLESS_LOG_PRIVATE_KEY: ${{ secrets.SERVERLESS_LOG_PRIVATE_KEY }}
+        SERVERLESS_LOG_PUBLIC_KEY: ${{ secrets.SERVERLESS_LOG_PUBLIC_KEY }}
     - uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_user_name: Serverless Bot
@@ -90,11 +92,14 @@ jobs:
 To try it out:
 
 1. Create a fresh github repo to contain a log, and clone locally.
+2. Create your own log key pair, using the `generate_keys` tool, add the generated keys
+   to your Github repo's secrets as `SERVERLESS_LOG_PUBLIC_KEY` and
+   `SERVERLESS_LOG_PRIVATE_KEY`.
 2. Initialise the log state:
     1. we'll use a directory called `log` in our repo to
        store the state files
-    2. run the `sequence` tool with the `--create` flag:
-       `go run ./serverless/cmd/sequence --create --storage_dir=<path/to/your/repo>/log --logtostderr`
+    2. run the `integrate` tool with the `--initialise` flag:
+      `go run ./serverless/cmd/integrate --initialise --storage_dir=<path/to/your/repo>/log --logtostderr`
     3. now commit the files it created to your new repo:
 
        ```bash

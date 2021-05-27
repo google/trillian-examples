@@ -126,7 +126,7 @@ func TestServerlessViaFile(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateEmptyCheckpoint(t, root, h, s)
+	st := mustCreateAndInitialiseStorage(t, root, h, s)
 
 	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
@@ -155,7 +155,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateEmptyCheckpoint(t, root, h, s)
+	st := mustCreateAndInitialiseStorage(t, root, h, s)
 
 	// Arrange for its files to be served via HTTP
 	listener, err := net.Listen("tcp", ":0")
@@ -212,6 +212,7 @@ func httpFetcher(t *testing.T, u string) client.FetcherFunc {
 }
 
 func mustGetSigner(t *testing.T, privKey string) note.Signer {
+	t.Helper()
 	s, err := note.NewSigner(privKey)
 	if err != nil {
 		glog.Exitf("Failed to instantiate signer: %q", err)
@@ -219,7 +220,8 @@ func mustGetSigner(t *testing.T, privKey string) note.Signer {
 	return s
 }
 
-func mustCreateEmptyCheckpoint(t *testing.T, root string, h *hasher.Hasher, s note.Signer) *fs.Storage {
+func mustCreateAndInitialiseStorage(t *testing.T, root string, h *hasher.Hasher, s note.Signer) *fs.Storage {
+	t.Helper()
 	st, err := fs.Create(root, h.EmptyRoot())
 	if err != nil {
 		t.Fatalf("Create = %v", err)

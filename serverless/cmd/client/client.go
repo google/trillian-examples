@@ -86,7 +86,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to instantiate Verifier : %q", err)
 	}
-	logID := fmt.Sprint(v.KeyHash())
+	logID := fmt.Sprintf("%d", v.KeyHash())
 
 	f := newFetcher(rootURL)
 	lc, err := newLogClientTool(logID, f, pubKey)

@@ -140,7 +140,7 @@ func signAndWrite(cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs
 	cpNote.Text = string(cp.Marshal())
 	cpNoteSigned, err := note.Sign(&cpNote, s)
 	if err != nil {
-		return fmt.Errorf("failed to sign Checkpoint: %q", err)
+		return fmt.Errorf("failed to sign Checkpoint: %w", err)
 	}
 	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
 		return fmt.Errorf("failed to store new log checkpoint: %w", err)

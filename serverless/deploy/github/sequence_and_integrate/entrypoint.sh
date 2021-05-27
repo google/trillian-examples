@@ -17,12 +17,17 @@ function main {
         exit
     fi
 
+    if [ ! -f "${INPUT_LOG_DIR}/checkpoint" ]; then
+        echo "::debug:No checkpoint file - initialising log"
+        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --initialise --logtostderr
+    fi
+
     echo "::debug:Sequencing..."
     /bin/sequence --storage_dir="${INPUT_LOG_DIR}" --logtostderr --entries "${PENDING}/*"
     rm ${PENDING}/*
 
     echo "::debug:Integrating..."
-    /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --logtostderr
+    /bin/integrate --storage_dir="${INPUT_LOG_DIR}" ${SEQUENCE_FLAGS} --logtostderr
 }
 
 main

@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/apache/beam v2.29.0+incompatible
-	github.com/cenkalti/backoff/v4 v4.1.0
+	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
 	github.com/f-secure-foundry/tamago v0.0.0-20201201222556-c7d3ba598c56

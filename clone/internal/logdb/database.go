@@ -66,6 +66,25 @@ func (d *Database) WriteLeaves(ctx context.Context, start uint64, leaves [][]byt
 	return tx.Commit()
 }
 
+// Leaves returns `count` leaves starting from index `start`.
+func (d *Database) Leaves(start uint64, count uint) ([][]byte, error) {
+	var res [][]byte
+	rows, err := d.db.Query("SELECT data FROM leaves WHERE id>=? AND id<? ORDER BY id", start, start+uint64(count))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var data []byte
+		rows.Scan(&data)
+		res = append(res, data)
+	}
+	if len(res) != int(count) {
+		return nil, fmt.Errorf("failed to read %d leaves, only found %d", count, len(res))
+	}
+	return res, err
+}
+
 // Head returns the largest leaf index written.
 func (d *Database) Head() (int64, error) {
 	var head sql.NullInt64

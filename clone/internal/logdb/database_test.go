@@ -19,6 +19,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
@@ -64,6 +65,80 @@ func TestHeadIncremented(t *testing.T) {
 			if test.wantErr != nil {
 				if head != test.want {
 					t.Errorf("expected %d but got %d", test.want, head)
+				}
+			}
+		})
+	}
+}
+
+func TestRoundTrip(t *testing.T) {
+	leaves := [][]byte{
+		[]byte("a"),
+		[]byte("b"),
+		[]byte("c"),
+		[]byte("d"),
+	}
+	for _, test := range []struct {
+		desc       string
+		leaves     [][]byte
+		start      uint64
+		count      uint
+		wantLeaves [][]byte
+		wantErr    bool
+	}{{
+		desc:       "one leaf",
+		leaves:     leaves[:1],
+		start:      0,
+		count:      1,
+		wantLeaves: leaves[:1],
+	}, {
+		desc:    "one leaf pick two",
+		leaves:  leaves[:1],
+		start:   0,
+		count:   2,
+		wantErr: true,
+	}, {
+		desc:       "many leaves pick first",
+		leaves:     leaves,
+		start:      0,
+		count:      1,
+		wantLeaves: leaves[:1],
+	}, {
+		desc:       "many leaves pick second",
+		leaves:     leaves,
+		start:      1,
+		count:      1,
+		wantLeaves: leaves[1:2],
+	}, {
+		desc:       "many leaves pick all",
+		leaves:     leaves,
+		start:      0,
+		count:      uint(len(leaves)),
+		wantLeaves: leaves,
+	},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			sqlitedb, err := sql.Open("sqlite3", ":memory:")
+			if err != nil {
+				t.Fatal("failed to open temporary in-memory DB", err)
+			}
+			defer sqlitedb.Close()
+
+			db := Database{sqlitedb}
+			if err := db.Init(); err != nil {
+				t.Fatal("failed to init DB", err)
+			}
+			if err := db.WriteLeaves(context.Background(), 0, test.leaves); err != nil {
+				t.Fatal("failed to write leaves", err)
+			}
+
+			got, err := db.Leaves(test.start, test.count)
+			if gotErr := err != nil; test.wantErr != gotErr {
+				t.Errorf("expected err (%t) but got: %q", test.wantErr, err)
+			}
+			if !test.wantErr {
+				if diff := cmp.Diff(got, test.wantLeaves); len(diff) > 0 {
+					t.Errorf("diff in leaves: %q", diff)
 				}
 			}
 		})

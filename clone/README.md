@@ -25,7 +25,6 @@ go run ./clone/cmd/ctclone --alsologtostderr --v=1 --log_url https://ct.googleap
 ```
 
 See the optional flags in the `ctclone` tool to configure tuning parameters.
-
 ## Docker
 
 To build a docker image, run the following from the `trillian-examples` root directory:
@@ -38,4 +37,21 @@ This can be pointed at a local MySQL instance running outside of docker using:
 
 ```
 docker run --name clone_xenon2022 -d ctclone --alsologtostderr --v=1 --log_url https://ct.googleapis.com/logs/xenon2022/ --mysql_uri 'clonetool:letmein@tcp(host.docker.internal)/google_xenon2022'
+```
+
+# Verification
+
+The downloaded log contents should be checked against the checkpoints provided by the log.
+There isn't yet any support in the DB for storing checkpoints, so maintaining them is a DIY project for now.
+The `ctverify` tool takes a CT STH and uses its tree size to compute the root hash from the local data.
+The root hashes are compared, and the tool exits with a failure if they do not match.
+
+One way to accomplish this could be:
+
+```bash
+# 1. Get the checkpoint
+wget -O xenon2022.checkpoint https://ct.googleapis.com/logs/xenon2022/ct/v1/get-sth
+# 2. Clone the log as above ...
+# 3. Pipe the original checkpoint into verify tool to check the downloaded content matches
+cat xenon2022.checkpoint | go run ./clone/cmd/ctverify --alsologtostderr --mysql_uri 'mirror:letmein@tcp(localhost)/google_xenon2022'
 ```

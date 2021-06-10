@@ -33,28 +33,28 @@ func NewDatabase(db *sql.DB) (*Database, error) {
 }
 
 func (d *Database) init() error {
-	_, err := d.db.Exec("CREATE TABLE IF NOT EXISTS chkpts (key BLOB PRIMARY KEY, size INT, data BLOB)")
+	_, err := d.db.Exec("CREATE TABLE IF NOT EXISTS chkpts (key BLOB, size INT, raw BLOB, PRIMARY KEY (key, size))")
 	return err
 }
 
 // GetLatest reads the latest checkpoint written to the DB for a given log.
 func (d *Database) GetLatest(logPK string) (*Chkpt, error) {
-	var maxChkpt *Chkpt
-	row := d.db.QueryRow("SELECT data FROM chkpts WHERE key = ? ORDER BY size DESC LIMIT 1", logPK)
+	var maxChkpt Chkpt
+	row := d.db.QueryRow("SELECT raw, size FROM chkpts WHERE key = ? ORDER BY size DESC LIMIT 1", logPK)
 	if err := row.Err(); err != nil {
 		return nil, err
 	}
-	if err := row.Scan(&maxChkpt); err != nil {
+	if err := row.Scan(&maxChkpt.Raw, &maxChkpt.Size); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("Unknown public key: %q", err)
+			return nil, fmt.Errorf("Unknown public key: %q: %w", logPK, err)
 		}
 		return nil, err
 	}
-	return maxChkpt, nil
+	return &maxChkpt, nil
 }
 
-// SetCheckpoint writes the checkpoint to the DB for a given logId.
+// SetCheckpoint writes the checkpoint to the DB for a given logPK.
 func (d *Database) SetCheckpoint(logPK string, c Chkpt) error {
-	_, err := d.db.Exec("INSERT OR IGNORE INTO chkpts (key, size, data) VALUES (?, ?, ?)", logPK, c.Parsed.Size, c)
+	_, err := d.db.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logPK, c.Size, c.Raw)
 	return err
 }

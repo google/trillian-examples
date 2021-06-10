@@ -37,14 +37,3 @@ func (e ErrInconsistency) Unwrap() error {
 func (e ErrInconsistency) Error() string {
 	return fmt.Sprintf("log consistency check failed: %s", e.Wrapped)
 }
-
-// ErrStale should be returned when Update has been called with `from` set to
-// something other than the latest checkpoint.
-type ErrStale struct {
-	Smaller *log.Checkpoint
-	Latest  *log.Checkpoint
-}
-
-func (e ErrStale) Error() string {
-	return "stale checkpoint given as input"
-}

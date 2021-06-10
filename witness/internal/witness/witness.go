@@ -32,8 +32,9 @@ type ChkptStorage interface {
 	// GetLatest returns the latest checkpoint for a given log.
 	GetLatest(logPK string) (*Chkpt, error)
 
-	// SetCheckpoint adds a checkpoint to the storage for a given log.
-	SetCheckpoint(logPK string, c Chkpt) error
+	// SetCheckpoint adds a checkpoint to the storage for a given log that has
+	// `latest` as its current latest one.
+	SetCheckpoint(logPK string, latest, c *Chkpt) error
 }
 
 type Opts struct {
@@ -134,7 +135,7 @@ func (w *Witness) Update(chkptRaw []byte, proof log.Proof) error {
 			}
 		}
 		// If the consistency proof is good we store chkpt.
-		return w.db.SetCheckpoint(logPK, Chkpt{Size: chkpt.Size, Raw: chkptRaw})
+		return w.db.SetCheckpoint(logPK, latest, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
 	}
 	// Complain if latest is bigger than chkpt.
 	return fmt.Errorf("Cannot prove consistency backwards")

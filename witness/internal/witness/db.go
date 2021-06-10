@@ -15,6 +15,7 @@
 package witness
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 )
@@ -53,8 +54,23 @@ func (d *Database) GetLatest(logPK string) (*Chkpt, error) {
 	return &maxChkpt, nil
 }
 
-// SetCheckpoint writes the checkpoint to the DB for a given logPK.
-func (d *Database) SetCheckpoint(logPK string, c Chkpt) error {
-	_, err := d.db.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logPK, c.Size, c.Raw)
-	return err
+// SetCheckpoint writes the checkpoint to the DB for a given logPK, assuming
+// that the latest checkpoint is still what the caller thought it was.
+func (d *Database) SetCheckpoint(logPK string, latest, c *Chkpt) error {
+	tx, err := d.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		return fmt.Errorf("BeginTx: %v", err)
+	}
+	if latest != nil {
+		realLatest, err := d.GetLatest(logPK)
+		if err != nil {
+			return fmt.Errorf("GetLatest: %v", err)
+		}
+		if latest.Size != realLatest.Size {
+			return fmt.Errorf("Latest checkpoint changed in the meantime")
+		}
+	}
+	//_, err = d.db.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logPK, c.Size, c.Raw)
+	tx.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logPK, c.Size, c.Raw)
+	return tx.Commit()
 }

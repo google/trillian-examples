@@ -59,7 +59,7 @@ func TestRoundTrip(t *testing.T) {
 			}
 
 			for i := 0; i < test.extraRuns+1; i++ {
-				if err := d.SetCheckpoint(test.logPK, test.c); err != nil {
+				if err := d.SetCheckpoint(test.logPK, nil, &test.c); err != nil {
 					t.Error("failed to set checkpoint", err)
 				}
 				got, err := d.GetLatest(test.logPK)

@@ -5,7 +5,7 @@ The tool downloads batches of leaves in parallel, but always writes them to the 
 This ensures there are no missing ranges, which keeps state tracking easier.
 
 One important implementation feature is that the download tools will exponentially back off if there are errors
-communicating with the log, which prevents the client from performing a DoS on any log it is downloading.
+communicating with the log; this prevents the client from performing a DoS on any log it is downloading.
 
 ## Setup
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// download contains classes for downloading data from logs.
+// download contains a library for downloading data from logs.
 package download
 
 import (
@@ -31,6 +31,7 @@ type BatchFetch func(start uint64, leaves [][]byte) error
 // The number of workers and the batch size to use for each of the fetch requests are also specified.
 // The resulting leaves are returned in order over `leafChan`, and any terminal errors are returned via `errc`.
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
+// TODO(mhutchinson): Pass in a context and check for termination so we can gracefully exit.
 func Bulk(first uint64, batchFetch BatchFetch, workers, batchSize uint, leafChan chan<- []byte, errc chan<- error) {
 	// Each worker gets its own unbuffered channel to make sure it can only be at most one ahead.
 	// This prevents lots of wasted work happening if one shard gets stuck.

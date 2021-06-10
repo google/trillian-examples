@@ -64,7 +64,7 @@ func main() {
 	head, err := db.Head()
 	if err != nil {
 		if err == logdb.ErrNoDataFound {
-			glog.Infof("failed to find head of database, assuming empty and starting from scratch: %v", err)
+			glog.Infof("Failed to find head of database, assuming empty and starting from scratch: %v", err)
 			head = -1
 		} else {
 			glog.Exitf("Failed to query for head of local log: %q", err)

@@ -24,8 +24,8 @@ import (
 )
 
 type Chkpt struct {
-	Size	uint64
-	Raw     []byte
+	Size uint64
+	Raw  []byte
 }
 
 type ChkptStorage interface {
@@ -38,9 +38,9 @@ type ChkptStorage interface {
 
 type WitnessOpts struct {
 	Ecosystem string
-	Hasher hashers.LogHasher
-	Storage ChkptStorage
-	Signer note.Signer
+	Hasher    hashers.LogHasher
+	Storage   ChkptStorage
+	Signer    note.Signer
 	KnownLogs []note.Verifier
 }
 
@@ -63,7 +63,7 @@ func NewWitness(wo WitnessOpts) *Witness {
 	}
 }
 
-// parse verifies the checkpoint. It returns the parsed checkpoint and the list 
+// parse verifies the checkpoint. It returns the parsed checkpoint and the list
 // of public keys under which the signature(s) verified.
 func (w *Witness) parse(chkptRaw []byte) (*log.Checkpoint, []string, error) {
 	n, err := note.Open(chkptRaw, note.VerifierList(w.SigVs...))
@@ -75,14 +75,14 @@ func (w *Witness) parse(chkptRaw []byte) (*log.Checkpoint, []string, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal new checkpoint: %w", err)
 	}
-	var keys []string
-	for _, sig := range n.Sigs {
-		keys = append(keys, sig.Name)
+	keys := make([]string, len(n.Sigs))
+	for i, sig := range n.Sigs {
+		keys[i] = sig.Name
 	}
 	return chkpt, keys, nil
 }
 
-// GetLatest gets the latest checkpoint for a given log, which should be
+// GetLatest gets the latest checkpoint for a given log, which will be
 // consistent with all other checkpoints for the same log.  It also signs it
 // under the witness' key.
 func (w *Witness) GetLatest(logPK string) ([]byte, error) {
@@ -102,7 +102,7 @@ func (w *Witness) GetLatest(logPK string) ([]byte, error) {
 	return cosigned, nil
 }
 
-// Update updates latest checkpoint if chkptRaw is consistent with the current 
+// Update updates latest checkpoint if chkptRaw is consistent with the current
 // latest one for this log.
 func (w *Witness) Update(chkptRaw []byte, proof log.Proof) error {
 	// Check the signatures on the raw checkpoint and parse it
@@ -115,7 +115,7 @@ func (w *Witness) Update(chkptRaw []byte, proof log.Proof) error {
 	if len(keys) > 1 {
 		return fmt.Errorf("Bad signature verification")
 	}
-	// Get the latest one for the log, as identified by the key, because we 
+	// Get the latest one for the log, as identified by the key, because we
 	// don't want consistency proofs with respect to older checkpoints.
 	logPK := keys[0]
 	latest, err := w.db.GetLatest(logPK)
@@ -139,4 +139,3 @@ func (w *Witness) Update(chkptRaw []byte, proof log.Proof) error {
 	// Complain if latest is bigger than chkpt.
 	return fmt.Errorf("Cannot prove consistency backwards")
 }
-

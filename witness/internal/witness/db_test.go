@@ -24,24 +24,24 @@ import (
 
 func TestRoundTrip(t *testing.T) {
 	for _, test := range []struct {
-		desc	  string
+		desc      string
 		logPK     string
-		c	  Chkpt
+		c         Chkpt
 		extraRuns int
 	}{
 		{
-			desc:   "simple",
-			logPK:	"monkeys",
-			c:	Chkpt{
-				    Size:  123,
-				    Raw:   []byte("bananas"),
+			desc:  "simple",
+			logPK: "monkeys",
+			c: Chkpt{
+				Size: 123,
+				Raw:  []byte("bananas"),
 			},
 		}, {
-			desc:   "check no failure on inserting same data twice",
-			logPK:	"monkeys",
-			c:	Chkpt{
-				    Size:  123,
-				    Raw:   []byte("bananas"),
+			desc:  "check no failure on inserting same data twice",
+			logPK: "monkeys",
+			c: Chkpt{
+				Size: 123,
+				Raw:  []byte("bananas"),
 			},
 			extraRuns: 1,
 		},

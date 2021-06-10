@@ -31,8 +31,7 @@ import (
 )
 
 var (
-	mysqlURI         = flag.String("mysql_uri", "", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
-	fetchBatchHeight = flag.Uint("fetch_batch_height", 8, "2^N entries will be fetched from the DB per batch. This sets N.")
+	mysqlURI = flag.String("mysql_uri", "", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
 )
 
 func main() {
@@ -60,7 +59,7 @@ func main() {
 	lh := func(_ uint64, preimage []byte) []byte {
 		return h.HashLeaf(preimage)
 	}
-	v := verify.NewLogVerifier(db.Leaves, lh, h.HashChildren, *fetchBatchHeight)
+	v := verify.NewLogVerifier(db.StreamLeaves, lh, h.HashChildren)
 
 	root, err := v.MerkleRoot(cp.TreeSize)
 	if err != nil {

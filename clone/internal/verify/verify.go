@@ -19,44 +19,45 @@ import (
 	"github.com/google/trillian/merkle/compact"
 )
 
-// FetchLeaves returns `count` leaves starting from index `start`.
-type FetchLeaves func(start uint64, count uint) ([][]byte, error)
+type StreamLeaves func(start, end uint64, out chan []byte, errc chan error)
 
 type LeafHashFn func(index uint64, data []byte) []byte
 
-func NewLogVerifier(fetchLeaves FetchLeaves, lh LeafHashFn, ih compact.HashFn, batchHeight uint) LogVerifier {
+func NewLogVerifier(streamLeaves StreamLeaves, lh LeafHashFn, ih compact.HashFn) LogVerifier {
 	return LogVerifier{
-		fetchLeaves: fetchLeaves,
-		lh:          lh,
-		rf:          &compact.RangeFactory{Hash: ih},
-		batchSize:   1 << batchHeight,
+		streamLeaves: streamLeaves,
+		lh:           lh,
+		rf:           &compact.RangeFactory{Hash: ih},
 	}
 }
 
 type LogVerifier struct {
-	fetchLeaves FetchLeaves
-	lh          LeafHashFn
-	rf          *compact.RangeFactory
-	batchSize   uint
+	streamLeaves StreamLeaves
+	lh           LeafHashFn
+	rf           *compact.RangeFactory
 }
 
 func (v LogVerifier) MerkleRoot(size uint64) ([]byte, error) {
 	r := v.rf.NewEmptyRange(0)
-	for i := uint64(0); i < size; i += uint64(v.batchSize) {
-		remaining := size - i
-		batchSize := v.batchSize
-		if remaining < uint64(batchSize) {
-			batchSize = uint(remaining)
-		}
-		leaves, err := v.fetchLeaves(i, batchSize)
-		if err != nil {
+
+	leaves := make(chan []byte, 1)
+	errc := make(chan error)
+
+	go v.streamLeaves(0, size, leaves, errc)
+
+	index := uint64(0)
+	for leaf := range leaves {
+		select {
+		case err := <-errc:
 			return nil, fmt.Errorf("failed to get leaves from DB: %w", err)
+		default:
 		}
-		index := i
-		for _, l := range leaves {
-			r.Append(v.lh(index, l), nil)
-			index++
-		}
+		r.Append(v.lh(index, leaf), nil)
+		index++
 	}
-	return r.GetRootHash(nil)
+	if index == size {
+		return r.GetRootHash(nil)
+	} else {
+		return nil, fmt.Errorf("expected to receive %d leaves but got %d", size, index)
+	}
 }

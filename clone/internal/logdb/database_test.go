@@ -73,48 +73,39 @@ func TestHeadIncremented(t *testing.T) {
 
 func TestRoundTrip(t *testing.T) {
 	leaves := [][]byte{
-		[]byte("a"),
-		[]byte("b"),
-		[]byte("c"),
-		[]byte("d"),
+		[]byte("aa"),
+		[]byte("bb"),
+		[]byte("cc"),
+		[]byte("dd"),
 	}
 	for _, test := range []struct {
 		desc       string
 		leaves     [][]byte
-		start      uint64
-		count      uint
+		start, end uint64
 		wantLeaves [][]byte
-		wantErr    bool
 	}{{
 		desc:       "one leaf",
 		leaves:     leaves[:1],
 		start:      0,
-		count:      1,
+		end:        1,
 		wantLeaves: leaves[:1],
-	}, {
-		desc:    "one leaf pick two",
-		leaves:  leaves[:1],
-		start:   0,
-		count:   2,
-		wantErr: true,
-	}, {
-		desc:       "many leaves pick first",
-		leaves:     leaves,
-		start:      0,
-		count:      1,
-		wantLeaves: leaves[:1],
-	}, {
-		desc:       "many leaves pick second",
-		leaves:     leaves,
-		start:      1,
-		count:      1,
-		wantLeaves: leaves[1:2],
 	}, {
 		desc:       "many leaves pick all",
 		leaves:     leaves,
 		start:      0,
-		count:      uint(len(leaves)),
+		end:        uint64(len(leaves)),
 		wantLeaves: leaves,
+	}, {
+		desc:       "many leaves select middle",
+		leaves:     leaves,
+		start:      1,
+		end:        3,
+		wantLeaves: leaves[1:3],
+	}, {
+		desc:       "many leaves start past the end",
+		leaves:     leaves,
+		start:      100,
+		wantLeaves: [][]byte{},
 	},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -132,14 +123,27 @@ func TestRoundTrip(t *testing.T) {
 				t.Fatal("failed to write leaves", err)
 			}
 
-			got, err := db.Leaves(test.start, test.count)
-			if gotErr := err != nil; test.wantErr != gotErr {
-				t.Errorf("expected err (%t) but got: %q", test.wantErr, err)
-			}
-			if !test.wantErr {
-				if diff := cmp.Diff(got, test.wantLeaves); len(diff) > 0 {
-					t.Errorf("diff in leaves: %q", diff)
+			lc := make(chan []byte, 1)
+			errc := make(chan error)
+			go db.StreamLeaves(test.start, test.end, lc, errc)
+
+			got := make([][]byte, 0)
+		Receive:
+			for l := range lc {
+				select {
+				case err = <-errc:
+					break Receive
+				default:
 				}
+				got = append(got, l)
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %q", err)
+			}
+
+			if diff := cmp.Diff(got, test.wantLeaves); len(diff) > 0 {
+				t.Errorf("diff in leaves: %q", diff)
 			}
 		})
 	}

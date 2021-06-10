@@ -93,3 +93,42 @@ func TestUnknownKey(t *testing.T) {
 		t.Fatalf("want error, but got none, result: %v", r)
 	}
 }
+
+func TestOutdatedChkpt(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Error("failed to open temporary in-memory DB", err)
+	}
+	defer db.Close()
+
+	d, err := NewDatabase(db)
+	if err != nil {
+		t.Fatalf("failed to create DB")
+	}
+
+	logPK := "monkeys"
+
+	c1 :=  &Chkpt{
+		Size: 1,
+		Raw:  []byte("bananas"),
+	}
+	c2 :=  &Chkpt{
+		Size: 2,
+		Raw:  []byte("bananas"),
+	}
+	c3 :=  &Chkpt{
+		Size: 3,
+		Raw:  []byte("bananas"),
+	}
+
+	if err := d.SetCheckpoint(logPK, nil, c1); err != nil {
+		t.Error("failed to set checkpoint", err)
+	}
+	if err := d.SetCheckpoint(logPK, c1, c2); err != nil {
+		t.Error("failed to set checkpoint", err)
+	}
+	err = d.SetCheckpoint(logPK, c1, c3)
+	if err == nil {
+		t.Fatalf("want error, but got none")
+	}
+}

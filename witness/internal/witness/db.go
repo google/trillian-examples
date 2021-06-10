@@ -70,7 +70,6 @@ func (d *Database) SetCheckpoint(logPK string, latest, c *Chkpt) error {
 			return fmt.Errorf("Latest checkpoint changed in the meantime")
 		}
 	}
-	//_, err = d.db.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logPK, c.Size, c.Raw)
 	tx.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logPK, c.Size, c.Raw)
 	return tx.Commit()
 }

@@ -74,7 +74,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-func TestUnknownHash(t *testing.T) {
+func TestUnknownKey(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Error("failed to open temporary in-memory DB", err)

@@ -36,7 +36,7 @@ type ChkptStorage interface {
 	SetCheckpoint(logPK string, c Chkpt) error
 }
 
-type WitnessOpts struct {
+type Opts struct {
 	Ecosystem string
 	Hasher    hashers.LogHasher
 	Storage   ChkptStorage
@@ -53,7 +53,7 @@ type Witness struct {
 }
 
 // NewWitness creates a new witness, which initially has no logs to follow.
-func NewWitness(wo WitnessOpts) *Witness {
+func NewWitness(wo Opts) *Witness {
 	return &Witness{
 		db:     wo.Storage,
 		Signer: wo.Signer,
@@ -82,10 +82,10 @@ func (w *Witness) parse(chkptRaw []byte) (*log.Checkpoint, []string, error) {
 	return chkpt, keys, nil
 }
 
-// GetLatest gets the latest checkpoint for a given log, which will be
+// GetCheckpoint gets a checkpoint for a given log, which will be
 // consistent with all other checkpoints for the same log.  It also signs it
 // under the witness' key.
-func (w *Witness) GetLatest(logPK string) ([]byte, error) {
+func (w *Witness) GetCheckpoint(logPK string) ([]byte, error) {
 	chkpt, err := w.db.GetLatest(logPK)
 	if err != nil {
 		return nil, err

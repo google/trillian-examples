@@ -55,9 +55,8 @@ func (v LogVerifier) MerkleRoot(size uint64) ([]byte, error) {
 		r.Append(v.lh(index, leaf), nil)
 		index++
 	}
-	if index == size {
-		return r.GetRootHash(nil)
-	} else {
+	if index != size {
 		return nil, fmt.Errorf("expected to receive %d leaves but got %d", size, index)
 	}
+	return r.GetRootHash(nil)
 }

@@ -108,15 +108,15 @@ func TestOutdatedChkpt(t *testing.T) {
 
 	logPK := "monkeys"
 
-	c1 :=  &Chkpt{
+	c1 := &Chkpt{
 		Size: 1,
 		Raw:  []byte("bananas"),
 	}
-	c2 :=  &Chkpt{
+	c2 := &Chkpt{
 		Size: 2,
 		Raw:  []byte("bananas"),
 	}
-	c3 :=  &Chkpt{
+	c3 := &Chkpt{
 		Size: 3,
 		Raw:  []byte("bananas"),
 	}

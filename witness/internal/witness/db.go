@@ -38,16 +38,24 @@ func (d *Database) init() error {
 	return err
 }
 
+type querier interface {
+	QueryRow(query string, args ...interface{}) *sql.Row
+}
+
 // GetLatest reads the latest checkpoint written to the DB for a given log.
 func (d *Database) GetLatest(logPK string) (*Chkpt, error) {
+	return d.getLatestChkpt(d.db, logPK)
+}
+
+func (d *Database) getLatestChkpt(q querier, logPK string) (*Chkpt, error) {
 	var maxChkpt Chkpt
-	row := d.db.QueryRow("SELECT raw, size FROM chkpts WHERE key = ? ORDER BY size DESC LIMIT 1", logPK)
+	row := q.QueryRow("SELECT raw, size FROM chkpts WHERE key = ? ORDER BY size DESC LIMIT 1", logPK)
 	if err := row.Err(); err != nil {
 		return nil, err
 	}
 	if err := row.Scan(&maxChkpt.Raw, &maxChkpt.Size); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("Unknown public key: %q: %w", logPK, err)
+			return nil, fmt.Errorf("unknown public key: %q: %w", logPK, err)
 		}
 		return nil, err
 	}
@@ -62,12 +70,12 @@ func (d *Database) SetCheckpoint(logPK string, latest, c *Chkpt) error {
 		return fmt.Errorf("BeginTx: %v", err)
 	}
 	if latest != nil {
-		realLatest, err := d.GetLatest(logPK)
+		realLatest, err := d.getLatestChkpt(tx, logPK)
 		if err != nil {
 			return fmt.Errorf("GetLatest: %v", err)
 		}
 		if latest.Size != realLatest.Size {
-			return fmt.Errorf("Latest checkpoint changed in the meantime")
+			return fmt.Errorf("latest checkpoint changed in the meantime")
 		}
 	}
 	tx.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logPK, c.Size, c.Raw)

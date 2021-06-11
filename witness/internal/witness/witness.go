@@ -15,6 +15,7 @@
 package witness
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/trillian-examples/formats/log"
@@ -34,7 +35,7 @@ type ChkptStorage interface {
 
 	// SetCheckpoint adds a checkpoint to the storage for a given log that has
 	// `latest` as its current latest one.
-	SetCheckpoint(logPK string, latest, c *Chkpt) error
+	SetCheckpoint(ctx context.Context, logPK string, latest, c *Chkpt) error
 }
 
 type Opts struct {
@@ -105,7 +106,7 @@ func (w *Witness) GetCheckpoint(logPK string) ([]byte, error) {
 
 // Update updates latest checkpoint if chkptRaw is consistent with the current
 // latest one for this log.
-func (w *Witness) Update(chkptRaw []byte, proof log.Proof) error {
+func (w *Witness) Update(ctx context.Context, chkptRaw []byte, proof log.Proof) error {
 	// Check the signatures on the raw checkpoint and parse it
 	// into the log.Checkpoint format.
 	chkpt, keys, err := w.parse(chkptRaw)
@@ -135,7 +136,7 @@ func (w *Witness) Update(chkptRaw []byte, proof log.Proof) error {
 			}
 		}
 		// If the consistency proof is good we store chkpt.
-		return w.db.SetCheckpoint(logPK, latest, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
+		return w.db.SetCheckpoint(ctx, logPK, latest, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
 	}
 	// Complain if latest is bigger than chkpt.
 	return fmt.Errorf("Cannot prove consistency backwards")

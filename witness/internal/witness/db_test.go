@@ -16,12 +16,16 @@ package witness
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
+// TestRoundTrip tests the happy paths (adding stuff and looking it up).
 func TestRoundTrip(t *testing.T) {
 	for _, test := range []struct {
 		desc      string
@@ -47,6 +51,7 @@ func TestRoundTrip(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
+			ctx := context.Background()
 			db, err := sql.Open("sqlite3", ":memory:")
 			if err != nil {
 				t.Error("failed to open temporary in-memory DB", err)
@@ -58,8 +63,9 @@ func TestRoundTrip(t *testing.T) {
 				t.Error("failed to create DB", err)
 			}
 
+			prevChkpts := [2]*Chkpt{nil, &test.c}
 			for i := 0; i < test.extraRuns+1; i++ {
-				if err := d.SetCheckpoint(test.logPK, nil, &test.c); err != nil {
+				if err := d.SetCheckpoint(ctx, test.logPK, prevChkpts[i], &test.c); err != nil {
 					t.Error("failed to set checkpoint", err)
 				}
 				got, err := d.GetLatest(test.logPK)
@@ -74,6 +80,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+// TestUnknownKey should fail because nothing has been added.
 func TestUnknownKey(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
@@ -92,9 +99,15 @@ func TestUnknownKey(t *testing.T) {
 	if err == nil {
 		t.Fatalf("want error, but got none, result: %v", r)
 	}
+	if got, want := status.Code(err), codes.NotFound; got != want {
+		t.Fatalf("got error code %s, want %s", got, want)
+	}
 }
 
+// TestOutdatedChkpt should fail because caller's latest checkpoint is out of
+// date.
 func TestOutdatedChkpt(t *testing.T) {
+	ctx := context.Background()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Error("failed to open temporary in-memory DB", err)
@@ -121,13 +134,48 @@ func TestOutdatedChkpt(t *testing.T) {
 		Raw:  []byte("bananas"),
 	}
 
-	if err := d.SetCheckpoint(logPK, nil, c1); err != nil {
+	if err := d.SetCheckpoint(ctx, logPK, nil, c1); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
-	if err := d.SetCheckpoint(logPK, c1, c2); err != nil {
+	if err := d.SetCheckpoint(ctx, logPK, c1, c2); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
-	err = d.SetCheckpoint(logPK, c1, c3)
+	err = d.SetCheckpoint(ctx, logPK, c1, c3)
+	if err == nil {
+		t.Fatalf("want error, but got none")
+	}
+}
+
+// TestNilChkpt should fail because caller is "lying" about there being no
+// checkpoint stored for this key.
+func TestNilChkpt(t *testing.T) {
+	ctx := context.Background()
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Error("failed to open temporary in-memory DB", err)
+	}
+	defer db.Close()
+
+	d, err := NewDatabase(db)
+	if err != nil {
+		t.Fatalf("failed to create DB")
+	}
+
+	logPK := "monkeys"
+
+	c1 := &Chkpt{
+		Size: 1,
+		Raw:  []byte("bananas"),
+	}
+	c2 := &Chkpt{
+		Size: 2,
+		Raw:  []byte("bananas"),
+	}
+
+	if err := d.SetCheckpoint(ctx, logPK, nil, c1); err != nil {
+		t.Error("failed to set checkpoint", err)
+	}
+	err = d.SetCheckpoint(ctx, logPK, nil, c2)
 	if err == nil {
 		t.Fatalf("want error, but got none")
 	}

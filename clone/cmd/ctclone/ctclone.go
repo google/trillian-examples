@@ -149,6 +149,9 @@ type certLeafFetcher struct {
 	f fetcher
 }
 
+// Batch provides a mechanism to fetch a range of leaves.
+// Enough leaves are fetched to fully fill `leaves`, or an error is returned.
+// This implements batch.BatchFetch.
 func (clf certLeafFetcher) Batch(start uint64, leaves [][]byte) error {
 	// CT API gets [start, end] not [start, end).
 	last := start + uint64(len(leaves)) - 1

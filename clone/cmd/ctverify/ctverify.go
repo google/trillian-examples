@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// ctclone is a one-shot tool for downloading entries from a CT log.
+// ctverify checks that leaf data downloaded by ctclone is committed to by a checkpoint.
 package main
 
 import (
@@ -60,7 +60,6 @@ func main() {
 		return h.HashLeaf(preimage)
 	}
 	v := verify.NewLogVerifier(db.StreamLeaves, lh, h.HashChildren)
-
 	root, err := v.MerkleRoot(cp.TreeSize)
 	if err != nil {
 		glog.Exitf("Failed to compute root: %q", err)
@@ -72,6 +71,8 @@ func main() {
 	}
 }
 
+// CTCheckpointResponse mirrors the RFC6962 STH format for `get-sth` to allow the
+// data to be easy unmarshalled from the JSON response.
 type CTCheckpointResponse struct {
 	TreeSize  uint64 `json:"tree_size"`
 	Timestamp uint64 `json:"timestamp"`

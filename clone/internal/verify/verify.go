@@ -19,10 +19,15 @@ import (
 	"github.com/google/trillian/merkle/compact"
 )
 
+// StreamLeaves is a function that returns all the leaves in [start, end), in order, on the `out` channel.
+// Errors are returned via `errc`, and `out` will be closed when all data has been returned.
 type StreamLeaves func(start, end uint64, out chan []byte, errc chan error)
 
+// LeafHashFn returns the leaf hash (commitment) to the given preimage at the given log index.
 type LeafHashFn func(index uint64, data []byte) []byte
 
+// NewLogVerifier returns a LogVerifier which obtains raw leaves from `streamLeaves`, and uses the given
+// hash functions to construct a merkle tree.
 func NewLogVerifier(streamLeaves StreamLeaves, lh LeafHashFn, ih compact.HashFn) LogVerifier {
 	return LogVerifier{
 		streamLeaves: streamLeaves,
@@ -31,12 +36,14 @@ func NewLogVerifier(streamLeaves StreamLeaves, lh LeafHashFn, ih compact.HashFn)
 	}
 }
 
+// LogVerifier calculates the Merkle root of a log.
 type LogVerifier struct {
 	streamLeaves StreamLeaves
 	lh           LeafHashFn
 	rf           *compact.RangeFactory
 }
 
+// MerkleRoot calculates the Merkle root hash of its log at the given size.
 func (v LogVerifier) MerkleRoot(size uint64) ([]byte, error) {
 	r := v.rf.NewEmptyRange(0)
 

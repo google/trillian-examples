@@ -204,9 +204,12 @@ func TestGoodUpdate(t *testing.T) {
 		t.Error("failed to set checkpoint", err)
 	}
 	// Now update from this checkpoint to a newer one.
-	err = w.Update(ctx, logID, newC.Raw, consProof)
+	size, err := w.Update(ctx, logID, initC.Size, newC.Raw, consProof)
 	if err != nil {
 		t.Fatal("can't update to new checkpoint", err)
+	}
+	if size != initC.Size {
+		t.Fatal("witness returned the wrong size in updating")
 	}
 }
 
@@ -326,8 +329,56 @@ func TestUpdateBadProof(t *testing.T) {
 		t.Error("failed to set checkpoint", err)
 	}
 	// Now update from this checkpoint to a newer one.
-	err = w.Update(ctx, logID, newC.Raw, badProof)
+	_, err = w.Update(ctx, logID, initC.Size, newC.Raw, badProof)
 	if err == nil {
 		t.Fatalf("updated to new checkpoint but shouldn't have")
+	}
+}
+
+// This should fail because the caller is using the wrong size when updating.
+func TestUpdateStale(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Error("failed to open temporary in-memory DB", err)
+	}
+	defer db.Close()
+
+	d, err := NewDatabase(db)
+	if err != nil {
+		t.Error("failed to create DB", err)
+	}
+
+	ctx := context.Background()
+	// Set up log keys and sign checkpoints.
+	logID := "testlog"
+	logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
+	if err != nil {
+		t.Error("couldn't generate log keys", err)
+	}
+	signed, err := signChkpts(logSK, []string{string(initC.Raw), string(newC.Raw)})
+	if err != nil {
+		t.Error("couldn't sign checkpoint", err)
+	}
+	initC.Raw = signed[0]
+	newC.Raw = signed[1]
+	// Set up witness parameters.
+	opts, err := setOptsAndKeys(d, logID, logPK)
+	if err != nil {
+		t.Error("couldn't create witness opts", err)
+	}
+	w := NewWitness(opts)
+
+	// Set an initial checkpoint for the log (using the database directly).
+	if err := d.SetCheckpoint(ctx, logID, nil, &initC); err != nil {
+		t.Error("failed to set checkpoint", err)
+	}
+	// Now update from this checkpoint to a newer one but using the wrong
+	// size for the latest one.
+	size, err := w.Update(ctx, logID, initC.Size-1, newC.Raw, consProof)
+	if err != nil {
+		t.Error("failed in updating", err)
+	}
+	if size != initC.Size {
+		t.Fatalf("witness returned the wrong size in updating")
 	}
 }

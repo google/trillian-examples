@@ -111,33 +111,39 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 	return cosigned, nil
 }
 
-// Update updates latest checkpoint if chkptRaw is consistent with the current
-// latest one for this log.
-func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, proof [][]byte) error {
+// Update updates the latest checkpoint if chkptRaw is consistent with the current
+// latest one for this log (according to latestSize).   It returns the latest 
+// checkpoint size before the update was applied (or just what was fetched if the 
+// update was unsuccessful).
+func (w *Witness) Update(ctx context.Context, logID string, latestSize uint64, chkptRaw []byte, proof [][]byte) (uint64, error) {
 	// Check the signatures on the raw checkpoint and parse it
 	// into the log.Checkpoint format.
 	chkpt, err := w.parse(chkptRaw, logID)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// Get the latest one for the log because we don't want consistency proofs
 	// with respect to older checkpoints.
 	latest, err := w.db.GetLatest(logID)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	p, err := w.parse(latest.Raw, logID)
 	if err != nil {
-		return err
+		return 0, err
+	}
+	// If they're out of date, let the caller know.
+	if latestSize < p.Size {
+		return p.Size, nil
 	}
 	if chkpt.Size > p.Size {
 		logInfo, ok := w.Logs[logID]
 		if !ok {
-			return fmt.Errorf("no information for that log")
+			return 0, fmt.Errorf("no information for that log")
 		}
 		if err := logInfo.LogV.VerifyConsistencyProof(int64(p.Size), int64(chkpt.Size), p.Hash, chkpt.Hash, proof); err != nil {
 			// Complain if the checkpoints aren't consistent.
-			return ErrInconsistency{
+			return 0, ErrInconsistency{
 				Smaller: latest.Raw,
 				Larger:  chkptRaw,
 				Proof:   proof,
@@ -145,8 +151,8 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 			}
 		}
 		// If the consistency proof is good we store chkptRaw.
-		return w.db.SetCheckpoint(ctx, logID, latest, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
+		return p.Size, w.db.SetCheckpoint(ctx, logID, latest, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
 	}
 	// Complain if latest is bigger than chkpt.
-	return fmt.Errorf("Cannot prove consistency backwards")
+	return 0, fmt.Errorf("Cannot prove consistency backwards")
 }

@@ -39,61 +39,68 @@ type ChkptStorage interface {
 }
 
 type Opts struct {
-	Ecosystem string
-	Hasher    hashers.LogHasher
 	Storage   ChkptStorage
 	Signer    note.Signer
-	KnownLogs []note.Verifier
+	KnownLogs map[string]LogInfo
+}
+
+type LogInfo struct {
+	Hasher hashers.LogHasher
+	SigVs  []note.Verifier
+	LogV   logverifier.LogVerifier
 }
 
 type Witness struct {
 	db     ChkptStorage
 	Signer note.Signer
-	Hasher hashers.LogHasher
-	LogV   logverifier.LogVerifier
-	SigVs  []note.Verifier
+	// At some point we might want to store this information in a table in
+	// the database too but as I imagine it being populated from a static
+	// config file it doesn't seem very urgent to do that.
+	Logs map[string]LogInfo
 }
 
 // NewWitness creates a new witness, which initially has no logs to follow.
-func NewWitness(wo Opts) *Witness {
+func NewWitness(wo *Opts) *Witness {
 	return &Witness{
 		db:     wo.Storage,
 		Signer: wo.Signer,
-		Hasher: wo.Hasher,
-		LogV:   logverifier.New(wo.Hasher),
-		SigVs:  wo.KnownLogs,
+		Logs:   wo.KnownLogs,
 	}
 }
 
-// parse verifies the checkpoint. It returns the parsed checkpoint and the list
-// of public keys under which the signature(s) verified.
-func (w *Witness) parse(chkptRaw []byte) (*log.Checkpoint, []string, error) {
-	n, err := note.Open(chkptRaw, note.VerifierList(w.SigVs...))
+// parse verifies the checkpoint under the appropriate keys for logID and returns
+// the parsed checkpoint.
+func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, error) {
+	logInfo, ok := w.Logs[logID]
+	if !ok {
+		return nil, fmt.Errorf("no information for that log")
+	}
+	n, err := note.Open(chkptRaw, note.VerifierList(logInfo.SigVs...))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to verify checkpoint: %w", err)
+		return nil, fmt.Errorf("failed to verify checkpoint: %w", err)
 	}
 	chkpt := &log.Checkpoint{}
 	_, err = chkpt.Unmarshal([]byte(n.Text))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal new checkpoint: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal new checkpoint: %w", err)
 	}
-	keys := make([]string, len(n.Sigs))
-	for i, sig := range n.Sigs {
-		keys[i] = sig.Name
-	}
-	return chkpt, keys, nil
+	return chkpt, nil
 }
 
 // GetCheckpoint gets a checkpoint for a given log, which will be
 // consistent with all other checkpoints for the same log.  It also signs it
 // under the witness' key.
-func (w *Witness) GetCheckpoint(logPK string) ([]byte, error) {
-	chkpt, err := w.db.GetLatest(logPK)
+func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
+	chkpt, err := w.db.GetLatest(logID)
 	if err != nil {
 		return nil, err
 	}
 	// Add the witness' signature to the checkpoint.
-	n, err := note.Open(chkpt.Raw, note.VerifierList(w.SigVs...))
+	logInfo, ok := w.Logs[logID]
+	if !ok {
+		return nil, fmt.Errorf("no information for that log")
+	}
+	n, err := note.Open(chkpt.Raw, note.VerifierList(logInfo.SigVs...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify checkpoint: %w", err)
 	}
@@ -106,27 +113,29 @@ func (w *Witness) GetCheckpoint(logPK string) ([]byte, error) {
 
 // Update updates latest checkpoint if chkptRaw is consistent with the current
 // latest one for this log.
-func (w *Witness) Update(ctx context.Context, chkptRaw []byte, proof log.Proof) error {
+func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, proof [][]byte) error {
 	// Check the signatures on the raw checkpoint and parse it
 	// into the log.Checkpoint format.
-	chkpt, keys, err := w.parse(chkptRaw)
+	chkpt, err := w.parse(chkptRaw, logID)
 	if err != nil {
 		return err
 	}
-	// Make sure it verified with respect to only one public key.
-	if len(keys) > 1 {
-		return fmt.Errorf("Bad signature verification")
-	}
-	// Get the latest one for the log, as identified by the key, because we
-	// don't want consistency proofs with respect to older checkpoints.
-	logPK := keys[0]
-	latest, err := w.db.GetLatest(logPK)
+	// Get the latest one for the log because we don't want consistency proofs
+	// with respect to older checkpoints.
+	latest, err := w.db.GetLatest(logID)
 	if err != nil {
 		return err
 	}
-	p, _, _ := w.parse(latest.Raw)
+	p, err := w.parse(latest.Raw, logID)
+	if err != nil {
+		return err
+	}
 	if chkpt.Size > p.Size {
-		if err := w.LogV.VerifyConsistencyProof(int64(p.Size), int64(chkpt.Size), p.Hash, chkpt.Hash, proof); err != nil {
+		logInfo, ok := w.Logs[logID]
+		if !ok {
+			return fmt.Errorf("no information for that log")
+		}
+		if err := logInfo.LogV.VerifyConsistencyProof(int64(p.Size), int64(chkpt.Size), p.Hash, chkpt.Hash, proof); err != nil {
 			// Complain if the checkpoints aren't consistent.
 			return ErrInconsistency{
 				Smaller: latest.Raw,
@@ -135,8 +144,8 @@ func (w *Witness) Update(ctx context.Context, chkptRaw []byte, proof log.Proof) 
 				Wrapped: err,
 			}
 		}
-		// If the consistency proof is good we store chkpt.
-		return w.db.SetCheckpoint(ctx, logPK, latest, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
+		// If the consistency proof is good we store chkptRaw.
+		return w.db.SetCheckpoint(ctx, logID, latest, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
 	}
 	// Complain if latest is bigger than chkpt.
 	return fmt.Errorf("Cannot prove consistency backwards")

@@ -21,11 +21,13 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
+	"golang.org/x/mod/sumdb/note"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
@@ -34,11 +36,26 @@ import (
 var (
 	storageDir = flag.String("storage_dir", "", "Root directory to store log data.")
 	entries    = flag.String("entries", "", "File path glob of entries to add to the log.")
-	create     = flag.Bool("create", false, "Set when creating a new log to initialise the structure.")
+	pubKeyFile = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
 )
 
 func main() {
 	flag.Parse()
+
+	// Read log public key from file or environment variable
+	var pubKey string
+	if len(*pubKeyFile) > 0 {
+		k, err := ioutil.ReadFile(*pubKeyFile)
+		if err != nil {
+			glog.Exitf("failed to read public_key file: %q", err)
+		}
+		pubKey = string(k)
+	} else {
+		pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+		if len(pubKey) == 0 {
+			glog.Exit("supply public key file path using --public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+		}
+	}
 
 	toAdd, err := filepath.Glob(*entries)
 	if err != nil {
@@ -50,23 +67,29 @@ func main() {
 
 	h := hasher.DefaultHasher
 	// init storage
-	var st *fs.Storage
-	if *create {
-		st, err = fs.Create(*storageDir, h.EmptyRoot())
-	} else {
-		var cpRaw []byte
-		cpRaw, err = fs.ReadCheckpoint(*storageDir)
-		if err != nil {
-			glog.Exitf("Failed to read log checkpoint: %q", err)
-		}
-		var cp *log.Checkpoint
-		if _, err := cp.Unmarshal(cpRaw); err != nil {
-			glog.Exitf("Failed to unmarshal checkpoint: %q", err)
-		}
-		st, err = fs.Load(*storageDir, cp)
-	}
+
+	cpRaw, err := fs.ReadCheckpoint(*storageDir)
 	if err != nil {
-		glog.Exitf("Failed to initialise storage: %q", err)
+		glog.Exitf("Failed to read log checkpoint: %q", err)
+	}
+
+	// Check signatures
+	v, err := note.NewVerifier(pubKey)
+	if err != nil {
+		glog.Exitf("Failed to instantiate Verifier: %q", err)
+	}
+	vCp, err := note.Open(cpRaw, note.VerifierList(v))
+	if err != nil {
+		glog.Exitf("Failed to open Checkpoint: %q", err)
+	}
+
+	var cp log.Checkpoint
+	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
+		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
+	}
+	st, err := fs.Load(*storageDir, &cp)
+	if err != nil {
+		glog.Exitf("Failed to load storage: %q", err)
 	}
 
 	// sequence entries

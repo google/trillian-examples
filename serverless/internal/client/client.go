@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/layout"
@@ -30,6 +31,7 @@ import (
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/hashers"
 	"github.com/google/trillian/merkle/logverifier"
+	"golang.org/x/mod/sumdb/note"
 )
 
 // FetcherFunc is the signature of a function which can retrieve arbitrary files from
@@ -37,19 +39,18 @@ import (
 // The path parameter is relative to the root of the log storage.
 type FetcherFunc func(path string) ([]byte, error)
 
-// GetCheckpoint fetches and parses the latest LogState from the log.
-func GetCheckpoint(f FetcherFunc) (*log.Checkpoint, error) {
-	s, _, err := fetchCheckpointAndParse(f)
-	return s, err
-}
-
-func fetchCheckpointAndParse(f FetcherFunc) (*log.Checkpoint, []byte, error) {
+func fetchCheckpointAndParse(f FetcherFunc, v note.Verifier) (*log.Checkpoint, []byte, error) {
 	cpRaw, err := f(layout.CheckpointPath)
 	if err != nil {
 		return nil, nil, err
 	}
+	n, err := note.Open(cpRaw, note.VerifierList(v))
+	if err != nil {
+		glog.Exitf("failed to open Checkpoint: %q", err)
+	}
 	cp := log.Checkpoint{}
-	if _, err := (&cp).Unmarshal(cpRaw); err != nil {
+	if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {
+		glog.V(1).Infof("Bad checkpoint: %q", cpRaw)
 		return nil, nil, fmt.Errorf("failed to unmarshal checkpoint: %w", err)
 	}
 	return &cp, cpRaw, nil
@@ -267,17 +268,20 @@ type LogStateTracker struct {
 
 	// LatestConsistent is the deserialised form of LatestConsistentRaw
 	LatestConsistent log.Checkpoint
+	CpSigVerifier    note.Verifier
 }
 
 // NewLogStateTracker creates a newly initialised tracker.
 // If a serialised LogState representation is provided then this is used as the
 // initial tracked state, otherwise a log state is fetched from the target log.
-func NewLogStateTracker(f FetcherFunc, h hashers.LogHasher, checkpointRaw []byte) (LogStateTracker, error) {
+func NewLogStateTracker(f FetcherFunc, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier) (LogStateTracker, error) {
+
 	ret := LogStateTracker{
 		Fetcher:          f,
 		Hasher:           h,
 		Verifier:         logverifier.New(h),
 		LatestConsistent: log.Checkpoint{},
+		CpSigVerifier:    nV,
 	}
 	if len(checkpointRaw) > 0 {
 		ret.LatestConsistentRaw = checkpointRaw
@@ -315,7 +319,7 @@ func (e ErrInconsistency) Error() string {
 // that it is consistent with the local state before updating the tracker's
 // view.
 func (lst *LogStateTracker) Update() error {
-	c, cRaw, err := fetchCheckpointAndParse(lst.Fetcher)
+	c, cRaw, err := fetchCheckpointAndParse(lst.Fetcher, lst.CpSigVerifier)
 	if err != nil {
 		return err
 	}
@@ -329,6 +333,7 @@ func (lst *LogStateTracker) Update() error {
 			if err != nil {
 				return err
 			}
+			glog.V(1).Infof("Built consistency proof %x", p)
 			if err := lst.Verifier.VerifyConsistencyProof(int64(lst.LatestConsistent.Size), int64(c.Size), lst.LatestConsistent.Hash, c.Hash, p); err != nil {
 				return ErrInconsistency{
 					SmallerRaw: lst.LatestConsistentRaw,

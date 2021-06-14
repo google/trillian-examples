@@ -30,6 +30,7 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/client"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"golang.org/x/mod/sumdb/note"
 )
 
 func defaultCacheLocation() string {
@@ -42,18 +43,35 @@ func defaultCacheLocation() string {
 }
 
 var (
-	logURL   = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
-	cacheDir = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
+	logURL     = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
+	cacheDir   = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
+	pubKeyFile = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
 )
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Please specify one of the commands and its arguments:\n")
-	fmt.Fprintf(os.Stderr, "  inclusion <file> [index-in-log]\n")
+	fmt.Fprintf(os.Stderr, "  inclusion <file> [index-in-log]\n - verify inclusion of a file in the log\n")
+	fmt.Fprintf(os.Stderr, "  update - force the client to update its latest checkpoint\n")
 	os.Exit(-1)
 }
 
 func main() {
 	flag.Parse()
+
+	// Read log public key from file or environment variable
+	var pubKey string
+	if len(*pubKeyFile) > 0 {
+		k, err := ioutil.ReadFile(*pubKeyFile)
+		if err != nil {
+			glog.Exitf("failed to read public_key file: %q", err)
+		}
+		pubKey = string(k)
+	} else {
+		pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+		if len(pubKey) == 0 {
+			glog.Exit("supply public key file path using --public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+		}
+	}
 
 	if len(*logURL) == 0 {
 		glog.Exitf("--log_url must be provided")
@@ -64,11 +82,15 @@ func main() {
 		glog.Exitf("Invalid log URL: %q", err)
 	}
 
-	// TODO(al) derive this from log pub key
-	const logID = "test"
+	// Derive logID from log public key
+	v, err := note.NewVerifier(pubKey)
+	if err != nil {
+		glog.Exitf("Failed to instantiate Verifier : %q", err)
+	}
+	logID := fmt.Sprintf("%d", v.KeyHash())
 
 	f := newFetcher(rootURL)
-	lc, err := newLogClientTool(logID, f)
+	lc, err := newLogClientTool(logID, f, pubKey)
 	if err != nil {
 		glog.Exitf("Failed to create new client: %q", err)
 	}
@@ -80,6 +102,8 @@ func main() {
 	switch args[0] {
 	case "inclusion":
 		err = lc.inclusionProof(args[1:])
+	case "update":
+		err = lc.updateCheckpoint(args[1:])
 	default:
 		usage()
 	}
@@ -105,7 +129,7 @@ type logClientTool struct {
 	Tracker  client.LogStateTracker
 }
 
-func newLogClientTool(logID string, f client.FetcherFunc) (logClientTool, error) {
+func newLogClientTool(logID string, f client.FetcherFunc, pubKey string) (logClientTool, error) {
 	var cpRaw []byte
 	var err error
 	if len(*cacheDir) > 0 {
@@ -119,7 +143,11 @@ func newLogClientTool(logID string, f client.FetcherFunc) (logClientTool, error)
 
 	hasher := hasher.DefaultHasher
 	lv := logverifier.New(hasher)
-	tracker, err := client.NewLogStateTracker(f, hasher, cpRaw)
+	v, err := note.NewVerifier(pubKey)
+	if err != nil {
+		glog.Exitf("Failed to instantiate Verifier: %q", err)
+	}
+	tracker, err := client.NewLogStateTracker(f, hasher, cpRaw, v)
 	if err != nil {
 		glog.Exitf("Failed to create LogStateTracker: %q", err)
 	}
@@ -175,7 +203,29 @@ func (l *logClientTool) inclusionProof(args []string) error {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
 	}
 
-	glog.Infof("Inclusion verified in tree size %d, with root 0x%0x", cp.Size, cp.Hash)
+	glog.Infof("Inclusion verified under checkpoint:\n%s", cp.Marshal())
+	return nil
+}
+
+func (l *logClientTool) updateCheckpoint(args []string) error {
+	if l := len(args); l != 0 {
+		return fmt.Errorf("usage: update")
+	}
+
+	glog.V(1).Infof("Original checkpoint:\n%s", l.Tracker.LatestConsistentRaw)
+	cp := l.Tracker.LatestConsistent
+
+	if err := l.Tracker.Update(); err != nil {
+		return fmt.Errorf("failed to update checkpoint: %w", err)
+	}
+
+	if lcp := l.Tracker.LatestConsistent; lcp.Size == cp.Size {
+		glog.Info("Log hasn't grown, nothing to update.")
+		return nil
+	}
+
+	glog.Infof("Updated checkpoint:\n%s", l.Tracker.LatestConsistentRaw)
+
 	return nil
 }
 

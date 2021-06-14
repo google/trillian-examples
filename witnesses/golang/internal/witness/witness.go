@@ -112,8 +112,8 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 }
 
 // Update updates the latest checkpoint if chkptRaw is consistent with the current
-// latest one for this log (according to latestSize).   It returns the latest 
-// checkpoint size before the update was applied (or just what was fetched if the 
+// latest one for this log (according to latestSize).   It returns the latest
+// checkpoint size before the update was applied (or just what was fetched if the
 // update was unsuccessful).
 func (w *Witness) Update(ctx context.Context, logID string, latestSize uint64, chkptRaw []byte, proof [][]byte) (uint64, error) {
 	// Check the signatures on the raw checkpoint and parse it

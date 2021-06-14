@@ -66,6 +66,26 @@ func (d *Database) WriteLeaves(ctx context.Context, start uint64, leaves [][]byt
 	return tx.Commit()
 }
 
+// StreamLeaves streams leaves in order starting at the given index, putting the leaf preimage
+// values on the `out` channel.
+func (d *Database) StreamLeaves(start, end uint64, out chan []byte, errc chan error) {
+	defer close(out)
+	rows, err := d.db.Query("SELECT data FROM leaves WHERE id>=? AND id < ? ORDER BY id", start, end)
+	if err != nil {
+		errc <- err
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var data []byte
+		if err := rows.Scan(&data); err != nil {
+			errc <- err
+			return
+		}
+		out <- data
+	}
+}
+
 // Head returns the largest leaf index written.
 func (d *Database) Head() (int64, error) {
 	var head sql.NullInt64

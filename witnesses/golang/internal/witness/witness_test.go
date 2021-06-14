@@ -29,6 +29,23 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
+var (
+	initC = Chkpt{
+		Size: 5,
+		Raw:  []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n"),
+	}
+	newC = Chkpt{
+		Size: 8,
+		Raw:  []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n"),
+	}
+	consProof = [][]byte{
+		dh("b9e1d62618f7fee8034e4c5010f727ab24d8e4705cb296c374bf2025a87a10d2", 32),
+		dh("aac66cd7a79ce4012d80762fe8eec3a77f22d1ca4145c3f4cee022e7efcd599d", 32),
+		dh("89d0f753f66a290c483b39cd5e9eafb12021293395fad3d4a2ad053cfbcfdc9e", 32),
+		dh("29e40bb79c966f4c6fe96aff6f30acfce5f3e8d84c02215175d6e018a5dee833", 32),
+	}
+)
+
 func signChkpts(skey string, chkpts []string) ([][]byte, error) {
 	ns, err := note.NewSigner(skey)
 	if err != nil {
@@ -38,7 +55,7 @@ func signChkpts(skey string, chkpts []string) ([][]byte, error) {
 	for i, c := range chkpts {
 		s, err := note.Sign(&note.Note{Text: c}, ns)
 		if err != nil {
-		    return nil, fmt.Errorf("signChkpt: couldn't sign note")
+			return nil, fmt.Errorf("signChkpt: couldn't sign note")
 		}
 		signed[i] = s
 	}
@@ -91,11 +108,6 @@ func dh(h string, expLen int) []byte {
 }
 
 func TestGoodGetChkpt(t *testing.T) {
-	initC := Chkpt{
-		Size: 5,
-		Raw:  []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n"),
-	}
-
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Error("failed to open temporary in-memory DB", err)
@@ -156,22 +168,6 @@ func TestGoodGetChkpt(t *testing.T) {
 }
 
 func TestGoodUpdate(t *testing.T) {
-	initC := Chkpt{
-		Size: 5,
-		Raw:  []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n"),
-	}
-	newC := Chkpt{
-		Size: 8,
-		Raw:  []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n"),
-	}
-	consProof := [][]byte{
-		//log.Proof{
-		dh("b9e1d62618f7fee8034e4c5010f727ab24d8e4705cb296c374bf2025a87a10d2", 32),
-		dh("aac66cd7a79ce4012d80762fe8eec3a77f22d1ca4145c3f4cee022e7efcd599d", 32),
-		dh("89d0f753f66a290c483b39cd5e9eafb12021293395fad3d4a2ad053cfbcfdc9e", 32),
-		dh("29e40bb79c966f4c6fe96aff6f30acfce5f3e8d84c02215175d6e018a5dee833", 32),
-	}
-
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Error("failed to open temporary in-memory DB", err)
@@ -211,5 +207,127 @@ func TestGoodUpdate(t *testing.T) {
 	err = w.Update(ctx, logID, newC.Raw, consProof)
 	if err != nil {
 		t.Fatal("can't update to new checkpoint", err)
+	}
+}
+
+// This should fail because there are no checkpoints stored at all.
+func TestGetChkptNoneThere(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Error("failed to open temporary in-memory DB", err)
+	}
+	defer db.Close()
+
+	d, err := NewDatabase(db)
+	if err != nil {
+		t.Error("failed to create DB", err)
+	}
+	// Set up log keys.
+	logID := "testlog"
+	_, logPK, err := note.GenerateKey(rand.Reader, logID)
+	if err != nil {
+		t.Error("couldn't generate log keys", err)
+	}
+	opts, err := setOptsAndKeys(d, logID, logPK)
+	if err != nil {
+		t.Error("couldn't create witness opts", err)
+	}
+	w := NewWitness(opts)
+	// Get the latest checkpoint for the log, which shouldn't be there.
+	_, err = w.GetCheckpoint(logID)
+	if err == nil {
+		t.Fatalf("got a checkpoint but shouldn't have")
+	}
+}
+
+// This should fail because the stored checkpoint is for a different log.
+func TestGetChkptOtherLog(t *testing.T) {
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Error("failed to open temporary in-memory DB", err)
+	}
+	defer db.Close()
+
+	d, err := NewDatabase(db)
+	if err != nil {
+		t.Error("failed to create DB", err)
+	}
+	ctx := context.Background()
+	// Set up log keys and sign checkpoint.
+	logID := "testlog"
+	logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
+	if err != nil {
+		t.Error("couldn't generate log keys", err)
+	}
+	signed, err := signChkpts(logSK, []string{string(initC.Raw)})
+	if err != nil {
+		t.Error("couldn't sign checkpoint", err)
+	}
+	initC.Raw = signed[0]
+	opts, err := setOptsAndKeys(d, logID, logPK)
+	if err != nil {
+		t.Error("couldn't create witness opts", err)
+	}
+	w := NewWitness(opts)
+	// Set an initial checkpoint for the log (using the database directly).
+	if err := d.SetCheckpoint(ctx, logID, nil, &initC); err != nil {
+		t.Error("failed to set checkpoint", err)
+	}
+	// Get the latest checkpoint for a different log, which shouldn't be
+	// there.
+	_, err = w.GetCheckpoint("other log")
+	if err == nil {
+		t.Fatalf("got a checkpoint but shouldn't have")
+	}
+}
+
+// This should fail because the consistency proof is bad.
+func TestUpdateBadProof(t *testing.T) {
+	badProof := [][]byte{
+		dh("aaaa", 2),
+		dh("bbbb", 2),
+		dh("cccc", 2),
+		dh("dddd", 2),
+	}
+
+	db, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		t.Error("failed to open temporary in-memory DB", err)
+	}
+	defer db.Close()
+
+	d, err := NewDatabase(db)
+	if err != nil {
+		t.Error("failed to create DB", err)
+	}
+
+	ctx := context.Background()
+	// Set up log keys and sign checkpoints.
+	logID := "testlog"
+	logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
+	if err != nil {
+		t.Error("couldn't generate log keys", err)
+	}
+	signed, err := signChkpts(logSK, []string{string(initC.Raw), string(newC.Raw)})
+	if err != nil {
+		t.Error("couldn't sign checkpoint", err)
+	}
+	initC.Raw = signed[0]
+	newC.Raw = signed[1]
+	// Set up witness parameters.
+	opts, err := setOptsAndKeys(d, logID, logPK)
+	if err != nil {
+		t.Error("couldn't create witness opts", err)
+	}
+	w := NewWitness(opts)
+
+	// Set an initial checkpoint for the log (using the database directly).
+	if err := d.SetCheckpoint(ctx, logID, nil, &initC); err != nil {
+		t.Error("failed to set checkpoint", err)
+	}
+	// Now update from this checkpoint to a newer one.
+	err = w.Update(ctx, logID, newC.Raw, badProof)
+	if err == nil {
+		t.Fatalf("updated to new checkpoint but shouldn't have")
 	}
 }

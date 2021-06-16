@@ -29,20 +29,20 @@ import (
 func TestRoundTrip(t *testing.T) {
 	for _, test := range []struct {
 		desc      string
-		logPK     string
+		logID     string
 		c         Chkpt
 		extraRuns int
 	}{
 		{
 			desc:  "simple",
-			logPK: "monkeys",
+			logID: "monkeys",
 			c: Chkpt{
 				Size: 123,
 				Raw:  []byte("bananas"),
 			},
 		}, {
 			desc:  "check no failure on inserting same data twice",
-			logPK: "monkeys",
+			logID: "monkeys",
 			c: Chkpt{
 				Size: 123,
 				Raw:  []byte("bananas"),
@@ -63,12 +63,12 @@ func TestRoundTrip(t *testing.T) {
 				t.Error("failed to create DB", err)
 			}
 
-			prevChkpts := [2]*Chkpt{nil, &test.c}
+			prevChkpts := [2]uint64{0, test.c.Size}
 			for i := 0; i < test.extraRuns+1; i++ {
-				if err := d.SetCheckpoint(ctx, test.logPK, prevChkpts[i], &test.c); err != nil {
+				if err := d.SetCheckpoint(ctx, test.logID, prevChkpts[i], &test.c); err != nil {
 					t.Error("failed to set checkpoint", err)
 				}
-				got, err := d.GetLatest(test.logPK)
+				got, err := d.GetLatest(test.logID)
 				if err != nil {
 					t.Error("failed to get latest", err)
 				}
@@ -93,9 +93,9 @@ func TestUnknownKey(t *testing.T) {
 		t.Error("failed to create DB", err)
 	}
 
-	logPK := "monkeys"
+	logID := "monkeys"
 
-	r, err := d.GetLatest(logPK)
+	r, err := d.GetLatest(logID)
 	if err == nil {
 		t.Fatalf("want error, but got none, result: %v", r)
 	}
@@ -119,7 +119,7 @@ func TestOutdatedChkpt(t *testing.T) {
 		t.Fatalf("failed to create DB")
 	}
 
-	logPK := "monkeys"
+	logID := "monkeys"
 
 	c1 := &Chkpt{
 		Size: 1,
@@ -134,13 +134,13 @@ func TestOutdatedChkpt(t *testing.T) {
 		Raw:  []byte("bananas"),
 	}
 
-	if err := d.SetCheckpoint(ctx, logPK, nil, c1); err != nil {
+	if err := d.SetCheckpoint(ctx, logID, 0, c1); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
-	if err := d.SetCheckpoint(ctx, logPK, c1, c2); err != nil {
+	if err := d.SetCheckpoint(ctx, logID, c1.Size, c2); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
-	err = d.SetCheckpoint(ctx, logPK, c1, c3)
+	err = d.SetCheckpoint(ctx, logID, c1.Size, c3)
 	if err == nil {
 		t.Fatalf("want error, but got none")
 	}
@@ -161,7 +161,7 @@ func TestNilChkpt(t *testing.T) {
 		t.Fatalf("failed to create DB")
 	}
 
-	logPK := "monkeys"
+	logID := "monkeys"
 
 	c1 := &Chkpt{
 		Size: 1,
@@ -172,10 +172,10 @@ func TestNilChkpt(t *testing.T) {
 		Raw:  []byte("bananas"),
 	}
 
-	if err := d.SetCheckpoint(ctx, logPK, nil, c1); err != nil {
+	if err := d.SetCheckpoint(ctx, logID, 0, c1); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
-	err = d.SetCheckpoint(ctx, logPK, nil, c2)
+	err = d.SetCheckpoint(ctx, logID, 0, c2)
 	if err == nil {
 		t.Fatalf("want error, but got none")
 	}

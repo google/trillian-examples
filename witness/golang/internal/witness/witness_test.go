@@ -141,7 +141,7 @@ func TestGoodGetChkpt(t *testing.T) {
 	}
 	w := NewWitness(opts)
 	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, nil, &initC); err != nil {
+	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
 	// Get the latest checkpoint and make sure it's signed properly by both
@@ -200,7 +200,7 @@ func TestGoodUpdate(t *testing.T) {
 	w := NewWitness(opts)
 
 	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, nil, &initC); err != nil {
+	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
 	// Now update from this checkpoint to a newer one.
@@ -273,7 +273,7 @@ func TestGetChkptOtherLog(t *testing.T) {
 	}
 	w := NewWitness(opts)
 	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, nil, &initC); err != nil {
+	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
 	// Get the latest checkpoint for a different log, which shouldn't be
@@ -325,7 +325,7 @@ func TestUpdateBadProof(t *testing.T) {
 	w := NewWitness(opts)
 
 	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, nil, &initC); err != nil {
+	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
 	// Now update from this checkpoint to a newer one.
@@ -369,7 +369,7 @@ func TestUpdateStale(t *testing.T) {
 	w := NewWitness(opts)
 
 	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, nil, &initC); err != nil {
+	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
 	// Now update from this checkpoint to a newer one but using the wrong

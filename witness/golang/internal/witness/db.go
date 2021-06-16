@@ -23,69 +23,65 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Database simply gets and puts things into persistent storage.
+// Database reads from and writes checkpoints to persistent storage.
 type Database struct {
 	db *sql.DB
 }
 
 // NewDatabase creates a new database, initializing it if needed.
 func NewDatabase(db *sql.DB) (*Database, error) {
-	d := &Database{
-		db: db,
+	_, err := db.Exec("CREATE TABLE IF NOT EXISTS chkpts (key BLOB, size INT, raw BLOB, PRIMARY KEY (key, size))")
+	if err != nil {
+		return nil, err
 	}
-	return d, d.init()
-}
-
-func (d *Database) init() error {
-	_, err := d.db.Exec("CREATE TABLE IF NOT EXISTS chkpts (key BLOB, size INT, raw BLOB, PRIMARY KEY (key, size))")
-	return err
+	return &Database{db: db}, nil
 }
 
 // GetLatest reads the latest checkpoint written to the DB for a given log.
-func (d *Database) GetLatest(logPK string) (*Chkpt, error) {
-	return d.getLatestChkpt(d.db.QueryRow, logPK)
+func (d *Database) GetLatest(logID string) (*Chkpt, error) {
+	return d.getLatestChkpt(d.db.QueryRow, logID)
 }
 
-func (d *Database) getLatestChkpt(queryRow func(query string, args ...interface{}) *sql.Row, logPK string) (*Chkpt, error) {
+func (d *Database) getLatestChkpt(queryRow func(query string, args ...interface{}) *sql.Row, logID string) (*Chkpt, error) {
 	var maxChkpt Chkpt
-	row := queryRow("SELECT raw, size FROM chkpts WHERE key = ? ORDER BY size DESC LIMIT 1", logPK)
+	row := queryRow("SELECT raw, size FROM chkpts WHERE key = ? ORDER BY size DESC LIMIT 1", logID)
 	if err := row.Err(); err != nil {
 		return nil, err
 	}
 	if err := row.Scan(&maxChkpt.Raw, &maxChkpt.Size); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, status.Errorf(codes.NotFound, "unknown public key: %q", err)
+			return nil, status.Errorf(codes.NotFound, "log %q not found", logID)
 		}
 		return nil, err
 	}
 	return &maxChkpt, nil
 }
 
-// SetCheckpoint writes the checkpoint to the DB for a given logPK, assuming
-// that the latest checkpoint is still what the caller thought it was.
-func (d *Database) SetCheckpoint(ctx context.Context, logPK string, latest, c *Chkpt) error {
+// SetCheckpoint writes the checkpoint to the DB for a given log, assuming
+// that the latest size is still what the caller thought it was.
+func (d *Database) SetCheckpoint(ctx context.Context, logID string, latestSize uint64, c *Chkpt) error {
 	tx, err := d.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("BeginTx: %v", err)
+		return fmt.Errorf("BeginTx: %w", err)
 	}
-	realLatest, err := d.getLatestChkpt(tx.QueryRow, logPK)
-	if latest != nil {
-		// If latest is non-nil check it's the same as the one in the DB.
+	realLatest, err := d.getLatestChkpt(tx.QueryRow, logID)
+	if latestSize > 0 {
+		// If latest is non-zero check it's the same as the one in the DB.
 		if err != nil {
-			return fmt.Errorf("GetLatest: %v", err)
+			return fmt.Errorf("GetLatest: %w", err)
 		}
-		if latest.Size != realLatest.Size {
+		if latestSize != realLatest.Size {
 			return fmt.Errorf("latest checkpoint changed in the meantime")
 		}
 	} else {
-		// If it is nil check that there really isn't anything there.
+		// Otherwise check that there really isn't anything there.
 		if err == nil {
 			return fmt.Errorf("got latest=nil but there was a stored checkpoint")
 		}
 		if status.Code(err) != codes.NotFound {
-			return fmt.Errorf("GetLatest: %v", err)
+			return fmt.Errorf("GetLatest: %w", err)
 		}
 	}
-	tx.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logPK, c.Size, c.Raw)
+	tx.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logID, c.Size, c.Raw)
 	return tx.Commit()
 }

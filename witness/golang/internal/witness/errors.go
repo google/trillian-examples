@@ -16,8 +16,6 @@ package witness
 
 import (
 	"fmt"
-
-	"github.com/google/trillian-examples/formats/log"
 )
 
 // ErrInconsistency should be returned when there has been an error proving
@@ -25,15 +23,15 @@ import (
 type ErrInconsistency struct {
 	Smaller []byte
 	Larger  []byte
-	Proof   log.Proof
+	Proof   [][]byte
 
-	Wrapped error
+	wrapped error
 }
 
 func (e ErrInconsistency) Unwrap() error {
-	return e.Wrapped
+	return e.wrapped
 }
 
 func (e ErrInconsistency) Error() string {
-	return fmt.Sprintf("log consistency check failed: %s", e.Wrapped)
+	return fmt.Sprintf("log consistency check failed: %s", e.wrapped)
 }

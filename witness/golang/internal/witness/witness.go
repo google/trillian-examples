@@ -24,32 +24,41 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
+// Chkpt consists of the size of a checkpoint and its raw format.
 type Chkpt struct {
 	Size uint64
 	Raw  []byte
 }
 
+// ChkptStorage is an interface for reading and writing checkpoints.
 type ChkptStorage interface {
 	// GetLatest returns the latest checkpoint for a given log.
-	GetLatest(logPK string) (*Chkpt, error)
+	GetLatest(logID string) (*Chkpt, error)
 
-	// SetCheckpoint adds a checkpoint to the storage for a given log that has
-	// `latest` as its current latest one.
-	SetCheckpoint(ctx context.Context, logPK string, latest, c *Chkpt) error
+	// SetCheckpoint adds a checkpoint to the storage for a given log with
+	// latestSize as the size of its largest stored checkpoint.
+	SetCheckpoint(ctx context.Context, logID string, latestSize uint64, c *Chkpt) error
 }
 
+// Opts is the options passed to a witness.
 type Opts struct {
 	Storage   ChkptStorage
 	Signer    note.Signer
 	KnownLogs map[string]LogInfo
 }
 
+// LogInfo consists of the information needed to verify the signatures and
+// consistency proofs of a given log.
 type LogInfo struct {
+	// TODO can probably remove this field since it is already implicit in
+	// the log verifier.
 	Hasher hashers.LogHasher
 	SigVs  []note.Verifier
 	LogV   logverifier.LogVerifier
 }
 
+// A witness consists of a checkpoint storage mechanism, a signer, and a list of
+// logs that it
 type Witness struct {
 	db     ChkptStorage
 	Signer note.Signer
@@ -133,7 +142,7 @@ func (w *Witness) Update(ctx context.Context, logID string, latestSize uint64, c
 		return 0, err
 	}
 	// If they're out of date, let the caller know.
-	if latestSize < p.Size {
+	if latestSize != p.Size {
 		return p.Size, nil
 	}
 	if chkpt.Size > p.Size {
@@ -147,11 +156,11 @@ func (w *Witness) Update(ctx context.Context, logID string, latestSize uint64, c
 				Smaller: latest.Raw,
 				Larger:  chkptRaw,
 				Proof:   proof,
-				Wrapped: err,
+				wrapped: err,
 			}
 		}
 		// If the consistency proof is good we store chkptRaw.
-		return p.Size, w.db.SetCheckpoint(ctx, logID, latest, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
+		return p.Size, w.db.SetCheckpoint(ctx, logID, latest.Size, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
 	}
 	// Complain if latest is bigger than chkpt.
 	return 0, fmt.Errorf("Cannot prove consistency backwards")

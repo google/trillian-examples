@@ -129,7 +129,7 @@ I0413 17:05:10.040976 4156921 integrate.go:94] Nothing to do.
 There is a simple client-side tool for querying the log, currently it supports
 the following functionality:
 
-#### inclusion proof verification
+#### Inclusion proof verification
 
 We can verify the inclusion of a given leaf in the tree with the `client inclusion`
 command:

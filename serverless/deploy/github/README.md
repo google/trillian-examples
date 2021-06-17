@@ -1,6 +1,6 @@
 # Deploying serverless logs on GitHub
 
-> :warning: This is not ready yet, don't attempt to use it!
+> :warning: This is experimental.
 
 Since serverless logs are just files, we can easily use GitHub to store and
 make these available on-line - just check the files in and use GitHub's

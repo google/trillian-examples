@@ -129,7 +129,7 @@ I0413 17:05:10.040976 4156921 integrate.go:94] Nothing to do.
 There is a simple client-side tool for querying the log, currently it supports
 the following functionality:
 
-#### inclusion proof verification
+#### Inclusion proof verification
 
 We can verify the inclusion of a given leaf in the tree with the `client inclusion`
 command:
@@ -167,15 +167,23 @@ exit status 1
 > I0413 17:25:05.801354 4163606 client.go:119] Inclusion verified in tree size 3, with root 0x615a21da1739d901be4b1b44aed9cfcfdc044d18842f554a381bba4bff687aff
 > ```
 
+Hosting serverless logs
+--------------------------------------
+
+In many cases we'd like to outsource the job of hosting our log to a third
+party. There are many possibile ways to do this, one is to use GitHub as both
+a public storage provider for serving the log state, and as hosting the process
+of updating the log state.
+
+For more details, including example GitHub Action configs, see
+[here](./deploy/github).
 
 TODO
 ----
 
  - [X] Document structure, design, etc.
  - [X] Integration test.
- - [ ] Add simple HTTP server which serves exactly the same structure as the filesystem storage.
  - [X] Update client to be able to read tree data from the filesystem via HTTP.
- - [ ] Add example config for serving tiles/files with e.g. Nginx
- - [ ] Implement & document GitHub actions components.
- - [ ] Maybe add configs/examples/docs for Cloud Functions, etc. too.
+ - [X] Implement & document GitHub actions components.
  - [X] Support for squashing dupes.
+ - [ ] Maybe add configs/examples/docs for Cloud Functions, etc. too.

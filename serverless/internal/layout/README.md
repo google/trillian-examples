@@ -70,8 +70,7 @@ the number of (tile) "leaves" present in the tile.  E.g., for the `stratum` and
 `index` given above, if the tile contained `0xab` (tile) "leaves" it would be
 found at `.../tile/ef/0123/45/67/89.ab`
 
-Tile file contents are currently a serialised JSON
-[`Tile struct`](../../api/state.go) object.
+Tile file contents are a serialised [`Tile struct`](../../api/state.go) object.
 
 Note that only finalised/non-ephemeral nodes are stored in tiles.
 i.e. given the following tree, only nodes `[a]`, `[b]`, `[c]`, and `[x]` would

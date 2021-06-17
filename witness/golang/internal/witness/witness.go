@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This is a package for witnessing logs, in terms of making sure their
+// checkpoints are consistent and storing them if so.   This package performs
+// the storage and core consistency checks; it is expected that a separate
+// feeder component would be responsible for interacting with individual logs.
 package witness
 
 import (
@@ -50,15 +54,15 @@ type Opts struct {
 // LogInfo consists of the information needed to verify the signatures and
 // consistency proofs of a given log.
 type LogInfo struct {
-	// TODO can probably remove this field since it is already implicit in
-	// the log verifier.
+	// TODO(smeiklej) can probably remove this field since it is already
+	// implicit in the log verifier.
 	Hasher hashers.LogHasher
 	SigVs  []note.Verifier
 	LogV   logverifier.LogVerifier
 }
 
 // A witness consists of a checkpoint storage mechanism, a signer, and a list of
-// logs that it
+// logs for which it stores and verifies checkpoints.
 type Witness struct {
 	db     ChkptStorage
 	Signer note.Signer
@@ -69,7 +73,7 @@ type Witness struct {
 }
 
 // NewWitness creates a new witness, which initially has no logs to follow.
-func NewWitness(wo *Opts) *Witness {
+func New(wo *Opts) *Witness {
 	return &Witness{
 		db:     wo.Storage,
 		Signer: wo.Signer,
@@ -82,15 +86,14 @@ func NewWitness(wo *Opts) *Witness {
 func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, error) {
 	logInfo, ok := w.Logs[logID]
 	if !ok {
-		return nil, fmt.Errorf("no information for that log")
+		return nil, fmt.Errorf("no information for log %q", logID)
 	}
 	n, err := note.Open(chkptRaw, note.VerifierList(logInfo.SigVs...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify checkpoint: %w", err)
 	}
 	chkpt := &log.Checkpoint{}
-	_, err = chkpt.Unmarshal([]byte(n.Text))
-	if err != nil {
+	if _, err := chkpt.Unmarshal([]byte(n.Text)); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal new checkpoint: %w", err)
 	}
 	return chkpt, nil
@@ -107,7 +110,7 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 	// Add the witness' signature to the checkpoint.
 	logInfo, ok := w.Logs[logID]
 	if !ok {
-		return nil, fmt.Errorf("no information for that log")
+		return nil, fmt.Errorf("no information for log %q", logID)
 	}
 	n, err := note.Open(chkpt.Raw, note.VerifierList(logInfo.SigVs...))
 	if err != nil {
@@ -148,7 +151,7 @@ func (w *Witness) Update(ctx context.Context, logID string, latestSize uint64, c
 	if chkpt.Size > p.Size {
 		logInfo, ok := w.Logs[logID]
 		if !ok {
-			return 0, fmt.Errorf("no information for that log")
+			return 0, fmt.Errorf("no information for log %q", logID)
 		}
 		if err := logInfo.LogV.VerifyConsistencyProof(int64(p.Size), int64(chkpt.Size), p.Hash, chkpt.Hash, proof); err != nil {
 			// Complain if the checkpoints aren't consistent.

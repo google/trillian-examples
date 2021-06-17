@@ -139,7 +139,7 @@ func TestGoodGetChkpt(t *testing.T) {
 	if err != nil {
 		t.Error("couldn't create witness opts", err)
 	}
-	w := NewWitness(opts)
+	w := New(opts)
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
 		t.Error("failed to set checkpoint", err)
@@ -197,7 +197,7 @@ func TestGoodUpdate(t *testing.T) {
 	if err != nil {
 		t.Error("couldn't create witness opts", err)
 	}
-	w := NewWitness(opts)
+	w := New(opts)
 
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
@@ -235,7 +235,7 @@ func TestGetChkptNoneThere(t *testing.T) {
 	if err != nil {
 		t.Error("couldn't create witness opts", err)
 	}
-	w := NewWitness(opts)
+	w := New(opts)
 	// Get the latest checkpoint for the log, which shouldn't be there.
 	_, err = w.GetCheckpoint(logID)
 	if err == nil {
@@ -271,7 +271,7 @@ func TestGetChkptOtherLog(t *testing.T) {
 	if err != nil {
 		t.Error("couldn't create witness opts", err)
 	}
-	w := NewWitness(opts)
+	w := New(opts)
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
 		t.Error("failed to set checkpoint", err)
@@ -322,7 +322,7 @@ func TestUpdateBadProof(t *testing.T) {
 	if err != nil {
 		t.Error("couldn't create witness opts", err)
 	}
-	w := NewWitness(opts)
+	w := New(opts)
 
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {
@@ -366,7 +366,7 @@ func TestUpdateStale(t *testing.T) {
 	if err != nil {
 		t.Error("couldn't create witness opts", err)
 	}
-	w := NewWitness(opts)
+	w := New(opts)
 
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, &initC); err != nil {

@@ -30,7 +30,12 @@ type Database struct {
 
 // NewDatabase creates a new database, initializing it if needed.
 func NewDatabase(db *sql.DB) (*Database, error) {
-	_, err := db.Exec("CREATE TABLE IF NOT EXISTS chkpts (key BLOB, size INT, raw BLOB, PRIMARY KEY (key, size))")
+	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS chkpts (
+			    logID BLOB, 
+			    size INT, 
+			    raw BLOB, 
+			    PRIMARY KEY (logID, size)
+			)`)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +49,10 @@ func (d *Database) GetLatest(logID string) (*Chkpt, error) {
 
 func (d *Database) getLatestChkpt(queryRow func(query string, args ...interface{}) *sql.Row, logID string) (*Chkpt, error) {
 	var maxChkpt Chkpt
-	row := queryRow("SELECT raw, size FROM chkpts WHERE key = ? ORDER BY size DESC LIMIT 1", logID)
+	row := queryRow(`SELECT raw, size FROM chkpts 
+			 WHERE logID = ? 
+			 ORDER BY size DESC 
+			 LIMIT 1`, logID)
 	if err := row.Err(); err != nil {
 		return nil, err
 	}
@@ -82,6 +90,6 @@ func (d *Database) SetCheckpoint(ctx context.Context, logID string, latestSize u
 			return fmt.Errorf("GetLatest: %w", err)
 		}
 	}
-	tx.Exec("INSERT OR IGNORE INTO chkpts (key, size, raw) VALUES (?, ?, ?)", logID, c.Size, c.Raw)
+	tx.Exec("INSERT OR IGNORE INTO chkpts (logID, size, raw) VALUES (?, ?, ?)", logID, c.Size, c.Raw)
 	return tx.Commit()
 }

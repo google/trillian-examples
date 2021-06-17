@@ -9,19 +9,19 @@ This doc describes the on-disk layout and format of the serverless log files.
 Broadly, the layout consists of a self-contained directory hierarchy whose
 contents represents the entire state of the log.
 The contents and structure of this directory is designed to allow it to be safely
-and indefinitely cached by clients, with one exception - the state file.
+and indefinitely cached by clients, with one exception - the checkpoint file.
 
 Inside the directory you'll find:
 
- * :page_facing_up: state
+ * :page_facing_up: checkpoint
  * :file_folder: seq/
  * :file_folder: leaves/
  * :file_folder: tile/
 
-state
------
-`state` contains a JSON formatted [`LogState struct`](../../api/state.go) that
-represents the latest state of the log tree.
+checkpoint
+----------
+`checkpoint` contains the latest log checkpoint in the format described
+[here](/formats/log).
 This is the *only* file in the serverless log data set which *should not* be
 indefinitely cached by serving infrastructure or clients.
 
@@ -70,8 +70,7 @@ the number of (tile) "leaves" present in the tile.  E.g., for the `stratum` and
 `index` given above, if the tile contained `0xab` (tile) "leaves" it would be
 found at `.../tile/ef/0123/45/67/89.ab`
 
-Tile file contents are currently a serialised JSON
-[`Tile struct`](../../api/state.go) object.
+Tile file contents are a serialised [`Tile struct`](../../api/state.go) object.
 
 Note that only finalised/non-ephemeral nodes are stored in tiles.
 i.e. given the following tree, only nodes `[a]`, `[b]`, `[c]`, and `[x]` would

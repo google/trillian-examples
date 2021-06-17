@@ -23,8 +23,8 @@ import (
 	"os"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/clone/internal/logdb"
 	"github.com/google/trillian-examples/clone/internal/verify"
+	"github.com/google/trillian-examples/clone/logdb"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 
 	_ "github.com/go-sql-driver/mysql"

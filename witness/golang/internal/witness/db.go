@@ -73,6 +73,8 @@ func (d *Database) SetCheckpoint(ctx context.Context, logID string, latestSize u
 		return fmt.Errorf("BeginTx: %w", err)
 	}
 	realLatest, err := d.getLatestChkpt(tx.QueryRow, logID)
+	// This assumes that the initial checkpoint stored in the database
+	// always has a positive value.
 	if latestSize > 0 {
 		// If latest is non-zero check it's the same as the one in the DB.
 		if err != nil {

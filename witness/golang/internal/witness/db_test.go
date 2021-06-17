@@ -54,23 +54,23 @@ func TestRoundTrip(t *testing.T) {
 			ctx := context.Background()
 			db, err := sql.Open("sqlite3", ":memory:")
 			if err != nil {
-				t.Error("failed to open temporary in-memory DB", err)
+				t.Fatalf("failed to open temporary in-memory DB: %v", err)
 			}
 			defer db.Close()
 
 			d, err := NewDatabase(db)
 			if err != nil {
-				t.Error("failed to create DB", err)
+				t.Fatalf("failed to create DB: %v", err)
 			}
 
-			prevChkpts := [2]uint64{0, test.c.Size}
+			prevChkpts := []uint64{0, test.c.Size}
 			for i := 0; i <= test.extraRuns; i++ {
 				if err := d.SetCheckpoint(ctx, test.logID, prevChkpts[i], &test.c); err != nil {
-					t.Error("failed to set checkpoint", err)
+					t.Errorf("failed to set checkpoint: %v", err)
 				}
 				got, err := d.GetLatest(test.logID)
 				if err != nil {
-					t.Error("failed to get latest", err)
+					t.Errorf("failed to get latest: %v", err)
 				}
 				if diff := cmp.Diff(got, &test.c); len(diff) != 0 {
 					t.Errorf("latest checkpoint mismatch:\n%s", diff)
@@ -84,13 +84,13 @@ func TestRoundTrip(t *testing.T) {
 func TestUnknownKey(t *testing.T) {
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
+		t.Fatalf("failed to open temporary in-memory DB: %v", err)
 	}
 	defer db.Close()
 
 	d, err := NewDatabase(db)
 	if err != nil {
-		t.Error("failed to create DB", err)
+		t.Fatalf("failed to create DB: %v", err)
 	}
 
 	logID := "monkeys"
@@ -110,13 +110,13 @@ func TestOutdatedChkpt(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
+		t.Fatalf("failed to open temporary in-memory DB: %v", err)
 	}
 	defer db.Close()
 
 	d, err := NewDatabase(db)
 	if err != nil {
-		t.Fatalf("failed to create DB")
+		t.Fatalf("failed to create DB: %v", err)
 	}
 
 	logID := "monkeys"
@@ -135,10 +135,10 @@ func TestOutdatedChkpt(t *testing.T) {
 	}
 
 	if err := d.SetCheckpoint(ctx, logID, 0, c1); err != nil {
-		t.Error("failed to set checkpoint", err)
+		t.Errorf("failed to set checkpoint: %v", err)
 	}
 	if err := d.SetCheckpoint(ctx, logID, c1.Size, c2); err != nil {
-		t.Error("failed to set checkpoint", err)
+		t.Errorf("failed to set checkpoint: %v", err)
 	}
 	if err := d.SetCheckpoint(ctx, logID, c1.Size, c3); err == nil {
 		t.Fatalf("want error, but got none")
@@ -151,13 +151,13 @@ func TestNilChkpt(t *testing.T) {
 	ctx := context.Background()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
+		t.Fatalf("failed to open temporary in-memory DB: %v", err)
 	}
 	defer db.Close()
 
 	d, err := NewDatabase(db)
 	if err != nil {
-		t.Fatalf("failed to create DB")
+		t.Fatalf("failed to create DB: %v", err)
 	}
 
 	logID := "monkeys"
@@ -172,7 +172,7 @@ func TestNilChkpt(t *testing.T) {
 	}
 
 	if err := d.SetCheckpoint(ctx, logID, 0, c1); err != nil {
-		t.Error("failed to set checkpoint", err)
+		t.Errorf("failed to set checkpoint: %v", err)
 	}
 	if err := d.SetCheckpoint(ctx, logID, 0, c2); err == nil {
 		t.Fatalf("want error, but got none")

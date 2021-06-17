@@ -14,9 +14,7 @@
 
 package witness
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // ErrInconsistency should be returned when there has been an error proving
 // consistency between two checkpoints.

@@ -107,17 +107,22 @@ func dh(h string, expLen int) []byte {
 	return r
 }
 
-func TestGoodGetChkpt(t *testing.T) {
+func mustCreateDB(t *testing.T) (*Database, func() error) {
+	t.Helper()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
+		t.Fatalf("failed to open temporary in-memory DB: %v", err)
 	}
-	defer db.Close()
-
 	d, err := NewDatabase(db)
 	if err != nil {
-		t.Error("failed to create DB", err)
+		t.Fatalf("failed to create DB: %v", err)
 	}
+	return d, db.Close
+}
+
+func TestGoodGetChkpt(t *testing.T) {
+	d, closeFn := mustCreateDB(t)
+	defer closeFn()
 	ctx := context.Background()
 	// Set up log keys and sign checkpoint.
 	logID := "testlog"
@@ -168,17 +173,8 @@ func TestGoodGetChkpt(t *testing.T) {
 }
 
 func TestGoodUpdate(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
-	}
-	defer db.Close()
-
-	d, err := NewDatabase(db)
-	if err != nil {
-		t.Error("failed to create DB", err)
-	}
-
+	d, closeFn := mustCreateDB(t)
+	defer closeFn()
 	ctx := context.Background()
 	// Set up log keys and sign checkpoints.
 	logID := "testlog"
@@ -215,16 +211,8 @@ func TestGoodUpdate(t *testing.T) {
 
 // This should fail because there are no checkpoints stored at all.
 func TestGetChkptNoneThere(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
-	}
-	defer db.Close()
-
-	d, err := NewDatabase(db)
-	if err != nil {
-		t.Error("failed to create DB", err)
-	}
+	d, closeFn := mustCreateDB(t)
+	defer closeFn()
 	// Set up log keys.
 	logID := "testlog"
 	_, logPK, err := note.GenerateKey(rand.Reader, logID)
@@ -237,24 +225,15 @@ func TestGetChkptNoneThere(t *testing.T) {
 	}
 	w := New(opts)
 	// Get the latest checkpoint for the log, which shouldn't be there.
-	_, err = w.GetCheckpoint(logID)
-	if err == nil {
+	if _, err = w.GetCheckpoint(logID); err == nil {
 		t.Fatalf("got a checkpoint but shouldn't have")
 	}
 }
 
 // This should fail because the stored checkpoint is for a different log.
 func TestGetChkptOtherLog(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
-	}
-	defer db.Close()
-
-	d, err := NewDatabase(db)
-	if err != nil {
-		t.Error("failed to create DB", err)
-	}
+	d, closeFn := mustCreateDB(t)
+	defer closeFn()
 	ctx := context.Background()
 	// Set up log keys and sign checkpoint.
 	logID := "testlog"
@@ -278,8 +257,7 @@ func TestGetChkptOtherLog(t *testing.T) {
 	}
 	// Get the latest checkpoint for a different log, which shouldn't be
 	// there.
-	_, err = w.GetCheckpoint("other log")
-	if err == nil {
+	if _, err = w.GetCheckpoint("other log"); err == nil {
 		t.Fatalf("got a checkpoint but shouldn't have")
 	}
 }
@@ -292,18 +270,8 @@ func TestUpdateBadProof(t *testing.T) {
 		dh("cccc", 2),
 		dh("dddd", 2),
 	}
-
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
-	}
-	defer db.Close()
-
-	d, err := NewDatabase(db)
-	if err != nil {
-		t.Error("failed to create DB", err)
-	}
-
+	d, closeFn := mustCreateDB(t)
+	defer closeFn()
 	ctx := context.Background()
 	// Set up log keys and sign checkpoints.
 	logID := "testlog"
@@ -329,25 +297,15 @@ func TestUpdateBadProof(t *testing.T) {
 		t.Error("failed to set checkpoint", err)
 	}
 	// Now update from this checkpoint to a newer one.
-	_, err = w.Update(ctx, logID, initC.Size, newC.Raw, badProof)
-	if err == nil {
+	if _, err = w.Update(ctx, logID, initC.Size, newC.Raw, badProof); err == nil {
 		t.Fatalf("updated to new checkpoint but shouldn't have")
 	}
 }
 
 // This should fail because the caller is using the wrong size when updating.
 func TestUpdateStale(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Error("failed to open temporary in-memory DB", err)
-	}
-	defer db.Close()
-
-	d, err := NewDatabase(db)
-	if err != nil {
-		t.Error("failed to create DB", err)
-	}
-
+	d, closeFn := mustCreateDB(t)
+	defer closeFn()
 	ctx := context.Background()
 	// Set up log keys and sign checkpoints.
 	logID := "testlog"

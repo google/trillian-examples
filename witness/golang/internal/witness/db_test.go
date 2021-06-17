@@ -15,11 +15,11 @@
 package witness
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -64,7 +64,7 @@ func TestRoundTrip(t *testing.T) {
 			}
 
 			prevChkpts := [2]uint64{0, test.c.Size}
-			for i := 0; i < test.extraRuns+1; i++ {
+			for i := 0; i <= test.extraRuns; i++ {
 				if err := d.SetCheckpoint(ctx, test.logID, prevChkpts[i], &test.c); err != nil {
 					t.Error("failed to set checkpoint", err)
 				}
@@ -72,8 +72,8 @@ func TestRoundTrip(t *testing.T) {
 				if err != nil {
 					t.Error("failed to get latest", err)
 				}
-				if got.Size != test.c.Size || !bytes.Equal(got.Raw, test.c.Raw) {
-					t.Errorf("got != want (%x, %x)", got.Size, test.c.Size)
+				if diff := cmp.Diff(got, &test.c); len(diff) != 0 {
+					t.Errorf("latest checkpoint mismatch:\n%s", diff)
 				}
 			}
 		})
@@ -140,8 +140,7 @@ func TestOutdatedChkpt(t *testing.T) {
 	if err := d.SetCheckpoint(ctx, logID, c1.Size, c2); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
-	err = d.SetCheckpoint(ctx, logID, c1.Size, c3)
-	if err == nil {
+	if err := d.SetCheckpoint(ctx, logID, c1.Size, c3); err == nil {
 		t.Fatalf("want error, but got none")
 	}
 }
@@ -175,8 +174,7 @@ func TestNilChkpt(t *testing.T) {
 	if err := d.SetCheckpoint(ctx, logID, 0, c1); err != nil {
 		t.Error("failed to set checkpoint", err)
 	}
-	err = d.SetCheckpoint(ctx, logID, 0, c2)
-	if err == nil {
+	if err := d.SetCheckpoint(ctx, logID, 0, c2); err == nil {
 		t.Fatalf("want error, but got none")
 	}
 }

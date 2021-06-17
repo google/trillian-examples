@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This is a package for witnessing logs, in terms of making sure their
-// checkpoints are consistent and storing them if so.   This package performs
-// the storage and core consistency checks; it is expected that a separate
-// feeder component would be responsible for interacting with individual logs.
+// Package witness is designed to make sure the checkpoints of verifiable logs
+// are consistent and store/serve/sign them if so.  It is expected that a separate
+// feeder component would be responsible for the actual interaction with logs.
 package witness
 
 import (

@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package client is a client for the serverless log.
+// Package client provides client support for interacting with a serverless
+// log.
+//
+// See the /cmd/client package in this repo for an example of using this.
 package client
 
 import (

@@ -24,7 +24,7 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
-	"github.com/google/trillian-examples/serverless/internal/client"
+	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/hashers"
 )

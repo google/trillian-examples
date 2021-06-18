@@ -27,7 +27,7 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/serverless/internal/client"
+	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"golang.org/x/mod/sumdb/note"

@@ -26,7 +26,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
-	"github.com/google/trillian-examples/serverless/internal/client"
+	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/hashers"

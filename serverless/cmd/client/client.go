@@ -123,13 +123,13 @@ func main() {
 // It relies heavily on the components provided by the `internal/client` package
 // to accomplish this.
 type logClientTool struct {
-	Fetcher  client.FetcherFunc
+	Fetcher  client.Fetcher
 	Hasher   *hasher.Hasher
 	Verifier logverifier.LogVerifier
 	Tracker  client.LogStateTracker
 }
 
-func newLogClientTool(logID string, f client.FetcherFunc, pubKey string) (logClientTool, error) {
+func newLogClientTool(logID string, f client.Fetcher, pubKey string) (logClientTool, error) {
 	var cpRaw []byte
 	var err error
 	if len(*cacheDir) > 0 {
@@ -229,8 +229,8 @@ func (l *logClientTool) updateCheckpoint(args []string) error {
 	return nil
 }
 
-// newFetcher creates a FetcherFunc for the log at the given root location.
-func newFetcher(root *url.URL) client.FetcherFunc {
+// newFetcher creates a Fetcher for the log at the given root location.
+func newFetcher(root *url.URL) client.Fetcher {
 	get := getByScheme[root.Scheme]
 	if get == nil {
 		panic(fmt.Errorf("unsupported URL scheme %s", root.Scheme))

@@ -34,12 +34,12 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-// FetcherFunc is the signature of a function which can retrieve arbitrary files from
+// Fetcher is the signature of a function which can retrieve arbitrary files from
 // a log's data storage, via whatever appropriate mechanism.
 // The path parameter is relative to the root of the log storage.
-type FetcherFunc func(path string) ([]byte, error)
+type Fetcher func(path string) ([]byte, error)
 
-func fetchCheckpointAndParse(f FetcherFunc, v note.Verifier) (*log.Checkpoint, []byte, error) {
+func fetchCheckpointAndParse(f Fetcher, v note.Verifier) (*log.Checkpoint, []byte, error) {
 	cpRaw, err := f(layout.CheckpointPath)
 	if err != nil {
 		return nil, nil, err
@@ -68,7 +68,7 @@ type ProofBuilder struct {
 // NewProofBuilder creates a new ProofBuilder object for a given tree size.
 // The returned ProofBuilder can be re-used for proofs related to a given tree size, but
 // it is not thread-safe and should not be accessed concurrently.
-func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f FetcherFunc) (*ProofBuilder, error) {
+func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f Fetcher) (*ProofBuilder, error) {
 	tf := newTileFetcher(f)
 	pb := &ProofBuilder{
 		cp:        cp,
@@ -221,8 +221,8 @@ func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
 	return node, nil
 }
 
-// newTileFetcher returns a GetTileFunc based on the passed in FetcherFunc.
-func newTileFetcher(f FetcherFunc) GetTileFunc {
+// newTileFetcher returns a GetTileFunc based on the passed in Fetcher.
+func newTileFetcher(f Fetcher) GetTileFunc {
 	return func(level, index, logSize uint64) (*api.Tile, error) {
 		tileSize := layout.PartialTileSize(level, index, logSize)
 		p := filepath.Join(layout.TilePath("", level, index, tileSize))
@@ -244,7 +244,7 @@ func newTileFetcher(f FetcherFunc) GetTileFunc {
 
 // LookupIndex fetches the leafhash->seq mapping file from the log, and returns
 // its parsed contents.
-func LookupIndex(f FetcherFunc, lh []byte) (uint64, error) {
+func LookupIndex(f Fetcher, lh []byte) (uint64, error) {
 	p := filepath.Join(layout.LeafPath("", lh))
 	sRaw, err := f(p)
 	if err != nil {
@@ -262,7 +262,7 @@ func LookupIndex(f FetcherFunc, lh []byte) (uint64, error) {
 type LogStateTracker struct {
 	Hasher   hashers.LogHasher
 	Verifier logverifier.LogVerifier
-	Fetcher  FetcherFunc
+	Fetcher  Fetcher
 
 	// LatestConsistentRaw holds the raw bytes of the latest proven-consistent
 	// LogState seen by this tracker.
@@ -276,7 +276,7 @@ type LogStateTracker struct {
 // NewLogStateTracker creates a newly initialised tracker.
 // If a serialised LogState representation is provided then this is used as the
 // initial tracked state, otherwise a log state is fetched from the target log.
-func NewLogStateTracker(f FetcherFunc, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier) (LogStateTracker, error) {
+func NewLogStateTracker(f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier) (LogStateTracker, error) {
 
 	ret := LogStateTracker{
 		Fetcher:          f,

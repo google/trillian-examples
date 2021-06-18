@@ -61,7 +61,7 @@ func fetchCheckpointAndParse(f FetcherFunc, v note.Verifier) (*log.Checkpoint, [
 // more complex as proofs can touch "ephemeral" nodes, so these need to be synthesized.
 type ProofBuilder struct {
 	cp        log.Checkpoint
-	nodeCache NodeCache
+	nodeCache nodeCache
 	h         compact.HashFn
 }
 
@@ -69,13 +69,14 @@ type ProofBuilder struct {
 // The returned ProofBuilder can be re-used for proofs related to a given tree size, but
 // it is not thread-safe and should not be accessed concurrently.
 func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f FetcherFunc) (*ProofBuilder, error) {
+	tf := newTileFetcher(f)
 	pb := &ProofBuilder{
 		cp:        cp,
-		nodeCache: NewNodeCache(newTileFetcher(f)),
+		nodeCache: newNodeCache(tf),
 		h:         h,
 	}
 
-	hashes, err := FetchRangeNodes(cp.Size, &pb.nodeCache)
+	hashes, err := FetchRangeNodes(cp.Size, tf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch range nodes: %w", err)
 	}
@@ -144,7 +145,8 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 
 // FetchRangeNodes returns the set of nodes representing the compact range covering
 // a log of size s.
-func FetchRangeNodes(s uint64, nc *NodeCache) ([][]byte, error) {
+func FetchRangeNodes(s uint64, gt GetTileFunc) ([][]byte, error) {
+	nc := newNodeCache(gt)
 	nIDs := compact.RangeNodes(0, s)
 	ret := make([][]byte, len(nIDs))
 	for i, n := range nIDs {
@@ -157,11 +159,11 @@ func FetchRangeNodes(s uint64, nc *NodeCache) ([][]byte, error) {
 	return ret, nil
 }
 
-// NodeCache hides the tiles abstraction away, and improves
+// nodeCache hides the tiles abstraction away, and improves
 // performance by caching tiles it's seen.
 // Not threadsafe, and intended to be only used throughout the course
 // of a single request.
-type NodeCache struct {
+type nodeCache struct {
 	ephemeral map[compact.NodeID][]byte
 	tiles     map[tileKey]api.Tile
 	getTile   GetTileFunc
@@ -177,9 +179,9 @@ type tileKey struct {
 	tileIndex uint64
 }
 
-// NewNodeCache creates a new nodeCache instance.
-func NewNodeCache(f GetTileFunc) NodeCache {
-	return NodeCache{
+// newNodeCache creates a new nodeCache instance.
+func newNodeCache(f GetTileFunc) nodeCache {
+	return nodeCache{
 		ephemeral: make(map[compact.NodeID][]byte),
 		tiles:     make(map[tileKey]api.Tile),
 		getTile:   f,
@@ -187,7 +189,7 @@ func NewNodeCache(f GetTileFunc) NodeCache {
 }
 
 // SetEphemeralNode stored a derived "ephemeral" tree node.
-func (n *NodeCache) SetEphemeralNode(id compact.NodeID, h []byte) {
+func (n *nodeCache) SetEphemeralNode(id compact.NodeID, h []byte) {
 	n.ephemeral[id] = h
 }
 
@@ -195,7 +197,7 @@ func (n *NodeCache) SetEphemeralNode(id compact.NodeID, h []byte) {
 // A previously set ephemeral node will be returned if id matches, otherwise
 // the tile containing the requested node will be fetched and cached, and the
 // node hash returned.
-func (n *NodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
+func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
 	// First check for ephemeral nodes:
 	if e := n.ephemeral[id]; len(e) != 0 {
 		return e, nil

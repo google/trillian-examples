@@ -63,8 +63,7 @@ func Integrate(st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
 
 	// Fetch previously stored state
 	checkpoint := st.Checkpoint()
-	nc := client.NewNodeCache(st.GetTile)
-	hashes, err := client.FetchRangeNodes(checkpoint.Size, &nc)
+	hashes, err := client.FetchRangeNodes(checkpoint.Size, st.GetTile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch compact range nodes: %w", err)
 	}

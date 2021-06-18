@@ -27,7 +27,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-// Chkpt consists of the size of a checkpoint and its raw format.
+// Chkpt contains the size of a checkpoint and its raw format.
 type Chkpt struct {
 	Size uint64
 	Raw  []byte
@@ -38,8 +38,8 @@ type ChkptStorage interface {
 	// GetLatest returns the latest checkpoint for a given log.
 	GetLatest(logID string) (Chkpt, error)
 
-	// SetCheckpoint adds a checkpoint to the storage for a given log with
-	// latestSize as the size of its largest stored checkpoint.
+	// SetCheckpoint adds a checkpoint to the storage for a given log if the
+	// provided input latestSize is the size of its largest stored checkpoint.
 	SetCheckpoint(ctx context.Context, logID string, latestSize uint64, c Chkpt) error
 }
 
@@ -50,7 +50,7 @@ type Opts struct {
 	KnownLogs map[string]LogInfo
 }
 
-// LogInfo consists of the information needed to verify the signatures and
+// LogInfo contains the information needed to verify the signatures and
 // consistency proofs of a given log.
 type LogInfo struct {
 	// TODO(smeiklej) can probably remove this field since it is already
@@ -60,7 +60,7 @@ type LogInfo struct {
 	LogV   logverifier.LogVerifier
 }
 
-// A witness consists of a checkpoint storage mechanism, a signer, and a list of
+// Witness consists of a checkpoint storage mechanism, a signer, and a list of
 // logs for which it stores and verifies checkpoints.
 type Witness struct {
 	db     ChkptStorage
@@ -71,7 +71,7 @@ type Witness struct {
 	Logs map[string]LogInfo
 }
 
-// NewWitness creates a new witness, which initially has no logs to follow.
+// New creates a new witness, which initially has no logs to follow.
 func New(wo *Opts) *Witness {
 	return &Witness{
 		db:     wo.Storage,

@@ -61,7 +61,7 @@ func signChkpts(skey string, chkpts []string) ([][]byte, error) {
 	return signed, nil
 }
 
-func setOpts(d *Database, logID string, logPK string, wSK string) (*Opts, error) {
+func newOpts(d *Database, logID string, logPK string, wSK string) (*Opts, error) {
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
 		return nil, fmt.Errorf("setOpts: couldn't create a note signer")
@@ -86,16 +86,16 @@ func setOpts(d *Database, logID string, logPK string, wSK string) (*Opts, error)
 	return opts, nil
 }
 
-func setOptsAndKeys(d *Database, logID string, logPK string) (*Opts, error) {
+func newOptsAndKeys(d *Database, logID string, logPK string) (*Opts, error) {
 	wSK, _, err := note.GenerateKey(rand.Reader, "witness")
 	if err != nil {
 		return nil, fmt.Errorf("couldn't generate witness keys")
 	}
-	return setOpts(d, logID, logPK, wSK)
+	return newOpts(d, logID, logPK, wSK)
 }
 
-func setWitness(t *testing.T, d *Database, logID string, logPK string) *Witness {
-	opts, err := setOptsAndKeys(d, logID, logPK)
+func newWitness(t *testing.T, d *Database, logID string, logPK string) *Witness {
+	opts, err := newOptsAndKeys(d, logID, logPK)
 	if err != nil {
 		t.Fatalf("couldn't create witness opt struct: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestGoodGetChkpt(t *testing.T) {
 	if err != nil {
 		t.Errorf("couldn't generate witness keys: %v", err)
 	}
-	opts, err := setOpts(d, logID, logPK, wSK)
+	opts, err := newOpts(d, logID, logPK, wSK)
 	if err != nil {
 		t.Errorf("couldn't create witness opts: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestGoodUpdate(t *testing.T) {
 	initC.Raw = signed[0]
 	newC.Raw = signed[1]
 	// Set up witness.
-	w := setWitness(t, d, logID, logPK)
+	w := newWitness(t, d, logID, logPK)
 
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {
@@ -222,7 +222,7 @@ func TestGetChkptNoneThere(t *testing.T) {
 	if err != nil {
 		t.Errorf("couldn't generate log keys: %v", err)
 	}
-	w := setWitness(t, d, logID, logPK)
+	w := newWitness(t, d, logID, logPK)
 	// Get the latest checkpoint for the log, which shouldn't be there.
 	if _, err := w.GetCheckpoint(logID); err == nil {
 		t.Fatal("got a checkpoint but shouldn't have")
@@ -245,7 +245,7 @@ func TestGetChkptOtherLog(t *testing.T) {
 		t.Error("couldn't sign checkpoint", err)
 	}
 	initC.Raw = signed[0]
-	w := setWitness(t, d, logID, logPK)
+	w := newWitness(t, d, logID, logPK)
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {
 		t.Error("failed to set checkpoint", err)
@@ -281,7 +281,7 @@ func TestUpdateBadProof(t *testing.T) {
 	initC.Raw = signed[0]
 	newC.Raw = signed[1]
 	// Set up witness.
-	w := setWitness(t, d, logID, logPK)
+	w := newWitness(t, d, logID, logPK)
 
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {
@@ -311,7 +311,7 @@ func TestUpdateStale(t *testing.T) {
 	initC.Raw = signed[0]
 	newC.Raw = signed[1]
 	// Set up witness.
-	w := setWitness(t, d, logID, logPK)
+	w := newWitness(t, d, logID, logPK)
 
 	// Set an initial checkpoint for the log (using the database directly).
 	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {

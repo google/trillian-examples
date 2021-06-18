@@ -42,29 +42,28 @@ func NewDatabase(db *sql.DB) (*Database, error) {
 }
 
 // GetLatest reads the latest checkpoint written to the DB for a given log.
-func (d *Database) GetLatest(logID string) (*Chkpt, error) {
+func (d *Database) GetLatest(logID string) (Chkpt, error) {
 	return d.getLatestChkpt(d.db.QueryRow, logID)
 }
 
-func (d *Database) getLatestChkpt(queryRow func(query string, args ...interface{}) *sql.Row, logID string) (*Chkpt, error) {
-	var maxChkpt Chkpt
-	row := queryRow(`SELECT raw, size FROM chkpts 
-			 WHERE logID = ?`, logID)
+func (d *Database) getLatestChkpt(queryRow func(query string, args ...interface{}) *sql.Row, logID string) (Chkpt, error) {
+	row := queryRow("SELECT raw, size FROM chkpts WHERE logID = ?", logID)
 	if err := row.Err(); err != nil {
-		return nil, err
+		return Chkpt{}, err
 	}
+	var maxChkpt Chkpt
 	if err := row.Scan(&maxChkpt.Raw, &maxChkpt.Size); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, status.Errorf(codes.NotFound, "log %q not found", logID)
+			return Chkpt{}, status.Errorf(codes.NotFound, "log %q not found", logID)
 		}
-		return nil, err
+		return Chkpt{}, err
 	}
-	return &maxChkpt, nil
+	return maxChkpt, nil
 }
 
 // SetCheckpoint writes the checkpoint to the DB for a given log, assuming
 // that the latest size is still what the caller thought it was.
-func (d *Database) SetCheckpoint(ctx context.Context, logID string, latestSize uint64, c *Chkpt) error {
+func (d *Database) SetCheckpoint(ctx context.Context, logID string, latestSize uint64, c Chkpt) error {
 	tx, err := d.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("BeginTx: %w", err)

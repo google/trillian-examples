@@ -36,11 +36,11 @@ type Chkpt struct {
 // ChkptStorage is an interface for reading and writing checkpoints.
 type ChkptStorage interface {
 	// GetLatest returns the latest checkpoint for a given log.
-	GetLatest(logID string) (*Chkpt, error)
+	GetLatest(logID string) (Chkpt, error)
 
 	// SetCheckpoint adds a checkpoint to the storage for a given log with
 	// latestSize as the size of its largest stored checkpoint.
-	SetCheckpoint(ctx context.Context, logID string, latestSize uint64, c *Chkpt) error
+	SetCheckpoint(ctx context.Context, logID string, latestSize uint64, c Chkpt) error
 }
 
 // Opts is the options passed to a witness.
@@ -89,11 +89,11 @@ func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, error) 
 	}
 	n, err := note.Open(chkptRaw, note.VerifierList(logInfo.SigVs...))
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify checkpoint: %w", err)
+		return nil, fmt.Errorf("failed to verify checkpoint: %v", err)
 	}
 	chkpt := &log.Checkpoint{}
 	if _, err := chkpt.Unmarshal([]byte(n.Text)); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal new checkpoint: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal new checkpoint: %v", err)
 	}
 	return chkpt, nil
 }
@@ -113,7 +113,7 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 	}
 	n, err := note.Open(chkpt.Raw, note.VerifierList(logInfo.SigVs...))
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify checkpoint: %w", err)
+		return nil, fmt.Errorf("failed to verify checkpoint: %v", err)
 	}
 	cosigned, err := note.Sign(n, w.Signer)
 	if err != nil {
@@ -154,15 +154,10 @@ func (w *Witness) Update(ctx context.Context, logID string, latestSize uint64, c
 		}
 		if err := logInfo.LogV.VerifyConsistencyProof(int64(p.Size), int64(chkpt.Size), p.Hash, chkpt.Hash, proof); err != nil {
 			// Complain if the checkpoints aren't consistent.
-			return 0, ErrInconsistency{
-				Smaller: latest.Raw,
-				Larger:  chkptRaw,
-				Proof:   proof,
-				wrapped: err,
-			}
+			return 0, fmt.Errorf("failed to verify consistency proof: %v", err)
 		}
 		// If the consistency proof is good we store chkptRaw.
-		return p.Size, w.db.SetCheckpoint(ctx, logID, latest.Size, &Chkpt{Size: chkpt.Size, Raw: chkptRaw})
+		return p.Size, w.db.SetCheckpoint(ctx, logID, latest.Size, Chkpt{Size: chkpt.Size, Raw: chkptRaw})
 	}
 	// Complain if latest is bigger than chkpt.
 	return 0, fmt.Errorf("Cannot prove consistency backwards")

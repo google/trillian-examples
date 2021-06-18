@@ -65,14 +65,14 @@ func TestRoundTrip(t *testing.T) {
 
 			prevChkpts := []uint64{0, test.c.Size}
 			for i := 0; i <= test.extraRuns; i++ {
-				if err := d.SetCheckpoint(ctx, test.logID, prevChkpts[i], &test.c); err != nil {
+				if err := d.SetCheckpoint(ctx, test.logID, prevChkpts[i], test.c); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 				got, err := d.GetLatest(test.logID)
 				if err != nil {
 					t.Errorf("failed to get latest: %v", err)
 				}
-				if diff := cmp.Diff(got, &test.c); len(diff) != 0 {
+				if diff := cmp.Diff(got, test.c); len(diff) != 0 {
 					t.Errorf("latest checkpoint mismatch:\n%s", diff)
 				}
 			}
@@ -121,15 +121,15 @@ func TestOutdatedChkpt(t *testing.T) {
 
 	logID := "monkeys"
 
-	c1 := &Chkpt{
+	c1 := Chkpt{
 		Size: 1,
 		Raw:  []byte("bananas"),
 	}
-	c2 := &Chkpt{
+	c2 := Chkpt{
 		Size: 2,
 		Raw:  []byte("bananas"),
 	}
-	c3 := &Chkpt{
+	c3 := Chkpt{
 		Size: 3,
 		Raw:  []byte("bananas"),
 	}
@@ -162,11 +162,11 @@ func TestNilChkpt(t *testing.T) {
 
 	logID := "monkeys"
 
-	c1 := &Chkpt{
+	c1 := Chkpt{
 		Size: 1,
 		Raw:  []byte("bananas"),
 	}
-	c2 := &Chkpt{
+	c2 := Chkpt{
 		Size: 2,
 		Raw:  []byte("bananas"),
 	}

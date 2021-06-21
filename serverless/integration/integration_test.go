@@ -26,7 +26,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
-	"github.com/google/trillian-examples/serverless/internal/client"
+	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/hashers"
@@ -40,7 +40,7 @@ const (
 	privKey = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 )
 
-func RunIntegration(t *testing.T, s log.Storage, f client.FetcherFunc, lh *hasher.Hasher, signer note.Signer) {
+func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Hasher, signer note.Signer) {
 
 	lv := logverifier.New(lh)
 
@@ -190,7 +190,7 @@ func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n
 	return r
 }
 
-func httpFetcher(t *testing.T, u string) client.FetcherFunc {
+func httpFetcher(t *testing.T, u string) client.Fetcher {
 	t.Helper()
 	rootURL, err := url.Parse(u)
 	if err != nil {

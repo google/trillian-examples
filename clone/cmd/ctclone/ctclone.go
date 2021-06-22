@@ -26,7 +26,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/clone/internal/download"
-	"github.com/google/trillian-examples/clone/internal/logdb"
+	"github.com/google/trillian-examples/clone/logdb"
 
 	_ "github.com/go-sql-driver/mysql"
 )

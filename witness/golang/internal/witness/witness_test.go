@@ -29,11 +29,11 @@ import (
 )
 
 var (
-	initC = Chkpt{
+	initChkpt = Chkpt{
 		Size: 5,
 		Raw:  []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n"),
 	}
-	newC = Chkpt{
+	newChkpt = Chkpt{
 		Size: 8,
 		Raw:  []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n"),
 	}
@@ -61,45 +61,48 @@ func signChkpts(skey string, chkpts []string) ([][]byte, error) {
 	return signed, nil
 }
 
-func newOpts(d *Database, logID string, logPK string, wSK string) (*Opts, error) {
+func newOpts(d *sql.DB, logID string, logPK string, wSK string) (Opts, error) {
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
-		return nil, fmt.Errorf("setOpts: couldn't create a note signer")
+		return Opts{}, fmt.Errorf("setOpts: couldn't create a note signer")
 	}
 	h := hasher.DefaultHasher
 	logV, err := note.NewVerifier(logPK)
 	if err != nil {
-		return nil, fmt.Errorf("setOpts: couldn't create a log verifier")
+		return Opts{}, fmt.Errorf("setOpts: couldn't create a log verifier")
 	}
 	sigVs := []note.Verifier{logV}
 	log := LogInfo{
-		Hasher: h,
-		SigVs:  sigVs,
-		LogV:   logverifier.New(h),
+		SigVs: sigVs,
+		LogV:  logverifier.New(h),
 	}
 	m := map[string]LogInfo{logID: log}
-	opts := &Opts{
-		Storage:   d,
+	opts := Opts{
+		Database:  d,
 		Signer:    ns,
 		KnownLogs: m,
 	}
 	return opts, nil
 }
 
-func newOptsAndKeys(d *Database, logID string, logPK string) (*Opts, error) {
+func newOptsAndKeys(d *sql.DB, logID string, logPK string) (Opts, error) {
 	wSK, _, err := note.GenerateKey(rand.Reader, "witness")
 	if err != nil {
-		return nil, fmt.Errorf("couldn't generate witness keys")
+		return Opts{}, fmt.Errorf("couldn't generate witness keys")
 	}
 	return newOpts(d, logID, logPK, wSK)
 }
 
-func newWitness(t *testing.T, d *Database, logID string, logPK string) *Witness {
+func newWitness(t *testing.T, d *sql.DB, logID string, logPK string) *Witness {
 	opts, err := newOptsAndKeys(d, logID, logPK)
 	if err != nil {
 		t.Fatalf("couldn't create witness opt struct: %v", err)
 	}
-	return New(opts)
+	w, err := New(opts)
+	if err != nil {
+		t.Fatalf("couldn't create witness: %v", err)
+	}
+	return w
 }
 
 // dh is taken from https://github.com/google/trillian/blob/master/merkle/logverifier/log_verifier_test.go.
@@ -114,216 +117,171 @@ func dh(h string, expLen int) []byte {
 	return r
 }
 
-func mustCreateDB(t *testing.T) (*Database, func() error) {
+func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
 	t.Helper()
 	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open temporary in-memory DB: %v", err)
 	}
-	d, err := NewDatabase(db)
-	if err != nil {
-		t.Fatalf("failed to create DB: %v", err)
-	}
-	return d, db.Close
+	return db, db.Close
 }
 
-func TestGoodGetChkpt(t *testing.T) {
-	d, closeFn := mustCreateDB(t)
-	defer closeFn()
-	ctx := context.Background()
-	// Set up log keys and sign checkpoint.
-	logID := "testlog"
-	logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
-	if err != nil {
-		t.Errorf("couldn't generate log keys: %v", err)
-	}
-	signed, err := signChkpts(logSK, []string{string(initC.Raw)})
-	if err != nil {
-		t.Errorf("couldn't sign checkpoint: %v", err)
-	}
-	initC.Raw = signed[0]
-	// Set up witness keys and other parameters.
-	wSK, wPK, err := note.GenerateKey(rand.Reader, "witness")
-	if err != nil {
-		t.Errorf("couldn't generate witness keys: %v", err)
-	}
-	opts, err := newOpts(d, logID, logPK, wSK)
-	if err != nil {
-		t.Errorf("couldn't create witness opts: %v", err)
-	}
-	w := New(opts)
-	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {
-		t.Errorf("failed to set checkpoint: %v", err)
-	}
-	// Get the latest checkpoint and make sure it's signed properly by both
-	// the witness and the log.
-	cosigned, err := w.GetCheckpoint(logID)
-	if err != nil {
-		t.Errorf("failed to get latest: %v", err)
-	}
-	wV, err := note.NewVerifier(wPK)
-	if err != nil {
-		t.Errorf("couldn't create a witness verifier: %v", err)
-	}
-	logV, err := note.NewVerifier(logPK)
-	if err != nil {
-		t.Errorf("couldn't create a log verifier: %v", err)
-	}
-	n, err := note.Open(cosigned, note.VerifierList(logV, wV))
-	if err != nil {
-		t.Errorf("couldn't verify the co-signed checkpoint: %v", err)
-	}
-	if len(n.Sigs) != 2 {
-		t.Fatalf("checkpoint doesn't verify under enough keys")
-	}
-}
-
-func TestGoodUpdate(t *testing.T) {
-	d, closeFn := mustCreateDB(t)
-	defer closeFn()
-	ctx := context.Background()
-	// Set up log keys and sign checkpoints.
-	logID := "testlog"
-	logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
-	if err != nil {
-		t.Errorf("couldn't generate log keys: %v", err)
-	}
-	signed, err := signChkpts(logSK, []string{string(initC.Raw), string(newC.Raw)})
-	if err != nil {
-		t.Errorf("couldn't sign checkpoint: %v", err)
-	}
-	initC.Raw = signed[0]
-	newC.Raw = signed[1]
-	// Set up witness.
-	w := newWitness(t, d, logID, logPK)
-
-	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {
-		t.Errorf("failed to set checkpoint: %v", err)
-	}
-	// Now update from this checkpoint to a newer one.
-	size, err := w.Update(ctx, logID, initC.Size, newC.Raw, consProof)
-	if err != nil {
-		t.Fatalf("can't update to new checkpoint: %v", err)
-	}
-	if size != initC.Size {
-		t.Fatal("witness returned the wrong size in updating")
-	}
-}
-
-// This should fail because there are no checkpoints stored at all.
-func TestGetChkptNoneThere(t *testing.T) {
-	d, closeFn := mustCreateDB(t)
-	defer closeFn()
-	// Set up log keys.
-	logID := "testlog"
-	_, logPK, err := note.GenerateKey(rand.Reader, logID)
-	if err != nil {
-		t.Errorf("couldn't generate log keys: %v", err)
-	}
-	w := newWitness(t, d, logID, logPK)
-	// Get the latest checkpoint for the log, which shouldn't be there.
-	if _, err := w.GetCheckpoint(logID); err == nil {
-		t.Fatal("got a checkpoint but shouldn't have")
+func TestGetChkpt(t *testing.T) {
+	for _, test := range []struct {
+		desc    string
+		setID   string
+		queryID string
+		c       Chkpt
+		want    string
+	}{
+		{
+			desc:    "happy path",
+			setID:   "testlog",
+			queryID: "testlog",
+			c:       initChkpt,
+			want:    "there",
+		}, {
+			desc:    "other log",
+			setID:   "testlog",
+			queryID: "otherlog",
+			c:       initChkpt,
+			want:    "not there",
+		}, {
+			desc:    "nothing there",
+			setID:   "testlog",
+			queryID: "testlog",
+			c:       initChkpt,
+			want:    "not there",
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			d, closeFn := mustCreateDB(t)
+			defer closeFn()
+			ctx := context.Background()
+			// Set up log keys and sign checkpoint.
+			logSK, logPK, err := note.GenerateKey(rand.Reader, test.setID)
+			if err != nil {
+				t.Errorf("couldn't generate log keys: %v", err)
+			}
+			signed, err := signChkpts(logSK, []string{string(test.c.Raw)})
+			if err != nil {
+				t.Errorf("couldn't sign checkpoint: %v", err)
+			}
+			test.c.Raw = signed[0]
+			// Set up witness keys and other parameters.
+			wSK, wPK, err := note.GenerateKey(rand.Reader, "witness")
+			if err != nil {
+				t.Errorf("couldn't generate witness keys: %v", err)
+			}
+			opts, err := newOpts(d, test.setID, logPK, wSK)
+			if err != nil {
+				t.Errorf("couldn't create witness opts: %v", err)
+			}
+			w, err := New(opts)
+			if err != nil {
+				t.Fatalf("couldn't create witness: %v", err)
+			}
+			// Set a checkpoint for the log if we want to for this test.
+			if test.desc != "nothing there" {
+				if _, err := w.Update(ctx, test.setID, test.c.Raw, [][]byte{}); err != nil {
+					t.Errorf("failed to set checkpoint: %v", err)
+				}
+			}
+			// Try to get the latest checkpoint.
+			cosigned, err := w.GetCheckpoint(test.queryID)
+			if test.want == "not there" && err == nil {
+				t.Fatalf("returned a checkpoint but shouldn't have")
+			}
+			// If we got something then verify it under the log and
+			// witness public keys.
+			if test.want == "there" {
+				if err != nil {
+					t.Errorf("failed to get latest: %v", err)
+				}
+				wV, err := note.NewVerifier(wPK)
+				if err != nil {
+					t.Errorf("couldn't create a witness verifier: %v", err)
+				}
+				logV, err := note.NewVerifier(logPK)
+				if err != nil {
+					t.Errorf("couldn't create a log verifier: %v", err)
+				}
+				n, err := note.Open(cosigned, note.VerifierList(logV, wV))
+				if err != nil {
+					t.Errorf("couldn't verify the co-signed checkpoint: %v", err)
+				}
+				if len(n.Sigs) != 2 {
+					t.Fatalf("checkpoint doesn't verify under enough keys")
+				}
+			}
+		})
 	}
 }
 
-// This should fail because the stored checkpoint is for a different log.
-func TestGetChkptOtherLog(t *testing.T) {
-	d, closeFn := mustCreateDB(t)
-	defer closeFn()
-	ctx := context.Background()
-	// Set up log keys and sign checkpoint.
-	logID := "testlog"
-	logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
-	if err != nil {
-		t.Errorf("couldn't generate log keys: %v", err)
-	}
-	signed, err := signChkpts(logSK, []string{string(initC.Raw)})
-	if err != nil {
-		t.Error("couldn't sign checkpoint", err)
-	}
-	initC.Raw = signed[0]
-	w := newWitness(t, d, logID, logPK)
-	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {
-		t.Error("failed to set checkpoint", err)
-	}
-	// Get the latest checkpoint for a different log, which shouldn't be
-	// there.
-	if _, err = w.GetCheckpoint("other log"); err == nil {
-		t.Fatal("got a checkpoint but shouldn't have")
-	}
-}
+func TestUpdate(t *testing.T) {
+	for _, test := range []struct {
+		desc  string
+		initC Chkpt
+		newC  Chkpt
+		pf    [][]byte
+		want  string
+	}{
+		{
+			desc:  "happy path",
+			initC: initChkpt,
+			newC:  newChkpt,
+			pf:    consProof,
+			want:  "good",
+		}, {
+			desc:  "garbage proof",
+			initC: initChkpt,
+			newC:  newChkpt,
+			pf: [][]byte{
+				dh("aaaa", 2),
+				dh("bbbb", 2),
+				dh("cccc", 2),
+				dh("dddd", 2),
+			},
+			want: "bad",
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			d, closeFn := mustCreateDB(t)
+			defer closeFn()
+			ctx := context.Background()
+			// Set up log keys and sign checkpoints.
+			logID := "testlog"
+			logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
+			if err != nil {
+				t.Errorf("couldn't generate log keys: %v", err)
+			}
+			signed, err := signChkpts(logSK, []string{string(test.initC.Raw), string(test.newC.Raw)})
+			if err != nil {
+				t.Errorf("couldn't sign checkpoint: %v", err)
+			}
+			test.initC.Raw = signed[0]
+			test.newC.Raw = signed[1]
+			// Set up witness.
+			w := newWitness(t, d, logID, logPK)
 
-// This should fail because the consistency proof is bad.
-func TestUpdateBadProof(t *testing.T) {
-	badProof := [][]byte{
-		dh("aaaa", 2),
-		dh("bbbb", 2),
-		dh("cccc", 2),
-		dh("dddd", 2),
-	}
-	d, closeFn := mustCreateDB(t)
-	defer closeFn()
-	ctx := context.Background()
-	// Set up log keys and sign checkpoints.
-	logID := "testlog"
-	logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
-	if err != nil {
-		t.Errorf("couldn't generate log keys: %v", err)
-	}
-	signed, err := signChkpts(logSK, []string{string(initC.Raw), string(newC.Raw)})
-	if err != nil {
-		t.Errorf("couldn't sign checkpoint: %v", err)
-	}
-	initC.Raw = signed[0]
-	newC.Raw = signed[1]
-	// Set up witness.
-	w := newWitness(t, d, logID, logPK)
-
-	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {
-		t.Errorf("failed to set checkpoint: %v", err)
-	}
-	// Now update from this checkpoint to a newer one.
-	if _, err = w.Update(ctx, logID, initC.Size, newC.Raw, badProof); err == nil {
-		t.Fatal("updated to new checkpoint but shouldn't have")
-	}
-}
-
-// This should fail because the caller is using the wrong size when updating.
-func TestUpdateStale(t *testing.T) {
-	d, closeFn := mustCreateDB(t)
-	defer closeFn()
-	ctx := context.Background()
-	// Set up log keys and sign checkpoints.
-	logID := "testlog"
-	logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
-	if err != nil {
-		t.Errorf("couldn't generate log keys: %v", err)
-	}
-	signed, err := signChkpts(logSK, []string{string(initC.Raw), string(newC.Raw)})
-	if err != nil {
-		t.Errorf("couldn't sign checkpoint: %v", err)
-	}
-	initC.Raw = signed[0]
-	newC.Raw = signed[1]
-	// Set up witness.
-	w := newWitness(t, d, logID, logPK)
-
-	// Set an initial checkpoint for the log (using the database directly).
-	if err := d.SetCheckpoint(ctx, logID, 0, initC); err != nil {
-		t.Errorf("failed to set checkpoint: %v", err)
-	}
-	// Now update from this checkpoint to a newer one but using the wrong
-	// size for the latest one.
-	size, err := w.Update(ctx, logID, initC.Size-1, newC.Raw, consProof)
-	if err != nil {
-		t.Errorf("failed in updating: %v", err)
-	}
-	if size != initC.Size {
-		t.Fatal("witness returned the wrong size in updating")
+			// Set an initial checkpoint for the log.
+			if _, err := w.Update(ctx, logID, test.initC.Raw, [][]byte{}); err != nil {
+				t.Errorf("failed to set checkpoint: %v", err)
+			}
+			// Now update from this checkpoint to a newer one.
+			size, err := w.Update(ctx, logID, test.newC.Raw, test.pf)
+			if test.want == "good" {
+				if err != nil {
+					t.Fatalf("can't update to new checkpoint: %v", err)
+				}
+				if size != test.initC.Size {
+					t.Fatal("witness returned the wrong size in updating")
+				}
+			} else {
+				if err == nil {
+					t.Fatal("should have gotten an error but didn't")
+				}
+			}
+		})
 	}
 }

@@ -72,10 +72,10 @@ type ProofBuilder struct {
 // The returned ProofBuilder can be re-used for proofs related to a given tree size, but
 // it is not thread-safe and should not be accessed concurrently.
 func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f Fetcher) (*ProofBuilder, error) {
-	tf := newTileFetcher(f)
+	tf := newTileFetcher(f, cp.Size)
 	pb := &ProofBuilder{
 		cp:        cp,
-		nodeCache: newNodeCache(tf),
+		nodeCache: newNodeCache(tf, cp.Size),
 		h:         h,
 	}
 
@@ -116,7 +116,7 @@ func (pb *ProofBuilder) InclusionProof(index uint64) ([][]byte, error) {
 	ret := make([][]byte, 0)
 	// TODO(al) parallelise this.
 	for _, n := range nodes {
-		h, err := pb.nodeCache.GetNode(n.ID, pb.cp.Size)
+		h, err := pb.nodeCache.GetNode(n.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node (%v): %w", n.ID, err)
 		}
@@ -137,7 +137,7 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 	hashes := make([][]byte, 0)
 	// TODO(al) parallelise this.
 	for _, n := range nodes {
-		h, err := pb.nodeCache.GetNode(n.ID, pb.cp.Size)
+		h, err := pb.nodeCache.GetNode(n.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node (%v): %w", n.ID, err)
 		}
@@ -149,11 +149,11 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 // FetchRangeNodes returns the set of nodes representing the compact range covering
 // a log of size s.
 func FetchRangeNodes(s uint64, gt GetTileFunc) ([][]byte, error) {
-	nc := newNodeCache(gt)
+	nc := newNodeCache(gt, s)
 	nIDs := compact.RangeNodes(0, s)
 	ret := make([][]byte, len(nIDs))
 	for i, n := range nIDs {
-		h, err := nc.GetNode(n, s)
+		h, err := nc.GetNode(n)
 		if err != nil {
 			return nil, err
 		}
@@ -167,6 +167,7 @@ func FetchRangeNodes(s uint64, gt GetTileFunc) ([][]byte, error) {
 // Not threadsafe, and intended to be only used throughout the course
 // of a single request.
 type nodeCache struct {
+	logSize   uint64
 	ephemeral map[compact.NodeID][]byte
 	tiles     map[tileKey]api.Tile
 	getTile   GetTileFunc
@@ -174,7 +175,7 @@ type nodeCache struct {
 
 // GetTileFunc is the signature of a function which knows how to fetch a
 // specific tile.
-type GetTileFunc func(level, index, logSize uint64) (*api.Tile, error)
+type GetTileFunc func(level, index uint64) (*api.Tile, error)
 
 // tileKey is used as a key in nodeCache's tile map.
 type tileKey struct {
@@ -182,9 +183,10 @@ type tileKey struct {
 	tileIndex uint64
 }
 
-// newNodeCache creates a new nodeCache instance.
-func newNodeCache(f GetTileFunc) nodeCache {
+// newNodeCache creates a new nodeCache instance for a given log size.
+func newNodeCache(f GetTileFunc, logSize uint64) nodeCache {
 	return nodeCache{
+		logSize:   logSize,
 		ephemeral: make(map[compact.NodeID][]byte),
 		tiles:     make(map[tileKey]api.Tile),
 		getTile:   f,
@@ -200,7 +202,7 @@ func (n *nodeCache) SetEphemeralNode(id compact.NodeID, h []byte) {
 // A previously set ephemeral node will be returned if id matches, otherwise
 // the tile containing the requested node will be fetched and cached, and the
 // node hash returned.
-func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
+func (n *nodeCache) GetNode(id compact.NodeID) ([]byte, error) {
 	// First check for ephemeral nodes:
 	if e := n.ephemeral[id]; len(e) != 0 {
 		return e, nil
@@ -210,7 +212,7 @@ func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
 	tKey := tileKey{tileLevel, tileIndex}
 	t, ok := n.tiles[tKey]
 	if !ok {
-		tile, err := n.getTile(tileLevel, tileIndex, logSize)
+		tile, err := n.getTile(tileLevel, tileIndex)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch tile: %w", err)
 		}
@@ -224,9 +226,9 @@ func (n *nodeCache) GetNode(id compact.NodeID, logSize uint64) ([]byte, error) {
 	return node, nil
 }
 
-// newTileFetcher returns a GetTileFunc based on the passed in Fetcher.
-func newTileFetcher(f Fetcher) GetTileFunc {
-	return func(level, index, logSize uint64) (*api.Tile, error) {
+// newTileFetcher returns a GetTileFunc based on the passed in Fetcher and log size.
+func newTileFetcher(f Fetcher, logSize uint64) GetTileFunc {
+	return func(level, index uint64) (*api.Tile, error) {
 		tileSize := layout.PartialTileSize(level, index, logSize)
 		p := filepath.Join(layout.TilePath("", level, index, tileSize))
 		t, err := f(p)

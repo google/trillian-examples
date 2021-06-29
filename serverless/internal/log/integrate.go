@@ -63,7 +63,10 @@ func Integrate(st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
 
 	// Fetch previously stored state
 	checkpoint := st.Checkpoint()
-	hashes, err := client.FetchRangeNodes(checkpoint.Size, st.GetTile)
+	getTile := func(l, i uint64) (*api.Tile, error) {
+		return st.GetTile(l, i, checkpoint.Size)
+	}
+	hashes, err := client.FetchRangeNodes(checkpoint.Size, getTile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch compact range nodes: %w", err)
 	}
@@ -82,9 +85,7 @@ func Integrate(st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
 
 	// Create a new compact range which represents the update to the tree
 	newRange := rf.NewEmptyRange(checkpoint.Size)
-	tc := tileCache{m: make(map[tileKey]*api.Tile), getTile: func(l, i uint64) (*api.Tile, error) {
-		return st.GetTile(l, i, checkpoint.Size)
-	}}
+	tc := tileCache{m: make(map[tileKey]*api.Tile), getTile: getTile}
 	n, err := st.ScanSequenced(checkpoint.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)

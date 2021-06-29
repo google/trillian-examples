@@ -3,6 +3,10 @@
 # that this action would run against PRs which are effectively "queuing" leaves
 # and return success/failure depending on whether the leaves present in the PR
 # conform to a given set of requirements.
+#
+# We'll consider a PR good if either:
+# - it only touches files outside the log directory, or
+# - it only touches files in the log's leaves/pending directory.
 
 set -e
 
@@ -21,22 +25,35 @@ function main {
     # Now grab a list of all the modified/added/removed files in the PR
     FILES=$(git diff origin/master HEAD --name-only)
 
-    # Finally, validate each of the modified/added/removed files
-    local is_bad=0
+    local has_non_log_files=0
+    local has_log_pending_files=0
+    local has_log_non_pending_files=0
+
     while IFS= read -r f; do
-        LEAF=$(readlink -f -n ${f})
-        if [[ ${LEAF} = ${PENDING_DIR}/* ]]; then
-            echo "::debug:Found pending leaf ${LEAF}"
-            # Checks on the format/quality of the leaf could be done here, along
-            # with signature verification etc.
-        else
-            echo "::warning file=${f}::Added/Modified file outside of \`${INPUT_LOG_DIR}/leaves/pending\` directory"
-            is_bad=1
-        fi
+            if [[ ${LEAF} = ${PENDING_DIR}/* ]]; then
+                echo "::debug:Found pending leaf ${LEAF}"
+                # Checks on the format/quality of the leaf could be done here, along
+                # with signature verification etc.
+                has_log_pending_files=1
+            elif [[ ${LEAF} = ${INPUT_LOG_DIR}/* ]]; then
+                echo "::warning file=${f}::Added/Modified non-pending leaves file in \`${INPUT_LOG_DIR}/\` directory"
+                has_log_non_pending_files=1
+            else
+                echo "Found non-log file ${f}"
+                has_non_log_files=1
+            fi
     done <<< ${FILES}
 
-    if [[ ${is_bad} -ne 0 ]]; then
-        echo "::error::Found one or more invalid leaves in PR"
+    echo $has_non_log_files $has_log_pending_files $has_log_non_pending_files
+
+
+    if [[ (($has_log_non_pending_files)) ]]; then
+        echo "::error:PR attempts to modify log structure/state"
+        exit 1
+    fi
+
+    if [[ (($has_log_pending_files)) && (($has_non_log_files)) ]]; then
+        echo "::error:PR mixes log additions and non-log changes, please split them up"
         exit 1
     fi
 }

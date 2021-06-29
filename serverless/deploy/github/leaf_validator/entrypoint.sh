@@ -44,9 +44,6 @@ function main {
             fi
     done <<< ${FILES}
 
-    echo $has_non_log_files $has_log_pending_files $has_log_non_pending_files
-
-
     if [[ (($has_log_non_pending_files)) ]]; then
         echo "::error:PR attempts to modify log structure/state"
         exit 1

@@ -162,6 +162,21 @@ func FetchRangeNodes(s uint64, gt GetTileFunc) ([][]byte, error) {
 	return ret, nil
 }
 
+// FetchLeafHashes fetches N consecutive leaf hashes starting with the leaf at index first.
+func FetchLeafHashes(f Fetcher, first, N, logSize uint64) ([][]byte, error) {
+	nc := newNodeCache(newTileFetcher(f, logSize), logSize)
+	ret := make([][]byte, N, 0)
+	for i, seq := uint64(0), first; i < N; i, seq = i+1, seq+1 {
+		nID := compact.NodeID{Level: 0, Index: seq}
+		h, err := nc.GetNode(nID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch node %v: %v", nID, err)
+		}
+		ret = append(ret, h)
+	}
+	return ret, nil
+}
+
 // nodeCache hides the tiles abstraction away, and improves
 // performance by caching tiles it's seen.
 // Not threadsafe, and intended to be only used throughout the course

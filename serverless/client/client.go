@@ -49,7 +49,7 @@ func fetchCheckpointAndParse(f Fetcher, v note.Verifier) (*log.Checkpoint, []byt
 	}
 	n, err := note.Open(cpRaw, note.VerifierList(v))
 	if err != nil {
-		glog.Exitf("failed to open Checkpoint: %q", err)
+		return nil, nil, fmt.Errorf("failed to open Checkpoint: %v", err)
 	}
 	cp := log.Checkpoint{}
 	if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {

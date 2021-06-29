@@ -44,12 +44,12 @@ function main {
             fi
     done <<< ${FILES}
 
-    if [[ (($has_log_non_pending_files)) ]]; then
+    if [[ ${has_log_non_pending_files} -ne 0 ]]; then
         echo "::error:PR attempts to modify log structure/state"
         exit 1
     fi
 
-    if [[ (($has_log_pending_files)) && (($has_non_log_files)) ]]; then
+    if [[ ${has_log_pending_files} -ne 0 && ${has_non_log_files} -ne 0 ]]; then
         echo "::error:PR mixes log additions and non-log changes, please split them up"
         exit 1
     fi

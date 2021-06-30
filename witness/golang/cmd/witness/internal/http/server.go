@@ -16,89 +16,79 @@
 package http
 
 import (
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+
+	"github.com/google/trillian-examples/witness/golang/api"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
+	"github.com/gorilla/mux"
 )
 
 // Server is the core handler implementation of the witness.
 type Server struct {
-	w      Witness
-	ctx    context.Context
+	w   *witness.Witness
+	ctx context.Context
 }
 
 // NewServer creates a new server.
-func NewServer(ctx context.Context, witness Witness) *Server {
+func NewServer(ctx context.Context, witness *witness.Witness) *Server {
 	return &Server{
-		w:      witness,
-		ctx:	ctx,
+		w:   witness,
+		ctx: ctx,
 	}
 }
 
+// update handles requests to update checkpoints.
+// It expects a JSON request consisting of a string, bytes, and a slice of slices.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
-	logID, chkpt, pf, err := parseUpdateRequest(r)
+	h := r.Header["Content-Type"]
+	if len(h) == 0 {
+		http.Error(w, fmt.Sprintf("need a content header"), http.StatusBadRequest)
+	}
+	if h[0] != "application/json" {
+		http.Error(w, fmt.Sprintf("need request in JSON format"), http.StatusBadRequest)
+		return
+	}
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to parse request: %q", err.Error()), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("cannot read request body: %v", err.Error()), http.StatusBadRequest)
+		return
+	}
+	var req api.UpdateRequest
+	err = json.Unmarshal(body, &req)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("cannot parse request body as proper JSON struct: %v", err.Error()), http.StatusBadRequest)
 		return
 	}
 	// Get the checkpoint size from the witness.
-	size, err := s.w.Update(s.ctx, logID, chkpt, pf)
+	size, err := s.w.Update(s.ctx, req.LogID, req.Checkpoint, req.Proof)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %q", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", "text/plain")
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, size)
+	w.Write(b)
 }
 
+// getCheckpoint returns a checkpoint stored for a given log.
 func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
-	logID, err := parseStringParam(r, "logID")
+	v := mux.Vars(r)
+	logID := v["logID"]
+	// Get the signed checkpoint from the witness.
+	chkpt, err := s.w.GetCheckpoint(logID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("failed to get checkpoint: %q", err), http.StatusInternalServerError)
 		return
 	}
-	// then same thing, we run the witness function and return via w
-}
-
-// parseUpdateRequest returns the logID string, bytes for the checkpoint, and
-// byte array for the proof.
-func parseUpdateRequest(r *http.Request) (string, []byte, [][]byte, error) {
-	h := r.Header["Content-Type"]
-	if len(h) == 0 {
-		return nil, nil, fmt.Errorf("no content-type header")
-	}
-
-	mediaType, mediaParams, err := mime.ParseMediaType(h[0])
-	if err != nil {
-		return nil, nil, err
-	}
-	if !strings.HasPrefix(mediaType, "multipart/") {
-		return nil, nil, fmt.Errorf("expecting mime multipart body")
-	}
-	boundary := mediaParams["boundary"]
-	if len(boundary) == 0 {
-		return nil, nil, fmt.Errorf("invalid mime multipart header - no boundary specified")
-	}
-	mr := multipart.NewReader(r.Body, boundary)
-
-	// Get firmware statement (JSON)
-	p, err := mr.NextPart()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find firmware statement in request body: %v", err)
-	}
-	rawJSON, err := ioutil.ReadAll(p)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read body of firmware statement: %v", err)
-	}
-
-	// Get firmware binary image
-	p, err = mr.NextPart()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to find firmware image in request body: %v", err)
-	}
-	image, err := ioutil.ReadAll(p)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read body of firmware image: %v", err)
-	}
-	return rawJSON, image, nil
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(chkpt)
 }
 
 // RegisterHandlers registers HTTP handlers for witness endpoints.

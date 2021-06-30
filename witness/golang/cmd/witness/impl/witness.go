@@ -18,29 +18,89 @@ package impl
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/golang/glog"
 	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
 	"github.com/gorilla/mux"
+	"github.com/google/trillian/merkle/logverifier"
+	"github.com/google/trillian/merkle/rfc6962/hasher"
+	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
-
-	_ "github.com/google/trillian/merkle/rfc6962/hasher" // Load hashers
-	_ "github.com/mattn/go-sqlite3"                      // Load drivers for sqlite3
 )
 
-func Main(ctx context.Context, opts witness.Opts) error {
-	w, err := witness.New(opts)
+type LogJSON struct {
+	logs []LogInfoJSON
+}
+
+type LogInfoJSON struct {
+	logID        string
+	hashstrategy string
+	pubkey       string
+}
+
+type ServerOpts struct {
+	ListenAddr string
+	DBFile     string
+	Signer     note.Signer
+	ConfigFile    string
+}
+
+func Main(ctx context.Context, opts ServerOpts) error {
+	if len(opts.DBFile) == 0 {
+		return errors.New("DB file is required")
+	}
+	if len(opts.ConfigFile) == 0 {
+		return errors.New("Config file is required")
+	}
+
+	glog.Infof("Connecting to local DB at %q", opts.DBFile)
+	db, err := sql.Open("sqlite3", opts.DBFile)
 	if err != nil {
-		return fmt.Errorf("error running witness: %q", err)
+		return fmt.Errorf("failed to connect to DB: %w", err)
+	}
+	// Create log information from the config file.
+	fileData, err := ioutil.ReadFile(opts.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("failed to read from config file: %v", err)
+	}
+	var js LogJSON
+	json.Unmarshal(fileData, &js)
+	var logMap map[string]witness.LogInfo
+	for _, log := range js.logs {
+		h := hasher.DefaultHasher
+		// TODO(smeiklej): Extend witness to handle other hashing strategies.
+		if log.hashstrategy != "default" {
+			return fmt.Errorf("can't handle non-default hashing strategies")
+		}
+		logV, err := note.NewVerifier(log.pubkey)
+		if err != nil {
+			return fmt.Errorf("failed to create signature verifier: %v", err)
+		}
+		sigVs := []note.Verifier{logV}
+		logInfo := witness.LogInfo{
+			SigVs: sigVs,
+			LogV:  logverifier.New(h),
+		}
+		logMap[log.logID] = logInfo
+	}
+
+	w, err := witness.New(witness.Opts{
+		Database:  db,
+		Signer:    opts.Signer,
+		KnownLogs: logMap,
+	})
+	if err != nil {
+		return fmt.Errorf("error creating witness: %q", err)
 	}
 
 	glog.Infof("Starting witness server...")
-	srv := ih.NewServer(witness)
+	srv := ih.NewServer(ctx, w)
 	r := mux.NewRouter()
 	srv.RegisterHandlers(r)
 	hServer := &http.Server{

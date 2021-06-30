@@ -170,6 +170,7 @@ func TestGetChkpt(t *testing.T) {
 			test.c.Raw = signed[0]
 			// Set up witness keys and other parameters.
 			wSK, wPK, err := note.GenerateKey(rand.Reader, "witness")
+			fmt.Println(wSK)
 			if err != nil {
 				t.Errorf("couldn't generate witness keys: %v", err)
 			}

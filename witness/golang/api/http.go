@@ -20,3 +20,9 @@ const (
 	// HTTPUpdate is the path of the URL to update to a new checkpoint.
 	HTTPUpdate = "witness/v0/update"
 )
+
+type UpdateRequest struct {
+	LogID		string
+	Checkpoint	[]byte
+	Proof		[][]byte
+}

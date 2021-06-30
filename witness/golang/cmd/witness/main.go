@@ -20,48 +20,34 @@ package main
 import (
 	"context"
 	"flag"
-	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/witness/cmd/internal/witness"
+	"github.com/google/trillian-examples/witness/golang/cmd/witness/impl"
+	"golang.org/x/mod/sumdb/note"
 )
 
 var (
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
-	dbFile = flag.String("db_file", "", "Path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
+	dbFile     = flag.String("db_file", "", "path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
+	configFile    = flag.String("config_file", "example.conf", "path to a JSON config file that specifies the logs followed by this witness")
+	witnessSK  = flag.String("private key", "PRIVATE+KEY+witness+7597200e+ARnfhJzxUHTnLhLpsJHtQZCXcjSNngW7J67sGM4ar9Ed", "private signing key for the witness")
 )
 
 func main() {
 	flag.Parse()
 
-	glog.Infof("Connecting to local DB at %q", *dbFile)
-	db, err := sql.Open("sqlite3", *dbFile)
+	signer, err := note.NewSigner(*witnessSK)
 	if err != nil {
-		panic(err)
+		glog.Exitf("Error forming a signer: %v", err)
 	}
-
-	signer, err := note.NewSigner(crypto.TestWitnessPriv)
-	if err != nil {
-		panic(err)
-	}
-	h := hasher.DefaultHasher
-	logV, err := note.NewVerifier(logPK)
-	if err != nil {
-		panic(err)
-	}
-	sigVs := []note.Verifier{logV}
-	log := LogInfo{
-		SigVs: sigVs,
-		LogV:  logverifier.New(h),
-	}
-	logs := map[string]LogInfo{logID: log}
 
 	ctx := context.Background()
-	if err := impl.Main(ctx, witness.Opts{
-		Database:	db,
-		Signer:		signer,
-		KnownLogs:	logs,
+	if err := impl.Main(ctx, impl.ServerOpts{
+		ListenAddr: *listenAddr,
+		DBFile:     *dbFile,
+		Signer:     signer,
+		ConfigFile:    *configFile,
 	}); err != nil {
-		glog.Exitf("Error running witness: %q", err)
+		glog.Exitf("Error running witness: %v", err)
 	}
-    }
+}

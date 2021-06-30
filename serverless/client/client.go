@@ -273,11 +273,24 @@ func LookupIndex(f Fetcher, lh []byte) (uint64, error) {
 	sRaw, err := f(p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return 0, fmt.Errorf("leafhash unknown (%w)", err)
+			return 0, fmt.Errorf("leafhash unknown: %w", err)
 		}
 		return 0, fmt.Errorf("failed to fetch leafhash->seq file: %w", err)
 	}
 	return strconv.ParseUint(string(sRaw), 16, 64)
+}
+
+// GetLeaf fetches the raw contents committed to at a given leaf index.
+func GetLeaf(f Fetcher, i uint64) ([]byte, error) {
+	p := filepath.Join(layout.SeqPath("", i))
+	sRaw, err := f(p)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("leaf index %d not found: %w", i, err)
+		}
+		return nil, fmt.Errorf("failed to fetch leaf index %d: %w", i, err)
+	}
+	return sRaw, nil
 }
 
 // LogStateTracker represents a client-side view of a target log's state.
@@ -301,7 +314,6 @@ type LogStateTracker struct {
 // If a serialised LogState representation is provided then this is used as the
 // initial tracked state, otherwise a log state is fetched from the target log.
 func NewLogStateTracker(f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier) (LogStateTracker, error) {
-
 	ret := LogStateTracker{
 		Fetcher:          f,
 		Hasher:           h,

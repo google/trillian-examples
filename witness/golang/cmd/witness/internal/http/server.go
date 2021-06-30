@@ -47,10 +47,10 @@ func NewServer(ctx context.Context, witness *witness.Witness) *Server {
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	h := r.Header["Content-Type"]
 	if len(h) == 0 {
-		http.Error(w, fmt.Sprintf("need a content header"), http.StatusBadRequest)
+		http.Error(w, "need a content header", http.StatusBadRequest)
 	}
 	if h[0] != "application/json" {
-		http.Error(w, fmt.Sprintf("need request in JSON format"), http.StatusBadRequest)
+		http.Error(w, "need request in JSON format", http.StatusBadRequest)
 		return
 	}
 	body, err := ioutil.ReadAll(r.Body)

@@ -35,13 +35,13 @@ import (
 )
 
 type LogJSON struct {
-	logs []LogInfoJSON
+	Logs []LogInfoJSON
 }
 
 type LogInfoJSON struct {
-	logID        string
-	hashstrategy string
-	pubkey       string
+	LogID        string
+	Hashstrategy string
+	Pubkey       string
 }
 
 type ServerOpts struct {
@@ -72,13 +72,13 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	var js LogJSON
 	json.Unmarshal(fileData, &js)
 	var logMap map[string]witness.LogInfo
-	for _, log := range js.logs {
+	for _, log := range js.Logs {
 		h := hasher.DefaultHasher
 		// TODO(smeiklej): Extend witness to handle other hashing strategies.
-		if log.hashstrategy != "default" {
+		if log.Hashstrategy != "default" {
 			return fmt.Errorf("can't handle non-default hashing strategies")
 		}
-		logV, err := note.NewVerifier(log.pubkey)
+		logV, err := note.NewVerifier(log.Pubkey)
 		if err != nil {
 			return fmt.Errorf("failed to create signature verifier: %v", err)
 		}
@@ -87,7 +87,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 			SigVs: sigVs,
 			LogV:  logverifier.New(h),
 		}
-		logMap[log.logID] = logInfo
+		logMap[log.LogID] = logInfo
 	}
 
 	w, err := witness.New(witness.Opts{

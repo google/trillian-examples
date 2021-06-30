@@ -71,7 +71,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	}
 	var js LogJSON
 	json.Unmarshal(fileData, &js)
-	var logMap map[string]witness.LogInfo
+	logMap := make(map[string]witness.LogInfo)
 	for _, log := range js.Logs {
 		h := hasher.DefaultHasher
 		// TODO(smeiklej): Extend witness to handle other hashing strategies.

@@ -20,6 +20,7 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -44,10 +45,10 @@ import (
 // Note that the implementation of this MUST return (either directly or wrapped)
 // an os.ErrIsNotExit when the file referenced by path does not exist, e.g. a HTTP
 // based implementation MUST return this error when it receives a 404 StatusCode.
-type Fetcher func(path string) ([]byte, error)
+type Fetcher func(ctx context.Context, path string) ([]byte, error)
 
-func fetchCheckpointAndParse(f Fetcher, v note.Verifier) (*log.Checkpoint, []byte, error) {
-	cpRaw, err := f(layout.CheckpointPath)
+func fetchCheckpointAndParse(ctx context.Context, f Fetcher, v note.Verifier) (*log.Checkpoint, []byte, error) {
+	cpRaw, err := f(ctx, layout.CheckpointPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -75,7 +76,7 @@ type ProofBuilder struct {
 // NewProofBuilder creates a new ProofBuilder object for a given tree size.
 // The returned ProofBuilder can be re-used for proofs related to a given tree size, but
 // it is not thread-safe and should not be accessed concurrently.
-func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f Fetcher) (*ProofBuilder, error) {
+func NewProofBuilder(ctx context.Context, cp log.Checkpoint, h compact.HashFn, f Fetcher) (*ProofBuilder, error) {
 	tf := newTileFetcher(f, cp.Size)
 	pb := &ProofBuilder{
 		cp:        cp,
@@ -83,7 +84,7 @@ func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f Fetcher) (*ProofBuil
 		h:         h,
 	}
 
-	hashes, err := FetchRangeNodes(cp.Size, tf)
+	hashes, err := FetchRangeNodes(ctx, cp.Size, tf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch range nodes: %w", err)
 	}
@@ -111,7 +112,7 @@ func NewProofBuilder(cp log.Checkpoint, h compact.HashFn, f Fetcher) (*ProofBuil
 // the given size.
 // This function uses the passed-in function to retrieve tiles containing any log tree
 // nodes necessary to build the proof.
-func (pb *ProofBuilder) InclusionProof(index uint64) ([][]byte, error) {
+func (pb *ProofBuilder) InclusionProof(ctx context.Context, index uint64) ([][]byte, error) {
 	nodes, err := merkle.CalcInclusionProofNodeAddresses(int64(pb.cp.Size), int64(index), int64(pb.cp.Size))
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate inclusion proof node list: %w", err)
@@ -120,7 +121,7 @@ func (pb *ProofBuilder) InclusionProof(index uint64) ([][]byte, error) {
 	ret := make([][]byte, 0)
 	// TODO(al) parallelise this.
 	for _, n := range nodes {
-		h, err := pb.nodeCache.GetNode(n.ID)
+		h, err := pb.nodeCache.GetNode(ctx, n.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node (%v): %w", n.ID, err)
 		}
@@ -132,7 +133,7 @@ func (pb *ProofBuilder) InclusionProof(index uint64) ([][]byte, error) {
 // ConsistencyProof constructs a consistency proof between the two passed in tree sizes.
 // This function uses the passed-in function to retrieve tiles containing any log tree
 // nodes necessary to build the proof.
-func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, error) {
+func (pb *ProofBuilder) ConsistencyProof(ctx context.Context, smaller, larger uint64) ([][]byte, error) {
 	nodes, err := merkle.CalcConsistencyProofNodeAddresses(int64(smaller), int64(larger), int64(pb.cp.Size))
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate consistency proof node list: %w", err)
@@ -141,7 +142,7 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 	hashes := make([][]byte, 0)
 	// TODO(al) parallelise this.
 	for _, n := range nodes {
-		h, err := pb.nodeCache.GetNode(n.ID)
+		h, err := pb.nodeCache.GetNode(ctx, n.ID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node (%v): %w", n.ID, err)
 		}
@@ -152,12 +153,12 @@ func (pb *ProofBuilder) ConsistencyProof(smaller, larger uint64) ([][]byte, erro
 
 // FetchRangeNodes returns the set of nodes representing the compact range covering
 // a log of size s.
-func FetchRangeNodes(s uint64, gt GetTileFunc) ([][]byte, error) {
+func FetchRangeNodes(ctx context.Context, s uint64, gt GetTileFunc) ([][]byte, error) {
 	nc := newNodeCache(gt, s)
 	nIDs := compact.RangeNodes(0, s)
 	ret := make([][]byte, len(nIDs))
 	for i, n := range nIDs {
-		h, err := nc.GetNode(n)
+		h, err := nc.GetNode(ctx, n)
 		if err != nil {
 			return nil, err
 		}
@@ -167,12 +168,12 @@ func FetchRangeNodes(s uint64, gt GetTileFunc) ([][]byte, error) {
 }
 
 // FetchLeafHashes fetches N consecutive leaf hashes starting with the leaf at index first.
-func FetchLeafHashes(f Fetcher, first, N, logSize uint64) ([][]byte, error) {
+func FetchLeafHashes(ctx context.Context, f Fetcher, first, N, logSize uint64) ([][]byte, error) {
 	nc := newNodeCache(newTileFetcher(f, logSize), logSize)
 	ret := make([][]byte, 0, N)
 	for i, seq := uint64(0), first; i < N; i, seq = i+1, seq+1 {
 		nID := compact.NodeID{Level: 0, Index: seq}
-		h, err := nc.GetNode(nID)
+		h, err := nc.GetNode(ctx, nID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch node %v: %v", nID, err)
 		}
@@ -194,7 +195,7 @@ type nodeCache struct {
 
 // GetTileFunc is the signature of a function which knows how to fetch a
 // specific tile.
-type GetTileFunc func(level, index uint64) (*api.Tile, error)
+type GetTileFunc func(ctx context.Context, level, index uint64) (*api.Tile, error)
 
 // tileKey is used as a key in nodeCache's tile map.
 type tileKey struct {
@@ -221,7 +222,7 @@ func (n *nodeCache) SetEphemeralNode(id compact.NodeID, h []byte) {
 // A previously set ephemeral node will be returned if id matches, otherwise
 // the tile containing the requested node will be fetched and cached, and the
 // node hash returned.
-func (n *nodeCache) GetNode(id compact.NodeID) ([]byte, error) {
+func (n *nodeCache) GetNode(ctx context.Context, id compact.NodeID) ([]byte, error) {
 	// First check for ephemeral nodes:
 	if e := n.ephemeral[id]; len(e) != 0 {
 		return e, nil
@@ -231,7 +232,7 @@ func (n *nodeCache) GetNode(id compact.NodeID) ([]byte, error) {
 	tKey := tileKey{tileLevel, tileIndex}
 	t, ok := n.tiles[tKey]
 	if !ok {
-		tile, err := n.getTile(tileLevel, tileIndex)
+		tile, err := n.getTile(ctx, tileLevel, tileIndex)
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch tile: %w", err)
 		}
@@ -247,10 +248,10 @@ func (n *nodeCache) GetNode(id compact.NodeID) ([]byte, error) {
 
 // newTileFetcher returns a GetTileFunc based on the passed in Fetcher and log size.
 func newTileFetcher(f Fetcher, logSize uint64) GetTileFunc {
-	return func(level, index uint64) (*api.Tile, error) {
+	return func(ctx context.Context, level, index uint64) (*api.Tile, error) {
 		tileSize := layout.PartialTileSize(level, index, logSize)
 		p := filepath.Join(layout.TilePath("", level, index, tileSize))
-		t, err := f(p)
+		t, err := f(ctx, p)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
@@ -268,9 +269,9 @@ func newTileFetcher(f Fetcher, logSize uint64) GetTileFunc {
 
 // LookupIndex fetches the leafhash->seq mapping file from the log, and returns
 // its parsed contents.
-func LookupIndex(f Fetcher, lh []byte) (uint64, error) {
+func LookupIndex(ctx context.Context, f Fetcher, lh []byte) (uint64, error) {
 	p := filepath.Join(layout.LeafPath("", lh))
-	sRaw, err := f(p)
+	sRaw, err := f(ctx, p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return 0, fmt.Errorf("leafhash unknown: %w", err)
@@ -313,7 +314,7 @@ type LogStateTracker struct {
 // NewLogStateTracker creates a newly initialised tracker.
 // If a serialised LogState representation is provided then this is used as the
 // initial tracked state, otherwise a log state is fetched from the target log.
-func NewLogStateTracker(f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier) (LogStateTracker, error) {
+func NewLogStateTracker(ctx context.Context, f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier) (LogStateTracker, error) {
 	ret := LogStateTracker{
 		Fetcher:          f,
 		Hasher:           h,
@@ -328,7 +329,7 @@ func NewLogStateTracker(f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV
 		}
 		return ret, nil
 	}
-	return ret, ret.Update()
+	return ret, ret.Update(ctx)
 }
 
 // ErrInconsistency should be returned when there has been an error proving consistency
@@ -356,18 +357,18 @@ func (e ErrInconsistency) Error() string {
 // If a more recent logstate is found, this method will attempt to prove
 // that it is consistent with the local state before updating the tracker's
 // view.
-func (lst *LogStateTracker) Update() error {
-	c, cRaw, err := fetchCheckpointAndParse(lst.Fetcher, lst.CpSigVerifier)
+func (lst *LogStateTracker) Update(ctx context.Context) error {
+	c, cRaw, err := fetchCheckpointAndParse(ctx, lst.Fetcher, lst.CpSigVerifier)
 	if err != nil {
 		return err
 	}
 	if lst.LatestConsistent.Size > 0 {
 		if c.Size > lst.LatestConsistent.Size {
-			builder, err := NewProofBuilder(*c, lst.Hasher.HashChildren, lst.Fetcher)
+			builder, err := NewProofBuilder(ctx, *c, lst.Hasher.HashChildren, lst.Fetcher)
 			if err != nil {
 				return fmt.Errorf("failed to create proof builder: %w", err)
 			}
-			p, err := builder.ConsistencyProof(lst.LatestConsistent.Size, c.Size)
+			p, err := builder.ConsistencyProof(ctx, lst.LatestConsistent.Size, c.Size)
 			if err != nil {
 				return err
 			}

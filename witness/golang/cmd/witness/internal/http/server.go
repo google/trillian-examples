@@ -16,7 +16,6 @@
 package http
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -31,19 +30,18 @@ import (
 // Server is the core handler implementation of the witness.
 type Server struct {
 	w   *witness.Witness
-	ctx context.Context
 }
 
 // NewServer creates a new server.
-func NewServer(ctx context.Context, witness *witness.Witness) *Server {
+func NewServer(witness *witness.Witness) *Server {
 	return &Server{
 		w:   witness,
-		ctx: ctx,
 	}
 }
 
 // update handles requests to update checkpoints.
-// It expects a JSON request consisting of a string, bytes, and a slice of slices.
+// It expects a JSON request consisting of a context, string, bytes, and a 
+// slice of slices.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	h := r.Header["Content-Type"]
 	if len(h) == 0 {
@@ -65,7 +63,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Get the checkpoint size from the witness.
-	size, err := s.w.Update(s.ctx, req.LogID, req.Checkpoint, req.Proof)
+	size, err := s.w.Update(req.Context, req.LogID, req.Checkpoint, req.Proof)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), http.StatusInternalServerError)
 		return

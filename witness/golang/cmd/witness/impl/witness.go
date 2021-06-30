@@ -34,53 +34,49 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-type LogJSON struct {
-	Logs []LogInfoJSON
+// LogConfig contains a list of LogInfo (configuration options for a log).
+type LogConfig struct {
+	Logs []LogInfo `json:"logs"`
 }
 
-type LogInfoJSON struct {
-	LogID        string
-	Hashstrategy string
-	Pubkey       string
+// LogInfo contains the configuration options for a log: its identifier, hashing
+// strategy, and public key.
+type LogInfo struct {
+	LogID        string `json:"logID"`
+	HashStrategy string `json:"hashstrategy"`
+	PubKey       string `json:"pubkey"`
 }
 
+// The options for a server (specified in main.go).
 type ServerOpts struct {
+	// Where to listen for requests.
 	ListenAddr string
+	// The file for sqlite3 storage.
 	DBFile     string
+	// The signer for the witness.
 	Signer     note.Signer
+	// The file containing log configuration information.
 	ConfigFile string
 }
 
-func Main(ctx context.Context, opts ServerOpts) error {
-	if len(opts.DBFile) == 0 {
-		return errors.New("DB file is required")
-	}
-	if len(opts.ConfigFile) == 0 {
-		return errors.New("Config file is required")
-	}
-
-	glog.Infof("Connecting to local DB at %q", opts.DBFile)
-	db, err := sql.Open("sqlite3", opts.DBFile)
+// loadConfig loads the log configuration information from a file and into a map.
+func loadConfig(configFile string) (map[string]witness.LogInfo, error) {
+	fileData, err := ioutil.ReadFile(configFile)
 	if err != nil {
-		return fmt.Errorf("failed to connect to DB: %w", err)
+		return nil, fmt.Errorf("failed to read from config file: %v", err)
 	}
-	// Create log information from the config file.
-	fileData, err := ioutil.ReadFile(opts.ConfigFile)
-	if err != nil {
-		return fmt.Errorf("failed to read from config file: %v", err)
-	}
-	var js LogJSON
+	var js LogConfig
 	json.Unmarshal(fileData, &js)
 	logMap := make(map[string]witness.LogInfo)
+	h := hasher.DefaultHasher
 	for _, log := range js.Logs {
-		h := hasher.DefaultHasher
 		// TODO(smeiklej): Extend witness to handle other hashing strategies.
-		if log.Hashstrategy != "default" {
-			return fmt.Errorf("can't handle non-default hashing strategies")
+		if log.HashStrategy != "default" {
+			return nil, errors.New("can't handle non-default hashing strategies")
 		}
-		logV, err := note.NewVerifier(log.Pubkey)
+		logV, err := note.NewVerifier(log.PubKey)
 		if err != nil {
-			return fmt.Errorf("failed to create signature verifier: %v", err)
+			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
 		sigVs := []note.Verifier{logV}
 		logInfo := witness.LogInfo{
@@ -89,6 +85,27 @@ func Main(ctx context.Context, opts ServerOpts) error {
 		}
 		logMap[log.LogID] = logInfo
 	}
+	return logMap, nil
+}
+
+func Main(ctx context.Context, opts ServerOpts) error {
+	if len(opts.DBFile) == 0 {
+		return errors.New("DBFile is required")
+	}
+	if len(opts.ConfigFile) == 0 {
+		return errors.New("ConfigFile is required")
+	}
+	// Start up local database.
+	glog.Infof("Connecting to local DB at %q", opts.DBFile)
+	db, err := sql.Open("sqlite3", opts.DBFile)
+	if err != nil {
+		return fmt.Errorf("failed to connect to DB: %w", err)
+	}
+	// Load log configuration from the config file.
+	logMap, err := loadConfig(opts.ConfigFile)
+	if err != nil {
+		return fmt.Errorf("failed to load configurations: %v", err)
+	}
 
 	w, err := witness.New(witness.Opts{
 		Database:  db,
@@ -96,11 +113,11 @@ func Main(ctx context.Context, opts ServerOpts) error {
 		KnownLogs: logMap,
 	})
 	if err != nil {
-		return fmt.Errorf("error creating witness: %q", err)
+		return fmt.Errorf("error creating witness: %v", err)
 	}
 
 	glog.Infof("Starting witness server...")
-	srv := ih.NewServer(ctx, w)
+	srv := ih.NewServer(w)
 	r := mux.NewRouter()
 	srv.RegisterHandlers(r)
 	hServer := &http.Server{

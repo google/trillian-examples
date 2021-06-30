@@ -22,7 +22,7 @@ const (
 )
 
 type UpdateRequest struct {
-	LogID		string
-	Checkpoint	[]byte
-	Proof		[][]byte
+	LogID      string
+	Checkpoint []byte
+	Proof      [][]byte
 }

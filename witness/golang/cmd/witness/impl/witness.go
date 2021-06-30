@@ -27,9 +27,9 @@ import (
 	"github.com/golang/glog"
 	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
-	"github.com/gorilla/mux"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
 )
@@ -48,7 +48,7 @@ type ServerOpts struct {
 	ListenAddr string
 	DBFile     string
 	Signer     note.Signer
-	ConfigFile    string
+	ConfigFile string
 }
 
 func Main(ctx context.Context, opts ServerOpts) error {

@@ -29,18 +29,18 @@ import (
 
 // Server is the core handler implementation of the witness.
 type Server struct {
-	w   *witness.Witness
+	w *witness.Witness
 }
 
 // NewServer creates a new server.
 func NewServer(witness *witness.Witness) *Server {
 	return &Server{
-		w:   witness,
+		w: witness,
 	}
 }
 
 // update handles requests to update checkpoints.
-// It expects a JSON request consisting of a context, string, bytes, and a 
+// It expects a JSON request consisting of a context, string, bytes, and a
 // slice of slices.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	h := r.Header["Content-Type"]

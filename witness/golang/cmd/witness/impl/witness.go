@@ -52,9 +52,9 @@ type ServerOpts struct {
 	// Where to listen for requests.
 	ListenAddr string
 	// The file for sqlite3 storage.
-	DBFile     string
+	DBFile string
 	// The signer for the witness.
-	Signer     note.Signer
+	Signer note.Signer
 	// The file containing log configuration information.
 	ConfigFile string
 }

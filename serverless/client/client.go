@@ -40,6 +40,10 @@ import (
 // Fetcher is the signature of a function which can retrieve arbitrary files from
 // a log's data storage, via whatever appropriate mechanism.
 // The path parameter is relative to the root of the log storage.
+//
+// Note that the implementation of this MUST return (either directly or wrapped)
+// an os.ErrIsNotExit when the file referenced by path does not exist, e.g. a HTTP
+// based implementation MUST return this error when it receives a 404 StatusCode.
 type Fetcher func(path string) ([]byte, error)
 
 func fetchCheckpointAndParse(f Fetcher, v note.Verifier) (*log.Checkpoint, []byte, error) {

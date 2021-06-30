@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -41,6 +42,8 @@ var (
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
+
 	h := hasher.DefaultHasher
 	// Read log public key from file or environment variable
 	var pubKey string
@@ -113,7 +116,7 @@ func main() {
 	}
 
 	// Integrate new entries
-	newCp, err := log.Integrate(st, h)
+	newCp, err := log.Integrate(ctx, st, h)
 	if err != nil {
 		glog.Exitf("Failed to integrate: %q", err)
 	}

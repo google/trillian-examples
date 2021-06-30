@@ -17,6 +17,7 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -58,7 +59,7 @@ type Storage interface {
 
 // Integrate adds sequenced but not-yet-included entries into the tree.
 // Returns an updated Checkpoint, or an error.
-func Integrate(st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
+func Integrate(ctx context.Context, st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
 	rf := compact.RangeFactory{Hash: h.HashChildren}
 
 	// Fetch previously stored state
@@ -66,7 +67,9 @@ func Integrate(st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
 	getTile := func(l, i uint64) (*api.Tile, error) {
 		return st.GetTile(l, i, checkpoint.Size)
 	}
-	hashes, err := client.FetchRangeNodes(checkpoint.Size, getTile)
+	hashes, err := client.FetchRangeNodes(ctx, checkpoint.Size, func(_ context.Context, l, i uint64) (*api.Tile, error) {
+		return getTile(l, i)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch compact range nodes: %w", err)
 	}

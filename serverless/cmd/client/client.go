@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -57,6 +58,7 @@ func usage() {
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 
 	// Read log public key from file or environment variable
 	var pubKey string
@@ -90,7 +92,7 @@ func main() {
 	logID := fmt.Sprintf("%d", v.KeyHash())
 
 	f := newFetcher(rootURL)
-	lc, err := newLogClientTool(logID, f, pubKey)
+	lc, err := newLogClientTool(ctx, logID, f, pubKey)
 	if err != nil {
 		glog.Exitf("Failed to create new client: %q", err)
 	}
@@ -101,9 +103,9 @@ func main() {
 	}
 	switch args[0] {
 	case "inclusion":
-		err = lc.inclusionProof(args[1:])
+		err = lc.inclusionProof(ctx, args[1:])
 	case "update":
-		err = lc.updateCheckpoint(args[1:])
+		err = lc.updateCheckpoint(ctx, args[1:])
 	default:
 		usage()
 	}
@@ -129,7 +131,7 @@ type logClientTool struct {
 	Tracker  client.LogStateTracker
 }
 
-func newLogClientTool(logID string, f client.Fetcher, pubKey string) (logClientTool, error) {
+func newLogClientTool(ctx context.Context, logID string, f client.Fetcher, pubKey string) (logClientTool, error) {
 	var cpRaw []byte
 	var err error
 	if len(*cacheDir) > 0 {
@@ -147,7 +149,7 @@ func newLogClientTool(logID string, f client.Fetcher, pubKey string) (logClientT
 	if err != nil {
 		glog.Exitf("Failed to instantiate Verifier: %q", err)
 	}
-	tracker, err := client.NewLogStateTracker(f, hasher, cpRaw, v)
+	tracker, err := client.NewLogStateTracker(ctx, f, hasher, cpRaw, v)
 	if err != nil {
 		glog.Exitf("Failed to create LogStateTracker: %q", err)
 	}
@@ -160,7 +162,7 @@ func newLogClientTool(logID string, f client.Fetcher, pubKey string) (logClientT
 	}, nil
 }
 
-func (l *logClientTool) inclusionProof(args []string) error {
+func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error {
 	if l := len(args); l < 1 || l > 2 {
 		return fmt.Errorf("usage: inclusion <file> [index-in-log]")
 	}
@@ -177,7 +179,7 @@ func (l *logClientTool) inclusionProof(args []string) error {
 			return fmt.Errorf("invalid index-in-log %q: %w", args[1], err)
 		}
 	} else {
-		idx, err = client.LookupIndex(l.Fetcher, lh)
+		idx, err = client.LookupIndex(ctx, l.Fetcher, lh)
 		if err != nil {
 			return fmt.Errorf("failed to lookup leaf index: %w", err)
 		}
@@ -187,12 +189,12 @@ func (l *logClientTool) inclusionProof(args []string) error {
 	// TODO(al): wait for growth if necessary
 
 	cp := l.Tracker.LatestConsistent
-	builder, err := client.NewProofBuilder(cp, l.Hasher.HashChildren, l.Fetcher)
+	builder, err := client.NewProofBuilder(ctx, cp, l.Hasher.HashChildren, l.Fetcher)
 	if err != nil {
 		return fmt.Errorf("failed to create proof builder: %w", err)
 	}
 
-	proof, err := builder.InclusionProof(idx)
+	proof, err := builder.InclusionProof(ctx, idx)
 	if err != nil {
 		return fmt.Errorf("failed to get inclusion proof: %w", err)
 	}
@@ -207,7 +209,7 @@ func (l *logClientTool) inclusionProof(args []string) error {
 	return nil
 }
 
-func (l *logClientTool) updateCheckpoint(args []string) error {
+func (l *logClientTool) updateCheckpoint(ctx context.Context, args []string) error {
 	if l := len(args); l != 0 {
 		return fmt.Errorf("usage: update")
 	}
@@ -215,7 +217,7 @@ func (l *logClientTool) updateCheckpoint(args []string) error {
 	glog.V(1).Infof("Original checkpoint:\n%s", l.Tracker.LatestConsistentRaw)
 	cp := l.Tracker.LatestConsistent
 
-	if err := l.Tracker.Update(); err != nil {
+	if err := l.Tracker.Update(ctx); err != nil {
 		return fmt.Errorf("failed to update checkpoint: %w", err)
 	}
 
@@ -236,25 +238,29 @@ func newFetcher(root *url.URL) client.Fetcher {
 		panic(fmt.Errorf("unsupported URL scheme %s", root.Scheme))
 	}
 
-	return func(p string) ([]byte, error) {
+	return func(ctx context.Context, p string) ([]byte, error) {
 		u, err := root.Parse(p)
 		if err != nil {
 			return nil, err
 		}
-		return get(u)
+		return get(ctx, u)
 	}
 }
 
-var getByScheme = map[string]func(*url.URL) ([]byte, error){
+var getByScheme = map[string]func(context.Context, *url.URL) ([]byte, error){
 	"http":  readHTTP,
 	"https": readHTTP,
-	"file": func(u *url.URL) ([]byte, error) {
+	"file": func(_ context.Context, u *url.URL) ([]byte, error) {
 		return ioutil.ReadFile(u.Path)
 	},
 }
 
-func readHTTP(u *url.URL) ([]byte, error) {
-	resp, err := http.Get(u.String())
+func readHTTP(ctx context.Context, u *url.URL) ([]byte, error) {
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, err
 	}

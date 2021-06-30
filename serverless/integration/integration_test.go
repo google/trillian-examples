@@ -16,6 +16,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -41,7 +42,7 @@ const (
 )
 
 func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Hasher, signer note.Signer) {
-
+	ctx := context.Background()
 	lv := logverifier.New(lh)
 
 	// Do a few interations around the sequence/integrate loop;
@@ -56,7 +57,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Ha
 		glog.Exitf("Unable to create new verifier: %q", err)
 	}
 
-	lst, err := client.NewLogStateTracker(f, lh, nil, v)
+	lst, err := client.NewLogStateTracker(ctx, f, lh, nil, v)
 	if err != nil {
 		t.Fatalf("Failed to create new log state tracker: %q", err)
 	}
@@ -70,7 +71,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Ha
 
 		// Integrate those leaves
 		{
-			update, err := log.Integrate(s, lh)
+			update, err := log.Integrate(ctx, s, lh)
 			if err != nil {
 				t.Fatalf("Integrate = %v", err)
 			}
@@ -86,7 +87,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Ha
 		}
 
 		// State tracker will verify consistency of larger tree
-		if err := lst.Update(); err != nil {
+		if err := lst.Update(ctx); err != nil {
 			t.Fatalf("Failed to update tracked log state: %q", err)
 		}
 		newCheckpoint := lst.LatestConsistent
@@ -94,18 +95,18 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Ha
 			t.Errorf("Integrate missed some entries, got %d want %d", got, want)
 		}
 
-		pb, err := client.NewProofBuilder(newCheckpoint, lh.HashChildren, f)
+		pb, err := client.NewProofBuilder(ctx, newCheckpoint, lh.HashChildren, f)
 		if err != nil {
 			t.Fatalf("Failed to create ProofBuilder: %q", err)
 		}
 
 		for _, l := range leaves {
 			h := lh.HashLeaf(l)
-			idx, err := client.LookupIndex(f, h)
+			idx, err := client.LookupIndex(ctx, f, h)
 			if err != nil {
 				t.Fatalf("Failed to lookup leaf index: %v", err)
 			}
-			ip, err := pb.InclusionProof(idx)
+			ip, err := pb.InclusionProof(ctx, idx)
 			if err != nil {
 				t.Fatalf("Failed to fetch inclusion proof for %d: %v", idx, err)
 			}
@@ -133,7 +134,7 @@ func TestServerlessViaFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create root URL: %q", err)
 	}
-	f := func(p string) ([]byte, error) {
+	f := func(_ context.Context, p string) ([]byte, error) {
 		u, err := rootURL.Parse(p)
 		if err != nil {
 			return nil, err
@@ -197,12 +198,16 @@ func httpFetcher(t *testing.T, u string) client.Fetcher {
 		t.Fatalf("Failed to create root URL: %q", err)
 	}
 
-	return func(p string) ([]byte, error) {
+	return func(ctx context.Context, p string) ([]byte, error) {
 		u, err := rootURL.Parse(p)
 		if err != nil {
 			return nil, err
 		}
-		resp, err := http.Get(u.String())
+		req, err := http.NewRequest("GET", u.String(), nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 		if err != nil {
 			return nil, err
 		}

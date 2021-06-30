@@ -282,9 +282,9 @@ func LookupIndex(ctx context.Context, f Fetcher, lh []byte) (uint64, error) {
 }
 
 // GetLeaf fetches the raw contents committed to at a given leaf index.
-func GetLeaf(f Fetcher, i uint64) ([]byte, error) {
+func GetLeaf(ctx context.Context, f Fetcher, i uint64) ([]byte, error) {
 	p := filepath.Join(layout.SeqPath("", i))
-	sRaw, err := f(p)
+	sRaw, err := f(ctx, p)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("leaf index %d not found: %w", i, err)

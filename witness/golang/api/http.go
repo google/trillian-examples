@@ -14,8 +14,6 @@
 
 package api
 
-import "context"
-
 const (
 	// HTTPGetCheckpoint is the path of the URL to get a checkpoint.
 	HTTPGetCheckpoint = "witness/v0/get-checkpoint"
@@ -26,7 +24,6 @@ const (
 // UpdateRequest encodes the inputs to the witness Update function: a logID
 // string, (raw) checkpoint byte slice, and consistency proof (slice of slices).
 type UpdateRequest struct {
-	Context    context.Context
 	LogID      string
 	Checkpoint []byte
 	Proof      [][]byte

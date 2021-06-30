@@ -110,7 +110,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	}
 
 	w, err := witness.New(witness.Opts{
-		Database:  db,
+		DB:        db,
 		Signer:    opts.Signer,
 		KnownLogs: logMap,
 	})

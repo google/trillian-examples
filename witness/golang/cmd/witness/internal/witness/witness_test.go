@@ -78,7 +78,7 @@ func newOpts(d *sql.DB, logID string, logPK string, wSK string) (Opts, error) {
 	}
 	m := map[string]LogInfo{logID: log}
 	opts := Opts{
-		Database:  d,
+		DB:        d,
 		Signer:    ns,
 		KnownLogs: m,
 	}
@@ -170,7 +170,6 @@ func TestGetChkpt(t *testing.T) {
 			test.c.Raw = signed[0]
 			// Set up witness keys and other parameters.
 			wSK, wPK, err := note.GenerateKey(rand.Reader, "witness")
-			fmt.Println(wSK)
 			if err != nil {
 				t.Errorf("couldn't generate witness keys: %v", err)
 			}

@@ -62,7 +62,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Get the checkpoint size from the witness.
-	size, err := s.w.Update(req.Context, req.LogID, req.Checkpoint, req.Proof)
+	size, err := s.w.Update(r.Context(), req.LogID, req.Checkpoint, req.Proof)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), http.StatusInternalServerError)
 		return

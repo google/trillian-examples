@@ -35,14 +35,9 @@ type Chkpt struct {
 	Raw  []byte
 }
 
-// Database reads from and writes checkpoints to persistent storage.
-type Database struct {
-	db *sql.DB
-}
-
 // Opts is the options passed to a witness.
 type Opts struct {
-	Database  *sql.DB
+	DB        *sql.DB
 	Signer    note.Signer
 	KnownLogs map[string]LogInfo
 }
@@ -57,7 +52,7 @@ type LogInfo struct {
 // Witness consists of a database for storing checkpoints, a signer, and a list
 // of logs for which it stores and verifies checkpoints.
 type Witness struct {
-	db     *Database
+	db     *sql.DB
 	Signer note.Signer
 	// At some point we might want to store this information in a table in
 	// the database too but as I imagine it being populated from a static
@@ -67,12 +62,17 @@ type Witness struct {
 
 // New creates a new witness, which initially has no logs to follow.
 func New(wo Opts) (*Witness, error) {
-	d, err := newDatabase(wo.Database)
+	// Create the chkpts table if needed.
+	_, err := wo.DB.Exec(`CREATE TABLE IF NOT EXISTS chkpts (
+			      logID BLOB PRIMARY KEY,
+			      size INT,
+			      raw BLOB
+			      )`)
 	if err != nil {
 		return nil, err
 	}
 	return &Witness{
-		db:     d,
+		db:     wo.DB,
 		Signer: wo.Signer,
 		Logs:   wo.KnownLogs,
 	}, nil
@@ -83,7 +83,7 @@ func New(wo Opts) (*Witness, error) {
 func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, error) {
 	logInfo, ok := w.Logs[logID]
 	if !ok {
-		return nil, fmt.Errorf("no information for log %q", logID)
+		return nil, fmt.Errorf("log %q not found", logID)
 	}
 	n, err := note.Open(chkptRaw, note.VerifierList(logInfo.SigVs...))
 	if err != nil {
@@ -100,14 +100,14 @@ func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, error) 
 // consistent with all other checkpoints for the same log.  It also signs it
 // under the witness' key.
 func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
-	chkpt, err := w.db.getLatestChkpt(w.db.db.QueryRow, logID)
+	chkpt, err := w.getLatestChkpt(w.db.QueryRow, logID)
 	if err != nil {
 		return nil, err
 	}
 	// Add the witness' signature to the checkpoint.
 	logInfo, ok := w.Logs[logID]
 	if !ok {
-		return nil, fmt.Errorf("no information for log %q", logID)
+		return nil, fmt.Errorf("log %q not found", logID)
 	}
 	n, err := note.Open(chkpt.Raw, note.VerifierList(logInfo.SigVs...))
 	if err != nil {
@@ -121,13 +121,13 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 }
 
 // Update updates the latest checkpoint if chkptRaw is consistent with the current
-// latest one for this log.   It returns the latest checkpoint size before the
+// latest one for this log. It returns the latest checkpoint size before the
 // update was applied (or just what was fetched if the update was unsuccessful).
 func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, proof [][]byte) (uint64, error) {
 	// If we don't witness this log then no point in going further.
 	logInfo, ok := w.Logs[logID]
 	if !ok {
-		return 0, fmt.Errorf("no information for log %q", logID)
+		return 0, fmt.Errorf("log %q not found", logID)
 	}
 	// Check the signatures on the raw checkpoint and parse it
 	// into the log.Checkpoint format.
@@ -139,16 +139,16 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 	// Get the latest one for the log because we don't want consistency proofs
 	// with respect to older checkpoints.  Bind this all in a transaction to
 	// avoid race conditions when updating the database.
-	tx, err := w.db.db.BeginTx(ctx, nil)
+	tx, err := w.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, fmt.Errorf("couldn't create tx: %v", err)
 	}
-	latest, err := w.db.getLatestChkpt(tx.QueryRow, logID)
+	latest, err := w.getLatestChkpt(tx.QueryRow, logID)
 	if err != nil {
 		// If there was nothing stored already then treat this new
 		// checkpoint as trust-on-first-use.
 		if status.Code(err) == codes.NotFound {
-			return chkpt.Size, w.db.setCheckpoint(tx, logID, c)
+			return 0, w.setCheckpoint(tx, logID, c)
 		}
 		return 0, fmt.Errorf("Update: %w", err)
 	}
@@ -162,27 +162,14 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 			return p.Size, fmt.Errorf("failed to verify consistency proof: %v", err)
 		}
 		// If the consistency proof is good we store chkptRaw.
-		return p.Size, w.db.setCheckpoint(tx, logID, c)
+		return p.Size, w.setCheckpoint(tx, logID, c)
 	}
 	// Complain if latest is bigger than chkpt.
 	return p.Size, fmt.Errorf("Cannot prove consistency backwards")
 }
 
-// newDatabase creates a new database, initializing it if needed.
-func newDatabase(db *sql.DB) (*Database, error) {
-	_, err := db.Exec(`CREATE TABLE IF NOT EXISTS chkpts (
-			    logID BLOB PRIMARY KEY,
-			    size INT,
-			    raw BLOB
-			)`)
-	if err != nil {
-		return nil, err
-	}
-	return &Database{db: db}, nil
-}
-
 // getLatestChkpt returns the latest checkpoint for a given log.
-func (d *Database) getLatestChkpt(queryRow func(query string, args ...interface{}) *sql.Row, logID string) (Chkpt, error) {
+func (w *Witness) getLatestChkpt(queryRow func(query string, args ...interface{}) *sql.Row, logID string) (Chkpt, error) {
 	row := queryRow("SELECT raw, size FROM chkpts WHERE logID = ?", logID)
 	if err := row.Err(); err != nil {
 		return Chkpt{}, err
@@ -198,7 +185,7 @@ func (d *Database) getLatestChkpt(queryRow func(query string, args ...interface{
 }
 
 // setCheckpoint writes the checkpoint to the DB for a given log.
-func (d *Database) setCheckpoint(tx *sql.Tx, logID string, c Chkpt) error {
+func (w *Witness) setCheckpoint(tx *sql.Tx, logID string, c Chkpt) error {
 	tx.Exec(`INSERT INTO chkpts (logID, size, raw) VALUES (?, ?, ?)
 		 ON CONFLICT(logID) DO
 		 UPDATE SET size=excluded.size, raw=excluded.raw`,

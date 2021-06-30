@@ -66,7 +66,9 @@ func loadConfig(configFile string) (map[string]witness.LogInfo, error) {
 		return nil, fmt.Errorf("failed to read from config file: %v", err)
 	}
 	var js LogConfig
-	json.Unmarshal(fileData, &js)
+	if err := json.Unmarshal(fileData, &js); err != nil {
+		return nil, fmt.Errorf("failed to parse config file as proper JSON: %v", err)
+	}
 	logMap := make(map[string]witness.LogInfo)
 	h := hasher.DefaultHasher
 	for _, log := range js.Logs {

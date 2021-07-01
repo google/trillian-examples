@@ -16,11 +16,11 @@
 package http
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/google/trillian-examples/witness/golang/api"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
@@ -40,7 +40,8 @@ func NewServer(witness *witness.Witness) *Server {
 }
 
 // update handles requests to update checkpoints.
-// It expects a JSON request consisting of bytes and a slice of slices.
+// It expects a POSTed body containing a JSON-formatted api.UpdateRequest
+// statement.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	h := r.Header["Content-Type"]
 	if len(h) == 0 {
@@ -70,9 +71,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, size)
-	w.Write(b)
+	w.Write([]byte(strconv.FormatUint(size, 10)))
 }
 
 // getCheckpoint returns a checkpoint stored for a given log.

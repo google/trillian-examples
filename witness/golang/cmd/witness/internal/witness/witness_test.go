@@ -128,30 +128,30 @@ func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
 
 func TestGetChkpt(t *testing.T) {
 	for _, test := range []struct {
-		desc    string
-		setID   string
-		queryID string
-		c       Chkpt
-		want    string
+		desc      string
+		setID     string
+		queryID   string
+		c         *Chkpt
+		wantThere bool
 	}{
 		{
-			desc:    "happy path",
-			setID:   "testlog",
-			queryID: "testlog",
-			c:       initChkpt,
-			want:    "there",
+			desc:      "happy path",
+			setID:     "testlog",
+			queryID:   "testlog",
+			c:         &initChkpt,
+			wantThere: true,
 		}, {
-			desc:    "other log",
-			setID:   "testlog",
-			queryID: "otherlog",
-			c:       initChkpt,
-			want:    "not there",
+			desc:      "other log",
+			setID:     "testlog",
+			queryID:   "otherlog",
+			c:         &initChkpt,
+			wantThere: false,
 		}, {
-			desc:    "nothing there",
-			setID:   "testlog",
-			queryID: "testlog",
-			c:       initChkpt,
-			want:    "not there",
+			desc:      "nothing there",
+			setID:     "testlog",
+			queryID:   "testlog",
+			c:         nil,
+			wantThere: false,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -163,11 +163,13 @@ func TestGetChkpt(t *testing.T) {
 			if err != nil {
 				t.Errorf("couldn't generate log keys: %v", err)
 			}
-			signed, err := signChkpts(logSK, []string{string(test.c.Raw)})
-			if err != nil {
-				t.Errorf("couldn't sign checkpoint: %v", err)
+			if test.c != nil {
+				signed, err := signChkpts(logSK, []string{string(test.c.Raw)})
+				if err != nil {
+					t.Errorf("couldn't sign checkpoint: %v", err)
+				}
+				test.c.Raw = signed[0]
 			}
-			test.c.Raw = signed[0]
 			// Set up witness keys and other parameters.
 			wSK, wPK, err := note.GenerateKey(rand.Reader, "witness")
 			if err != nil {
@@ -182,19 +184,19 @@ func TestGetChkpt(t *testing.T) {
 				t.Fatalf("couldn't create witness: %v", err)
 			}
 			// Set a checkpoint for the log if we want to for this test.
-			if test.desc != "nothing there" {
+			if test.c != nil {
 				if _, err := w.Update(ctx, test.setID, test.c.Raw, [][]byte{}); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
 			// Try to get the latest checkpoint.
 			cosigned, err := w.GetCheckpoint(test.queryID)
-			if test.want == "not there" && err == nil {
+			if !test.wantThere && err == nil {
 				t.Fatalf("returned a checkpoint but shouldn't have")
 			}
 			// If we got something then verify it under the log and
 			// witness public keys.
-			if test.want == "there" {
+			if test.wantThere {
 				if err != nil {
 					t.Errorf("failed to get latest: %v", err)
 				}
@@ -220,18 +222,18 @@ func TestGetChkpt(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	for _, test := range []struct {
-		desc  string
-		initC Chkpt
-		newC  Chkpt
-		pf    [][]byte
-		want  string
+		desc   string
+		initC  Chkpt
+		newC   Chkpt
+		pf     [][]byte
+		isGood bool
 	}{
 		{
-			desc:  "happy path",
-			initC: initChkpt,
-			newC:  newChkpt,
-			pf:    consProof,
-			want:  "good",
+			desc:   "happy path",
+			initC:  initChkpt,
+			newC:   newChkpt,
+			pf:     consProof,
+			isGood: true,
 		}, {
 			desc:  "garbage proof",
 			initC: initChkpt,
@@ -242,7 +244,7 @@ func TestUpdate(t *testing.T) {
 				dh("cccc", 2),
 				dh("dddd", 2),
 			},
-			want: "bad",
+			isGood: false,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -270,7 +272,7 @@ func TestUpdate(t *testing.T) {
 			}
 			// Now update from this checkpoint to a newer one.
 			size, err := w.Update(ctx, logID, test.newC.Raw, test.pf)
-			if test.want == "good" {
+			if test.isGood {
 				if err != nil {
 					t.Fatalf("can't update to new checkpoint: %v", err)
 				}

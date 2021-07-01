@@ -28,7 +28,7 @@ import (
 
 var (
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
-	dbFile     = flag.String("db_file", "", "path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
+	dbFile     = flag.String("db_file", ":memory:", "path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
 	configFile = flag.String("config_file", "example.conf", "path to a JSON config file that specifies the logs followed by this witness")
 	witnessSK  = flag.String("private key", "PRIVATE+KEY+witness+7597200e+ARnfhJzxUHTnLhLpsJHtQZCXcjSNngW7J67sGM4ar9Ed", "private signing key for the witness")
 )

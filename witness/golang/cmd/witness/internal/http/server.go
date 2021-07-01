@@ -40,8 +40,7 @@ func NewServer(witness *witness.Witness) *Server {
 }
 
 // update handles requests to update checkpoints.
-// It expects a JSON request consisting of a context, string, bytes, and a
-// slice of slices.
+// It expects a JSON request consisting of bytes and a slice of slices.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	h := r.Header["Content-Type"]
 	if len(h) == 0 {
@@ -51,6 +50,8 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "need request in JSON format", http.StatusBadRequest)
 		return
 	}
+	v := mux.Vars(r)
+	logID := v["logid"]
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot read request body: %v", err.Error()), http.StatusBadRequest)
@@ -62,7 +63,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Get the checkpoint size from the witness.
-	size, err := s.w.Update(r.Context(), req.LogID, req.Checkpoint, req.Proof)
+	size, err := s.w.Update(r.Context(), logID, req.Checkpoint, req.Proof)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), http.StatusInternalServerError)
 		return
@@ -77,7 +78,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 // getCheckpoint returns a checkpoint stored for a given log.
 func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
-	logID := v["logID"]
+	logID := v["logid"]
 	// Get the signed checkpoint from the witness.
 	chkpt, err := s.w.GetCheckpoint(logID)
 	if err != nil {
@@ -90,6 +91,6 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 
 // RegisterHandlers registers HTTP handlers for witness endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
-	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetCheckpoint), s.getCheckpoint).Methods("GET")
-	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPUpdate), s.update).Methods("POST")
+	r.HandleFunc(fmt.Sprintf("/%s/{logid}", api.HTTPGetCheckpoint), s.getCheckpoint).Methods("GET")
+	r.HandleFunc(fmt.Sprintf("/%s/{logid}", api.HTTPUpdate), s.update).Methods("POST")
 }

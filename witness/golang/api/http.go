@@ -16,15 +16,15 @@ package api
 
 const (
 	// HTTPGetCheckpoint is the path of the URL to get a checkpoint.
-	HTTPGetCheckpoint = "witness/v0/get-checkpoint"
+	HTTPGetCheckpoint = "witness/v0/checkpoint"
 	// HTTPUpdate is the path of the URL to update to a new checkpoint.
 	HTTPUpdate = "witness/v0/update"
 )
 
-// UpdateRequest encodes the inputs to the witness Update function: a logID
-// string, (raw) checkpoint byte slice, and consistency proof (slice of slices).
+// UpdateRequest encodes the inputs to the witness Update function: a (raw)
+// checkpoint byte slice and a consistency proof (slice of slices).  The logID
+// is part of the request URL.
 type UpdateRequest struct {
-	LogID      string
 	Checkpoint []byte
 	Proof      [][]byte
 }

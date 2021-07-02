@@ -19,7 +19,9 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/google/trillian/merkle/logverifier"
@@ -48,53 +50,60 @@ var (
 func signChkpts(skey string, chkpts []string) ([][]byte, error) {
 	ns, err := note.NewSigner(skey)
 	if err != nil {
-		return nil, fmt.Errorf("signChkpt: couldn't create signer")
+		return nil, fmt.Errorf("signChkpt: couldn't create signer: %v", err)
 	}
 	signed := make([][]byte, len(chkpts))
 	for i, c := range chkpts {
 		s, err := note.Sign(&note.Note{Text: c}, ns)
 		if err != nil {
-			return nil, fmt.Errorf("signChkpt: couldn't sign note")
+			return nil, fmt.Errorf("signChkpt: couldn't sign note: %v", err)
 		}
 		signed[i] = s
 	}
 	return signed, nil
 }
 
-func newOpts(d *sql.DB, logID string, logPK string, wSK string) (Opts, error) {
+func newOpts(d *sql.DB, logIDs []string, logPKs []string, wSK string) (Opts, error) {
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
-		return Opts{}, fmt.Errorf("setOpts: couldn't create a note signer")
+		return Opts{}, fmt.Errorf("newOpts: couldn't create a note signer: %v", err)
+	}
+	if len(logIDs) != len(logPKs) {
+		return Opts{}, errors.New("newOpts: mismatched number of ids and keys")
 	}
 	h := hasher.DefaultHasher
-	logV, err := note.NewVerifier(logPK)
-	if err != nil {
-		return Opts{}, fmt.Errorf("setOpts: couldn't create a log verifier")
+	logs := make(map[string]LogInfo)
+	for i, logID := range logIDs {
+		logPK := logPKs[i]
+		logV, err := note.NewVerifier(logPK)
+		if err != nil {
+			return Opts{}, fmt.Errorf("newOpts: couldn't create a log verifier")
+		}
+		sigV := []note.Verifier{logV}
+		log := LogInfo{
+			SigVs: sigV,
+			LogV:  logverifier.New(h),
+		}
+		logs[logID] = log
 	}
-	sigVs := []note.Verifier{logV}
-	log := LogInfo{
-		SigVs: sigVs,
-		LogV:  logverifier.New(h),
-	}
-	m := map[string]LogInfo{logID: log}
 	opts := Opts{
 		DB:        d,
 		Signer:    ns,
-		KnownLogs: m,
+		KnownLogs: logs,
 	}
 	return opts, nil
 }
 
-func newOptsAndKeys(d *sql.DB, logID string, logPK string) (Opts, error) {
+func newOptsAndKeys(d *sql.DB, logIDs []string, logPKs []string) (Opts, error) {
 	wSK, _, err := note.GenerateKey(rand.Reader, "witness")
 	if err != nil {
 		return Opts{}, fmt.Errorf("couldn't generate witness keys")
 	}
-	return newOpts(d, logID, logPK, wSK)
+	return newOpts(d, logIDs, logPKs, wSK)
 }
 
-func newWitness(t *testing.T, d *sql.DB, logID string, logPK string) *Witness {
-	opts, err := newOptsAndKeys(d, logID, logPK)
+func newWitness(t *testing.T, d *sql.DB, logIDs []string, logPKs []string) *Witness {
+	opts, err := newOptsAndKeys(d, logIDs, logPKs)
 	if err != nil {
 		t.Fatalf("couldn't create witness opt struct: %v", err)
 	}
@@ -124,6 +133,67 @@ func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
 		t.Fatalf("failed to open temporary in-memory DB: %v", err)
 	}
 	return db, db.Close
+}
+
+func TestGetLogs(t *testing.T) {
+	for _, test := range []struct {
+		desc   string
+		logIDs []string
+	}{
+		{
+			desc:   "no logs",
+			logIDs: []string{},
+		}, {
+			desc:   "one log",
+			logIDs: []string{"monkeys"},
+		}, {
+			desc:   "two logs",
+			logIDs: []string{"bananas", "monkeys"},
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			d, closeFn := mustCreateDB(t)
+			defer closeFn()
+			ctx := context.Background()
+			// Set up log keys and sign checkpoints.
+			chkpts := make([][]byte, len(test.logIDs))
+			logPKs := make([]string, len(test.logIDs))
+			for i, logID := range test.logIDs {
+				logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
+				if err != nil {
+					t.Errorf("couldn't generate log keys: %v", err)
+				}
+				logPKs[i] = logPK
+				signed, err := signChkpts(logSK, []string{string(initChkpt.Raw)})
+				if err != nil {
+					t.Fatalf("couldn't sign checkpoint: %v", err)
+				}
+				chkpts[i] = signed[0]
+			}
+			// Set up witness.
+			w := newWitness(t, d, test.logIDs, logPKs)
+			// Update to a checkpoint for all logs.
+			for i, logID := range test.logIDs {
+				if _, err := w.Update(ctx, logID, chkpts[i], [][]byte{}); err != nil {
+					t.Errorf("failed to set checkpoint: %v", err)
+				}
+			}
+			// Now see if the witness knows about these logs.
+			logs, err := w.GetLogs()
+			if err != nil {
+				t.Fatalf("couldn't get logs from witness: %v", err)
+			}
+			if len(logs) != len(test.logIDs) {
+				t.Fatalf("wanted %v logs but got %v", len(test.logIDs), len(logs))
+			}
+			sort.Strings(logs)
+			for i := range logs {
+				if logs[i] != test.logIDs[i] {
+					t.Fatalf("wanted %v but got %v", logs[i], test.logIDs[i])
+				}
+			}
+		})
+	}
 }
 
 func TestGetChkpt(t *testing.T) {
@@ -166,7 +236,7 @@ func TestGetChkpt(t *testing.T) {
 			if test.c != nil {
 				signed, err := signChkpts(logSK, []string{string(test.c.Raw)})
 				if err != nil {
-					t.Errorf("couldn't sign checkpoint: %v", err)
+					t.Fatalf("couldn't sign checkpoint: %v", err)
 				}
 				test.c.Raw = signed[0]
 			}
@@ -175,7 +245,7 @@ func TestGetChkpt(t *testing.T) {
 			if err != nil {
 				t.Errorf("couldn't generate witness keys: %v", err)
 			}
-			opts, err := newOpts(d, test.setID, logPK, wSK)
+			opts, err := newOpts(d, []string{test.setID}, []string{logPK}, wSK)
 			if err != nil {
 				t.Errorf("couldn't create witness opts: %v", err)
 			}
@@ -259,12 +329,12 @@ func TestUpdate(t *testing.T) {
 			}
 			signed, err := signChkpts(logSK, []string{string(test.initC.Raw), string(test.newC.Raw)})
 			if err != nil {
-				t.Errorf("couldn't sign checkpoint: %v", err)
+				t.Fatalf("couldn't sign checkpoint: %v", err)
 			}
 			test.initC.Raw = signed[0]
 			test.newC.Raw = signed[1]
 			// Set up witness.
-			w := newWitness(t, d, logID, logPK)
+			w := newWitness(t, d, []string{logID}, []string{logPK})
 
 			// Set an initial checkpoint for the log.
 			if _, err := w.Update(ctx, logID, test.initC.Raw, [][]byte{}); err != nil {

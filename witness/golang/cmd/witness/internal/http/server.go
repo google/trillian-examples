@@ -81,15 +81,32 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	// Get the signed checkpoint from the witness.
 	chkpt, err := s.w.GetCheckpoint(logID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get checkpoint: %q", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to get checkpoint: %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write(chkpt)
 }
 
+// getCheckpoint returns a list of all logs the witness is aware of.
+func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
+	logs, err := s.w.GetLogs()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get log list: %v", err), http.StatusInternalServerError)
+		return
+	}
+	logList, err := json.Marshal(logs)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to convert log list to JSON: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/json")
+	w.Write(logList)
+}
+
 // RegisterHandlers registers HTTP handlers for witness endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
-	r.HandleFunc(fmt.Sprintf("/%s/{logid}", api.HTTPGetCheckpoint), s.getCheckpoint).Methods("GET")
-	r.HandleFunc(fmt.Sprintf("/%s/{logid}", api.HTTPUpdate), s.update).Methods("POST")
+	r.HandleFunc(fmt.Sprintf(api.HTTPGetCheckpoint, "{logid:[a-zA-Z0-9]+}"), s.getCheckpoint).Methods("GET")
+	r.HandleFunc(fmt.Sprintf(api.HTTPUpdate, "{logid:[a-zA-Z0-9]+}"), s.update).Methods("POST")
+	r.HandleFunc(fmt.Sprintf("/%s", api.HTTPGetLogs), s.getLogs).Methods("GET")
 }

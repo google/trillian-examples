@@ -96,6 +96,29 @@ func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, error) 
 	return chkpt, nil
 }
 
+// GetLogs returns a list of all logs the witness is aware of.
+func (w *Witness) GetLogs() ([]string, error) {
+	rows, err := w.db.Query("SELECT logID FROM chkpts")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var logs []string
+	for rows.Next() {
+		var logID string
+		err := rows.Scan(&logID)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, logID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 // GetCheckpoint gets a checkpoint for a given log, which will be
 // consistent with all other checkpoints for the same log.  It also signs it
 // under the witness' key.

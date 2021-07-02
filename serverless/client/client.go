@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 
 	"github.com/golang/glog"
@@ -47,7 +48,9 @@ import (
 // based implementation MUST return this error when it receives a 404 StatusCode.
 type Fetcher func(ctx context.Context, path string) ([]byte, error)
 
-func fetchCheckpointAndParse(ctx context.Context, f Fetcher, v note.Verifier) (*log.Checkpoint, []byte, error) {
+// FetchCheckpoint retrieves and opens a checkpoint from the log.
+// Returns both the parsed structure and the raw serialised checkpoint.
+func FetchCheckpoint(ctx context.Context, f Fetcher, v note.Verifier) (*log.Checkpoint, []byte, error) {
 	cpRaw, err := f(ctx, layout.CheckpointPath)
 	if err != nil {
 		return nil, nil, err
@@ -59,7 +62,7 @@ func fetchCheckpointAndParse(ctx context.Context, f Fetcher, v note.Verifier) (*
 	cp := log.Checkpoint{}
 	if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {
 		glog.V(1).Infof("Bad checkpoint: %q", cpRaw)
-		return nil, nil, fmt.Errorf("failed to unmarshal checkpoint: %w", err)
+		return nil, nil, fmt.Errorf("failed to unmarshal checkpoint: %v", err)
 	}
 	return &cp, cpRaw, nil
 }
@@ -358,7 +361,7 @@ func (e ErrInconsistency) Error() string {
 // that it is consistent with the local state before updating the tracker's
 // view.
 func (lst *LogStateTracker) Update(ctx context.Context) error {
-	c, cRaw, err := fetchCheckpointAndParse(ctx, lst.Fetcher, lst.CpSigVerifier)
+	c, cRaw, err := FetchCheckpoint(ctx, lst.Fetcher, lst.CpSigVerifier)
 	if err != nil {
 		return err
 	}
@@ -384,5 +387,39 @@ func (lst *LogStateTracker) Update(ctx context.Context) error {
 		}
 	}
 	lst.LatestConsistentRaw, lst.LatestConsistent = cRaw, *c
+	return nil
+}
+
+// CheckConsistency is a wapper function which simplifies verifying consistency between two or more checkpoints.
+func CheckConsistency(ctx context.Context, h hashers.LogHasher, f Fetcher, cp []log.Checkpoint) error {
+	sort.Slice(cp, func(i, j int) bool {
+		return cp[i].Size < cp[j].Size
+	})
+	pb, err := NewProofBuilder(ctx, cp[len(cp)-1], h.HashChildren, f)
+	if err != nil {
+		return fmt.Errorf("failed to create proofbuilder: %v", err)
+	}
+
+	lv := logverifier.New(h)
+
+	// Go through list of checkpoints pairwise, checking consistency
+	var a, b log.Checkpoint
+	for i := 0; i < len(cp)-1; i, a, b = i+1, cp[i], cp[i+1] {
+		if a.Size == b.Size {
+			if bytes.Equal(a.Hash, b.Hash) {
+				continue
+			}
+			return fmt.Errorf("two checkpoints with same size (%d) but different hashes (%x vs %x)", a.Size, a.Hash, b.Hash)
+		}
+		if a.Size > 0 {
+			cp, err := pb.ConsistencyProof(ctx, a.Size, b.Size)
+			if err != nil {
+				return fmt.Errorf("failed to fetch consistency between sizes %d, %d: %v", a.Size, b.Size, err)
+			}
+			if err := lv.VerifyConsistencyProof(int64(a.Size), int64(b.Size), a.Hash, b.Hash, cp); err != nil {
+				return fmt.Errorf("invalid consistency proof between sizes %d, %d: %v", a.Size, b.Size, err)
+			}
+		}
+	}
 	return nil
 }

@@ -409,7 +409,7 @@ func CheckConsistency(ctx context.Context, h hashers.LogHasher, f Fetcher, cp []
 			if bytes.Equal(a.Hash, b.Hash) {
 				continue
 			}
-			return fmt.Errorf("two checkpoints with same size but different hashes")
+			return fmt.Errorf("two checkpoints with same size (%d) but different hashes (%x vs %x)", a.Size, a.Hash, b.Hash)
 		}
 		if a.Size > 0 {
 			cp, err := pb.ConsistencyProof(ctx, a.Size, b.Size)
@@ -418,7 +418,6 @@ func CheckConsistency(ctx context.Context, h hashers.LogHasher, f Fetcher, cp []
 			}
 			if err := lv.VerifyConsistencyProof(int64(a.Size), int64(b.Size), a.Hash, b.Hash, cp); err != nil {
 				return fmt.Errorf("invalid consistency proof between sizes %d, %d: %v", a.Size, b.Size, err)
-
 			}
 		}
 	}

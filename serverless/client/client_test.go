@@ -28,31 +28,31 @@ import (
 var (
 	// Built using serverless/testdata/build_log.sh
 	testCheckpoints = []log.Checkpoint{
-		log.Checkpoint{
+		{
 			Size: 1,
 			Hash: b64("0Nc2CrefWKseHj/mStd+LqC8B+NrX0btIiPt2SmN+ek="),
 		},
-		log.Checkpoint{
+		{
 			Size: 2,
 			Hash: b64("T1X2GdkhUjV3iyufF9b0kVsWFxIU0VI4EpNml2Teci4="),
 		},
-		log.Checkpoint{
+		{
 			Size: 3,
 			Hash: b64("Wqx3HImawpLnS/Gv4ubjAvi1WIOy0b8Ze0amvqbavKk="),
 		},
-		log.Checkpoint{
+		{
 			Size: 4,
 			Hash: b64("zY1lN35vrXYAPixXSd59LsU29xUJtuW4o2dNNg5Y2Co="),
 		},
-		log.Checkpoint{
+		{
 			Size: 5,
 			Hash: b64("gy5gl3aksFyiCO95a/1vLXz88A3dRq+0l9Sxte8ZqZQ="),
 		},
-		log.Checkpoint{
+		{
 			Size: 6,
 			Hash: b64("a6sWvsc2eEzmj72vah7mZ5dwFltivehh2b11qwlp5Jg="),
 		},
-		log.Checkpoint{
+		{
 			Size: 7,
 			Hash: b64("IrSXADBqJ7EQoUODSDKROySgNveeL6CFhik2w/+fS7U="),
 		},
@@ -125,7 +125,7 @@ func TestCheckConsistency(t *testing.T) {
 			cp: []log.Checkpoint{
 				testCheckpoints[5],
 				testCheckpoints[2],
-				log.Checkpoint{
+				{
 					Size: 4,
 					Hash: []byte("This is a banana"),
 				},
@@ -135,11 +135,11 @@ func TestCheckConsistency(t *testing.T) {
 		}, {
 			desc: "Inconsistent - clashing CPs",
 			cp: []log.Checkpoint{
-				log.Checkpoint{
+				{
 					Size: 2,
 					Hash: []byte("This is a banana"),
 				},
-				log.Checkpoint{
+				{
 					Size: 2,
 					Hash: []byte("This is NOT a banana"),
 				},

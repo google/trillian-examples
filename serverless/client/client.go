@@ -392,6 +392,9 @@ func (lst *LogStateTracker) Update(ctx context.Context) error {
 
 // CheckConsistency is a wapper function which simplifies verifying consistency between two or more checkpoints.
 func CheckConsistency(ctx context.Context, h hashers.LogHasher, f Fetcher, cp []log.Checkpoint) error {
+	if l := len(cp); l < 2 {
+		return fmt.Errorf("passed %d checkpoints, need at least 2", l)
+	}
 	sort.Slice(cp, func(i, j int) bool {
 		return cp[i].Size < cp[j].Size
 	})

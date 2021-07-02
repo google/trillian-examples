@@ -121,6 +121,16 @@ func TestCheckConsistency(t *testing.T) {
 				testCheckpoints[3],
 			},
 		}, {
+			desc:    "no checkpoints",
+			cp:      []log.Checkpoint{},
+			wantErr: true,
+		}, {
+			desc: "one checkpoint",
+			cp: []log.Checkpoint{
+				testCheckpoints[3],
+			},
+			wantErr: true,
+		}, {
 			desc: "Inconsistent",
 			cp: []log.Checkpoint{
 				testCheckpoints[5],

@@ -30,6 +30,7 @@ function main {
     local has_log_non_pending_files=0
 
     while IFS= read -r f; do
+            LEAF=$(readlink -f -n ${f})
             if [[ ${LEAF} = ${PENDING_DIR}/* ]]; then
                 echo "::debug:Found pending leaf ${LEAF}"
                 # Checks on the format/quality of the leaf could be done here, along

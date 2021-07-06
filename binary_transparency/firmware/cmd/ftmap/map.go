@@ -55,6 +55,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	beam.Init()
 
 	// Connect to where we will read from and write to.
 	trillianDB, err := newTrillianDBFromFlags()
@@ -70,7 +71,6 @@ func main() {
 	// there needs to be some dynamic way to get this to clients (e.g. in a MapCheckpoint).
 	pb := ftmap.NewMapBuilder(trillianDB, api.MapTreeID, api.MapPrefixStrata)
 
-	beam.Init()
 	beamlog.SetLogger(&BeamGLogger{InfoLogAtVerbosity: 2})
 	p, s := beam.NewPipelineWithRoot()
 	result, err := pb.Create(s, *count)

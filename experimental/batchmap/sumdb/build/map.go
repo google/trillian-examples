@@ -58,6 +58,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	beam.Init()
 
 	// Connect to where we will read from and write to.
 	sumDB, err := newSumDBMirrorFromFlags()
@@ -71,7 +72,6 @@ func main() {
 
 	pb := pipeline.NewMapBuilder(sumDB, *treeID, *prefixStrata, *buildVersionList)
 
-	beam.Init()
 	beamlog.SetLogger(&BeamGLogger{InfoLogAtVerbosity: 2})
 	p, s := beam.NewPipelineWithRoot()
 

@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -113,7 +112,7 @@ func mustCreateVerifier(pub string) note.Verifier {
 }
 
 func readConfig(f string) (*Config, error) {
-	c, err := os.ReadFile(f)
+	c, err := ioutil.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
@@ -135,7 +134,7 @@ func readCP(f string) ([]byte, error) {
 		}
 		defer from.Close()
 	}
-	return io.ReadAll(from)
+	return ioutil.ReadAll(from)
 }
 
 func writeCP(cp []byte, f string) error {
@@ -143,7 +142,7 @@ func writeCP(cp []byte, f string) error {
 		fmt.Println(string(cp))
 		return nil
 	}
-	return os.WriteFile(f, cp, 0644)
+	return ioutil.WriteFile(f, cp, 0644)
 }
 
 // TODO(al): factor this stuff out and share between tools:

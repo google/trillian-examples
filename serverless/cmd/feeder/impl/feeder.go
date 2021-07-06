@@ -30,25 +30,39 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
+// Witness describes the operations the feeder needs to interact with a witness.
 type Witness interface {
+	// SigVerifier returns a verifier which can check signatures from this witness.
 	SigVerifier() note.Verifier
+	// GetLatestCheckpoint returns the latest checkpoint the witness holds for the given logID.
+	// Must return os.ErrNotExists if the logID is know, but it has no checkpoint for that log.
 	GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error)
+	// Update attempts to clock the witness forward for the given logID.
 	Update(ctx context.Context, logID string, newCP []byte, proof [][]byte) error
 }
 
+// FeedOpts holds parameters when calling the Feed function.
 type FeedOpts struct {
-	LogID          string
-	LogFetcher     client.Fetcher
+	// LogID is the ID for the log whose checkpoint is being fed.
+	LogID string
+	// LogFetcher for the source log (used to build proofs).
+	LogFetcher client.Fetcher
+	// LogSigVerifier a verifier for log checkpoint signatures.
 	LogSigVerifier note.Verifier
 
+	// NumRequired is the number of witness signatures required for a call to Feed to be considered successful.
 	NumRequired int
 
+	// Witnesses is a list of witnesses to feed to.
 	Witnesses []Witness
 }
 
 // Feed sends the provided checkpoint to the configured set of witnesses.
 // Returns the provided checkpoint plus at least cfg.NumRequired signatures.
 func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
+	if nw := len(opts.Witnesses); opts.NumRequired > nw {
+		return nil, fmt.Errorf("NumRequired is %d, but only %d witnesses provided", opts.NumRequired, nw)
+	}
 	n, err := note.Open(cp, note.VerifierList(opts.LogSigVerifier))
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify signature on checkpoint: %v", err)

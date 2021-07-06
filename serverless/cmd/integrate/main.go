@@ -38,6 +38,7 @@ var (
 	initialise  = flag.Bool("initialise", false, "Set when creating a new log to initialise the structure.")
 	pubKeyFile  = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
 	privKeyFile = flag.String("private_key", "", "Location of private key file. If unset, uses the contents of the SERVERLESS_LOG_PRIVATE_KEY environment variable.")
+	ecosystem   = flag.String("ecosystem", api.CheckpointHeaderV0, "Ecosystem string to use in produced checkpoint.")
 )
 
 func main() {
@@ -124,6 +125,8 @@ func main() {
 		glog.Exit("Nothing to integrate")
 	}
 
+	newCp.Ecosystem = *ecosystem
+
 	err = signAndWrite(newCp, cpNote, s, st)
 	if err != nil {
 		glog.Exitf("Failed to sign: %q", err)
@@ -139,7 +142,6 @@ func getKeyFile(path string) (string, error) {
 }
 
 func signAndWrite(cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs.Storage) error {
-	cp.Ecosystem = api.CheckpointHeaderV0
 	cpNote.Text = string(cp.Marshal())
 	cpNoteSigned, err := note.Sign(&cpNote, s)
 	if err != nil {

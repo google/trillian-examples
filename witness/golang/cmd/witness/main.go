@@ -30,12 +30,15 @@ var (
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
 	dbFile     = flag.String("db_file", ":memory:", "path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
 	configFile = flag.String("config_file", "example.conf", "path to a JSON config file that specifies the logs followed by this witness")
-	witnessSK  = flag.String("private key", "PRIVATE+KEY+witness+7597200e+ARnfhJzxUHTnLhLpsJHtQZCXcjSNngW7J67sGM4ar9Ed", "private signing key for the witness")
+	witnessSK  = flag.String("private_key", "", "private signing key for the witness")
 )
 
 func main() {
 	flag.Parse()
 
+	if *witnessSK == "" {
+		glog.Exitf("--private_key must not be empty")
+	}
 	signer, err := note.NewSigner(*witnessSK)
 	if err != nil {
 		glog.Exitf("Error forming a signer: %v", err)

@@ -25,6 +25,8 @@ import (
 	"github.com/google/trillian-examples/witness/golang/api"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
 	"github.com/gorilla/mux"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Server is the core handler implementation of the witness.
@@ -66,7 +68,7 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	// Get the checkpoint size from the witness.
 	size, err := s.w.Update(r.Context(), logID, req.Checkpoint, req.Proof)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), httpForCode(http.StatusInternalServerError))
 		return
 	}
 
@@ -81,7 +83,7 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	// Get the signed checkpoint from the witness.
 	chkpt, err := s.w.GetCheckpoint(logID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get checkpoint: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("failed to get checkpoint: %v", err), httpForCode(status.Code(err)))
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
@@ -106,8 +108,17 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 
 // RegisterHandlers registers HTTP handlers for witness endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
-	logStr := "{logid}"
+	logStr := "{logid:[a-zA-Z0-9-]+}"
 	r.HandleFunc(fmt.Sprintf(api.HTTPGetCheckpoint, logStr), s.getCheckpoint).Methods("GET")
 	r.HandleFunc(fmt.Sprintf(api.HTTPUpdate, logStr), s.update).Methods("POST")
 	r.HandleFunc(api.HTTPGetLogs, s.getLogs).Methods("GET")
+}
+
+func httpForCode(c codes.Code) int {
+	switch c {
+	case codes.NotFound:
+		return 404
+	default:
+		return 500
+	}
 }

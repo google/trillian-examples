@@ -18,6 +18,7 @@
 package witness
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -179,16 +180,27 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 	if err != nil {
 		return 0, err
 	}
-	if chkpt.Size > p.Size {
+	switch {
+	case chkpt.Size < p.Size:
+		// Complain if latest is bigger than chkpt.
+		return p.Size, fmt.Errorf("cannot prove consistency backwards (%d < %d)", chkpt.Size, p.Size)
+	case chkpt.Size > p.Size:
+		// Potentially a valid update
 		if err := logInfo.LogV.VerifyConsistencyProof(int64(p.Size), int64(chkpt.Size), p.Hash, chkpt.Hash, proof); err != nil {
 			// Complain if the checkpoints aren't consistent.
 			return p.Size, fmt.Errorf("failed to verify consistency proof: %v", err)
 		}
 		// If the consistency proof is good we store chkptRaw.
 		return p.Size, w.setCheckpoint(tx, logID, c)
+	case chkpt.Size == p.Size:
+		if !bytes.Equal(chkpt.Hash, p.Hash) {
+			return p.Size, fmt.Errorf("checkpoint for same size log with differing hash (got %x, have %x)", chkpt.Hash, p.Hash)
+		}
+		// Identical to the current latest, so "ok"
+		return p.Size, nil
+	default:
+		panic("unreachable")
 	}
-	// Complain if latest is bigger than chkpt.
-	return p.Size, fmt.Errorf("Cannot prove consistency backwards")
 }
 
 // getLatestChkpt returns the latest checkpoint for a given log.
@@ -200,7 +212,7 @@ func (w *Witness) getLatestChkpt(queryRow func(query string, args ...interface{}
 	var maxChkpt Chkpt
 	if err := row.Scan(&maxChkpt.Raw, &maxChkpt.Size); err != nil {
 		if err == sql.ErrNoRows {
-			return Chkpt{}, status.Errorf(codes.NotFound, "log %q not found", logID)
+			return Chkpt{}, status.Errorf(codes.NotFound, "no checkpoint for log %q", logID)
 		}
 		return Chkpt{}, err
 	}

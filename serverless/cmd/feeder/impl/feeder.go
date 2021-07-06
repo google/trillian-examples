@@ -18,10 +18,9 @@ package impl
 import (
 	"bytes"
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"os"
 	"time"
 
 	"github.com/golang/glog"
@@ -29,44 +28,28 @@ import (
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"golang.org/x/mod/sumdb/note"
-
-	wit_api "github.com/google/trillian-examples/witness/golang/api"
 )
 
-// WitnessConfig encapulates all the config needed for a witness.
-type WitnessConfig struct {
-	// Name is a human readable name for the witness.
-	Name string `json:"name"`
-	// URL is the root of the witness' HTTP API.
-	URL string `json:"url"`
-	// PublicKey is the witness' public key.
-	PublicKey string `json:"public_key"`
+type Witness interface {
+	SigVerifier() note.Verifier
+	GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error)
+	Update(ctx context.Context, logID string, newCP []byte, proof [][]byte) error
 }
 
-// Config encapsulates the feeder config.
-type Config struct {
-	// The LogID used by the witnesses to identify this log.
-	LogID string `json:"log_id"`
-	// PublicKey associated with LogID.
-	LogPublicKey string `json:"log_public_key"`
-	// LogURL is the URL of the root of the log.
-	LogURL string `json:"log_url"`
-	// Witnesses is a list of all configured witnesses.
-	Witnesses []WitnessConfig `json:"witnesses"`
-	// NumRequired is the minimum number of cosignatures required for a feeding run
-	// to be considered successful.
-	NumRequired int `json:"num_required"`
+type FeedOpts struct {
+	LogID          string
+	LogFetcher     client.Fetcher
+	LogSigVerifier note.Verifier
+
+	NumRequired int
+
+	Witnesses []Witness
 }
 
-// Witness sends the provided checkpoint to the configured set of witnesses.
+// Feed sends the provided checkpoint to the configured set of witnesses.
 // Returns the provided checkpoint plus at least cfg.NumRequired signatures.
-func Witness(ctx context.Context, cp []byte, logFetcher client.Fetcher, cfg Config) ([]byte, error) {
-	logSigV, err := note.NewVerifier(cfg.LogPublicKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create log signature verifier: %v", err)
-	}
-
-	n, err := note.Open(cp, note.VerifierList(logSigV))
+func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
+	n, err := note.Open(cp, note.VerifierList(opts.LogSigVerifier))
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify signature on checkpoint: %v", err)
 	}
@@ -76,21 +59,16 @@ func Witness(ctx context.Context, cp []byte, logFetcher client.Fetcher, cfg Conf
 		return nil, fmt.Errorf("failed to verify signature on checkpoint to witness: %v", err)
 	}
 
-	sigs := make(chan note.Signature, len(cfg.Witnesses))
-	errs := make(chan error, len(cfg.Witnesses))
+	sigs := make(chan note.Signature, len(opts.Witnesses))
+	errs := make(chan error, len(opts.Witnesses))
 	// TODO(al): make this configurable
 	h := hasher.DefaultHasher
 
-	for _, w := range cfg.Witnesses {
-		go func(ctx context.Context) {
-			wSigV, err := note.NewVerifier(w.PublicKey)
-			if err != nil {
-				errs <- fmt.Errorf("%s: invalid witness publickey: %v", w.Name, err)
-				return
-			}
-
+	for _, w := range opts.Witnesses {
+		go func(ctx context.Context, w Witness) {
 			// Keep submitting until success or context timeout...
 			t := time.NewTicker(1)
+			wSigV := w.SigVerifier()
 			for {
 				select {
 				case <-ctx.Done():
@@ -99,44 +77,59 @@ func Witness(ctx context.Context, cp []byte, logFetcher client.Fetcher, cfg Conf
 					t.Reset(5 * time.Second)
 				}
 
-				latestCP, sig, err := fetchLatestCP(ctx, w.URL, cfg.LogID, wSigV)
-				if err != nil {
-					glog.Warningf("%s: failed to fetch latest CP: %v", w.Name, err)
+				latestCPRaw, err := w.GetLatestCheckpoint(ctx, opts.LogID)
+				if err != nil && !errors.Is(err, os.ErrNotExist) {
+					glog.Warningf("%s: failed to fetch latest CP: %v", wSigV.Name(), err)
 					continue
 				}
 
-				if latestCP.Size > cpSubmit.Size {
-					errs <- fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", w.Name, latestCP.Size, cpSubmit.Size)
-					return
-				}
-				if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
-					sigs <- *sig
-					return
+				var conP [][]byte
+				if len(latestCPRaw) > 0 {
+					n, err := note.Open(latestCPRaw, note.VerifierList(wSigV))
+					if err != nil {
+						glog.Warningf("%s: failed to open CP: %v", wSigV.Name(), err)
+						continue
+					}
+
+					latestCP := &log.Checkpoint{}
+					_, err = latestCP.Unmarshal(latestCPRaw)
+					if err != nil {
+						glog.Warningf("%s: failed to unmarshal CP: %v", wSigV.Name(), err)
+						continue
+					}
+
+					if latestCP.Size > cpSubmit.Size {
+						errs <- fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", wSigV.Name(), latestCP.Size, cpSubmit.Size)
+						return
+					}
+					if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
+						sigs <- n.Sigs[0]
+						return
+					}
+
+					pb, err := client.NewProofBuilder(ctx, *cpSubmit, h.HashChildren, opts.LogFetcher)
+					if err != nil {
+						glog.Warningf("%s: failed to create proof builder: %v", wSigV.Name(), err)
+						continue
+					}
+
+					conP, err = pb.ConsistencyProof(ctx, latestCP.Size, cpSubmit.Size)
+					if err != nil {
+						glog.Warningf("%s: failed to build consistency proof: %v", wSigV.Name(), err)
+						continue
+					}
 				}
 
-				pb, err := client.NewProofBuilder(ctx, *cpSubmit, h.HashChildren, logFetcher)
-				if err != nil {
-					glog.Warning("%s: failed to create proof builder: %v", w.Name, err)
+				if err := w.Update(ctx, opts.LogID, cp, conP); err != nil {
+					glog.Warningf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
 					continue
-				}
-
-				conP, err := pb.ConsistencyProof(ctx, latestCP.Size, cpSubmit.Size)
-				if err != nil {
-					glog.Warning("%s: failed to build consistency proof: %v", w.Name, err)
-					continue
-				}
-
-				if err := submitCP(ctx, cp, conP, cfg.LogID, w); err != nil {
-					glog.Warning("%s: failed to submit checkpoint to witness: %v", w.Name, err)
-					continue
-
 				}
 
 			}
-		}(ctx)
+		}(ctx, w)
 	}
 
-	for range cfg.Witnesses {
+	for range opts.Witnesses {
 		select {
 		case s := <-sigs:
 			n.Sigs = append(n.Sigs, s)
@@ -147,68 +140,8 @@ func Witness(ctx context.Context, cp []byte, logFetcher client.Fetcher, cfg Conf
 		}
 	}
 
-	if got := len(n.Sigs); got < cfg.NumRequired {
-		return nil, fmt.Errorf("number of witness signatures (%d) < number required (%d)", got, cfg.NumRequired)
+	if got := len(n.Sigs); got < opts.NumRequired {
+		return nil, fmt.Errorf("number of witness signatures (%d) < number required (%d)", got, opts.NumRequired)
 	}
 	return note.Sign(n)
-}
-
-func fetchLatestCP(ctx context.Context, witURL, logID string, wSigV note.Verifier) (*log.Checkpoint, *note.Signature, error) {
-	url := fmt.Sprintf("%s/%s", witURL, fmt.Sprintf(wit_api.HTTPGetCheckpoint, logID))
-
-	hReq, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create new HTTP request: %v", err)
-	}
-	resp, err := http.DefaultClient.Do(hReq.WithContext(ctx))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to fetch %q: %v", url, err)
-	}
-	if resp.StatusCode != 200 {
-		return nil, nil, fmt.Errorf("got bad response from witness %q: %v", witURL, resp.Status)
-	}
-	defer resp.Body.Close()
-	raw, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read body from %q: %v", url, err)
-	}
-	n, err := note.Open(raw, note.VerifierList(wSigV))
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s: failed to validate CP signature: %v", witURL, err)
-	}
-	cp := &log.Checkpoint{}
-	_, err = cp.Unmarshal([]byte(n.Text))
-	if err != nil {
-		glog.Infof("Bad checkpoint from %q (%v):\n", witURL, err, n.Text)
-		return nil, nil, fmt.Errorf("failed to unmarshal checkpoint from")
-	}
-
-	return cp, &n.Sigs[0], nil
-}
-
-func submitCP(ctx context.Context, cp []byte, proof [][]byte, logID string, wCfg WitnessConfig) error {
-	req := wit_api.UpdateRequest{
-		Checkpoint: cp,
-		Proof:      proof,
-	}
-	body, err := json.MarshalIndent(&req, "", " ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %v", err)
-	}
-
-	url := fmt.Sprintf("%s/witness/v0/logs/%s/update", wCfg.URL, logID)
-
-	hReq, err := http.NewRequest("POST", url, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to build HTTP request to %q: %v", wCfg.Name, err)
-	}
-	resp, err := http.DefaultClient.Do(hReq.WithContext(ctx))
-	if err != nil {
-		return fmt.Errorf("failed to send HTTP request to %q: %v", wCfg.Name, err)
-	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("got bad response from witness %q: %v", wCfg.Name, resp.Status)
-	}
-
-	return nil
 }

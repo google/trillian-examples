@@ -16,7 +16,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -30,6 +29,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
+	"golang.org/x/mod/sumdb/note"
+
+	wit_http "github.com/google/trillian-examples/serverless/cmd/feeder/impl/http"
 )
 
 var (
@@ -37,6 +39,27 @@ var (
 	input      = flag.String("input", "", "Path to input checkpoint file, leave empty for stdin")
 	output     = flag.String("output", "", "Path to write cosigned checkpoint to, leave empty for stdout")
 )
+
+type WitnessConfig struct {
+	Name      string `json:"name"`
+	URL       string `json:"url"`
+	PublicKey string `json:"public_key"`
+}
+
+// Config encapsulates the feeder config.
+type Config struct {
+	// The LogID used by the witnesses to identify this log.
+	LogID string `json:"log_id"`
+	// PublicKey associated with LogID.
+	LogPublicKey string `json:"log_public_key"`
+	// LogURL is the URL of the root of the log.
+	LogURL string `json:"log_url"`
+	// Witnesses is a list of all configured witnesses.
+	Witnesses []WitnessConfig `json:"witnesses"`
+	// NumRequired is the minimum number of cosignatures required for a feeding run
+	// to be considered successful.
+	NumRequired int `json:"num_required"`
+}
 
 func main() {
 	flag.Parse()
@@ -53,12 +76,25 @@ func main() {
 	}
 	f := newFetcher(lURL)
 
+	opts := impl.FeedOpts{
+		LogID:          cfg.LogID,
+		LogFetcher:     f,
+		LogSigVerifier: mustCreateVerifier(cfg.LogPublicKey),
+		NumRequired:    cfg.NumRequired,
+	}
+	for _, w := range cfg.Witnesses {
+		opts.Witnesses = append(opts.Witnesses, wit_http.Witness{
+			URL:      w.URL,
+			Verifier: mustCreateVerifier(w.PublicKey),
+		})
+	}
+
 	cp, err := readCP(*input)
 	if err != nil {
 		glog.Exitf("Failed to read input checkpoint: %v", err)
 	}
 
-	wCP, err := impl.Witness(ctx, cp, f, *cfg)
+	wCP, err := impl.Feed(ctx, cp, opts)
 	if err != nil {
 		glog.Exitf("Feeding failed: %v", err)
 	}
@@ -66,56 +102,6 @@ func main() {
 	if err := writeCP(wCP, *output); err != nil {
 		glog.Exitf("Failed to write witnessed checkpoint: %v", err)
 	}
-}
-
-type httpWitness struct {
-	url   string
-	wSigV note.Verifier
-}
-
-func (w httpWitness) SigVerifier() note.Verifier {
-	return w.wSigV
-}
-
-func (w httpWitness) GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", w.url, fmt.Sprintf(wit_api.HTTPGetCheckpoint, logID)), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %v", err)
-	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("failed to do http request: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 404 {
-		return nil, os.ErrNotExist
-	} else if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("bad status response: %s", resp.Status)
-	}
-	return ioutil.ReadAll(resp.Body)
-}
-
-func (w httpWitness) Update(ctx context.Context, logID string, cp []byte, proof [][]byte) error {
-	reqBody, err := json.MarshalIndent(&wit_api.UpdateRequest{
-		Checkpoint: cp,
-		Proof:      proof,
-	}, "", " ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal update request: %v", err)
-	}
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", w.url, fmt.Sprintf(wit_api.HTTPUpdate, logID)), bytes.NewReader(reqBody))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
-	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	if err != nil {
-		return fmt.Errorf("failed to do http request: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("bad status response: %s", resp.Status)
-	}
-	return nil
 }
 
 func mustCreateVerifier(pub string) note.Verifier {
@@ -131,7 +117,7 @@ func readConfig(f string) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
-	cfg := impl.Config{}
+	cfg := Config{}
 	if err := json.Unmarshal(c, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}

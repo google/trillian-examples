@@ -31,7 +31,7 @@ function main {
     rm ${PENDING}/*
 
     echo "::debug:Integrating..."
-    /bin/integrate --storage_dir="${INPUT_LOG_DIR}" ${SEQUENCE_FLAGS} --logtostderr
+    /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --ecosystem="${INPUT_ECOSYSTEM}" --logtostderr
 }
 
 main

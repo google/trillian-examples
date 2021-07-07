@@ -46,6 +46,7 @@ jobs:
       uses: google/trillian-examples/serverless/deploy/github/sequence_and_integrate@master
       with:
         log_dir: './log'
+        ecosystem: 'Log Checkpoint v0'
       env:
         SERVERLESS_LOG_PRIVATE_KEY: ${{ secrets.SERVERLESS_LOG_PRIVATE_KEY }}
         SERVERLESS_LOG_PUBLIC_KEY: ${{ secrets.SERVERLESS_LOG_PUBLIC_KEY }}
@@ -65,6 +66,9 @@ the following steps:
 - integrates all sequenced but unintegrated leaves
 - commits all changes from the sequencing/integration,
 - pushes this commit to master, thereby updating the public state of the log repo.
+
+Specifying `ecosystem` input parameter is optional. If not specified the default
+`Log Checkpoint v0` string will be used.
 
 ### Verifying "queue leaf" PRs
 

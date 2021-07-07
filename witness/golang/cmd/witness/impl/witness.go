@@ -18,10 +18,8 @@ package impl
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/golang/glog"
@@ -55,23 +53,15 @@ type ServerOpts struct {
 	DBFile string
 	// The signer for the witness.
 	Signer note.Signer
-	// The file containing log configuration information.
-	ConfigFile string
+	// The log configuration information.
+	Config LogConfig
 }
 
-// loadConfig loads the log configuration information from a file and into a map.
-func loadConfig(configFile string) (map[string]witness.LogInfo, error) {
-	fileData, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read from config file: %v", err)
-	}
-	var js LogConfig
-	if err := json.Unmarshal(fileData, &js); err != nil {
-		return nil, fmt.Errorf("failed to parse config file as proper JSON: %v", err)
-	}
+// loadConfig loads the log configuration information into a map.
+func loadConfig(config LogConfig) (map[string]witness.LogInfo, error) {
 	logMap := make(map[string]witness.LogInfo)
 	h := hasher.DefaultHasher
-	for _, log := range js.Logs {
+	for _, log := range config.Logs {
 		// TODO(smeiklej): Extend witness to handle other hashing strategies.
 		if log.HashStrategy != "default" {
 			return nil, errors.New("can't handle non-default hashing strategies")
@@ -94,17 +84,14 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	if len(opts.DBFile) == 0 {
 		return errors.New("DBFile is required")
 	}
-	if len(opts.ConfigFile) == 0 {
-		return errors.New("ConfigFile is required")
-	}
 	// Start up local database.
 	glog.Infof("Connecting to local DB at %q", opts.DBFile)
 	db, err := sql.Open("sqlite3", opts.DBFile)
 	if err != nil {
 		return fmt.Errorf("failed to connect to DB: %w", err)
 	}
-	// Load log configuration from the config file.
-	logMap, err := loadConfig(opts.ConfigFile)
+	// Load log configuration into the map.
+	logMap, err := loadConfig(opts.Config)
 	if err != nil {
 		return fmt.Errorf("failed to load configurations: %v", err)
 	}

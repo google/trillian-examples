@@ -35,7 +35,7 @@ type Witness interface {
 	// SigVerifier returns a verifier which can check signatures from this witness.
 	SigVerifier() note.Verifier
 	// GetLatestCheckpoint returns the latest checkpoint the witness holds for the given logID.
-	// Must return os.ErrNotExists if the logID is know, but it has no checkpoint for that log.
+	// Must return os.ErrNotExists if the logID is known, but it has no checkpoint for that log.
 	GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error)
 	// Update attempts to clock the witness forward for the given logID.
 	Update(ctx context.Context, logID string, newCP []byte, proof [][]byte) error
@@ -55,9 +55,15 @@ type FeedOpts struct {
 
 	// Witnesses is a list of witnesses to feed to.
 	Witnesses []Witness
+
+	// WitnessTimeout defines the maximum duration for each attempt to update a witness.
+	// No timeout if unset.
+	WitnessTimeout time.Duration
 }
 
 // Feed sends the provided checkpoint to the configured set of witnesses.
+// This method will block until either opts.NumRequired witness signatures are obtained,
+// or the context becomes done.
 // Returns the provided checkpoint plus at least cfg.NumRequired signatures.
 func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 	if nw := len(opts.Witnesses); opts.NumRequired > nw {
@@ -89,6 +95,11 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 					return
 				case <-t.C:
 					t.Reset(5 * time.Second)
+				}
+				if opts.WitnessTimeout > 0 {
+					var c func()
+					ctx, c = context.WithTimeout(ctx, opts.WitnessTimeout)
+					defer c()
 				}
 
 				latestCPRaw, err := w.GetLatestCheckpoint(ctx, opts.LogID)

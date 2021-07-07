@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// feeder is a witness feeder implementation for the serverless log.
+// feeder is a one-shot witness feeder implementation for the serverless log.
 package main
 
 import (

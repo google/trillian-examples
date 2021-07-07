@@ -15,14 +15,14 @@ function main {
 
     cd ${GITHUB_WORKSPACE}
 
-    ECOSYSTEM=""
-    if [ "${INPUT_ECOSYSTEM}" == "" ]; then
-        ECOSYSTEM="--ecosystem=\"${INPUT_ECOSYSTEM}\""
-    fi
-
     if [ ! -f "${INPUT_LOG_DIR}/checkpoint" ]; then
         echo "::debug:No checkpoint file - initialising log"
-        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" ${ECOSYSTEM} --initialise --logtostderr
+        if [ -z "${INPUT_ECOSYSTEM}" ]; then 
+            /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --initialise --logtostderr
+        else
+            /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --ecosystem="${INPUT_ECOSYSTEM}" --initialise --logtostderr
+        fi
+
         exit
     fi
 
@@ -37,7 +37,11 @@ function main {
     rm ${PENDING}/*
 
     echo "::debug:Integrating..."
-    /bin/integrate --storage_dir="${INPUT_LOG_DIR}" ${ECOSYSTEM} --logtostderr
+    if [ -z "${INPUT_ECOSYSTEM}" ]; then 
+        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --logtostderr
+    else
+        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --ecosystem="${INPUT_ECOSYSTEM}" --logtostderr
+    fi
 }
 
 main

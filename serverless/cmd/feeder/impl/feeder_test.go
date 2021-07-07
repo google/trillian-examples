@@ -28,7 +28,8 @@ import (
 
 const (
 	testWitnessSecretKey = "PRIVATE+KEY+test-witness+d28ecb0d+AbextYkHs2Be69xhwhvaUvjxijEqtQQ9NWNC05YWx7Jr"
-	testWitnessPublicKey = "test-witness+d28ecb0d+AV2DM8GnnoXPS77FKY/KwsZdfien9eSmb35f6qUv2TrH"
+	// Unused, but seems sensible to keep it documented here:
+	// testWitnessPublicKey = "test-witness+d28ecb0d+AV2DM8GnnoXPS77FKY/KwsZdfien9eSmb35f6qUv2TrH"
 )
 
 func TestWitness(t *testing.T) {
@@ -167,12 +168,4 @@ func mustCreateSigner(t *testing.T, secK string) note.Signer {
 		t.Fatalf("failed to create signer: %v", err)
 	}
 	return s
-}
-func mustCreateVerifier(t *testing.T, pubK string) note.Verifier {
-	t.Helper()
-	v, err := note.NewVerifier(pubK)
-	if err != nil {
-		t.Fatalf("failed to create verifier: %v", err)
-	}
-	return v
 }

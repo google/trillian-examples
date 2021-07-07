@@ -21,9 +21,14 @@ function main {
         exit
     fi
 
+    ECOSYSTEM=""
+    if [ "${INPUT_ECOSYSTEM}" == "" ]; then
+        ECOSYSTEM="--ecosystem=\"${INPUT_ECOSYSTEM}\""
+    fi
+
     if [ ! -f "${INPUT_LOG_DIR}/checkpoint" ]; then
         echo "::debug:No checkpoint file - initialising log"
-        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --initialise --logtostderr
+        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" ${ECOSYSTEM} --initialise --logtostderr
     fi
 
     echo "::debug:Sequencing..."
@@ -31,7 +36,7 @@ function main {
     rm ${PENDING}/*
 
     echo "::debug:Integrating..."
-    /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --ecosystem="${INPUT_ECOSYSTEM}" --logtostderr
+    /bin/integrate --storage_dir="${INPUT_LOG_DIR}" ${ECOSYSTEM} --logtostderr
 }
 
 main

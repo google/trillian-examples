@@ -44,6 +44,9 @@ type Witness interface {
 // FeedOpts holds parameters when calling the Feed function.
 type FeedOpts struct {
 	// LogID is the ID for the log whose checkpoint is being fed.
+	//
+	// TODO(al/mhutchinson): should this be an impl detail of Witness
+	// rather than present here just to be passed back in to Witness calls?
 	LogID string
 	// LogFetcher for the source log (used to build proofs).
 	LogFetcher client.Fetcher

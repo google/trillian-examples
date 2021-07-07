@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -82,7 +81,7 @@ func (h *HistoryFetcher) Fetcher() client.Fetcher {
 // Checkpoint fetches a signed checkpoint for a given historical log size.
 func Checkpoint(t *testing.T, size int) []byte {
 	t.Helper()
-	r, err := os.ReadFile(filepath.Join(testdataDir, "log", fmt.Sprintf("checkpoint.%d", size)))
+	r, err := ioutil.ReadFile(filepath.Join(testdataDir, "log", fmt.Sprintf("checkpoint.%d", size)))
 	if err != nil {
 		t.Fatalf("Failed to open checkpoint.%d: %v", size, err)
 	}

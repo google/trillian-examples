@@ -21,7 +21,7 @@ RUN mkdir protoc && \
 # Tamago bits
 RUN apt-get -y install binutils-arm-none-eabi build-essential make u-boot-tools && \
     apt-get -y install -t buster-backports fuse fuse2fs
-RUN curl -sfL https://github.com/f-secure-foundry/tamago-go/releases/download/tamago-go1.15.6/tamago-go1.15.6.linux-amd64.tar.gz | tar -xzf - -C /
+RUN curl -sfL https://github.com/f-secure-foundry/tamago-go/releases/download/tamago-go1.16.5/tamago-go1.16.5.linux-amd64.tar.gz | tar -xzf - -C /
 ENV TAMAGO=/usr/local/tamago-go/bin/go
 
 ENV GOPATH /go

@@ -76,6 +76,9 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify signature on checkpoint: %v", err)
 	}
+
+	numSigsPre := len(n.Sigs)
+
 	cpSubmit := &log.Checkpoint{}
 	_, err = cpSubmit.Unmarshal([]byte(n.Text))
 	if err != nil {
@@ -97,7 +100,7 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 				case <-ctx.Done():
 					return
 				case <-t.C:
-					t.Reset(5 * time.Second)
+					t.Reset(time.Second)
 				}
 				if opts.WitnessTimeout > 0 {
 					var c func()
@@ -131,6 +134,7 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 						return
 					}
 					if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
+						glog.V(1).Infof("got sig from witness: %v", n.Sigs[0])
 						sigs <- n.Sigs[0]
 						return
 					}
@@ -168,7 +172,7 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 		}
 	}
 
-	if got := len(n.Sigs); got < opts.NumRequired {
+	if got := len(n.Sigs) - numSigsPre; got < opts.NumRequired {
 		return nil, fmt.Errorf("number of witness signatures (%d) < number required (%d)", got, opts.NumRequired)
 	}
 	return note.Sign(n)

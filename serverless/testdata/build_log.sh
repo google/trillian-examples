@@ -16,9 +16,10 @@ go run ../cmd/integrate --logtostderr --storage_dir=${LOG} --initialise
 export LEAF=`mktemp`
 for i in one two three four five six seven; do
   echo -n "$i" > ${LEAF}
-	go run ../cmd/sequence --storage_dir=${LOG} --entries="${LEAF}"
-	go run ../cmd/integrate --logtostderr --storage_dir=${LOG}
-	cat ${LOG}/checkpoint
+  go run ../cmd/sequence --storage_dir=${LOG} --entries="${LEAF}"
+  go run ../cmd/integrate --logtostderr --storage_dir=${LOG}
+  size=$(sed -n '2 p' ${LOG}/checkpoint)
+  cp ${LOG}/checkpoint ${LOG}/checkpoint.${size}
 done
 
 rm ${LEAF}

@@ -125,8 +125,6 @@ func main() {
 		glog.Exit("Nothing to integrate")
 	}
 
-	newCp.Ecosystem = *ecosystem
-
 	err = signAndWrite(newCp, cpNote, s, st)
 	if err != nil {
 		glog.Exitf("Failed to sign: %q", err)
@@ -142,6 +140,7 @@ func getKeyFile(path string) (string, error) {
 }
 
 func signAndWrite(cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs.Storage) error {
+	cp.Ecosystem = *ecosystem
 	cpNote.Text = string(cp.Marshal())
 	cpNoteSigned, err := note.Sign(&cpNote, s)
 	if err != nil {

@@ -1,6 +1,6 @@
 module github.com/google/trillian-examples
 
-go 1.13
+go 1.16
 
 require (
 	github.com/apache/beam v2.30.0+incompatible

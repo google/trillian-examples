@@ -15,12 +15,6 @@ function main {
 
     cd ${GITHUB_WORKSPACE}
 
-    PENDING="${INPUT_LOG_DIR}/leaves/pending"
-    if [ ! -d "${PENDING}" ]; then
-        echo "::debug:Nothing to do :("
-        exit
-    fi
-
     ECOSYSTEM=""
     if [ "${INPUT_ECOSYSTEM}" == "" ]; then
         ECOSYSTEM="--ecosystem=\"${INPUT_ECOSYSTEM}\""
@@ -29,6 +23,13 @@ function main {
     if [ ! -f "${INPUT_LOG_DIR}/checkpoint" ]; then
         echo "::debug:No checkpoint file - initialising log"
         /bin/integrate --storage_dir="${INPUT_LOG_DIR}" ${ECOSYSTEM} --initialise --logtostderr
+        exit
+    fi
+
+    PENDING="${INPUT_LOG_DIR}/leaves/pending"
+    if [ ! -d "${PENDING}" ]; then
+        echo "::debug:Nothing to do :("
+        exit
     fi
 
     echo "::debug:Sequencing..."

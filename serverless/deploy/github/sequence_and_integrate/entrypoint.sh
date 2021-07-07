@@ -4,12 +4,12 @@ set -e
 
 function main {
     if [ "${SERVERLESS_LOG_PRIVATE_KEY}" == "" ]; then
-    echo "Missing log private key."
-    exit 1
+        echo "Missing log private key."
+        exit 1
     fi
     if [ "${INPUT_LOG_DIR}" == "" ]; then
-    echo "Missing log dir input."
-    exit 1
+        echo "Missing log dir input."
+        exit 1
     fi
     echo "::debug:Log directory is ${GITHUB_WORKSPACE}/${INPUT_LOG_DIR}"
 

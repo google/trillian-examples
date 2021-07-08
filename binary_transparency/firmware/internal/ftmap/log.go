@@ -28,7 +28,7 @@ import (
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/coniks"
-	"github.com/google/trillian/storage/tree"
+	"github.com/google/trillian/merkle/smt/node"
 )
 
 func init() {
@@ -77,7 +77,7 @@ func (fn *moduleLogHashFn) ProcessElement(log *api.DeviceReleaseLog) (*batchmap.
 	h.Write([]byte(log.DeviceID))
 	logKey := h.Sum(nil)
 
-	leafID := tree.NewNodeID2(string(logKey), uint(len(logKey)*8))
+	leafID := node.NewID(string(logKey), uint(len(logKey)*8))
 	return &batchmap.Entry{
 		HashKey:   logKey,
 		HashValue: coniks.Default.HashLeaf(fn.TreeID, leafID, logRoot),

@@ -27,9 +27,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian/merkle/coniks"
-	"github.com/google/trillian/merkle/hashers"
 	"github.com/google/trillian/merkle/smt"
-	"github.com/google/trillian/storage/tree"
+	"github.com/google/trillian/merkle/smt/node"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -155,7 +154,7 @@ func toNode(prefix []byte, l api.MapTileLeaf) smt.Node {
 	path := make([]byte, 0, len(prefix)+len(l.Path))
 	path = append(append(path, prefix...), l.Path...)
 	return smt.Node{
-		ID:   tree.NewNodeID2(string(path), uint(len(path))*8),
+		ID:   node.NewID(string(path), uint(len(path))*8),
 		Hash: l.Hash,
 	}
 }
@@ -165,16 +164,16 @@ func toNode(prefix []byte, l api.MapTileLeaf) smt.Node {
 // the siblings computed.
 type inclusionProofTree struct {
 	treeID int64
-	hasher hashers.MapHasher
-	target tree.NodeID2
+	hasher *coniks.Hasher
+	target node.ID
 	proof  *api.MapInclusionProof
 }
 
-func newInclusionProofTree(treeID int64, hasher hashers.MapHasher, target []byte) inclusionProofTree {
+func newInclusionProofTree(treeID int64, hasher *coniks.Hasher, target []byte) inclusionProofTree {
 	return inclusionProofTree{
 		treeID: treeID,
 		hasher: hasher,
-		target: tree.NewNodeID2(string(target), 256),
+		target: node.NewID(string(target), 256),
 		proof: &api.MapInclusionProof{
 			Key:   target,
 			Proof: make([][]byte, 256),
@@ -182,11 +181,11 @@ func newInclusionProofTree(treeID int64, hasher hashers.MapHasher, target []byte
 	}
 }
 
-func (e inclusionProofTree) Get(id tree.NodeID2) ([]byte, error) {
+func (e inclusionProofTree) Get(id node.ID) ([]byte, error) {
 	return e.hasher.HashEmpty(e.treeID, id), nil
 }
 
-func (e inclusionProofTree) Set(id tree.NodeID2, hash []byte) {
+func (e inclusionProofTree) Set(id node.ID, hash []byte) {
 	if id == e.target {
 		e.proof.Value = hash
 		glog.V(2).Infof("inclusionProofTree: set value for target: %x", hash)

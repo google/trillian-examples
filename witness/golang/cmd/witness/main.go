@@ -19,7 +19,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
+	"io/ioutil"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/impl"
@@ -37,11 +39,23 @@ func main() {
 	flag.Parse()
 
 	if *witnessSK == "" {
-		glog.Exitf("--private_key must not be empty")
+		glog.Exit("--private_key must not be empty")
 	}
 	signer, err := note.NewSigner(*witnessSK)
 	if err != nil {
 		glog.Exitf("Error forming a signer: %v", err)
+	}
+
+	if len(*configFile) == 0 {
+		glog.Exit("--config_file must not be empty")
+	}
+	fileData, err := ioutil.ReadFile(*configFile)
+	if err != nil {
+		glog.Exitf("Failed to read from config file: %v", err)
+	}
+	var js impl.LogConfig
+	if err := json.Unmarshal(fileData, &js); err != nil {
+		glog.Exitf("Failed to parse config file as proper JSON: %v", err)
 	}
 
 	ctx := context.Background()
@@ -49,7 +63,7 @@ func main() {
 		ListenAddr: *listenAddr,
 		DBFile:     *dbFile,
 		Signer:     signer,
-		ConfigFile: *configFile,
+		Config:     js,
 	}); err != nil {
 		glog.Exitf("Error running witness: %v", err)
 	}

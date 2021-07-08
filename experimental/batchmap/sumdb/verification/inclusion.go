@@ -23,9 +23,8 @@ import (
 
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/coniks"
-	"github.com/google/trillian/merkle/hashers"
 	"github.com/google/trillian/merkle/smt"
-	"github.com/google/trillian/storage/tree"
+	"github.com/google/trillian/merkle/smt/node"
 )
 
 // TileFetch gets the tile at the specified path in the given map revision.
@@ -63,7 +62,7 @@ func (v *MapVerifier) CheckInclusion(rev int, key string, value []byte) ([]byte,
 	h := v.hash.New()
 	h.Write([]byte(key))
 	keyPath := h.Sum(nil)
-	leafID := tree.NewNodeID2(string(keyPath), uint(len(keyPath)*8))
+	leafID := node.NewID(string(keyPath), uint(len(keyPath)*8))
 
 	expectedValueHash := coniks.Default.HashLeaf(v.treeID, leafID, value)
 
@@ -154,7 +153,7 @@ func toNode(prefix []byte, l *batchmap.TileLeaf) smt.Node {
 	path := make([]byte, 0, len(prefix)+len(l.Path))
 	path = append(append(path, prefix...), l.Path...)
 	return smt.Node{
-		ID:   tree.NewNodeID2(string(path), uint(len(path))*8),
+		ID:   node.NewID(string(path), uint(len(path))*8),
 		Hash: l.Hash,
 	}
 }
@@ -162,11 +161,11 @@ func toNode(prefix []byte, l *batchmap.TileLeaf) smt.Node {
 // emptyTree is a NodeAccessor for an empty tree with the given ID.
 type emptyTree struct {
 	treeID int64
-	hasher hashers.MapHasher
+	hasher *coniks.Hasher
 }
 
-func (e emptyTree) Get(id tree.NodeID2) ([]byte, error) {
+func (e emptyTree) Get(id node.ID) ([]byte, error) {
 	return e.hasher.HashEmpty(e.treeID, id), nil
 }
 
-func (e emptyTree) Set(id tree.NodeID2, hash []byte) {}
+func (e emptyTree) Set(id node.ID, hash []byte) {}

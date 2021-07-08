@@ -25,7 +25,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/coniks"
-	"github.com/google/trillian/storage/tree"
+	"github.com/google/trillian/merkle/smt/node"
 )
 
 func init() {
@@ -86,7 +86,7 @@ func (fn *aggregatedFirmwareHashFn) ProcessElement(afw *api.AggregatedFirmware) 
 	}
 
 	kbs := sha512.Sum512_256(key)
-	leafID := tree.NewNodeID2(string(kbs[:]), 256)
+	leafID := node.NewID(string(kbs[:]), 256)
 	return &batchmap.Entry{
 		HashKey:   kbs[:],
 		HashValue: coniks.Default.HashLeaf(fn.TreeID, leafID, value),

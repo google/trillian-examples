@@ -24,7 +24,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/tritter/tritbot/log"
 	tc "github.com/google/trillian/client"
-	"github.com/google/trillian/types"
 	tt "github.com/google/trillian/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -74,31 +73,31 @@ func (a *auditor) checkLatest(ctx context.Context) error {
 		return fmt.Errorf("failed to get latest valid log root: %v", err)
 	}
 
-	if newRoot.Revision > a.trustedRoot.Revision {
+	if newRoot.TreeSize > a.trustedRoot.TreeSize {
 		// 2. Check that all leaves since the last audited revision are valid.
 		for i := a.trustedRoot.TreeSize; i < newRoot.TreeSize; i++ {
 			bs, err := a.getIndex(ctx, newRoot, int64(i))
 			if err != nil {
-				return fmt.Errorf("failed to get & verify leaf at index %d in revision %d: %v", i, newRoot.Revision, err)
+				return fmt.Errorf("failed to get & verify leaf at index %d in tree size %d: %v", i, newRoot.TreeSize, err)
 			}
 
 			var msg log.InternalMessage
 			if err := prototext.Unmarshal(bs, &msg); err != nil {
-				return fmt.Errorf("failed to unmarshal verified bytes at index %d in revision %d: %v", i, newRoot.Revision, err)
+				return fmt.Errorf("failed to unmarshal verified bytes at index %d in tree size %d: %v", i, newRoot.TreeSize, err)
 			}
 			glog.V(2).Infof("Confirmed data at index %d: %v", i, prototext.Format(&msg))
 		}
 
 		// 3. Update the trusted root to latest audited value.
 		a.trustedRoot = *newRoot
-		glog.Infof("updated trusted root to revision=%d with size=%d", newRoot.Revision, newRoot.TreeSize)
+		glog.Infof("updated trusted root with size=%d", newRoot.TreeSize)
 	}
 
 	return nil
 }
 
 // getLatest gets the latest root after checking it is consistent with the previous root.
-func (a *auditor) getLatest(ctx context.Context) (*types.LogRootV1, error) {
+func (a *auditor) getLatest(ctx context.Context) (*tt.LogRootV1, error) {
 	ctx, cancel := context.WithTimeout(ctx, a.timeout)
 	defer cancel()
 
@@ -120,7 +119,7 @@ func (a *auditor) getLatest(ctx context.Context) (*types.LogRootV1, error) {
 
 // getIndex gets the data at the given index and checks the proof it is committed to
 // by the given root.
-func (a *auditor) getIndex(ctx context.Context, root *types.LogRootV1, index int64) ([]byte, error) {
+func (a *auditor) getIndex(ctx context.Context, root *tt.LogRootV1, index int64) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, a.timeout)
 	defer cancel()
 

@@ -35,7 +35,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 	"github.com/google/trillian/merkle/coniks"
-	"github.com/google/trillian/storage/tree"
+	"github.com/google/trillian/merkle/smt/node"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -264,7 +264,7 @@ func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, logSigVeri
 		return fmt.Errorf("received inclusion proof for key %x but wanted %x", ip.Key, kbs[:])
 	}
 	// 2. Check: the proof is for the correct value.
-	leafID := tree.NewNodeID2(string(kbs[:]), 256)
+	leafID := node.NewID(string(kbs[:]), 256)
 	hasher := coniks.Default
 	expectedCommitment := hasher.HashLeaf(api.MapTreeID, leafID, preimage)
 	if !bytes.Equal(ip.Value, expectedCommitment) {
@@ -306,7 +306,7 @@ func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, logSigVeri
 }
 
 // isLeftChild returns whether the given node is a left child.
-func isLeftChild(id tree.NodeID2) bool {
+func isLeftChild(id node.ID) bool {
 	last, bits := id.LastByte()
 	return last&(1<<(8-bits)) == 0
 }

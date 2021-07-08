@@ -24,7 +24,7 @@ import (
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/coniks"
-	"github.com/google/trillian/storage/tree"
+	"github.com/google/trillian/merkle/smt/node"
 
 	"golang.org/x/mod/sumdb/tlog"
 )
@@ -86,7 +86,7 @@ func (fn *moduleLogHashFn) ProcessElement(log *ModuleVersionLog) (*batchmap.Entr
 	h := hash.New()
 	h.Write([]byte(log.Module))
 	logKey := h.Sum(nil)
-	leafID := tree.NewNodeID2(string(logKey), uint(len(logKey)*8))
+	leafID := node.NewID(string(logKey), uint(len(logKey)*8))
 
 	return &batchmap.Entry{
 		HashKey:   h.Sum(nil),

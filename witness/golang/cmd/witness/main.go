@@ -39,7 +39,7 @@ func main() {
 	flag.Parse()
 
 	if *witnessSK == "" {
-		glog.Exitf("--private_key must not be empty")
+		glog.Exit("--private_key must not be empty")
 	}
 	signer, err := note.NewSigner(*witnessSK)
 	if err != nil {
@@ -47,7 +47,7 @@ func main() {
 	}
 
 	if len(*configFile) == 0 {
-		glog.Exitf("--config_file must not be empty")
+		glog.Exit("--config_file must not be empty")
 	}
 	fileData, err := ioutil.ReadFile(*configFile)
 	if err != nil {

@@ -57,8 +57,8 @@ type ServerOpts struct {
 	Config LogConfig
 }
 
-// loadConfig loads the log configuration information into a map.
-func loadConfig(config LogConfig) (map[string]witness.LogInfo, error) {
+// buildLogMap loads the log configuration information into a map.
+func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 	logMap := make(map[string]witness.LogInfo)
 	h := hasher.DefaultHasher
 	for _, log := range config.Logs {
@@ -91,7 +91,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 		return fmt.Errorf("failed to connect to DB: %w", err)
 	}
 	// Load log configuration into the map.
-	logMap, err := loadConfig(opts.Config)
+	logMap, err := buildLogMap(opts.Config)
 	if err != nil {
 		return fmt.Errorf("failed to load configurations: %v", err)
 	}

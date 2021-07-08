@@ -96,7 +96,7 @@ func (l *trillianLogger) Log(ctx context.Context, in *log.LogRequest) (*log.LogR
 	bs := []byte(prototext.Format(msg))
 	l.c.AddLeaf(ctx, bs)
 	r := l.c.GetRoot()
-	glog.Infof("Logged to Trillian and included in r=%d: %v", r.Revision, msg)
+	glog.Infof("Logged to Trillian and included in tree size %d: %v", r.TreeSize, msg)
 
 	// Now get the inclusion proof and return that.
 	leaf := l.c.BuildLeaf(bs)

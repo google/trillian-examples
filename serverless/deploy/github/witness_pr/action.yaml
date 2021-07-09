@@ -1,0 +1,32 @@
+# action.yml
+name: 'Witness PR validator'
+description: 'Serverless log: Witness PR validator'
+inputs:
+  log_dir:
+    description: 'Location of the log files in the repo'
+    required: true
+    default: '.'
+  pr_repo_root:
+    descritpion: 'Location of the checked-out PR branch'
+    required: true
+    default: 'pr'
+  pristine_repo_root:
+    description: 'Location of a pristine clone of the repo'
+    required: true
+    default: 'pristine'
+  witness_key_files:
+    description: 'Path glob within the pristine repo matching known witness keys'
+    required: true
+  log_public_key:
+    description: 'Log public key string (in note format)'
+    required: true
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.log_dir }}
+
+branding:
+  icon: 'loader'
+  color: 'orange'

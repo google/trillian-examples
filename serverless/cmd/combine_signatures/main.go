@@ -23,13 +23,13 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/serverless/cmd/combine_signatures/impl"
+	"github.com/google/trillian-examples/formats/checkpoints"
 	"golang.org/x/mod/sumdb/note"
 )
 
 var (
-	logKey      = flag.String("log_public_key", "", "Log's public key")
-	witnessKeys = flag.String("witness_public_key_filess", "", "One or more space-separated globs matching all the known witness keys.")
+	logKey      = flag.String("log_public_key", "", "Log's public key.")
+	witnessKeys = flag.String("witness_public_key_files", "", "One or more space-separated globs matching all the known witness keys.")
 	output      = flag.String("output", "", "Output file to write combined checkpoint to.")
 )
 
@@ -37,7 +37,7 @@ func main() {
 	flag.Parse()
 
 	if len(flag.Args()) < 2 {
-		glog.Exitf("Usage: combine_signatures <checkpoint_file_1> <checkpoint_file_2> [checkpoint_file_N ...")
+		glog.Exitf("Usage: combine_signatures <checkpoint_file_1> <checkpoint_file_2> [checkpoint_file_N ...]")
 	}
 
 	logSigV, err := note.NewVerifier(*logKey)
@@ -60,7 +60,7 @@ func main() {
 		cps = append(cps, r)
 	}
 
-	o, err := impl.Combine(cps, logSigV, witSigV)
+	o, err := checkpoints.Combine(cps, logSigV, witSigV)
 	if err != nil {
 		glog.Exitf("Failed to combine checkpoints: %v", err)
 	}
@@ -71,9 +71,8 @@ func main() {
 }
 
 func witnessVerifiers(globs string) (note.Verifiers, error) {
-	ret := make([]note.Verifier, 0)
-	g := strings.Split(globs, " ")
-	for _, glob := range g {
+	vs := make([]note.Verifier, 0)
+	for _, glob := range strings.Split(globs, " ") {
 		files, err := filepath.Glob(glob)
 		if err != nil {
 			return nil, fmt.Errorf("glob %q failed: %v", glob, err)
@@ -87,8 +86,8 @@ func witnessVerifiers(globs string) (note.Verifiers, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid witness key file %q: %v", f, err)
 			}
-			ret = append(ret, v)
+			vs = append(vs, v)
 		}
 	}
-	return note.VerifierList(ret...), nil
+	return note.VerifierList(vs...), nil
 }

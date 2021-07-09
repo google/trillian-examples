@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// impl provides the implementation of the combine_signatures tool.
-package impl
+// checkpoints provides functionality for handling checkpoints.
+package checkpoints
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-// Combine returns checkpoint with the union of all signatures on the provided checkpoints from known witnesses.
+// Combine returns a checkpoint with the union of all signatures on the provided checkpoints from known witnesses.
 // Signatures from unknown witnesses are discarded.
 //
 // All cps:

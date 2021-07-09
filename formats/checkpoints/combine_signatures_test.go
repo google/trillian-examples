@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// impl provides the implementation of the combine_signatures tool.
-package impl
+package checkpoints
 
 import (
 	"testing"

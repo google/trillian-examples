@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/formats/checkpoints"
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
@@ -53,7 +54,8 @@ type FeedOpts struct {
 	// LogSigVerifier a verifier for log checkpoint signatures.
 	LogSigVerifier note.Verifier
 
-	// NumRequired is the number of witness signatures required for a call to Feed to be considered successful.
+	// NumRequired is the number of witness signatures required on checkpoint
+	// (including any pre-existing signatures from known witnesses).
 	NumRequired int
 
 	// Witnesses is a list of witnesses to feed to.
@@ -72,108 +74,143 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 	if nw := len(opts.Witnesses); opts.NumRequired > nw {
 		return nil, fmt.Errorf("NumRequired is %d, but only %d witnesses provided", opts.NumRequired, nw)
 	}
-	n, err := note.Open(cp, note.VerifierList(opts.LogSigVerifier))
+	wSigVs := make([]note.Verifier, 0, len(opts.Witnesses))
+	for _, w := range opts.Witnesses {
+		wSigVs = append(wSigVs, w.SigVerifier())
+	}
+
+	have := make(map[uint32]bool)
+	n, err := note.Open(cp, note.VerifierList(append([]note.Verifier{opts.LogSigVerifier}, wSigVs...)...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify signature on checkpoint: %v", err)
 	}
-
-	numSigsPre := len(n.Sigs)
-
+	for _, s := range n.Sigs {
+		have[s.Hash] = true
+	}
+	if !have[opts.LogSigVerifier.KeyHash()] {
+		return nil, errors.New("cp not signed by log")
+	}
 	cpSubmit := &log.Checkpoint{}
 	_, err = cpSubmit.Unmarshal([]byte(n.Text))
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify signature on checkpoint to witness: %v", err)
+		return nil, fmt.Errorf("failed to unmarshal CP: %v", err)
 	}
 
-	sigs := make(chan note.Signature, len(opts.Witnesses))
+	witnessed := make(chan []byte, len(opts.Witnesses))
 	errs := make(chan error, len(opts.Witnesses))
-	// TODO(al): make this configurable
-	h := hasher.DefaultHasher
 
+	if opts.WitnessTimeout > 0 {
+		var c func()
+		ctx, c = context.WithTimeout(ctx, opts.WitnessTimeout)
+		defer c()
+	}
 	for _, w := range opts.Witnesses {
-		go func(ctx context.Context, w Witness) {
-			// Keep submitting until success or context timeout...
-			t := time.NewTicker(1)
-			wSigV := w.SigVerifier()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-t.C:
-					t.Reset(time.Second)
-				}
-				if opts.WitnessTimeout > 0 {
-					var c func()
-					ctx, c = context.WithTimeout(ctx, opts.WitnessTimeout)
-					defer c()
-				}
+		if have[w.SigVerifier().KeyHash()] {
+			errs <- fmt.Errorf("skipping %q - already have their signature", w.SigVerifier().Name())
+			continue
+		}
+		go submitToWitness(ctx, cp, *cpSubmit, w, opts.LogID, opts.LogFetcher, opts.LogSigVerifier, witnessed, errs)
 
-				latestCPRaw, err := w.GetLatestCheckpoint(ctx, opts.LogID)
-				if err != nil && !errors.Is(err, os.ErrNotExist) {
-					glog.Warningf("%s: failed to fetch latest CP: %v", wSigV.Name(), err)
-					continue
-				}
-
-				var conP [][]byte
-				if len(latestCPRaw) > 0 {
-					n, err := note.Open(latestCPRaw, note.VerifierList(wSigV))
-					if err != nil {
-						glog.Warningf("%s: failed to open CP: %v", wSigV.Name(), err)
-						continue
-					}
-
-					latestCP := &log.Checkpoint{}
-					_, err = latestCP.Unmarshal(latestCPRaw)
-					if err != nil {
-						glog.Warningf("%s: failed to unmarshal CP: %v", wSigV.Name(), err)
-						continue
-					}
-
-					if latestCP.Size > cpSubmit.Size {
-						errs <- fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", wSigV.Name(), latestCP.Size, cpSubmit.Size)
-						return
-					}
-					if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
-						glog.V(1).Infof("got sig from witness: %v", n.Sigs[0])
-						sigs <- n.Sigs[0]
-						return
-					}
-
-					pb, err := client.NewProofBuilder(ctx, *cpSubmit, h.HashChildren, opts.LogFetcher)
-					if err != nil {
-						glog.Warningf("%s: failed to create proof builder: %v", wSigV.Name(), err)
-						continue
-					}
-
-					conP, err = pb.ConsistencyProof(ctx, latestCP.Size, cpSubmit.Size)
-					if err != nil {
-						glog.Warningf("%s: failed to build consistency proof: %v", wSigV.Name(), err)
-						continue
-					}
-				}
-
-				if err := w.Update(ctx, opts.LogID, cp, conP); err != nil {
-					glog.Warningf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
-					continue
-				}
-
-			}
-		}(ctx, w)
 	}
 
+	// Gather results...
+	allWitnessed := make([][]byte, 0, len(opts.Witnesses)+1)
 	for range opts.Witnesses {
 		select {
-		case s := <-sigs:
-			n.Sigs = append(n.Sigs, s)
+		case w := <-witnessed:
+			allWitnessed = append(allWitnessed, w)
 		case e := <-errs:
 			glog.Warning(e.Error())
 		case <-ctx.Done():
-			return nil, ctx.Err()
 		}
 	}
 
-	if got := len(n.Sigs) - numSigsPre; got < opts.NumRequired {
+	// ...and combine signatures.
+	wvList := note.VerifierList(wSigVs...)
+	r, err := checkpoints.Combine(append([][]byte{cp}, allWitnessed...), opts.LogSigVerifier, wvList)
+	if err != nil {
+		return nil, fmt.Errorf("failed to combine checkpoints: %v", err)
+	}
+
+	// Finally, check how many witness signatures we now have:
+	n, err = note.Open(r, wvList)
+	if err != nil {
+		nErr, ok := err.(*note.UnverifiedNoteError)
+		if !ok {
+			return nil, fmt.Errorf("failed to open combined CP: %v", err)
+		}
+		n = nErr.Note
+	}
+	if got := len(n.Sigs); got < opts.NumRequired {
 		return nil, fmt.Errorf("number of witness signatures (%d) < number required (%d)", got, opts.NumRequired)
 	}
-	return note.Sign(n)
+
+	return r, nil
+}
+
+// submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.
+func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, w Witness, logID string, logFetcher client.Fetcher, logSigV note.Verifier, witnessed chan<- []byte, errs chan<- error) {
+	// TODO(al): make this configurable
+	h := hasher.DefaultHasher
+	wSigV := w.SigVerifier()
+	// Keep submitting until success or context timeout...
+	t := time.NewTicker(1)
+	for {
+		select {
+		case <-ctx.Done():
+			errs <- fmt.Errorf("giving up on %s", wSigV.Name())
+			return
+		case <-t.C:
+			t.Reset(time.Second)
+		}
+
+		latestCPRaw, err := w.GetLatestCheckpoint(ctx, logID)
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			glog.Warningf("%s: failed to fetch latest CP: %v", wSigV.Name(), err)
+			continue
+		}
+
+		var conP [][]byte
+		if len(latestCPRaw) > 0 {
+			_, err := note.Open(latestCPRaw, note.VerifierList(logSigV))
+			if err != nil {
+				glog.Warningf("%s: failed to open CP: %v", wSigV.Name(), err)
+				continue
+			}
+
+			latestCP := &log.Checkpoint{}
+			_, err = latestCP.Unmarshal(latestCPRaw)
+			if err != nil {
+				glog.Warningf("%s: failed to unmarshal CP: %v", wSigV.Name(), err)
+				continue
+			}
+
+			if latestCP.Size > cpSubmit.Size {
+				errs <- fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", wSigV.Name(), latestCP.Size, cpSubmit.Size)
+				return
+			}
+			if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
+				glog.V(1).Infof("got sig from witness: %v", wSigV.Name())
+				witnessed <- latestCPRaw
+				return
+			}
+
+			pb, err := client.NewProofBuilder(ctx, cpSubmit, h.HashChildren, logFetcher)
+			if err != nil {
+				glog.Warningf("%s: failed to create proof builder: %v", wSigV.Name(), err)
+				continue
+			}
+
+			conP, err = pb.ConsistencyProof(ctx, latestCP.Size, cpSubmit.Size)
+			if err != nil {
+				glog.Warningf("%s: failed to build consistency proof: %v", wSigV.Name(), err)
+				continue
+			}
+		}
+
+		if err := w.Update(ctx, logID, cpRaw, conP); err != nil {
+			glog.Warningf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
+			continue
+		}
+	}
 }

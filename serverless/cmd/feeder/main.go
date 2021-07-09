@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/client"
@@ -35,8 +37,9 @@ import (
 
 var (
 	configFile = flag.String("config_file", "", "Path to feeder config file.")
-	input      = flag.String("input", "", "Path to input checkpoint file, leave empty for stdin")
+	input      = flag.String("input", "", "Path/HTTP URL to input checkpoint file, leave empty for stdin")
 	output     = flag.String("output", "", "Path to write cosigned checkpoint to, leave empty for stdout")
+	timeout    = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for witnesses to respond.")
 )
 
 type WitnessConfig struct {
@@ -62,7 +65,8 @@ type Config struct {
 
 func main() {
 	flag.Parse()
-	ctx := context.Background()
+	ctx, c := context.WithTimeout(context.Background(), *timeout)
+	defer c()
 
 	cfg, err := readConfig(*configFile)
 	if err != nil {
@@ -82,13 +86,17 @@ func main() {
 		NumRequired:    cfg.NumRequired,
 	}
 	for _, w := range cfg.Witnesses {
+		u, err := url.Parse(w.URL)
+		if err != nil {
+			glog.Exitf("Failed to parse witness URL %q: %v", w.URL, err)
+		}
 		opts.Witnesses = append(opts.Witnesses, wit_http.Witness{
-			URL:      w.URL,
+			URL:      u,
 			Verifier: mustCreateVerifier(w.PublicKey),
 		})
 	}
 
-	cp, err := readCP(*input)
+	cp, err := readCP(ctx, *input)
 	if err != nil {
 		glog.Exitf("Failed to read input checkpoint: %v", err)
 	}
@@ -123,7 +131,14 @@ func readConfig(f string) (*Config, error) {
 	return &cfg, nil
 }
 
-func readCP(f string) ([]byte, error) {
+func readCP(ctx context.Context, f string) ([]byte, error) {
+	if strings.HasPrefix(f, "http://") || strings.HasPrefix(f, "https://") {
+		u, err := url.Parse(f)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse checkpoint URL %q: %v", f, err)
+		}
+		return readHTTP(ctx, u)
+	}
 	var from *os.File
 	if f == "" {
 		from = os.Stdin

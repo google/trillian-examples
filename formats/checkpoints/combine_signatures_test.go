@@ -35,6 +35,15 @@ func TestCombine(t *testing.T) {
 		wantErr      bool
 	}{
 		{
+			desc:         "works - first CP has all the signatures",
+			logSigV:      logV,
+			witnessSigVs: note.VerifierList(wit1V, wit2V, wit3V),
+			cps: [][]byte{
+				newCP(t, "body", logS, wit1S, wit2S, wit3S),
+				newCP(t, "body", logS),
+			},
+			wantSigVs: []note.Verifier{logV, wit1V, wit2V, wit3V},
+		}, {
 			desc:         "works",
 			logSigV:      logV,
 			witnessSigVs: note.VerifierList(wit1V, wit2V, wit3V),
@@ -43,6 +52,17 @@ func TestCombine(t *testing.T) {
 				newCP(t, "body", logS, wit1S),
 				newCP(t, "body", logS, wit2S),
 				newCP(t, "body", logS, wit3S),
+			},
+			wantSigVs: []note.Verifier{logV, wit1V, wit2V, wit3V},
+		}, {
+			desc:         "many dupes",
+			logSigV:      logV,
+			witnessSigVs: note.VerifierList(wit1V, wit2V, wit3V),
+			cps: [][]byte{
+				newCP(t, "body", logS, wit1S, wit2S, wit3S),
+				newCP(t, "body", logS, wit1S, wit2S, wit3S),
+				newCP(t, "body", logS, wit1S, wit2S, wit3S),
+				newCP(t, "body", logS, wit1S, wit2S, wit3S),
 			},
 			wantSigVs: []note.Verifier{logV, wit1V, wit2V, wit3V},
 		}, {
@@ -143,6 +163,9 @@ func TestCombine(t *testing.T) {
 					t.Errorf("Got sig: %v", s.Name)
 				}
 				t.Fatalf("Got %d signatures, want %d", got, want)
+			}
+			if n.Sigs[0].Hash != test.logSigV.KeyHash() {
+				t.Fatal("First signature was not from log")
 			}
 
 		})

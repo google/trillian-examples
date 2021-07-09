@@ -28,12 +28,14 @@ import (
 
 const (
 	testWitnessSecretKey = "PRIVATE+KEY+test-witness+d28ecb0d+AbextYkHs2Be69xhwhvaUvjxijEqtQQ9NWNC05YWx7Jr"
-	// Unused, but seems sensible to keep it documented here:
-	// testWitnessPublicKey = "test-witness+d28ecb0d+AV2DM8GnnoXPS77FKY/KwsZdfien9eSmb35f6qUv2TrH"
+	testWitnessPublicKey = "test-witness+d28ecb0d+AV2DM8GnnoXPS77FKY/KwsZdfien9eSmb35f6qUv2TrH"
 )
 
-func TestWitness(t *testing.T) {
+func TestFeed(t *testing.T) {
 	ctx := context.Background()
+	logSigV := testdata.LogSigVerifier(t)
+	witSig := mustCreateSigner(t, testWitnessSecretKey)
+	witSigV := mustCreateVerifier(t, testWitnessPublicKey)
 	for _, test := range []struct {
 		desc        string
 		submitCP    []byte
@@ -47,9 +49,10 @@ func TestWitness(t *testing.T) {
 			numRequired: 1,
 			witnesses: []Witness{
 				&fakeWitness{
-					logSigV:  testdata.LogSigVerifier(t),
-					witSig:   mustCreateSigner(t, testWitnessSecretKey),
-					latestCP: testdata.Checkpoint(t, 1),
+					logSigV:  logSigV,
+					witSig:   witSig,
+					witSigV:  witSigV,
+					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
 				},
 			},
 		}, {
@@ -58,9 +61,10 @@ func TestWitness(t *testing.T) {
 			numRequired: 1,
 			witnesses: []Witness{
 				&fakeWitness{
-					logSigV:  testdata.LogSigVerifier(t),
-					witSig:   mustCreateSigner(t, testWitnessSecretKey),
-					latestCP: testdata.Checkpoint(t, 1),
+					logSigV:  logSigV,
+					witSig:   witSig,
+					witSigV:  witSigV,
+					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
 				},
 			},
 		}, {
@@ -71,9 +75,10 @@ func TestWitness(t *testing.T) {
 			numRequired: 1,
 			witnesses: []Witness{
 				&fakeWitness{
-					logSigV:  testdata.LogSigVerifier(t),
-					witSig:   mustCreateSigner(t, testWitnessSecretKey),
-					latestCP: testdata.Checkpoint(t, 2),
+					logSigV:  logSigV,
+					witSig:   witSig,
+					witSigV:  witSigV,
+					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 2), logSigV, witSig),
 				},
 			},
 		}, {
@@ -106,12 +111,13 @@ func TestWitness(t *testing.T) {
 type fakeWitness struct {
 	logSigV      note.Verifier
 	witSig       note.Signer
+	witSigV      note.Verifier
 	latestCP     []byte
 	rejectUpdate bool
 }
 
 func (fw *fakeWitness) SigVerifier() note.Verifier {
-	return fw.logSigV
+	return fw.witSigV
 }
 
 func (fw *fakeWitness) GetLatestCheckpoint(_ context.Context, logID string) ([]byte, error) {
@@ -161,6 +167,16 @@ func cosignCP(cp []byte, v note.Verifier, s note.Signer) ([]byte, error) {
 	}
 	return r, nil
 }
+
+func mustCosignCP(t *testing.T, cp []byte, v note.Verifier, s note.Signer) []byte {
+	t.Helper()
+	r, err := cosignCP(cp, v, s)
+	if err != nil {
+		t.Fatalf("Failed to cosign CP: %v", err)
+	}
+	return r
+}
+
 func mustCreateSigner(t *testing.T, secK string) note.Signer {
 	t.Helper()
 	s, err := note.NewSigner(secK)
@@ -168,4 +184,12 @@ func mustCreateSigner(t *testing.T, secK string) note.Signer {
 		t.Fatalf("failed to create signer: %v", err)
 	}
 	return s
+}
+func mustCreateVerifier(t *testing.T, pubK string) note.Verifier {
+	t.Helper()
+	v, err := note.NewVerifier(pubK)
+	if err != nil {
+		t.Fatalf("failed to create verifier: %v", err)
+	}
+	return v
 }

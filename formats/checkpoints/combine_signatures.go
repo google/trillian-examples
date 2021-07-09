@@ -31,6 +31,7 @@ import (
 // if this isn't the case an error is returned.
 func Combine(cps [][]byte, logSigV note.Verifier, witSigVs note.Verifiers) ([]byte, error) {
 	var ret *note.Note
+	sigs := make(map[uint32]note.Signature)
 
 	for i, cp := range cps {
 		// Ensure the Checkpoint is for the specific log
@@ -38,9 +39,12 @@ func Combine(cps [][]byte, logSigV note.Verifier, witSigVs note.Verifiers) ([]by
 		if err != nil {
 			return nil, fmt.Errorf("checkpoint %d is not signed by log: %v", i, err)
 		}
-		// if this is the first CP, then just take it, but remove any unknown/unwanted sigs.
-		if ret == nil {
+		// if this is the first CP, then just take it.
+		if i == 0 {
 			ret = candN
+			// Save the log sig so it's always first in the list when we serialise
+			ret.Sigs = []note.Signature{candN.Sigs[0]}
+			// But remove all other sigs
 			ret.UnverifiedSigs = nil
 		}
 
@@ -61,7 +65,13 @@ func Combine(cps [][]byte, logSigV note.Verifier, witSigVs note.Verifiers) ([]by
 			return nil, fmt.Errorf("checkpoint %d has differing content", i)
 		}
 
-		ret.Sigs = append(ret.Sigs, candN.Sigs...)
+		for _, s := range candN.Sigs {
+			sigs[s.Hash] = s
+		}
+	}
+
+	for _, s := range sigs {
+		ret.Sigs = append(ret.Sigs, s)
 	}
 
 	return note.Sign(ret)

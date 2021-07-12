@@ -25,7 +25,6 @@ import (
 	"github.com/golang/glog"
 	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
-	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
@@ -43,6 +42,7 @@ type LogInfo struct {
 	LogID        string `json:"logID"`
 	HashStrategy string `json:"hashstrategy"`
 	PubKey       string `json:"pubkey"`
+	UseCompact   bool   `json:"usecompact"`
 }
 
 // The options for a server (specified in main.go).
@@ -72,8 +72,9 @@ func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 		}
 		sigVs := []note.Verifier{logV}
 		logInfo := witness.LogInfo{
-			SigVs: sigVs,
-			LogV:  logverifier.New(h),
+			SigVs:      sigVs,
+			Hasher:     h,
+			UseCompact: log.UseCompact,
 		}
 		logMap[log.LogID] = logInfo
 	}

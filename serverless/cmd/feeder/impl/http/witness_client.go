@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 
 	wit_api "github.com/google/trillian-examples/witness/golang/api"
@@ -30,7 +31,7 @@ import (
 
 // Witness is a simple client for interacting with witnesses over HTTP.
 type Witness struct {
-	URL      string
+	URL      *url.URL
 	Verifier note.Verifier
 }
 
@@ -41,7 +42,11 @@ func (w Witness) SigVerifier() note.Verifier {
 
 // GetLatestCheckpoint returns a recent checkpoint from the witness for the specified log ID.
 func (w Witness) GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/%s", w.URL, fmt.Sprintf(wit_api.HTTPGetCheckpoint, logID)), nil)
+	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPGetCheckpoint, logID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse URL: %v", err)
+	}
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
@@ -67,7 +72,11 @@ func (w Witness) Update(ctx context.Context, logID string, cp []byte, proof [][]
 	if err != nil {
 		return fmt.Errorf("failed to marshal update request: %v", err)
 	}
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/%s", w.URL, fmt.Sprintf(wit_api.HTTPUpdate, logID)), bytes.NewReader(reqBody))
+	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPUpdate, logID))
+	if err != nil {
+		return fmt.Errorf("failed to parse URL: %v", err)
+	}
+	req, err := http.NewRequest("POST", u.String(), bytes.NewReader(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}

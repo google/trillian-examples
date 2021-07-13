@@ -22,6 +22,12 @@ import (
 	"fmt"
 )
 
+const (
+	// This can be changed to a field of Database or metadata in the database if
+	// we need to support other sizes in the future.
+	HASH_SIZE_BYTES = 32
+)
+
 // ErrNoDataFound is returned when the DB appears valid but has no data in it.
 var ErrNoDataFound = errors.New("no data found")
 
@@ -30,7 +36,7 @@ type Database struct {
 	db *sql.DB
 }
 
-// NewDatabase creates a Database using the given database connection.
+// NewDatabase creates a Database using the given database connection string.
 // This has been tested with sqlite and MariaDB.
 func NewDatabase(connString string) (*Database, error) {
 	dbConn, err := sql.Open("mysql", connString)
@@ -40,16 +46,76 @@ func NewDatabase(connString string) (*Database, error) {
 	db := &Database{
 		db: dbConn,
 	}
-	return db, db.Init()
+	return db, db.init()
 }
 
-// Init creates the database tables if needed.
-func (d *Database) Init() error {
+// NewDatabase creates a Database using the given database connection.
+func NewDatabaseDirect(db *sql.DB) (*Database, error) {
+	ret := &Database{
+		db: db,
+	}
+	return ret, ret.init()
+}
+
+func (d *Database) init() error {
 	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leaves (id INTEGER PRIMARY KEY, data BLOB)"); err != nil {
 		return err
 	}
-	// TODO(mhutchinson): Create a table for checkpoints too?
+	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS checkpoints (size INTEGER PRIMARY KEY, data BLOB, compactRange BLOB)"); err != nil {
+		return err
+	}
 	return nil
+}
+
+// WriteCheckpoint writes the checkpoint for the given tree size.
+// This should have been verified before writing.
+func (d *Database) WriteCheckpoint(ctx context.Context, size uint64, checkpoint []byte, compactRange [][]byte) error {
+	tx, err := d.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("BeginTx(): %v", err)
+	}
+
+	row := tx.QueryRowContext(ctx, "SELECT size FROM checkpoints ORDER BY size DESC LIMIT 1")
+	var max uint64
+	if err := row.Scan(&max); err != nil {
+		if err != sql.ErrNoRows {
+			tx.Rollback()
+			return fmt.Errorf("Scan(): %v", err)
+		}
+	}
+
+	if size <= max {
+		tx.Rollback()
+		return nil
+	}
+
+	srs := make([]byte, HASH_SIZE_BYTES*len(compactRange))
+	for i, cr := range compactRange {
+		from := i * HASH_SIZE_BYTES
+		to := from + HASH_SIZE_BYTES
+		copy(srs[from:to], cr)
+	}
+	tx.ExecContext(ctx, "INSERT INTO checkpoints (size, data, compactRange) VALUES (?, ?, ?)", size, checkpoint, srs)
+	return tx.Commit()
+}
+
+// GetLatestCheckpoint gets the details of the latest checkpoint.
+func (d *Database) GetLatestCheckpoint(ctx context.Context) (size uint64, checkpoint []byte, compactRange [][]byte, err error) {
+	row := d.db.QueryRowContext(ctx, "SELECT size, data, compactRange FROM checkpoints ORDER BY size DESC LIMIT 1")
+	srs := make([]byte, 0)
+	if err := row.Scan(&size, &checkpoint, &srs); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, nil, nil, ErrNoDataFound
+		}
+		return 0, nil, nil, fmt.Errorf("Scan(): %v", err)
+	}
+	compactRange = make([][]byte, len(srs)/HASH_SIZE_BYTES)
+	for i := range compactRange {
+		from := i * HASH_SIZE_BYTES
+		to := from + HASH_SIZE_BYTES
+		compactRange[i] = srs[from:to]
+	}
+	return
 }
 
 // WriteLeaves writes the contiguous chunk of leaves, starting at the stated index.

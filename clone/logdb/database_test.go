@@ -15,8 +15,11 @@
 package logdb
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -44,16 +47,11 @@ func TestHeadIncremented(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			sqlitedb, err := sql.Open("sqlite3", ":memory:")
+			db, close, err := NewInMemoryDatabase()
 			if err != nil {
-				t.Fatal("failed to open temporary in-memory DB", err)
-			}
-			defer sqlitedb.Close()
-
-			db := Database{sqlitedb}
-			if err := db.Init(); err != nil {
 				t.Fatal("failed to init DB", err)
 			}
+			defer close()
 			if err := db.WriteLeaves(context.Background(), 0, test.leaves); err != nil {
 				t.Fatal("failed to write leaves", err)
 			}
@@ -109,16 +107,11 @@ func TestRoundTrip(t *testing.T) {
 	},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			sqlitedb, err := sql.Open("sqlite3", ":memory:")
+			db, close, err := NewInMemoryDatabase()
 			if err != nil {
-				t.Fatal("failed to open temporary in-memory DB", err)
-			}
-			defer sqlitedb.Close()
-
-			db := Database{sqlitedb}
-			if err := db.Init(); err != nil {
 				t.Fatal("failed to init DB", err)
 			}
+			defer close()
 			if err := db.WriteLeaves(context.Background(), 0, test.leaves); err != nil {
 				t.Fatal("failed to write leaves", err)
 			}
@@ -147,4 +140,158 @@ func TestRoundTrip(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckpointRoundTrip(t *testing.T) {
+	hashes := make([][]byte, 5)
+	for i := range hashes {
+		h := sha256.Sum256([]byte(fmt.Sprintf("hash %d", i)))
+		hashes[i] = h[:]
+	}
+	for _, test := range []struct {
+		desc         string
+		checkpoint   []byte
+		compactRange [][]byte
+		size         uint64
+		err          error
+	}{{
+		desc: "no previous",
+		err:  ErrNoDataFound,
+	}, {
+		desc:         "single compact range",
+		size:         256,
+		checkpoint:   hashes[0],
+		compactRange: hashes[1:1],
+	}, {
+		desc:         "longer compact range",
+		size:         277,
+		checkpoint:   hashes[0],
+		compactRange: hashes[1:],
+	},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			db, close, err := NewInMemoryDatabase()
+			if err != nil {
+				t.Fatal("failed to init DB", err)
+			}
+			defer close()
+			if test.checkpoint != nil {
+				if err := db.WriteCheckpoint(context.Background(), test.size, test.checkpoint, test.compactRange); err != nil {
+					t.Fatal("failed to write checkpoint", err)
+				}
+			}
+
+			gotSize, gotCP, gotCR, gotErr := db.GetLatestCheckpoint(context.Background())
+
+			if gotErr != test.err {
+				t.Fatalf("mismatched error: got=%v, want %v", gotErr, test.err)
+			}
+
+			if gotSize != test.size {
+				t.Errorf("size: got %d, want %d", gotSize, test.size)
+			}
+			if !bytes.Equal(gotCP, test.checkpoint) {
+				t.Errorf("checkpoint: got %x, want %x", gotCP, test.checkpoint)
+			}
+			if diff := cmp.Diff(gotCR, test.compactRange); len(diff) > 0 {
+				t.Errorf("diff in compact range: %q", diff)
+			}
+		})
+	}
+}
+
+func TestCheckpoints(t *testing.T) {
+	for _, test := range []struct {
+		desc          string
+		size1         uint64
+		checkpoint1   []byte
+		compactRange1 [][]byte
+		size2         uint64
+		checkpoint2   []byte
+		compactRange2 [][]byte
+		wantSize      uint64
+		wantCP        []byte
+	}{{
+		desc:          "small, big",
+		size1:         16,
+		checkpoint1:   mustHash("root 1"),
+		compactRange1: [][]byte{mustHash("root 1")},
+		size2:         32,
+		checkpoint2:   mustHash("root 2"),
+		compactRange2: [][]byte{mustHash("root 2")},
+		wantSize:      32,
+		wantCP:        mustHash("root 2"),
+	}, {
+		desc:          "big, small",
+		size1:         32,
+		checkpoint1:   mustHash("root 1"),
+		compactRange1: [][]byte{mustHash("root 1")},
+		size2:         16,
+		checkpoint2:   mustHash("root 2"),
+		compactRange2: [][]byte{mustHash("root 2")},
+		wantSize:      32,
+		wantCP:        mustHash("root 1"),
+	}, {
+		desc:          "same checkpoint twice",
+		size1:         16,
+		checkpoint1:   mustHash("root 1"),
+		compactRange1: [][]byte{mustHash("root 1")},
+		size2:         16,
+		checkpoint2:   mustHash("root 1"),
+		compactRange2: [][]byte{mustHash("root 1")},
+		wantSize:      16,
+		wantCP:        mustHash("root 1"),
+	}, {
+		desc:          "unequal checkpoints for same size",
+		size1:         16,
+		checkpoint1:   mustHash("root 1"),
+		compactRange1: [][]byte{mustHash("root 1")},
+		size2:         16,
+		checkpoint2:   mustHash("root 2"),
+		compactRange2: [][]byte{mustHash("root 2")},
+		wantSize:      16,
+		wantCP:        mustHash("root 1"),
+	},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			db, close, err := NewInMemoryDatabase()
+			if err != nil {
+				t.Fatal("failed to init DB", err)
+			}
+			defer close()
+
+			if err := db.WriteCheckpoint(context.Background(), test.size1, test.checkpoint1, test.compactRange1); err != nil {
+				t.Fatal("failed to write checkpoint 1", err)
+			}
+			if err := db.WriteCheckpoint(context.Background(), test.size2, test.checkpoint2, test.compactRange2); err != nil {
+				t.Fatal("failed to write checkpoint 2", err)
+			}
+
+			gotSize, cp, _, err := db.GetLatestCheckpoint(context.Background())
+			if err != nil {
+				t.Fatalf("GetLatestCheckpoint(): %v", err)
+			}
+
+			if gotSize != test.wantSize {
+				t.Errorf("size: got %d, want %d", gotSize, test.wantSize)
+			}
+			if !bytes.Equal(cp, test.wantCP) {
+				t.Errorf("checkpoint: got %x, want %x", cp, test.wantCP)
+			}
+		})
+	}
+}
+
+func NewInMemoryDatabase() (*Database, func() error, error) {
+	sqlitedb, err := sql.Open("sqlite3", ":memory:")
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open temporary in-memory DB: %v", err)
+	}
+	db, err := NewDatabaseDirect(sqlitedb)
+	return db, sqlitedb.Close, err
+}
+
+func mustHash(s string) []byte {
+	h := sha256.Sum256([]byte(s))
+	return h[:]
 }

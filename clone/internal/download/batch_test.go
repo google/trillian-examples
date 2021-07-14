@@ -15,6 +15,7 @@
 package download
 
 import (
+	"context"
 	"fmt"
 	"testing"
 )
@@ -65,7 +66,7 @@ func TestBulk(t *testing.T) {
 		}
 		return nil
 	}
-	go Bulk(first, fakeFetch, workers, batchSize, leafc, errc)
+	go Bulk(context.Background(), first, fakeFetch, workers, batchSize, leafc, errc)
 
 	for i := 0; i < 1000; i++ {
 		select {
@@ -78,6 +79,36 @@ func TestBulk(t *testing.T) {
 				t.Errorf("%d got != want (%q != %q)", i, got, want)
 			}
 		}
+	}
+}
+
+func TestBulkCancelled(t *testing.T) {
+	leafc := make(chan []byte, 10)
+	errc := make(chan error)
+	var first uint64
+	var workers uint = 4
+	var batchSize uint = 10
+
+	fakeFetch := func(start uint64, leaves [][]byte) error {
+		return nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go Bulk(ctx, first, fakeFetch, workers, batchSize, leafc, errc)
+	cancel()
+
+	seen := 0
+	for i := 0; i < 1000; i++ {
+		select {
+		case <-leafc:
+			seen++
+			continue
+		case <-errc:
+		}
+		break
+	}
+	if seen == 1000 {
+		t.Error("Expected cancellation to prevent all leaves being read")
 	}
 }
 
@@ -96,7 +127,7 @@ func BenchmarkBulk(b *testing.B) {
 		}
 		return nil
 	}
-	go Bulk(first, fakeFetch, workers, batchSize, leafc, errc)
+	go Bulk(context.Background(), first, fakeFetch, workers, batchSize, leafc, errc)
 
 	for n := 0; n < b.N; n++ {
 		for i := 0; i < 1000; i++ {

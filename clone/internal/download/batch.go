@@ -16,6 +16,7 @@
 package download
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -31,8 +32,7 @@ type BatchFetch func(start uint64, leaves [][]byte) error
 // The number of workers and the batch size to use for each of the fetch requests are also specified.
 // The resulting leaves are returned in order over `leafChan`, and any terminal errors are returned via `errc`.
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
-// TODO(mhutchinson): Pass in a context and check for termination so we can gracefully exit.
-func Bulk(first uint64, batchFetch BatchFetch, workers, batchSize uint, leafChan chan<- []byte, errc chan<- error) {
+func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, batchSize uint, leafChan chan<- []byte, errc chan<- error) {
 	// Each worker gets its own unbuffered channel to make sure it can only be at most one ahead.
 	// This prevents lots of wasted work happening if one shard gets stuck.
 	rangeChans := make([]chan leafRange, workers)
@@ -54,6 +54,12 @@ func Bulk(first uint64, batchFetch BatchFetch, workers, batchSize uint, leafChan
 
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {
+		select {
+		case <-ctx.Done():
+			errc <- ctx.Err()
+			return
+		default:
+		}
 		r := <-rangeChans[i]
 		for _, l := range r.leaves {
 			leafChan <- l

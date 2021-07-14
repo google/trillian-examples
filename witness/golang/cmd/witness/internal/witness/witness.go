@@ -290,7 +290,7 @@ func (w *Witness) verifyRangeHash(rootHash []byte, rng *compact.Range) error {
 		return fmt.Errorf("can't get root hash for range: %v", err)
 	}
 	if !bytes.Equal(rootHash, h) {
-		return fmt.Errorf("old hashes aren't equal (got %x, given %x)", h, rootHash)
+		return fmt.Errorf("hashes aren't equal (got %x, given %x)", h, rootHash)
 	}
 	return nil
 }

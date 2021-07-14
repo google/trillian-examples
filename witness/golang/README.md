@@ -6,7 +6,7 @@ different verifiable logs in a sqlite database.  This is a very lightweight way
 to help detect or even prevent split-view attacks.
 
 Once up and running, the witness provides three API endpoints (as defined in
-`api/http.go`):
+[api/http.go](api/http.go)):
 - `/witness/v0/logs` returns a list of all logs for which the witness is
   currently storing a checkpoint.
 - `/witness/v0/logs/<logid>/update` acts to update the checkpoint stored for 
@@ -20,7 +20,10 @@ Running the witness
 Running the witness is as simple as running `go run main.go` (where `main.go`
 can be found in the `cmd/witness` directory), with the following flags:
 - `listen`, which specifies the address and port to listen on.
-- `db_file`, which specifies the desired location of the sqlite database.
+- `db_file`, which specifies the desired location of the sqlite database.  The
+  use of sqlite limits the scalability and reliability of the witness (because
+  this is a local file), so if that is required a different database backend
+  would be needed.
 - `config_file`, which specifies configuration information for the logs.  An
   sample configuration file is at `cmd/witness/example.conf`, and in general it
   is necessary to specify the following fields for each log:

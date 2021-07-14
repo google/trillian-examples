@@ -20,16 +20,16 @@ Currently the examples here are:
    of binaries/updates.
 * [helloworld](helloworld): A simple example demonstrating the correct
    configuration of a Trillian log, personality, and client.
-* [serverless](serverless): A suite of command-line tools for managing
-   transparency logs whose state is entirely composed of on-disk files, along
-   with examples of how to use GitHub/GitHub Actions to host & publicly serve
-   the log.
 * [sumdbaudit](sumdbaudit): Demonstration of an auditor for the
    [GoLang SumDB](https://go.googlesource.com/proposal/+/master/design/25530-sumdb.md)
    module proxy, which clones a log and verifies the data in it.
 
 The general-purpose components are:
 
+* [serverless](serverless): A suite of command-line tools for managing
+   transparency logs whose state is entirely composed of on-disk files, along
+   with examples of how to use GitHub/GitHub Actions to host & publicly serve
+   the log.
 * [witness](witness): A witness, which verifies the consistency of the evolving
   checkpoints issued by a verifiable log and produces co-signed checkpoints.
   This is an important role that enables the prevention or detection of certain

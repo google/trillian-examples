@@ -4,7 +4,7 @@ Witnessing
 Witnessing is an important part of any transparent ecosystem, as it ensures that
 misbehavior on the part of logs can be prevented or detected. This is done by
 ensuring that the _checkpoints_ published by logs are _consistent_, which means 
-the log is presenting a globally consistent view of its contents to everyone and
+the log is presenting the same version of its contents to everyone and
 thus isn't carrying out a _split-view attack_.
 
 In terms of checkpoints, we consider witness implementations that use the
@@ -13,14 +13,18 @@ repository](https://github.com/google/trillian-examples/tree/master/formats/log)
 
 In terms of checking consistency, witnesses can do so in the following two 
 (non-exhaustive) ways:
-- Getting a "classical" consistency proof, assuming all they have is a log root.
-- Getting a compact range, assuming they maintain a compact range.
+- Getting a consistency proof as defined in [RFC
+  6962](https://datatracker.ietf.org/doc/html/rfc6962#section-2.1.2), assuming 
+  all they have is a log root.
+- Getting a [compact range](https://arxiv.org/pdf/2011.04551.pdf), assuming they 
+  maintain a compact range covering the log up to the point at which 
+  they've already ensured its consistency.
 
 We consider an interface for a witness defined as follows:
 
 - `GetCheckpoint(logID)`: returns a checkpoint for this log, co-signed by the
   witness.  Ideally, but not necessarily, this is the latest checkpoint.
-- `Update(logID, chkpt, pf)`: checks the signature in the checkpoint and checks
+- `Update(logID, chkpt, pf)`: checks the signature in the checkpoint and verifies 
   its consistency with its latest checkpoint from this log signer according to 
   the proof.  If all checks pass then add the checkpoint to the list maintained
   for this log. If the witness has no previous checkpoint for this log then this

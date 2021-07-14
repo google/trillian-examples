@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+# feed-to-github is a wrapper around the serverless feeder command which does a 
+# one-shot feed to the configured witness(es), and then creates a "Witness PR" on the
+# log repo with the resulting cosigned checkpoint.
+#
+
+set -e
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+function usage() {
+  cat <<EOF
+Usage:
+ feed-to-github <log_github_owner/repo> <witness_fork_owner/repo> <log_path> <feeder_config_file> []
+
+Where:
+ <log_github_owner/repo> is the repo owner/fragment from the repo URL 
+     e.g. github.com/AlCutter/serverless-test -> AlCutter/serverless-test
+ <witness_fork_owner/repo> is the repo owner/fragment of the fork to use for creating witness pull requests
+ <log_repo_path> is the path from the root of the rep where the log files can be found
+ <feeder_config_fil> is the path to the config file for the serverless/cmd/feeder command.
+
+EOF
+  exit 1
+}
+
+function main() {
+  if [ $# -ne 4 ]; then
+    usage
+  fi
+  local log_repo=${1}
+  local witness_repo=${2}
+  local log_path=${3}
+  local feeder_conf=$(readlink -f -n ${4})
+  local repo_url="github.com/${repo}"
+  local temp=$(mktemp -d)
+  local branch="witness_${RANDOM}"
+
+  trap "rm -fr ${temp}" EXIT
+
+  # Clone the fork of the log so we can make a PR branch on it with the updated checkpoint.witness file
+  gh repo clone ${witness_repo} ${temp} -- --depth 1
+  cd ${temp}
+  git checkout -b ${branch}
+
+  # Run the feeder to gather new signatures
+  cd ${SCRIPT_DIR}
+  go run . --config_file=${feeder_conf} --logtostderr --input=https://raw.githubusercontent.com/${log_repo}/master/${log_path}/checkpoint --output=${temp}/${log_path}/checkpoint.witnessed -v 2
+
+  # Create a witness PR
+  cd ${temp}
+  local size=$(sed -n 2p ${log_path}/checkpoint.witnessed)
+  git commit -a -m "Witness checkpoint@${size}"
+  git push origin ${branch}
+  gh pr create -R ${log_repo} --title="Witness @ ${size}" --head=${branch} -f
+}
+
+main $*

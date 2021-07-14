@@ -172,8 +172,17 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 		// checkpoint as trust-on-first-use.
 		if status.Code(err) == codes.NotFound {
 			// If we're using compact ranges then store the input
-			// proof as our initial range.
+			// proof as our initial range, assuming it matches the
+			// input checkpoint.
 			if logInfo.UseCompact {
+				rf := compact.RangeFactory{Hash: logInfo.Hasher.HashChildren}
+				rng, err := rf.NewRange(0, chkptNew.Size, proof)
+				if err != nil {
+					return 0, fmt.Errorf("can't form compact range: %v", err)
+				}
+				if err := w.verifyRangeHash(chkptNew.Hash, rng); err != nil {
+					return 0, fmt.Errorf("input root hash doesn't verify: %v", err)
+				}
 				rangeRaw := []byte(log.Proof(proof).Marshal())
 				return 0, w.setChkptData(tx, logID, chkptRaw, rangeRaw)
 			}
@@ -186,7 +195,7 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 	if err != nil {
 		return 0, fmt.Errorf("couldn't parse stored checkpoint: %v", err)
 	}
-	// Parse the compact range if we're using them.
+	// Parse the compact range if we're using one.
 	var curRange log.Proof
 	if logInfo.UseCompact {
 		if err := curRange.Unmarshal(rangeRaw); err != nil {
@@ -258,12 +267,8 @@ func (w *Witness) verifyRange(chkptNew *log.Checkpoint, chkptOld *log.Checkpoint
 	}
 	// As a sanity check, make sure the old checkpoint is consistent with
 	// the current range.
-	hashOld, err := curRange.GetRootHash(nil)
-	if err != nil {
-		return nil, fmt.Errorf("can't get root hash for range: %v", err)
-	}
-	if !bytes.Equal(hashOld, chkptOld.Hash) {
-		return nil, fmt.Errorf("old hashes aren't equal (got %x, given %x)", hashOld, chkptOld.Hash)
+	if err := w.verifyRangeHash(chkptOld.Hash, curRange); err != nil {
+		return nil, fmt.Errorf("old root hash doesn't verify: %v", err)
 	}
 	newRange, err := rf.NewRange(chkptOld.Size, chkptNew.Size, newRangeRaw)
 	if err != nil {
@@ -271,14 +276,23 @@ func (w *Witness) verifyRange(chkptNew *log.Checkpoint, chkptOld *log.Checkpoint
 	}
 	// Merge the new range into the existing one and compare root hashes.
 	curRange.AppendRange(newRange, nil)
-	hashNew, err := curRange.GetRootHash(nil)
-	if err != nil {
-		return nil, fmt.Errorf("can't get root hash for range: %v", err)
-	}
-	if !bytes.Equal(hashNew, chkptNew.Hash) {
-		return nil, fmt.Errorf("hashes aren't equal (got %x, given %x)", hashNew, chkptNew.Hash)
+	if err := w.verifyRangeHash(chkptNew.Hash, curRange); err != nil {
+		return nil, fmt.Errorf("new root hash doesn't verify: %v", err)
 	}
 	return curRange.Hashes(), nil
+}
+
+// verifyRangeHash computes the root hash of the compact range and compares it
+// against the one given as input, returning an error if they aren't equal.
+func (w *Witness) verifyRangeHash(rootHash []byte, rng *compact.Range) error {
+	h, err := rng.GetRootHash(nil)
+	if err != nil {
+		return fmt.Errorf("can't get root hash for range: %v", err)
+	}
+	if !bytes.Equal(rootHash, h) {
+		return fmt.Errorf("old hashes aren't equal (got %x, given %x)", h, rootHash)
+	}
+	return nil
 }
 
 // setChkptData writes the checkpoint and any associated data (a compact range)

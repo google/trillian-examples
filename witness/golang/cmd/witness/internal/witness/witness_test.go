@@ -29,33 +29,21 @@ import (
 )
 
 var (
-	initChkpt = Chkpt{
-		Size: 5,
-		Raw:  []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n"),
-	}
-	newChkpt = Chkpt{
-		Size: 8,
-		Raw:  []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n"),
-	}
+	initChkpt = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n")
+	newChkpt  = []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n")
 	consProof = [][]byte{
 		dh("b9e1d62618f7fee8034e4c5010f727ab24d8e4705cb296c374bf2025a87a10d2", 32),
 		dh("aac66cd7a79ce4012d80762fe8eec3a77f22d1ca4145c3f4cee022e7efcd599d", 32),
 		dh("89d0f753f66a290c483b39cd5e9eafb12021293395fad3d4a2ad053cfbcfdc9e", 32),
 		dh("29e40bb79c966f4c6fe96aff6f30acfce5f3e8d84c02215175d6e018a5dee833", 32),
 	}
-	crInitChkpt = Chkpt{
-		Size: 10,
-		Raw:  []byte("Log Checkpoint v0\n10\ne/S4liN8tioogdwxlCaXdQBb/5bxM9AWKA0bcZa9TXw=\n"),
-	}
+	crInitChkpt = []byte("Log Checkpoint v0\n10\ne/S4liN8tioogdwxlCaXdQBb/5bxM9AWKA0bcZa9TXw=\n")
 	crInitRange = [][]byte{
 		dh("4e856ea495cf591cefb9eff66b311b2d5ec1d0901b8026909f88a3f126d9db11", 32),
 		dh("3a357a5ff22c69641ff59c08ca67ccabdefdf317476501db8cafc73ebb5ff547", 32),
 	}
-	crNewChkpt = Chkpt{
-		Size: 15,
-		Raw:  []byte("Log Checkpoint v0\n15\nsrKoB8sjvP1QAt1Ih3nqGHzjvmtRLs/geQdehrUHvqs=\n"),
-	}
-	crProof = [][]byte{
+	crNewChkpt = []byte("Log Checkpoint v0\n15\nsrKoB8sjvP1QAt1Ih3nqGHzjvmtRLs/geQdehrUHvqs=\n")
+	crProof    = [][]byte{
 		dh("ef626e0b64023948e57f34674c2574b3078c5af59a2faa095f4948736e8ca52e", 32),
 		dh("8f75f7d88d3679ac6dd5a68a81215bfbeafe8c566b93013bbc82e64295628c8b", 32),
 		dh("e034fb7af8223063c1c299ed91c11a0bc4cec15afd75e2abe4bb54c14d921ef0", 32),
@@ -185,7 +173,7 @@ func TestGetLogs(t *testing.T) {
 					PK:         logPK,
 					useCompact: false,
 				}
-				signed, err := signChkpts(logSK, []string{string(initChkpt.Raw)})
+				signed, err := signChkpts(logSK, []string{string(initChkpt)})
 				if err != nil {
 					t.Fatalf("couldn't sign checkpoint: %v", err)
 				}
@@ -222,20 +210,20 @@ func TestGetChkpt(t *testing.T) {
 		desc      string
 		setID     string
 		queryID   string
-		c         *Chkpt
+		c         []byte
 		wantThere bool
 	}{
 		{
 			desc:      "happy path",
 			setID:     "testlog",
 			queryID:   "testlog",
-			c:         &initChkpt,
+			c:         initChkpt,
 			wantThere: true,
 		}, {
 			desc:      "other log",
 			setID:     "testlog",
 			queryID:   "otherlog",
-			c:         &initChkpt,
+			c:         initChkpt,
 			wantThere: false,
 		}, {
 			desc:      "nothing there",
@@ -255,11 +243,11 @@ func TestGetChkpt(t *testing.T) {
 				t.Errorf("couldn't generate log keys: %v", err)
 			}
 			if test.c != nil {
-				signed, err := signChkpts(logSK, []string{string(test.c.Raw)})
+				signed, err := signChkpts(logSK, []string{string(test.c)})
 				if err != nil {
 					t.Fatalf("couldn't sign checkpoint: %v", err)
 				}
-				test.c.Raw = signed[0]
+				test.c = signed[0]
 			}
 			// Set up witness keys and other parameters.
 			wSK, wPK, err := note.GenerateKey(rand.Reader, "witness")
@@ -279,7 +267,7 @@ func TestGetChkpt(t *testing.T) {
 			}
 			// Set a checkpoint for the log if we want to for this test.
 			if test.c != nil {
-				if _, err := w.Update(ctx, test.setID, test.c.Raw, [][]byte{}); err != nil {
+				if _, err := w.Update(ctx, test.setID, test.c, [][]byte{}); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
@@ -316,25 +304,28 @@ func TestGetChkpt(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	for _, test := range []struct {
-		desc   string
-		initC  Chkpt
-		newC   Chkpt
-		pf     [][]byte
-		useCR  bool
-		initCR [][]byte
-		isGood bool
+		desc     string
+		initC    []byte
+		initSize uint64
+		newC     []byte
+		pf       [][]byte
+		useCR    bool
+		initCR   [][]byte
+		isGood   bool
 	}{
 		{
-			desc:   "vanilla consistency happy path",
-			initC:  initChkpt,
-			newC:   newChkpt,
-			pf:     consProof,
-			useCR:  false,
-			isGood: true,
+			desc:     "vanilla consistency happy path",
+			initC:    initChkpt,
+			initSize: 5,
+			newC:     newChkpt,
+			pf:       consProof,
+			useCR:    false,
+			isGood:   true,
 		}, {
-			desc:  "vanilla consistency garbage proof",
-			initC: initChkpt,
-			newC:  newChkpt,
+			desc:     "vanilla consistency garbage proof",
+			initC:    initChkpt,
+			initSize: 5,
+			newC:     newChkpt,
 			pf: [][]byte{
 				dh("aaaa", 2),
 				dh("bbbb", 2),
@@ -343,17 +334,19 @@ func TestUpdate(t *testing.T) {
 			},
 			isGood: false,
 		}, {
-			desc:   "compact range happy path",
-			initC:  crInitChkpt,
-			newC:   crNewChkpt,
-			pf:     crProof,
-			useCR:  true,
-			initCR: crInitRange,
-			isGood: true,
+			desc:     "compact range happy path",
+			initC:    crInitChkpt,
+			initSize: 10,
+			newC:     crNewChkpt,
+			pf:       crProof,
+			useCR:    true,
+			initCR:   crInitRange,
+			isGood:   true,
 		}, {
-			desc:  "compact range garbage proof",
-			initC: crInitChkpt,
-			newC:  crNewChkpt,
+			desc:     "compact range garbage proof",
+			initC:    crInitChkpt,
+			initSize: 10,
+			newC:     crNewChkpt,
 			pf: [][]byte{
 				dh("aaaa", 2),
 				dh("bbbb", 2),
@@ -375,27 +368,27 @@ func TestUpdate(t *testing.T) {
 			if err != nil {
 				t.Errorf("couldn't generate log keys: %v", err)
 			}
-			signed, err := signChkpts(logSK, []string{string(test.initC.Raw), string(test.newC.Raw)})
+			signed, err := signChkpts(logSK, []string{string(test.initC), string(test.newC)})
 			if err != nil {
 				t.Fatalf("couldn't sign checkpoint: %v", err)
 			}
-			test.initC.Raw = signed[0]
-			test.newC.Raw = signed[1]
+			test.initC = signed[0]
+			test.newC = signed[1]
 			// Set up witness.
 			w := newWitness(t, d, []LogOpts{{ID: logID,
 				PK:         logPK,
 				useCompact: test.useCR}})
 			// Set an initial checkpoint for the log.
-			if _, err := w.Update(ctx, logID, test.initC.Raw, test.initCR); err != nil {
+			if _, err := w.Update(ctx, logID, test.initC, test.initCR); err != nil {
 				t.Errorf("failed to set checkpoint: %v", err)
 			}
 			// Now update from this checkpoint to a newer one.
-			size, err := w.Update(ctx, logID, test.newC.Raw, test.pf)
+			size, err := w.Update(ctx, logID, test.newC, test.pf)
 			if test.isGood {
 				if err != nil {
 					t.Fatalf("can't update to new checkpoint: %v", err)
 				}
-				if size != test.initC.Size {
+				if size != test.initSize {
 					t.Fatal("witness returned the wrong size in updating")
 				}
 			} else {

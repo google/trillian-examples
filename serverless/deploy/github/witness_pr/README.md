@@ -7,6 +7,31 @@ log checkpoints it has seen.
 This action would be used by a serverless log which was participating in an ecosystem
 with non-addressable witnesses.
 
+## Overview
+
+The serverless log creates a `checkpoint` file as part of the integration step, this file
+is signed by the log and commits to the contents of the log at the point at which it was
+created.
+
+Witnesses are entities which work to help prevent the possibility of a log undertaking an
+undetected split-view attack, they do this by verifying consistency of the log checkpoints
+they see, and cosigning those they find to be consistent.
+Entities which rely on the contents of the log can thereby trust that the view of the log
+_they_ see has also been seen by _at least_ the set of witnesses which have cosigned the
+checkpoint they hold.
+
+In order to facilitate the distribution of cosigned checkpoints, witnesses can return their
+cosigned checkpoints to the log, which in turn can serve them alongside the original `checkpoint`.
+Since the checkpoint signature format supports multiple signatures, the log can coalesce
+signatures on a given checkpoint from multiple witnesses into a single file: `checkpoint.witnessed`.
+
+Note that at any given time, `checkpoint.witnessed` may represent a checkpoint which is
+equivalent to `checkpoint`, or may represent an _earlier_ checkpoint (e.g. if the log has
+just issued a new `checkpoint` and there have been no witness submissions for it as yet).
+
+For more details on witnessing strategies as well as witness implementation(s), see the
+[witness](github.com/google/trillian-examples/witness) package.
+
 ## Operation
 
 The `witness_pr` action requires a copy of the PR branch, as well as a pristine checkout of
@@ -66,7 +91,7 @@ jobs:
     # Attempt to combine the signatures on the checkpoint in the PR with the log's latest checkpoint/checkpoint.witnessed file
     - name: Validate and combine
       id: validate_combine
-      uses: AlCutter/trillian-examples/serverless/deploy/github/witness_pr@serverless_recipe_witness_pr
+      uses: google/trillian-examples/serverless/deploy/github/witness_pr@master
       with:
         log_dir: './log'
         pr_repo_root: 'pr'

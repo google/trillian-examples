@@ -25,10 +25,26 @@ EOF
   exit 1
 }
 
+function checkExist() {
+  local missing=()
+  for i in $*; do
+    if ! type ${i} &> /dev/null; then
+      missing+=("${i}")
+    fi
+  done
+  if [ ! -z ${missing} ]; then
+    echo "Please install the following tool(s) in a location on the PATH:"
+    echo "${missing[@]}"
+    exit 1
+  fi
+}
+
 function main() {
   if [ $# -ne 4 ]; then
     usage
   fi
+  checkExist git gh
+
   local log_repo=${1}
   local witness_repo=${2}
   local log_path=${3}

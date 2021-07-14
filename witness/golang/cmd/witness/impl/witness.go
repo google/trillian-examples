@@ -40,9 +40,9 @@ type LogConfig struct {
 // strategy, and public key.
 type LogInfo struct {
 	LogID        string `json:"logID"`
-	HashStrategy string `json:"hashstrategy"`
-	PubKey       string `json:"pubkey"`
-	UseCompact   bool   `json:"usecompact"`
+	HashStrategy string `json:"hashStrategy"`
+	PubKey       string `json:"pubKey"`
+	UseCompact   bool   `json:"useCompact"`
 }
 
 // The options for a server (specified in main.go).

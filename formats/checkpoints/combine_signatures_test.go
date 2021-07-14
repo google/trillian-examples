@@ -172,6 +172,37 @@ func TestCombine(t *testing.T) {
 	}
 }
 
+func TestCombineReturnsStableOrdering(t *testing.T) {
+	logS, logV := genKeyPair(t, "log")
+	wit1S, wit1V := genKeyPair(t, "w1")
+	wit2S, wit2V := genKeyPair(t, "w2")
+	wit3S, wit3V := genKeyPair(t, "w3")
+	witnessSigVs := note.VerifierList(wit1V, wit2V, wit3V)
+
+	cps := [][]byte{
+		newCP(t, "body", logS, wit1S, wit2S, wit3S),
+		newCP(t, "body", logS),
+	}
+	cp, err := Combine(cps, logV, witnessSigVs)
+	if err != nil {
+		t.Fatalf("Failed to combine sigs: %v", err)
+	}
+	n, err := note.Open(cp, note.VerifierList(logV, wit1V, wit2V, wit3V))
+	if err != nil {
+		t.Fatalf("Failed to re-open note: %v", err)
+	}
+
+	if n.Sigs[0].Name != logV.Name() {
+		t.Fatalf("Got signature from %q at 0, want %q", n.Sigs[0].Name, logV.Name())
+	}
+	// Start at index 1 since index 0 should be the log signature
+	for i := 1; i < len(n.Sigs)-1; i++ {
+		if ih, jh := n.Sigs[i].Hash, n.Sigs[i+1].Hash; ih > jh {
+			t.Fatalf("Found out-of-order signature: index %d (%x) > index %d (%x)", i, ih, i+1, jh)
+		}
+	}
+}
+
 func newCP(t *testing.T, body string, sigs ...note.Signer) []byte {
 	ret, err := note.Sign(&note.Note{Text: body + "\n"}, sigs...)
 	if err != nil {

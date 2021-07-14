@@ -17,12 +17,16 @@ package checkpoints
 
 import (
 	"fmt"
+	"sort"
 
 	"golang.org/x/mod/sumdb/note"
 )
 
 // Combine returns a checkpoint with the union of all signatures on the provided checkpoints from known witnesses.
 // Signatures from unknown witnesses are discarded.
+//
+// Combined signatures will always be ordered with the log signature first, followed by
+// witness signatures ordered by their key hash (ascending).
 //
 // All cps:
 //  - MUST contain identical checkpoint bodies
@@ -73,6 +77,16 @@ func Combine(cps [][]byte, logSigV note.Verifier, witSigVs note.Verifiers) ([]by
 	for _, s := range sigs {
 		ret.Sigs = append(ret.Sigs, s)
 	}
+	sort.Slice(ret.Sigs, func(i, j int) bool {
+		// The log key is always first
+		if ret.Sigs[i].Hash == logSigV.KeyHash() {
+			return true
+		}
+		if ret.Sigs[j].Hash == logSigV.KeyHash() {
+			return false
+		}
 
+		return ret.Sigs[i].Hash < ret.Sigs[j].Hash
+	})
 	return note.Sign(ret)
 }

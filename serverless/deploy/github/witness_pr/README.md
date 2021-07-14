@@ -9,7 +9,7 @@ with non-addressable witnesses.
 
 ## Overview
 
-The serverless log creates a `checkpoint` file as part of the integration step, this file
+The serverless log creates a `checkpoint` file as part of the integration step. This file
 is signed by the log and commits to the contents of the log at the point at which it was
 created.
 

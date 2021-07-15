@@ -49,7 +49,7 @@ func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, bat
 			out:        rangeChans[i],
 			errc:       errc,
 			batchFetch: batchFetch,
-		}.run()
+		}.run(ctx)
 	}
 
 	// Perpetually round-robin through the sharded ranges.
@@ -81,13 +81,18 @@ type fetchWorker struct {
 	batchFetch       BatchFetch
 }
 
-func (w fetchWorker) run() {
+func (w fetchWorker) run(ctx context.Context) {
 	// TODO(mhutchinson): Consider some way to reset this after intermittent connectivity issue.
 	// If this is pushed in the loop then it fixes this issue, but at the cost that the worker
 	// will never reach a stable rate if it is asked to back off. This is optimized for being
 	// gentle to the logs, which is a reasonable default for a happy ecosystem.
 	bo := backoff.NewExponentialBackOff()
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		leaves := make([][]byte, w.count)
 		var c leafRange
 		operation := func() error {

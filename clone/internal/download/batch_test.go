@@ -39,7 +39,7 @@ func TestFetchWorkerRun(t *testing.T) {
 		batchFetch: fakeFetch,
 	}
 
-	go fw.run()
+	go fw.run(context.Background())
 
 	for i := 0; i < 10; i++ {
 		select {

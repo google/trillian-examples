@@ -108,6 +108,11 @@ main() {
         -timeout=${GO_TEST_TIMEOUT:-5m} \
         ./...
     fi
+
+    echo "builing serverless actions"
+    for i in $(find serverless/deploy/github -name Dockerfile); do
+      docker build -f "${i}" "$(dirname ${i})"
+    done
   fi
 
   if [[ "${run_lint}" -eq 1 ]]; then

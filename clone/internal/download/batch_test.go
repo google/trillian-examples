@@ -95,13 +95,15 @@ func TestBulkCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	go Bulk(ctx, first, fakeFetch, workers, batchSize, leafc, errc)
-	cancel()
 
 	seen := 0
 	for i := 0; i < 1000; i++ {
 		select {
 		case <-leafc:
 			seen++
+			if seen == 10 {
+				cancel()
+			}
 			continue
 		case <-errc:
 		}
@@ -110,6 +112,7 @@ func TestBulkCancelled(t *testing.T) {
 	if seen == 1000 {
 		t.Error("Expected cancellation to prevent all leaves being read")
 	}
+	cancel()
 }
 
 func BenchmarkBulk(b *testing.B) {

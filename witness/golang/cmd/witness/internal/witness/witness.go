@@ -39,13 +39,14 @@ type Opts struct {
 	KnownLogs map[string]LogInfo
 }
 
-// LogInfo contains the information needed to verify the signatures of a given
-// log, the hash strategy that should be used for verifying its consistency, and
-// a boolean indicating if the log should be verified using consistency proofs or
-// compact ranges.
+// LogInfo contains the information needed to verify log checkpoints.
 type LogInfo struct {
-	SigVs      []note.Verifier
-	Hasher     hashers.LogHasher
+	// The verifier for signatures from the log.
+	SigVs []note.Verifier
+	// The hash strategy that should be used in verifying consistency.
+	Hasher hashers.LogHasher
+	// An indicator of whether the log should be verified using consistency
+	// proofs or compact ranges.
 	UseCompact bool
 }
 
@@ -89,11 +90,11 @@ func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify checkpoint: %v", err)
 	}
-	chkpt := &log.Checkpoint{}
-	if _, err := chkpt.Unmarshal([]byte(n.Text)); err != nil {
+	c := &log.Checkpoint{}
+	if _, err := c.Unmarshal([]byte(n.Text)); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal new checkpoint: %v", err)
 	}
-	return chkpt, nil
+	return c, nil
 }
 
 // GetLogs returns a list of all logs the witness is aware of.
@@ -143,10 +144,10 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 	return cosigned, nil
 }
 
-// Update updates the latest checkpoint if chkptRaw is consistent with the current
+// Update updates the latest checkpoint if nextRaw is consistent with the current
 // latest one for this log. It returns the latest checkpoint size before the
 // update was applied (or just what was fetched if the update was unsuccessful).
-func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, proof [][]byte) (uint64, error) {
+func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proof [][]byte) (uint64, error) {
 	// If we don't witness this log then no point in going further.
 	logInfo, ok := w.Logs[logID]
 	if !ok {
@@ -154,7 +155,7 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 	}
 	// Check the signatures on the raw checkpoint and parse it
 	// into the log.Checkpoint format.
-	chkptNew, err := w.parse(chkptRaw, logID)
+	next, err := w.parse(nextRaw, logID)
 	if err != nil {
 		return 0, err
 	}
@@ -166,7 +167,7 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 		return 0, fmt.Errorf("couldn't create tx: %v", err)
 	}
 	// Get the latest checkpoint and compact range (if one exists).
-	latestRaw, rangeRaw, err := w.getLatestChkptData(tx.QueryRow, logID)
+	prevRaw, rangeRaw, err := w.getLatestChkptData(tx.QueryRow, logID)
 	if err != nil {
 		// If there was nothing stored already then treat this new
 		// checkpoint as trust-on-first-use.
@@ -176,67 +177,64 @@ func (w *Witness) Update(ctx context.Context, logID string, chkptRaw []byte, pro
 			// input checkpoint.
 			if logInfo.UseCompact {
 				rf := compact.RangeFactory{Hash: logInfo.Hasher.HashChildren}
-				rng, err := rf.NewRange(0, chkptNew.Size, proof)
+				rng, err := rf.NewRange(0, next.Size, proof)
 				if err != nil {
 					return 0, fmt.Errorf("can't form compact range: %v", err)
 				}
-				if err := w.verifyRangeHash(chkptNew.Hash, rng); err != nil {
+				if err := verifyRangeHash(next.Hash, rng); err != nil {
 					return 0, fmt.Errorf("input root hash doesn't verify: %v", err)
 				}
-				rangeRaw := []byte(log.Proof(proof).Marshal())
-				return 0, w.setChkptData(tx, logID, chkptRaw, rangeRaw)
+				r := []byte(log.Proof(proof).Marshal())
+				return 0, w.setChkptData(tx, logID, nextRaw, r)
 			}
-			return 0, w.setChkptData(tx, logID, chkptRaw, nil)
+			// If we're not using compact ranges no need to store one.
+			return 0, w.setChkptData(tx, logID, nextRaw, nil)
 		}
 		return 0, fmt.Errorf("Update: %w", err)
 	}
 	// Parse the raw checkpoint into the log.Checkpoint format.
-	chkptOld, err := w.parse(latestRaw, logID)
+	prev, err := w.parse(prevRaw, logID)
 	if err != nil {
 		return 0, fmt.Errorf("couldn't parse stored checkpoint: %v", err)
 	}
 	// Parse the compact range if we're using one.
-	var curRange log.Proof
+	var prevRange log.Proof
 	if logInfo.UseCompact {
-		if err := curRange.Unmarshal(rangeRaw); err != nil {
+		if err := prevRange.Unmarshal(rangeRaw); err != nil {
 			return 0, fmt.Errorf("couldn't unmarshal proof: %v", err)
 		}
 	}
-	switch {
-	case chkptNew.Size < chkptOld.Size:
-		// Complain if old checkpoint is bigger than new one.
-		return chkptOld.Size, fmt.Errorf("cannot prove consistency backwards (%d < %d)", chkptNew.Size, chkptOld.Size)
-	case chkptNew.Size > chkptOld.Size:
-		// Potentially a valid update, use either plain consistency proofs
-		// or compact ranges to verify, depending on the log.
-		switch {
-		case logInfo.UseCompact:
-			newRange, err := w.verifyRange(chkptNew, chkptOld, logInfo.Hasher, curRange, proof)
-			if err != nil {
-				return chkptOld.Size, fmt.Errorf("failed to verify compact range: %v", err)
-			}
-			// If the proof is good store chkptRaw and the new range.
-			rangeRaw := []byte(log.Proof(newRange).Marshal())
-			return chkptOld.Size, w.setChkptData(tx, logID, chkptRaw, rangeRaw)
-		// Plain consistency proofs are the default.
-		default:
-			logV := logverifier.New(logInfo.Hasher)
-			if err := logV.VerifyConsistencyProof(int64(chkptOld.Size), int64(chkptNew.Size), chkptOld.Hash, chkptNew.Hash, proof); err != nil {
-				// Complain if the checkpoints aren't consistent.
-				return chkptOld.Size, fmt.Errorf("failed to verify consistency proof: %v", err)
-			}
-			// If the consistency proof is good we store chkptRaw.
-			return chkptOld.Size, w.setChkptData(tx, logID, chkptRaw, nil)
-		}
-	case chkptNew.Size == chkptOld.Size:
-		if !bytes.Equal(chkptNew.Hash, chkptOld.Hash) {
-			return chkptOld.Size, fmt.Errorf("checkpoint for same size log with differing hash (got %x, have %x)", chkptNew.Hash, chkptOld.Hash)
-		}
-		// If it's identical to the latest do nothing.
-		return chkptOld.Size, nil
-	default:
-		panic("unreachable")
+	if next.Size < prev.Size {
+		// Complain if prev is bigger than next.
+		return prev.Size, fmt.Errorf("cannot prove consistency backwards (%d < %d)", next.Size, prev.Size)
 	}
+	if next.Size == prev.Size {
+		if !bytes.Equal(next.Hash, prev.Hash) {
+			return prev.Size, fmt.Errorf("checkpoint for same size log with differing hash (got %x, have %x)", next.Hash, prev.Hash)
+		}
+		// If it's identical to the previous one do nothing.
+		return prev.Size, nil
+	}
+	// The only remaining option is next.Size > prev.Size. This might be
+	// valid so we use either plain consistency proofs or compact ranges to
+	// verify, depending on the log.
+	if logInfo.UseCompact {
+		nextRange, err := verifyRange(next, prev, logInfo.Hasher, prevRange, proof)
+		if err != nil {
+			return 0, fmt.Errorf("failed to verify compact range: %v", err)
+		}
+		// If the proof is good store nextRaw and the new range.
+		r := []byte(log.Proof(nextRange).Marshal())
+		return prev.Size, w.setChkptData(tx, logID, nextRaw, r)
+	}
+	// If we're not using compact ranges then use consistency proofs.
+	logV := logverifier.New(logInfo.Hasher)
+	if err := logV.VerifyConsistencyProof(int64(prev.Size), int64(next.Size), prev.Hash, next.Hash, proof); err != nil {
+		// Complain if the checkpoints aren't consistent.
+		return prev.Size, fmt.Errorf("failed to verify consistency proof: %v", err)
+	}
+	// If the consistency proof is good we store nextRaw.
+	return prev.Size, w.setChkptData(tx, logID, nextRaw, nil)
 }
 
 // getLatestChkptData returns the raw stored data for the latest checkpoint and
@@ -246,45 +244,44 @@ func (w *Witness) getLatestChkptData(queryRow func(query string, args ...interfa
 	if err := row.Err(); err != nil {
 		return nil, nil, err
 	}
-	var rawChkpt []byte
-	var rawPf []byte
-	if err := row.Scan(&rawChkpt, &rawPf); err != nil {
+	var chkpt []byte
+	var pf []byte
+	if err := row.Scan(&chkpt, &pf); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil, status.Errorf(codes.NotFound, "no checkpoint for log %q", logID)
 		}
 		return nil, nil, err
 	}
-	return rawChkpt, rawPf, nil
+	return chkpt, pf, nil
 }
 
 // verifyRange verifies the new checkpoint against the stored and given compact
-// range and outputs the new compact range if verification succeeds.
-func (w *Witness) verifyRange(chkptNew *log.Checkpoint, chkptOld *log.Checkpoint, h hashers.LogHasher, curRangeRaw [][]byte, newRangeRaw [][]byte) ([][]byte, error) {
+// range and outputs the updated compact range if verification succeeds.
+func verifyRange(next *log.Checkpoint, prev *log.Checkpoint, h hashers.LogHasher, rngRaw [][]byte, deltaRaw [][]byte) ([][]byte, error) {
 	rf := compact.RangeFactory{Hash: h.HashChildren}
-	curRange, err := rf.NewRange(0, chkptOld.Size, curRangeRaw)
+	rng, err := rf.NewRange(0, prev.Size, rngRaw)
 	if err != nil {
 		return nil, fmt.Errorf("can't form current compact range: %v", err)
 	}
-	// As a sanity check, make sure the old checkpoint is consistent with
-	// the current range.
-	if err := w.verifyRangeHash(chkptOld.Hash, curRange); err != nil {
+	// As a sanity check, make sure the stored checkpoint and range are consistent.
+	if err := verifyRangeHash(prev.Hash, rng); err != nil {
 		return nil, fmt.Errorf("old root hash doesn't verify: %v", err)
 	}
-	newRange, err := rf.NewRange(chkptOld.Size, chkptNew.Size, newRangeRaw)
+	delta, err := rf.NewRange(prev.Size, next.Size, deltaRaw)
 	if err != nil {
-		return nil, fmt.Errorf("can't form new compact range: %v", err)
+		return nil, fmt.Errorf("can't form delta compact range: %v", err)
 	}
-	// Merge the new range into the existing one and compare root hashes.
-	curRange.AppendRange(newRange, nil)
-	if err := w.verifyRangeHash(chkptNew.Hash, curRange); err != nil {
+	// Merge the delta range into the existing one and compare root hashes.
+	rng.AppendRange(delta, nil)
+	if err := verifyRangeHash(next.Hash, rng); err != nil {
 		return nil, fmt.Errorf("new root hash doesn't verify: %v", err)
 	}
-	return curRange.Hashes(), nil
+	return rng.Hashes(), nil
 }
 
 // verifyRangeHash computes the root hash of the compact range and compares it
 // against the one given as input, returning an error if they aren't equal.
-func (w *Witness) verifyRangeHash(rootHash []byte, rng *compact.Range) error {
+func verifyRangeHash(rootHash []byte, rng *compact.Range) error {
 	h, err := rng.GetRootHash(nil)
 	if err != nil {
 		return fmt.Errorf("can't get root hash for range: %v", err)

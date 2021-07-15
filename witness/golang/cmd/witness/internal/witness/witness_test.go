@@ -167,7 +167,7 @@ func TestGetLogs(t *testing.T) {
 			for i, logID := range test.logIDs {
 				logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
 				if err != nil {
-					t.Errorf("couldn't generate log keys: %v", err)
+					t.Fatalf("couldn't generate log keys: %v", err)
 				}
 				logs[i] = LogOpts{ID: logID,
 					PK:         logPK,
@@ -183,7 +183,7 @@ func TestGetLogs(t *testing.T) {
 			w := newWitness(t, d, logs)
 			// Update to a checkpoint for all logs.
 			for i, logID := range test.logIDs {
-				if _, err := w.Update(ctx, logID, chkpts[i], [][]byte{}); err != nil {
+				if _, err := w.Update(ctx, logID, chkpts[i], nil); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
@@ -240,7 +240,7 @@ func TestGetChkpt(t *testing.T) {
 			// Set up log keys and sign checkpoint.
 			logSK, logPK, err := note.GenerateKey(rand.Reader, test.setID)
 			if err != nil {
-				t.Errorf("couldn't generate log keys: %v", err)
+				t.Fatalf("couldn't generate log keys: %v", err)
 			}
 			if test.c != nil {
 				signed, err := signChkpts(logSK, []string{string(test.c)})
@@ -252,14 +252,14 @@ func TestGetChkpt(t *testing.T) {
 			// Set up witness keys and other parameters.
 			wSK, wPK, err := note.GenerateKey(rand.Reader, "witness")
 			if err != nil {
-				t.Errorf("couldn't generate witness keys: %v", err)
+				t.Fatalf("couldn't generate witness keys: %v", err)
 			}
 			opts, err := newOpts(d, []LogOpts{{ID: test.setID,
 				PK:         logPK,
 				useCompact: false,
 			}}, wSK)
 			if err != nil {
-				t.Errorf("couldn't create witness opts: %v", err)
+				t.Fatalf("couldn't create witness opts: %v", err)
 			}
 			w, err := New(opts)
 			if err != nil {
@@ -267,7 +267,7 @@ func TestGetChkpt(t *testing.T) {
 			}
 			// Set a checkpoint for the log if we want to for this test.
 			if test.c != nil {
-				if _, err := w.Update(ctx, test.setID, test.c, [][]byte{}); err != nil {
+				if _, err := w.Update(ctx, test.setID, test.c, nil); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
@@ -284,15 +284,15 @@ func TestGetChkpt(t *testing.T) {
 				}
 				wV, err := note.NewVerifier(wPK)
 				if err != nil {
-					t.Errorf("couldn't create a witness verifier: %v", err)
+					t.Fatalf("couldn't create a witness verifier: %v", err)
 				}
 				logV, err := note.NewVerifier(logPK)
 				if err != nil {
-					t.Errorf("couldn't create a log verifier: %v", err)
+					t.Fatalf("couldn't create a log verifier: %v", err)
 				}
 				n, err := note.Open(cosigned, note.VerifierList(logV, wV))
 				if err != nil {
-					t.Errorf("couldn't verify the co-signed checkpoint: %v", err)
+					t.Fatalf("couldn't verify the co-signed checkpoint: %v", err)
 				}
 				if len(n.Sigs) != 2 {
 					t.Fatalf("checkpoint doesn't verify under enough keys")
@@ -321,6 +321,14 @@ func TestUpdate(t *testing.T) {
 			pf:       consProof,
 			useCR:    false,
 			isGood:   true,
+		}, {
+			desc:     "vanilla consistency smaller checkpoint",
+			initC:    initChkpt,
+			initSize: 5,
+			newC:     []byte("Log Checkpoint v0\n4\nhashhashhash\n"),
+			pf:       consProof,
+			useCR:    false,
+			isGood:   false,
 		}, {
 			desc:     "vanilla consistency garbage proof",
 			initC:    initChkpt,
@@ -366,7 +374,7 @@ func TestUpdate(t *testing.T) {
 			logID := "testlog"
 			logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
 			if err != nil {
-				t.Errorf("couldn't generate log keys: %v", err)
+				t.Fatalf("couldn't generate log keys: %v", err)
 			}
 			signed, err := signChkpts(logSK, []string{string(test.initC), string(test.newC)})
 			if err != nil {

@@ -70,6 +70,7 @@ function check_git() {
 
 function sleep_or_exit() {
   if [[ "${1}" != "" ]]; then
+    echo "Sleeping ${1}"
     sleep "${1}"
   else
     exit 0
@@ -113,9 +114,9 @@ function main() {
   git remote add upstream "https://github.com/${log_repo}.git"
   git fetch --all
   git branch -u upstream/master
+  echo "[Starting feeding]---------------------------------------------------"
 
   while true; do
-    echo "--------------------------------------------------------------------"
     git pull
 
     # Run the feeder to gather new signatures
@@ -125,31 +126,34 @@ function main() {
     # Create a witness PR if necessary
     cd "${temp}"
 
-    if [ -z "$(git diff --no-patch --stat | grep addition)" ]; then
+    local diff_stats=$(git diff --numstat | grep "checkpoint.witnessed")
+    local added=$(echo "${diff_stats}" | awk -- '{print $1}')
+
+    # If we've added a signature, or updated the checkpoint from the previously witnessed one, we should
+    # see some added lines reported in the stats.
+    if [[ "${added}" -eq "0" ]]; then
       echo "No signatures added"
       sleep_or_exit ${interval}
       continue
     fi
 
+    local cp_size="$(sed -n 2p ${log_path}/checkpoint.witnessed)"
+    local cp_hash="$(sed -n 3p ${log_path}/checkpoint.witnessed)"
+    local branch="witness_${cp_hash}"
 
-    local size="$(sed -n 2p ${log_path}/checkpoint.witnessed)"
-    local hash="$(sed -n 3p ${log_path}/checkpoint.witnessed)"
-    local branch="witness_${hash}"
-
-    git stash
-    git checkout -b "${branch}"
-    git stash pop
-
+    git stash > /dev/null
+    git checkout -b "${branch}" > /dev/null
+    git stash pop > /dev/null
 
     git commit -a -m "Witness checkpoint@${size}"
     git push -f origin "${branch}"
-    gh pr create -R "${log_repo}" --title="Witness @ ${size}" -f --head="${fork_owner}:${branch}"
+    gh pr create -R "${log_repo}" --title="Witness @ ${cp_size}" -f --head="${fork_owner}:${branch}"
 
     git checkout master
     git branch -D ${branch}
 
+    echo "[Feed cycle complete]------------------------------------------------"
     sleep_or_exit ${interval}
-    echo "--------------------------------------------------------------------"
   done
 }
 

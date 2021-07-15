@@ -16,6 +16,7 @@
 package download
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -31,8 +32,7 @@ type BatchFetch func(start uint64, leaves [][]byte) error
 // The number of workers and the batch size to use for each of the fetch requests are also specified.
 // The resulting leaves are returned in order over `leafChan`, and any terminal errors are returned via `errc`.
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
-// TODO(mhutchinson): Pass in a context and check for termination so we can gracefully exit.
-func Bulk(first uint64, batchFetch BatchFetch, workers, batchSize uint, leafChan chan<- []byte, errc chan<- error) {
+func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, batchSize uint, leafChan chan<- []byte, errc chan<- error) {
 	// Each worker gets its own unbuffered channel to make sure it can only be at most one ahead.
 	// This prevents lots of wasted work happening if one shard gets stuck.
 	rangeChans := make([]chan leafRange, workers)
@@ -49,12 +49,18 @@ func Bulk(first uint64, batchFetch BatchFetch, workers, batchSize uint, leafChan
 			out:        rangeChans[i],
 			errc:       errc,
 			batchFetch: batchFetch,
-		}.run()
+		}.run(ctx)
 	}
 
+	var r leafRange
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {
-		r := <-rangeChans[i]
+		select {
+		case <-ctx.Done():
+			errc <- ctx.Err()
+			return
+		case r = <-rangeChans[i]:
+		}
 		for _, l := range r.leaves {
 			leafChan <- l
 		}
@@ -75,7 +81,7 @@ type fetchWorker struct {
 	batchFetch       BatchFetch
 }
 
-func (w fetchWorker) run() {
+func (w fetchWorker) run(ctx context.Context) {
 	// TODO(mhutchinson): Consider some way to reset this after intermittent connectivity issue.
 	// If this is pushed in the loop then it fixes this issue, but at the cost that the worker
 	// will never reach a stable rate if it is asked to back off. This is optimized for being
@@ -101,7 +107,11 @@ func (w fetchWorker) run() {
 		if err != nil {
 			w.errc <- err
 		} else {
-			w.out <- c
+			select {
+			case <-ctx.Done():
+				return
+			case w.out <- c:
+			}
 		}
 		w.start += w.increment
 	}

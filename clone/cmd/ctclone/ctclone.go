@@ -76,7 +76,7 @@ func main() {
 
 	errChan := make(chan error)
 	lc := make(chan []byte, *writeBatchSize*2)
-	go download.Bulk(next, certLeafFetcher{fetcher}.Batch, *workers, *fetchBatchSize, lc, errChan)
+	go download.Bulk(ctx, next, certLeafFetcher{fetcher}.Batch, *workers, *fetchBatchSize, lc, errChan)
 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()

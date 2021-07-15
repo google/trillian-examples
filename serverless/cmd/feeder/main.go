@@ -101,6 +101,8 @@ func main() {
 		glog.Exitf("Failed to read input checkpoint: %v", err)
 	}
 
+	glog.Infof("CP to feed:\n%s", string(cp))
+
 	wCP, err := impl.Feed(ctx, cp, opts)
 	if err != nil {
 		glog.Exitf("Feeding failed: %v", err)

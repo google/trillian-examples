@@ -52,15 +52,15 @@ func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, bat
 		}.run(ctx)
 	}
 
+	var r leafRange
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {
 		select {
 		case <-ctx.Done():
 			errc <- ctx.Err()
 			return
-		default:
+		case r = <-rangeChans[i]:
 		}
-		r := <-rangeChans[i]
 		for _, l := range r.leaves {
 			leafChan <- l
 		}
@@ -88,11 +88,6 @@ func (w fetchWorker) run(ctx context.Context) {
 	// gentle to the logs, which is a reasonable default for a happy ecosystem.
 	bo := backoff.NewExponentialBackOff()
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
 		leaves := make([][]byte, w.count)
 		var c leafRange
 		operation := func() error {
@@ -112,7 +107,11 @@ func (w fetchWorker) run(ctx context.Context) {
 		if err != nil {
 			w.errc <- err
 		} else {
-			w.out <- c
+			select {
+			case <-ctx.Done():
+				return
+			case w.out <- c:
+			}
 		}
 		w.start += w.increment
 	}

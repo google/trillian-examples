@@ -19,33 +19,42 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"sort"
 	"testing"
 
-	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
 )
 
 var (
-	initChkpt = Chkpt{
-		Size: 5,
-		Raw:  []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n"),
-	}
-	newChkpt = Chkpt{
-		Size: 8,
-		Raw:  []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n"),
-	}
+	initChkpt = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n")
+	newChkpt  = []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n")
 	consProof = [][]byte{
 		dh("b9e1d62618f7fee8034e4c5010f727ab24d8e4705cb296c374bf2025a87a10d2", 32),
 		dh("aac66cd7a79ce4012d80762fe8eec3a77f22d1ca4145c3f4cee022e7efcd599d", 32),
 		dh("89d0f753f66a290c483b39cd5e9eafb12021293395fad3d4a2ad053cfbcfdc9e", 32),
 		dh("29e40bb79c966f4c6fe96aff6f30acfce5f3e8d84c02215175d6e018a5dee833", 32),
 	}
+	crInitChkpt = []byte("Log Checkpoint v0\n10\ne/S4liN8tioogdwxlCaXdQBb/5bxM9AWKA0bcZa9TXw=\n")
+	crInitRange = [][]byte{
+		dh("4e856ea495cf591cefb9eff66b311b2d5ec1d0901b8026909f88a3f126d9db11", 32),
+		dh("3a357a5ff22c69641ff59c08ca67ccabdefdf317476501db8cafc73ebb5ff547", 32),
+	}
+	crNewChkpt = []byte("Log Checkpoint v0\n15\nsrKoB8sjvP1QAt1Ih3nqGHzjvmtRLs/geQdehrUHvqs=\n")
+	crProof    = [][]byte{
+		dh("ef626e0b64023948e57f34674c2574b3078c5af59a2faa095f4948736e8ca52e", 32),
+		dh("8f75f7d88d3679ac6dd5a68a81215bfbeafe8c566b93013bbc82e64295628c8b", 32),
+		dh("e034fb7af8223063c1c299ed91c11a0bc4cec15afd75e2abe4bb54c14d921ef0", 32),
+	}
 )
+
+type LogOpts struct {
+	ID         string
+	PK         string
+	useCompact bool
+}
 
 func signChkpts(skey string, chkpts []string) ([][]byte, error) {
 	ns, err := note.NewSigner(skey)
@@ -63,47 +72,44 @@ func signChkpts(skey string, chkpts []string) ([][]byte, error) {
 	return signed, nil
 }
 
-func newOpts(d *sql.DB, logIDs []string, logPKs []string, wSK string) (Opts, error) {
+func newOpts(d *sql.DB, logs []LogOpts, wSK string) (Opts, error) {
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
 		return Opts{}, fmt.Errorf("newOpts: couldn't create a note signer: %v", err)
 	}
-	if len(logIDs) != len(logPKs) {
-		return Opts{}, errors.New("newOpts: mismatched number of ids and keys")
-	}
 	h := hasher.DefaultHasher
-	logs := make(map[string]LogInfo)
-	for i, logID := range logIDs {
-		logPK := logPKs[i]
-		logV, err := note.NewVerifier(logPK)
+	logMap := make(map[string]LogInfo)
+	for _, log := range logs {
+		logV, err := note.NewVerifier(log.PK)
 		if err != nil {
 			return Opts{}, fmt.Errorf("newOpts: couldn't create a log verifier")
 		}
 		sigV := []note.Verifier{logV}
-		log := LogInfo{
-			SigVs: sigV,
-			LogV:  logverifier.New(h),
+		logInfo := LogInfo{
+			SigVs:      sigV,
+			Hasher:     h,
+			UseCompact: log.useCompact,
 		}
-		logs[logID] = log
+		logMap[log.ID] = logInfo
 	}
 	opts := Opts{
 		DB:        d,
 		Signer:    ns,
-		KnownLogs: logs,
+		KnownLogs: logMap,
 	}
 	return opts, nil
 }
 
-func newOptsAndKeys(d *sql.DB, logIDs []string, logPKs []string) (Opts, error) {
+func newOptsAndKeys(d *sql.DB, logs []LogOpts) (Opts, error) {
 	wSK, _, err := note.GenerateKey(rand.Reader, "witness")
 	if err != nil {
 		return Opts{}, fmt.Errorf("couldn't generate witness keys")
 	}
-	return newOpts(d, logIDs, logPKs, wSK)
+	return newOpts(d, logs, wSK)
 }
 
-func newWitness(t *testing.T, d *sql.DB, logIDs []string, logPKs []string) *Witness {
-	opts, err := newOptsAndKeys(d, logIDs, logPKs)
+func newWitness(t *testing.T, d *sql.DB, logs []LogOpts) *Witness {
+	opts, err := newOptsAndKeys(d, logs)
 	if err != nil {
 		t.Fatalf("couldn't create witness opt struct: %v", err)
 	}
@@ -157,39 +163,42 @@ func TestGetLogs(t *testing.T) {
 			ctx := context.Background()
 			// Set up log keys and sign checkpoints.
 			chkpts := make([][]byte, len(test.logIDs))
-			logPKs := make([]string, len(test.logIDs))
+			logs := make([]LogOpts, len(test.logIDs))
 			for i, logID := range test.logIDs {
 				logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
 				if err != nil {
-					t.Errorf("couldn't generate log keys: %v", err)
+					t.Fatalf("couldn't generate log keys: %v", err)
 				}
-				logPKs[i] = logPK
-				signed, err := signChkpts(logSK, []string{string(initChkpt.Raw)})
+				logs[i] = LogOpts{ID: logID,
+					PK:         logPK,
+					useCompact: false,
+				}
+				signed, err := signChkpts(logSK, []string{string(initChkpt)})
 				if err != nil {
 					t.Fatalf("couldn't sign checkpoint: %v", err)
 				}
 				chkpts[i] = signed[0]
 			}
 			// Set up witness.
-			w := newWitness(t, d, test.logIDs, logPKs)
+			w := newWitness(t, d, logs)
 			// Update to a checkpoint for all logs.
 			for i, logID := range test.logIDs {
-				if _, err := w.Update(ctx, logID, chkpts[i], [][]byte{}); err != nil {
+				if _, err := w.Update(ctx, logID, chkpts[i], nil); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
 			// Now see if the witness knows about these logs.
-			logs, err := w.GetLogs()
+			knownLogs, err := w.GetLogs()
 			if err != nil {
 				t.Fatalf("couldn't get logs from witness: %v", err)
 			}
-			if len(logs) != len(test.logIDs) {
-				t.Fatalf("wanted %v logs but got %v", len(test.logIDs), len(logs))
+			if len(knownLogs) != len(test.logIDs) {
+				t.Fatalf("wanted %v logs but got %v", len(test.logIDs), len(knownLogs))
 			}
-			sort.Strings(logs)
-			for i := range logs {
-				if logs[i] != test.logIDs[i] {
-					t.Fatalf("wanted %v but got %v", logs[i], test.logIDs[i])
+			sort.Strings(knownLogs)
+			for i := range knownLogs {
+				if knownLogs[i] != test.logIDs[i] {
+					t.Fatalf("wanted %v but got %v", knownLogs[i], test.logIDs[i])
 				}
 			}
 		})
@@ -201,20 +210,20 @@ func TestGetChkpt(t *testing.T) {
 		desc      string
 		setID     string
 		queryID   string
-		c         *Chkpt
+		c         []byte
 		wantThere bool
 	}{
 		{
 			desc:      "happy path",
 			setID:     "testlog",
 			queryID:   "testlog",
-			c:         &initChkpt,
+			c:         initChkpt,
 			wantThere: true,
 		}, {
 			desc:      "other log",
 			setID:     "testlog",
 			queryID:   "otherlog",
-			c:         &initChkpt,
+			c:         initChkpt,
 			wantThere: false,
 		}, {
 			desc:      "nothing there",
@@ -231,23 +240,26 @@ func TestGetChkpt(t *testing.T) {
 			// Set up log keys and sign checkpoint.
 			logSK, logPK, err := note.GenerateKey(rand.Reader, test.setID)
 			if err != nil {
-				t.Errorf("couldn't generate log keys: %v", err)
+				t.Fatalf("couldn't generate log keys: %v", err)
 			}
 			if test.c != nil {
-				signed, err := signChkpts(logSK, []string{string(test.c.Raw)})
+				signed, err := signChkpts(logSK, []string{string(test.c)})
 				if err != nil {
 					t.Fatalf("couldn't sign checkpoint: %v", err)
 				}
-				test.c.Raw = signed[0]
+				test.c = signed[0]
 			}
 			// Set up witness keys and other parameters.
 			wSK, wPK, err := note.GenerateKey(rand.Reader, "witness")
 			if err != nil {
-				t.Errorf("couldn't generate witness keys: %v", err)
+				t.Fatalf("couldn't generate witness keys: %v", err)
 			}
-			opts, err := newOpts(d, []string{test.setID}, []string{logPK}, wSK)
+			opts, err := newOpts(d, []LogOpts{{ID: test.setID,
+				PK:         logPK,
+				useCompact: false,
+			}}, wSK)
 			if err != nil {
-				t.Errorf("couldn't create witness opts: %v", err)
+				t.Fatalf("couldn't create witness opts: %v", err)
 			}
 			w, err := New(opts)
 			if err != nil {
@@ -255,7 +267,7 @@ func TestGetChkpt(t *testing.T) {
 			}
 			// Set a checkpoint for the log if we want to for this test.
 			if test.c != nil {
-				if _, err := w.Update(ctx, test.setID, test.c.Raw, [][]byte{}); err != nil {
+				if _, err := w.Update(ctx, test.setID, test.c, nil); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
@@ -272,15 +284,15 @@ func TestGetChkpt(t *testing.T) {
 				}
 				wV, err := note.NewVerifier(wPK)
 				if err != nil {
-					t.Errorf("couldn't create a witness verifier: %v", err)
+					t.Fatalf("couldn't create a witness verifier: %v", err)
 				}
 				logV, err := note.NewVerifier(logPK)
 				if err != nil {
-					t.Errorf("couldn't create a log verifier: %v", err)
+					t.Fatalf("couldn't create a log verifier: %v", err)
 				}
 				n, err := note.Open(cosigned, note.VerifierList(logV, wV))
 				if err != nil {
-					t.Errorf("couldn't verify the co-signed checkpoint: %v", err)
+					t.Fatalf("couldn't verify the co-signed checkpoint: %v", err)
 				}
 				if len(n.Sigs) != 2 {
 					t.Fatalf("checkpoint doesn't verify under enough keys")
@@ -292,28 +304,65 @@ func TestGetChkpt(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	for _, test := range []struct {
-		desc   string
-		initC  Chkpt
-		newC   Chkpt
-		pf     [][]byte
-		isGood bool
+		desc     string
+		initC    []byte
+		initSize uint64
+		newC     []byte
+		pf       [][]byte
+		useCR    bool
+		initCR   [][]byte
+		isGood   bool
 	}{
 		{
-			desc:   "happy path",
-			initC:  initChkpt,
-			newC:   newChkpt,
-			pf:     consProof,
-			isGood: true,
+			desc:     "vanilla consistency happy path",
+			initC:    initChkpt,
+			initSize: 5,
+			newC:     newChkpt,
+			pf:       consProof,
+			useCR:    false,
+			isGood:   true,
 		}, {
-			desc:  "garbage proof",
-			initC: initChkpt,
-			newC:  newChkpt,
+			desc:     "vanilla consistency smaller checkpoint",
+			initC:    initChkpt,
+			initSize: 5,
+			newC:     []byte("Log Checkpoint v0\n4\nhashhashhash\n"),
+			pf:       consProof,
+			useCR:    false,
+			isGood:   false,
+		}, {
+			desc:     "vanilla consistency garbage proof",
+			initC:    initChkpt,
+			initSize: 5,
+			newC:     newChkpt,
 			pf: [][]byte{
 				dh("aaaa", 2),
 				dh("bbbb", 2),
 				dh("cccc", 2),
 				dh("dddd", 2),
 			},
+			isGood: false,
+		}, {
+			desc:     "compact range happy path",
+			initC:    crInitChkpt,
+			initSize: 10,
+			newC:     crNewChkpt,
+			pf:       crProof,
+			useCR:    true,
+			initCR:   crInitRange,
+			isGood:   true,
+		}, {
+			desc:     "compact range garbage proof",
+			initC:    crInitChkpt,
+			initSize: 10,
+			newC:     crNewChkpt,
+			pf: [][]byte{
+				dh("aaaa", 2),
+				dh("bbbb", 2),
+				dh("cccc", 2),
+				dh("dddd", 2),
+			},
+			useCR:  true,
+			initCR: crInitRange,
 			isGood: false,
 		},
 	} {
@@ -325,28 +374,29 @@ func TestUpdate(t *testing.T) {
 			logID := "testlog"
 			logSK, logPK, err := note.GenerateKey(rand.Reader, logID)
 			if err != nil {
-				t.Errorf("couldn't generate log keys: %v", err)
+				t.Fatalf("couldn't generate log keys: %v", err)
 			}
-			signed, err := signChkpts(logSK, []string{string(test.initC.Raw), string(test.newC.Raw)})
+			signed, err := signChkpts(logSK, []string{string(test.initC), string(test.newC)})
 			if err != nil {
 				t.Fatalf("couldn't sign checkpoint: %v", err)
 			}
-			test.initC.Raw = signed[0]
-			test.newC.Raw = signed[1]
+			test.initC = signed[0]
+			test.newC = signed[1]
 			// Set up witness.
-			w := newWitness(t, d, []string{logID}, []string{logPK})
-
+			w := newWitness(t, d, []LogOpts{{ID: logID,
+				PK:         logPK,
+				useCompact: test.useCR}})
 			// Set an initial checkpoint for the log.
-			if _, err := w.Update(ctx, logID, test.initC.Raw, [][]byte{}); err != nil {
+			if _, err := w.Update(ctx, logID, test.initC, test.initCR); err != nil {
 				t.Errorf("failed to set checkpoint: %v", err)
 			}
 			// Now update from this checkpoint to a newer one.
-			size, err := w.Update(ctx, logID, test.newC.Raw, test.pf)
+			size, err := w.Update(ctx, logID, test.newC, test.pf)
 			if test.isGood {
 				if err != nil {
 					t.Fatalf("can't update to new checkpoint: %v", err)
 				}
-				if size != test.initC.Size {
+				if size != test.initSize {
 					t.Fatal("witness returned the wrong size in updating")
 				}
 			} else {

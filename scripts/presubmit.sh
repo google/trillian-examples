@@ -109,10 +109,18 @@ main() {
         ./...
     fi
 
-    echo "building serverless actions"
+    echo "Bbuilding serverless actions =================================="
     for i in $(find serverless/deploy/github -name Dockerfile); do
+      echo "Building ${i} ------------------------------------------------"
       docker build -f "${i}" "$(dirname ${i})"
     done
+
+    echo "Building serverless non-action dockerfiles ===================="
+    for i in $(find serverless -name Dockerfile -not -path 'serverless/deploy/github/*' ); do
+      echo "Building ${i} ------------------------------------------------"
+      docker build -f "${i}" .
+    done
+
   fi
 
   if [[ "${run_lint}" -eq 1 ]]; then

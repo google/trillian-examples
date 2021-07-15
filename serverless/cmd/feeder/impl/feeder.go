@@ -125,12 +125,6 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 		}
 	}
 
-	// Bail if we got nothing new
-	if len(allWitnessed) == 0 {
-		glog.Infof("No new signatures")
-		return cp, nil
-	}
-
 	// ...and combine signatures.
 	wvList := note.VerifierList(wSigVs...)
 	r, err := checkpoints.Combine(append([][]byte{cp}, allWitnessed...), opts.LogSigVerifier, wvList)

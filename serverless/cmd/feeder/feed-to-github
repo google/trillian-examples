@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# feed-to-github is a wrapper around the serverless feeder command which uploads the result
+# feed-to-github is a wrapper around the serverless `feeder` command which uploads the result
 # of feeding a checkpoint to one or more witnesses back to the source log via a github PR.
 #
-# This script expects the git, gh, and feeder (built from the same directory this script
+# This script expects the `git`, `gh`, and `feeder` (built from the same directory this script
 # is in) to be present in the PATH.
 #
 # GLOBALS:

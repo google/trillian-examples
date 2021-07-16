@@ -109,7 +109,7 @@ main() {
         ./...
     fi
 
-    echo "Bbuilding serverless actions =================================="
+    echo "Building serverless actions =================================="
     for i in $(find serverless/deploy/github -name Dockerfile); do
       echo "Building ${i} ------------------------------------------------"
       docker build -f "${i}" "$(dirname ${i})"

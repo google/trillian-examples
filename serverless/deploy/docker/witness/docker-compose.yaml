@@ -1,0 +1,50 @@
+version: '3.2'
+services:
+  witness:
+    build:
+      context: ../../../../
+      dockerfile: ./witness/golang/cmd/witness/Dockerfile
+    volumes:
+        - type: volume
+          source: data
+          target: /data
+          volume:
+            nocopy: true
+        - type: bind
+          source: ${WITNESS_CONFIG_DIR:-/etc/witness/config}
+          target: /witness-config
+          read_only: true
+    command:
+      - "--listen=:8100"
+      - "--db_file=/data/witness.sqlite"
+      - "--private_key=${WITNESS_PRIVATE_KEY}"
+      - "--config_file=/witness-config/${WITNESS_CONFIG_FILE:-witness.config}"
+      - "--logtostderr"
+    restart: always
+    ports:
+      - "8100:8100"
+  feeder:
+    depends_on:
+      - witness
+    build:
+      context: ../../../../
+      dockerfile: ./serverless/cmd/feeder/Dockerfile
+    command:
+      - "${SERVERLESS_LOG_REPO}"
+      - "${SERVERLESS_LOG_FORK}"
+      - "${SERVERLESS_LOG_DIR:-.}"
+      - "/feeder-config/${FEEDER_CONFIG_FILE:-feeder.config}"
+      - "${FEEDER_INTERVAL_SECONDS:-300}"
+    environment:
+      - FEEDER_GITHUB_TOKEN=${FEEDER_GITHUB_TOKEN}
+      - GIT_USERNAME=${GIT_USERNAME}
+      - GIT_EMAIL=${GIT_EMAIL}
+    volumes:
+      - type: bind
+        source: ${FEEDER_CONFIG_DIR:-/etc/feeder/config}
+        target: /feeder-config
+      - type: tmpfs
+        target: /tmp
+volumes:
+  data:
+

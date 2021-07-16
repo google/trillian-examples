@@ -153,6 +153,7 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 	// TODO(al): make this configurable
 	h := hasher.DefaultHasher
 	wSigV := w.SigVerifier()
+
 	// Keep submitting until success or context timeout...
 	t := time.NewTicker(1)
 	for {
@@ -172,14 +173,18 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 
 		var conP [][]byte
 		if len(latestCPRaw) > 0 {
-			_, err := note.Open(latestCPRaw, note.VerifierList(logSigV))
+			n, err := note.Open(latestCPRaw, note.VerifierList(logSigV, wSigV))
 			if err != nil {
 				glog.Warningf("%s: failed to open CP: %v", wSigV.Name(), err)
 				continue
 			}
+			if numSigs := len(n.Sigs); numSigs != 2 {
+				errs <- errors.New("checkpoint from witness was not signed by at least log + witness")
+				return
+			}
 
 			latestCP := &log.Checkpoint{}
-			_, err = latestCP.Unmarshal(latestCPRaw)
+			_, err = latestCP.Unmarshal([]byte(n.Text))
 			if err != nil {
 				glog.Warningf("%s: failed to unmarshal CP: %v", wSigV.Name(), err)
 				continue

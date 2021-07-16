@@ -20,6 +20,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -161,7 +162,7 @@ func TestCheckpointRoundTrip(t *testing.T) {
 		desc:         "single compact range",
 		size:         256,
 		checkpoint:   hashes[0],
-		compactRange: hashes[1:1],
+		compactRange: hashes[1:2],
 	}, {
 		desc:         "longer compact range",
 		size:         277,
@@ -193,8 +194,8 @@ func TestCheckpointRoundTrip(t *testing.T) {
 			if !bytes.Equal(gotCP, test.checkpoint) {
 				t.Errorf("checkpoint: got %x, want %x", gotCP, test.checkpoint)
 			}
-			if diff := cmp.Diff(gotCR, test.compactRange); len(diff) > 0 {
-				t.Errorf("diff in compact range: %q", diff)
+			if !reflect.DeepEqual(gotCR, test.compactRange) {
+				t.Errorf("compact range: got != want: \n%v\n%v", gotCR, test.compactRange)
 			}
 		})
 	}

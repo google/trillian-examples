@@ -16,16 +16,12 @@
 package logdb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/gob"
 	"errors"
 	"fmt"
-)
-
-const (
-	// This can be changed to a field of Database or metadata in the database if
-	// we need to support other sizes in the future.
-	hashSizeBytes = 32
 )
 
 // ErrNoDataFound is returned when the DB appears valid but has no data in it.
@@ -89,13 +85,13 @@ func (d *Database) WriteCheckpoint(ctx context.Context, size uint64, checkpoint 
 		return nil
 	}
 
-	srs := make([]byte, hashSizeBytes*len(compactRange))
-	for i, cr := range compactRange {
-		from := i * hashSizeBytes
-		to := from + hashSizeBytes
-		copy(srs[from:to], cr)
+	var srs bytes.Buffer
+	enc := gob.NewEncoder(&srs)
+	if err := enc.Encode(compactRange); err != nil {
+		tx.Rollback()
+		return fmt.Errorf("Encode(): %v", err)
 	}
-	tx.ExecContext(ctx, "INSERT INTO checkpoints (size, data, compactRange) VALUES (?, ?, ?)", size, checkpoint, srs)
+	tx.ExecContext(ctx, "INSERT INTO checkpoints (size, data, compactRange) VALUES (?, ?, ?)", size, checkpoint, srs.Bytes())
 	return tx.Commit()
 }
 
@@ -109,11 +105,9 @@ func (d *Database) GetLatestCheckpoint(ctx context.Context) (size uint64, checkp
 		}
 		return 0, nil, nil, fmt.Errorf("Scan(): %v", err)
 	}
-	compactRange = make([][]byte, len(srs)/hashSizeBytes)
-	for i := range compactRange {
-		from := i * hashSizeBytes
-		to := from + hashSizeBytes
-		compactRange[i] = srs[from:to]
+	dec := gob.NewDecoder(bytes.NewReader(srs))
+	if err := dec.Decode(&compactRange); err != nil {
+		return 0, nil, nil, fmt.Errorf("Decode(): %v", err)
 	}
 	return
 }

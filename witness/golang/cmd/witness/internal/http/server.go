@@ -47,7 +47,6 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	logID := v["logid"]
 	body, err := ioutil.ReadAll(r.Body)
-	fmt.Println(r.Body)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot read request body: %v", err.Error()), http.StatusBadRequest)
 		return
@@ -58,21 +57,20 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Get the output from the witness.
-	size, chkpt, err := s.w.Update(r.Context(), logID, req.Checkpoint, req.Proof)
+	chkpt, err := s.w.Update(r.Context(), logID, req.Checkpoint, req.Proof)
 	if err != nil {
+		// If the request aborted it's possible the caller was just out
+		// of date.  Give the returned checkpoint to help them form a new
+		// request.
+		if status.Code(err) == codes.Aborted {
+			http.Error(w, string(chkpt), http.StatusConflict)
+			return
+		}
 		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), httpForCode(http.StatusInternalServerError))
 		return
 	}
-	resp := api.UpdateResponse{Size: size,
-		Checkpoint: chkpt,
-	}
-	respJSON, err := json.Marshal(resp)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to convert update response to JSON: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "text/json")
-	w.Write(respJSON)
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write(chkpt)
 }
 
 // getCheckpoint returns a checkpoint stored for a given log.
@@ -109,15 +107,17 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 func (s *Server) RegisterHandlers(r *mux.Router) {
 	logStr := "{logid:[a-zA-Z0-9-]+}"
 	r.HandleFunc(fmt.Sprintf(api.HTTPGetCheckpoint, logStr), s.getCheckpoint).Methods("GET")
-	r.HandleFunc(fmt.Sprintf(api.HTTPUpdate, logStr), s.update).Methods("POST")
+	r.HandleFunc(fmt.Sprintf(api.HTTPUpdate, logStr), s.update).Methods("PUT")
 	r.HandleFunc(api.HTTPGetLogs, s.getLogs).Methods("GET")
 }
 
 func httpForCode(c codes.Code) int {
 	switch c {
 	case codes.NotFound:
-		return 404
+		return http.StatusNotFound
+	case codes.Aborted:
+		return http.StatusConflict
 	default:
-		return 500
+		return http.StatusInternalServerError
 	}
 }

@@ -29,15 +29,12 @@ import (
 
 var (
 	mPK       = "monkeys+87be2a55+AeK/t7elVrIheVCPxQNYkvKFw/2ahkj6Gm9afBJw6S8q"
-	mSK       = "PRIVATE+KEY+monkeys+87be2a55+AYC+VTbd//MOeoAeece38VP2S3ZDFByfD3cL1cNCvt+a"
 	bPK       = "bananas+cf639f13+AaPjhFnPCQnid/Ql32KWhmh+uk72FVRfK+2DLmO3BI3M"
-	bSK       = "PRIVATE+KEY+bananas+cf639f13+AdjzytHoXdvn+1vG2UXXqFR3LZ+kvnmQZFretRaKfTIu"
 	wPK       = "witness+f13a86db+AdYV1Ztajd9BvyjP2HgpwrqYL6TjOwIjGMOq8Bu42xbN"
 	wSK       = "PRIVATE+KEY+witness+f13a86db+AaLa/dfyBhyo/m0Z7WCi98ENVZWtrP8pxgRNrx7tIWiA"
 	mInit     = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n\n— monkeys h74qVe5jWoK8CX/zXrT9X80SyEaiwPb/0p7VW7u+cnXxq5pJYQ6vhxUZ5Ywz9WSD3HIyygccizAg+oMxOe6pRgqqOQE=\n")
 	bInit     = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n\n— bananas z2OfE18+NwUjjJBXH7m+fh67bu29p1Jbypr4GFUQohgQgCeuPJZtGTvfR9Pquh2Iebfq+6bhl3G/77lsKiGIea6NAwE=\n")
 	mNext     = []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n\n— monkeys h74qVetPycmWeWIySx/cMKcLopNS9h2je2DWe2w7PLRmczqdqinRGPscYklpBQO5Un6B5eUMJDwZprVpJie0lSBNPg8=\n")
-	bNext     = []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n\n— bananas z2OfExVVI5DhPh28WRhpsRUJb+NDdMhIk9hw1CYSZscJIP9FzNQ1vfmXkql40nA8g21WgdHgY0Lg441Ow1OY7o2sgQk=\n")
 	consProof = [][]byte{
 		dh("b9e1d62618f7fee8034e4c5010f727ab24d8e4705cb296c374bf2025a87a10d2", 32),
 		dh("aac66cd7a79ce4012d80762fe8eec3a77f22d1ca4145c3f4cee022e7efcd599d", 32),
@@ -161,7 +158,7 @@ func TestGetLogs(t *testing.T) {
 			w := newWitness(t, d, logs)
 			// Update to a checkpoint for all logs.
 			for i, logID := range test.logIDs {
-				if _, _, err := w.Update(ctx, logID, test.chkpts[i], nil); err != nil {
+				if _, err := w.Update(ctx, logID, test.chkpts[i], nil); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
@@ -229,7 +226,7 @@ func TestGetChkpt(t *testing.T) {
 				useCompact: false}})
 			// Set a checkpoint for the log if we want to for this test.
 			if test.c != nil {
-				if _, _, err := w.Update(ctx, test.setID, test.c, nil); err != nil {
+				if _, err := w.Update(ctx, test.setID, test.c, nil); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
@@ -338,17 +335,14 @@ func TestUpdate(t *testing.T) {
 				PK:         mPK,
 				useCompact: test.useCR}})
 			// Set an initial checkpoint for the log.
-			if _, _, err := w.Update(ctx, logID, test.initC, test.initCR); err != nil {
+			if _, err := w.Update(ctx, logID, test.initC, test.initCR); err != nil {
 				t.Errorf("failed to set checkpoint: %v", err)
 			}
 			// Now update from this checkpoint to a newer one.
-			size, _, err := w.Update(ctx, logID, test.newC, test.pf)
+			_, err := w.Update(ctx, logID, test.newC, test.pf)
 			if test.isGood {
 				if err != nil {
 					t.Fatalf("can't update to new checkpoint: %v", err)
-				}
-				if size != test.initSize {
-					t.Fatal("witness returned the wrong size in updating")
 				}
 			} else {
 				if err == nil {

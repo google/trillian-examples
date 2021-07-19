@@ -131,68 +131,67 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 }
 
 // Update updates the latest checkpoint if nextRaw is consistent with the current
-// latest one for this log. It returns the latest checkpoint size before the
-// update was applied (or just what was fetched if the update was unsuccessful),
-// and a signed version of nextRaw if the update was successful.
-func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proof [][]byte) (uint64, []byte, error) {
+// latest one for this log. If the update was successful it returns a cosigned
+// version of nextRaw and if not it returns its (signed) latest checkpoint.
+func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proof [][]byte) ([]byte, error) {
 	// If we don't witness this log then no point in going further.
 	logInfo, ok := w.Logs[logID]
 	if !ok {
-		return 0, nil, fmt.Errorf("log %q not found", logID)
+		return nil, status.Errorf(codes.NotFound, "log %q not found", logID)
 	}
 	// Check the signatures on the raw checkpoint and parse it
 	// into the log.Checkpoint format.
 	next, nextNote, err := w.parse(nextRaw, logID)
 	if err != nil {
-		return 0, nil, err
+		return nil, fmt.Errorf("couldn't parse input checkpoint: %v", err)
 	}
 	// Optimistically sign the new checkpoint now.
 	signed, err := w.signChkpt(nextNote)
 	if err != nil {
-		return 0, nil, fmt.Errorf("couldn't sign next checkpoint: %v", err)
+		return nil, fmt.Errorf("couldn't sign input checkpoint: %v", err)
 	}
 	// Get the latest one for the log because we don't want consistency proofs
 	// with respect to older checkpoints.  Bind this all in a transaction to
 	// avoid race conditions when updating the database.
 	tx, err := w.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, nil, fmt.Errorf("couldn't create tx: %v", err)
+		return nil, fmt.Errorf("couldn't create db tx: %v", err)
 	}
 	// Get the latest checkpoint (if one exists) and compact range.
 	prevRaw, rangeRaw, err := w.getLatestChkptData(tx.QueryRow, logID)
 	if err != nil {
 		// If there was nothing stored already then treat this new
-		// checkpoint as trust-on-first-use.
+		// checkpoint as trust-on-first-use (TOFU).
 		if status.Code(err) == codes.NotFound {
 			if err := w.setInitChkptData(tx, logID, next, signed, proof); err != nil {
-				return 0, nil, fmt.Errorf("couldn't set TOFU checkpoint: %v", err)
+				return nil, fmt.Errorf("couldn't set TOFU checkpoint: %v", err)
 			}
-			return 0, signed, nil
+			return signed, nil
 		}
-		return 0, nil, fmt.Errorf("Update: %w", err)
+		return nil, fmt.Errorf("couldn't retrieve latest checkpoint: %w", err)
 	}
 	// Parse the raw retrieved checkpoint into the log.Checkpoint format.
 	prev, _, err := w.parse(prevRaw, logID)
 	if err != nil {
-		return 0, nil, fmt.Errorf("couldn't parse stored checkpoint: %v", err)
+		return nil, fmt.Errorf("couldn't parse stored checkpoint: %v", err)
 	}
 	// Parse the compact range if we're using one.
 	var prevRange log.Proof
 	if logInfo.UseCompact {
 		if err := prevRange.Unmarshal(rangeRaw); err != nil {
-			return 0, nil, fmt.Errorf("couldn't unmarshal proof: %v", err)
+			return nil, fmt.Errorf("couldn't unmarshal proof: %v", err)
 		}
 	}
 	if next.Size < prev.Size {
 		// Complain if prev is bigger than next.
-		return prev.Size, nil, fmt.Errorf("cannot prove consistency backwards (%d < %d)", next.Size, prev.Size)
+		return prevRaw, status.Errorf(codes.Aborted, "cannot prove consistency backwards (%d < %d)", next.Size, prev.Size)
 	}
 	if next.Size == prev.Size {
 		if !bytes.Equal(next.Hash, prev.Hash) {
-			return 0, nil, fmt.Errorf("checkpoint for same size log with differing hash (got %x, have %x)", next.Hash, prev.Hash)
+			return prevRaw, status.Errorf(codes.Aborted, "checkpoint for same size log with differing hash (got %x, have %x)", next.Hash, prev.Hash)
 		}
 		// If it's identical to the previous one do nothing.
-		return prev.Size, nil, nil
+		return prevRaw, nil
 	}
 	// The only remaining option is next.Size > prev.Size. This might be
 	// valid so we use either plain consistency proofs or compact ranges to
@@ -200,20 +199,26 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if logInfo.UseCompact {
 		nextRange, err := verifyRange(next, prev, logInfo.Hasher, prevRange, proof)
 		if err != nil {
-			return 0, nil, fmt.Errorf("failed to verify compact range: %v", err)
+			return prevRaw, status.Errorf(codes.Aborted, "failed to verify compact range: %v", err)
 		}
 		// If the proof is good store nextRaw and the new range.
 		r := []byte(log.Proof(nextRange).Marshal())
-		return prev.Size, signed, w.setChkptData(tx, logID, signed, r)
+		if err := w.setChkptData(tx, logID, signed, r); err != nil {
+			return nil, fmt.Errorf("failed to store new checkpoint: %v", err)
+		}
+		return signed, nil
 	}
 	// If we're not using compact ranges then use consistency proofs.
 	logV := logverifier.New(logInfo.Hasher)
 	if err := logV.VerifyConsistencyProof(int64(prev.Size), int64(next.Size), prev.Hash, next.Hash, proof); err != nil {
 		// Complain if the checkpoints aren't consistent.
-		return prev.Size, nil, fmt.Errorf("failed to verify consistency proof: %v", err)
+		return prevRaw, status.Errorf(codes.Aborted, "failed to verify consistency proof: %v", err)
 	}
 	// If the consistency proof is good we store nextRaw.
-	return prev.Size, signed, w.setChkptData(tx, logID, signed, nil)
+	if err := w.setChkptData(tx, logID, signed, nil); err != nil {
+		return nil, fmt.Errorf("failed to store new checkpoint: %v", err)
+	}
+	return signed, nil
 }
 
 // signChkpt adds the witness' signature to a checkpoint.
@@ -290,11 +295,11 @@ func (w *Witness) setChkptData(tx *sql.Tx, logID string, c []byte, rng []byte) e
 	return tx.Commit()
 }
 
-// setInitChkptData stores the data for an initial checkpoint and, if using one, 
+// setInitChkptData stores the data for an initial checkpoint and, if using one,
 // its associated compact range.
 func (w *Witness) setInitChkptData(tx *sql.Tx, logID string, c *log.Checkpoint, cRaw []byte, rngRaw [][]byte) error {
-	logInfo, _ := w.Logs[logID]
-	// If we're using compact ranges then store the initial range, assuming 
+	logInfo := w.Logs[logID]
+	// If we're using compact ranges then store the initial range, assuming
 	// it matches the initial checkpoint.
 	if logInfo.UseCompact {
 		rf := compact.RangeFactory{Hash: logInfo.Hasher.HashChildren}

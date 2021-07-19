@@ -33,10 +33,3 @@ type UpdateRequest struct {
 	Checkpoint []byte
 	Proof      [][]byte
 }
-
-// UpdateResponse encodes the outputs of the witness Update function: a size and
-// a (raw) witness-cosigned checkpoint.
-type UpdateResponse struct {
-	Size	   uint64
-	Checkpoint []byte
-}

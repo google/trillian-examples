@@ -16,37 +16,82 @@
 package main
 
 import (
+  "flag"
   "fmt"
+  "os"
+  "time"
+
+	"github.com/golang/glog"
+//  "github.com/google/go-github"
+  "github.com/go-git/go-git/v5"
+//  "github.com/go-git/go-git/v5/plumbing"
 )
 
 // TODO: copied from feed-to-github; adapt as necessary.
 const usage = `Usage:
- feed-to-github <log_github_owner/repo> <log_path> <feeder_config_file> [interval_seconds]
+ feed-to-github --log_owner_repo --witness_owner_repo --log_repo_path --feeder_config_file --interval
 
 Where:
- <log_github_owner/repo> is the repo owner/fragment from the repo URL.
+ --log_owner_repo is the repo owner/fragment from the repo URL.
      e.g. github.com/AlCutter/serverless-test -> AlCutter/serverless-test
- <witness_github_owner/repo> is the repo owner/fragment of the log fork to use for the PR branch.
- <log_repo_path> is the path from the root of the rep where the log files can be found,
- <feeder_config_file> is the path to the config file for the serverless/cmd/feeder command.
- [interval_seconds] if set, the script will continously feed and (if needed) create witness PRs sleeping
+ --witness_owner_repo is the repo owner/fragment of the forked log to use for the PR branch.
+ --log_repo_path is the path from the root of the repo where the log files can be found,
+ --feeder_config_file is the path to the config file for the serverless/cmd/feeder command.
+ --interval if set, the script will continously feed and (if needed) create witness PRs sleeping
      the specified number of seconds between attempts. If not provided, the tool does a one-shot feed.
 
-EOF
 `
 
-func main() {
-    fmt.Println("Github feeder.")
+var (
+  logOwnerRepo     = flag.String("log_owner_repo", "", "The repo owner/fragment from the log repo URL.")
+  witnessOwnerRepo = flag.String("witness_owner_repo", "", "The repo owner/fragment from the witness (forked log) repo URL.")
+	logRepoPath      = flag.String("log_repo_path", "", "Path from the root of the repo where the log files can be found.")
+	feederConfig     = flag.String("feeder_config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
+	interval         = flag.Duration("interval", time.Duration(0), "Interval between checkpoints.")
+)
 
-    // Preparation:
-    //   1. Validate args
-    //   2. clone the fork of the log, so we can go on to make a PR against it
+func main() {
+	flag.Parse()
+
+  if *logOwnerRepo == "" {
+    glog.Exitf("Missing required --log_owner_repo flag.\n\n%v", usage)
+  }
+  if *witnessOwnerRepo == "" {
+    glog.Exitf("Missing required --witness_owner_repo flag.\n\n%v", usage)
+  }
+  if *logRepoPath == "" {
+    glog.Exitf("Missing required --log_repo_path flag.\n\n%v", usage)
+  }
+  if *feederConfig == "" {
+    glog.Exitf("Missing required --feeder_config_file flag.\n\n%v", usage)
+  }
+
+  // Make a tempdir to clone the witness (forked) log into.
+  forkedLogDir, err := os.MkdirTemp(os.TempDir(), "feeder-github")
+  if err != nil {
+    glog.Exitf("Error creating temp dir: %v", err)
+  }
+
+  // Preparation:
+  //   2. clone the fork of the log, so we can go on to make a PR against it
+  logURL := fmt.Sprintf("https://github.com/%v", *logOwnerRepo)
+  glog.Infof("Cloning %q... into %q", logURL, forkedLogDir)
+  _, err = git.PlainClone(forkedLogDir, false, &git.CloneOptions{
+		URL: logURL,
+	})
+  if err != nil {
+    glog.Exitf("Failed to clone repo %q: %v", logURL, err)
+  }
+
+
+    //   3. auth to Github
     //
     //
     // Main feeder loop.
     //   1. run feeder to check if there are new signatures
     //   2. if not, sleep until next time to check.
     //   3. if so, move output from feeder onto new branch
+
     //   4. make commit to branch
     //   5. create checkpoint PR
     //   6. clean up
@@ -54,6 +99,7 @@ func main() {
 
     CreateCheckpointPR()
 }
+
 
 func CreateCheckpointPR() {
   fmt.Println("creating checkpoint PR ...")

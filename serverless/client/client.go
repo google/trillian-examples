@@ -151,6 +151,9 @@ func (pb *ProofBuilder) ConsistencyProof(ctx context.Context, smaller, larger ui
 		}
 		hashes = append(hashes, h)
 	}
+	if hashes, err = merkle.Rehash(hashes, nodes, pb.h); err != nil {
+		return nil, fmt.Errorf("failed to rehash consistency proof: %w", err)
+	}
 	return hashes, nil
 }
 

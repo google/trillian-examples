@@ -10,7 +10,7 @@
 #  FEEDER_GITHUB_TOKEN: 
 #     (optional)
 #     Github Personal Access Token to use for creating witness PR.
-#     If unset, uses "ambient" access privilesges already present.
+#     If unset, uses "ambient" access privileges already present.
 #  GIT_USERNAME:
 #    (required)
 #     GitHub username to associate with the witness PR commit.

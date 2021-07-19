@@ -58,13 +58,14 @@ The combining of signatures is done using the
 Input          | Description
 ---------------|-----------------
 `log_dir`      | Path to the root of the serverless log files in this repo.
-`pr_repo_root` | Location within `${GITHUB_WORSPACE}` where the PR branch is checked out.
+`pr_repo_root` | Location within `${GITHUB_WORKSPACE}` where the PR branch is checked out.
 `pristine_repo_root` | Location within `${GITHUB_WORKSPACE}` where the pristine copy of the master repo is checked out.
 `witness_key_files` | Path glob matching the set of known witness keys in note format.
 `log_public_key` | The serverless log's public key (note: the key itself, not a path to a file containing the key).
 
 To use this PR with your log, create a `.github/workflows/witness_pr.yaml` file with the
-following contents:
+following contents (replace `<PUT LOG PUBLIC KEY HERE>` with the literal log public key - don't
+try to populate this from a GitHub secret as it won't be visible to on PRs from witness forks!):
 
 ```yaml
 on:
@@ -96,8 +97,10 @@ jobs:
         log_dir: './log'
         pr_repo_root: 'pr'
         pristine_repo_root: 'pristine'
+        # NOTE: this should point to the directory containing the public keys of known witnesses
         witness_key_files: 'witnesskeys/*pub'
-        log_public_key: ${{ secrets.SERVERLESS_LOG_PUBLIC_KEY }}
+        # NOTE: Replace this with the literal log public key (don't use a GitHub secrets variable here)
+        log_public_key: '<PUT LOG PUBLIC KEY HERE>'
     # Update the PR with merge results if necessary
     - uses: stefanzweifel/git-auto-commit-action@v4
       with:

@@ -131,6 +131,16 @@ func TestCheckConsistency(t *testing.T) {
 			},
 			wantErr: true,
 		}, {
+			desc: "two inconsistent CPs",
+			cp: []log.Checkpoint{
+				{
+					Size: 2,
+					Hash: []byte("This is a banana"),
+				},
+				testCheckpoints[4],
+			},
+			wantErr: true,
+		}, {
 			desc: "Inconsistent",
 			cp: []log.Checkpoint{
 				testCheckpoints[5],

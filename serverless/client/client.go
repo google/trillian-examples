@@ -405,8 +405,8 @@ func CheckConsistency(ctx context.Context, h hashers.LogHasher, f Fetcher, cp []
 
 	lv := logverifier.New(h)
 
-	// Go through list of checkpoints pairwise, checking consistency
-	var a, b log.Checkpoint
+	// Go through list of checkpoints pairwise, checking consistency.
+	a, b := cp[0], cp[1]
 	for i := 0; i < len(cp)-1; i, a, b = i+1, cp[i], cp[i+1] {
 		if a.Size == b.Size {
 			if bytes.Equal(a.Hash, b.Hash) {

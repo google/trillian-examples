@@ -97,12 +97,6 @@ func main() {
   }
   glog.Infof("Cloned %q into %q", forkLogURL, forkedLogDir)
 
-  // Ensure the forkRepo config has git username and email set.
-  remotes, err := forkRepo.Remotes()
-  for _, r := range remotes {
-    fmt.Sprintf("remote: %v\n", r)
-  }
-
   // Create a remote -> logOwnerRepo
   logURL := fmt.Sprintf("https://github.com/%v.git", *logOwnerRepo)
   logRemote, err := forkRepo.CreateRemote(&config.RemoteConfig{
@@ -114,10 +108,17 @@ func main() {
   }
   glog.Infof("Added remote upstream->%q for %q: %v", logURL, *witnessOwnerRepo, logRemote)
 
+  // Ensure the forkRepo config has git username and email set.
+  cfg, err := forkRepo.Config()
+  if err != nil {
+    glog.Exitf("Failed to read config for repo %q: %v", *witnessOwnerRepo, err)
+  }
+  cfg.User.Name = gitUsername
+  cfg.User.Email = gitEmail
+  if err = forkRepo.SetConfig(cfg); err != nil {
+    glog.Exitf("Failed to update config for repo %q: %v", *witnessOwnerRepo, err)
+  }
 /*
-  git config user.name "${GIT_USERNAME}"
-  git config user.email "${GIT_EMAIL}"
-  git remote add upstream "https://github.com/${log_repo}.git"
   git fetch --all
   git branch -u upstream/master
 */

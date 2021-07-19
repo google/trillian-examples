@@ -12,17 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package witness
+package http
 
 import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"sort"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/google/trillian-examples/witness/golang/api"
+	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
 )
@@ -63,27 +70,27 @@ type LogOpts struct {
 	useCompact bool
 }
 
-func newOpts(d *sql.DB, logs []LogOpts) (Opts, error) {
+func newOpts(d *sql.DB, logs []LogOpts) (witness.Opts, error) {
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
-		return Opts{}, fmt.Errorf("newOpts: couldn't create a note signer: %v", err)
+		return witness.Opts{}, fmt.Errorf("newOpts: couldn't create a note signer: %v", err)
 	}
 	h := hasher.DefaultHasher
-	logMap := make(map[string]LogInfo)
+	logMap := make(map[string]witness.LogInfo)
 	for _, log := range logs {
 		logV, err := note.NewVerifier(log.PK)
 		if err != nil {
-			return Opts{}, fmt.Errorf("newOpts: couldn't create a log verifier")
+			return witness.Opts{}, fmt.Errorf("newOpts: couldn't create a log verifier")
 		}
 		sigV := []note.Verifier{logV}
-		logInfo := LogInfo{
+		logInfo := witness.LogInfo{
 			SigVs:      sigV,
 			Hasher:     h,
 			UseCompact: log.useCompact,
 		}
 		logMap[log.ID] = logInfo
 	}
-	opts := Opts{
+	opts := witness.Opts{
 		DB:        d,
 		Signer:    ns,
 		KnownLogs: logMap,
@@ -91,12 +98,12 @@ func newOpts(d *sql.DB, logs []LogOpts) (Opts, error) {
 	return opts, nil
 }
 
-func newWitness(t *testing.T, d *sql.DB, logs []LogOpts) *Witness {
+func newWitness(t *testing.T, d *sql.DB, logs []LogOpts) *witness.Witness {
 	opts, err := newOpts(d, logs)
 	if err != nil {
 		t.Fatalf("couldn't create witness opt struct: %v", err)
 	}
-	w, err := New(opts)
+	w, err := witness.New(opts)
 	if err != nil {
 		t.Fatalf("couldn't create witness: %v", err)
 	}
@@ -126,31 +133,39 @@ func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
 
 func TestGetLogs(t *testing.T) {
 	for _, test := range []struct {
-		desc   string
-		logIDs []string
-		logPKs []string
-		chkpts [][]byte
+		desc       string
+		logIDs     []string
+		logPKs     []string
+		chkpts     [][]byte
+		wantStatus int
+		wantBody   string
 	}{
 		{
-			desc:   "no logs",
-			logIDs: []string{},
+			desc:       "no logs",
+			logIDs:     []string{},
+			wantStatus: http.StatusOK,
+			wantBody:   "",
 		}, {
-			desc:   "one log",
-			logIDs: []string{"monkeys"},
-			logPKs: []string{mPK},
-			chkpts: [][]byte{mInit},
+			desc:       "one log",
+			logIDs:     []string{"monkeys"},
+			logPKs:     []string{mPK},
+			chkpts:     [][]byte{mInit},
+			wantStatus: http.StatusOK,
+			wantBody:   `["monkeys"]`,
 		}, {
-			desc:   "two logs",
-			logIDs: []string{"bananas", "monkeys"},
-			logPKs: []string{bPK, mPK},
-			chkpts: [][]byte{bInit, mInit},
+			desc:       "two logs",
+			logIDs:     []string{"bananas", "monkeys"},
+			logPKs:     []string{bPK, mPK},
+			chkpts:     [][]byte{bInit, mInit},
+			wantStatus: http.StatusOK,
+			wantBody:   `["bananas","monkeys"]`,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			d, closeFn := mustCreateDB(t)
 			defer closeFn()
 			ctx := context.Background()
-			// Set up witness.
+			// Set up witness and give it some checkpoints.
 			logs := make([]LogOpts, len(test.logIDs))
 			for i, logID := range test.logIDs {
 				logs[i] = LogOpts{ID: logID,
@@ -159,24 +174,34 @@ func TestGetLogs(t *testing.T) {
 				}
 			}
 			w := newWitness(t, d, logs)
-			// Update to a checkpoint for all logs.
 			for i, logID := range test.logIDs {
 				if _, _, err := w.Update(ctx, logID, test.chkpts[i], nil); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
-			// Now see if the witness knows about these logs.
-			knownLogs, err := w.GetLogs()
+			// Now set up the http server.
+			r := mux.NewRouter()
+			server := NewServer(w)
+			server.RegisterHandlers(r)
+			ts := httptest.NewServer(r)
+			defer ts.Close()
+
+			client := ts.Client()
+			url := fmt.Sprintf("%s/%s", ts.URL, api.HTTPGetLogs)
+			resp, err := client.Get(url)
 			if err != nil {
-				t.Fatalf("couldn't get logs from witness: %v", err)
+				t.Errorf("error response: %v", err)
 			}
-			if len(knownLogs) != len(test.logIDs) {
-				t.Fatalf("wanted %v logs but got %v", len(test.logIDs), len(knownLogs))
+			if got, want := resp.StatusCode, test.wantStatus; got != want {
+				t.Errorf("status code got != want (%d, %d)", got, want)
 			}
-			sort.Strings(knownLogs)
-			for i := range knownLogs {
-				if knownLogs[i] != test.logIDs[i] {
-					t.Fatalf("wanted %v but got %v", knownLogs[i], test.logIDs[i])
+			if len(test.wantBody) > 0 {
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					t.Errorf("failed to read body: %v", err)
+				}
+				if got, want := string(body), test.wantBody; got != test.wantBody {
+					t.Errorf("got '%s' want '%s'", got, want)
 				}
 			}
 		})
@@ -185,38 +210,36 @@ func TestGetLogs(t *testing.T) {
 
 func TestGetChkpt(t *testing.T) {
 	for _, test := range []struct {
-		desc      string
-		setID     string
-		setPK     string
-		queryID   string
-		queryPK   string
-		c         []byte
-		wantThere bool
+		desc       string
+		setID      string
+		setPK      string
+		queryID    string
+		queryPK    string
+		c          []byte
+		wantStatus int
 	}{
 		{
-			desc:      "happy path",
-			setID:     "monkeys",
-			setPK:     mPK,
-			queryID:   "monkeys",
-			queryPK:   mPK,
-			c:         mInit,
-			wantThere: true,
+			desc:       "happy path",
+			setID:      "monkeys",
+			setPK:      mPK,
+			queryID:    "monkeys",
+			queryPK:    mPK,
+			c:          mInit,
+			wantStatus: http.StatusOK,
 		}, {
-			desc:      "other log",
-			setID:     "monkeys",
-			setPK:     mPK,
-			queryID:   "bananas",
-			queryPK:   bPK,
-			c:         mInit,
-			wantThere: false,
+			desc:       "other log",
+			setID:      "monkeys",
+			setPK:      mPK,
+			queryID:    "bananas",
+			c:          mInit,
+			wantStatus: http.StatusNotFound,
 		}, {
-			desc:      "nothing there",
-			setID:     "monkeys",
-			setPK:     mPK,
-			queryID:   "monkeys",
-			queryPK:   mPK,
-			c:         nil,
-			wantThere: false,
+			desc:       "nothing there",
+			setID:      "monkeys",
+			setPK:      mPK,
+			queryID:    "monkeys",
+			c:          nil,
+			wantStatus: http.StatusNotFound,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -233,32 +256,22 @@ func TestGetChkpt(t *testing.T) {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
-			// Try to get the latest checkpoint.
-			cosigned, err := w.GetCheckpoint(test.queryID)
-			if !test.wantThere && err == nil {
-				t.Fatalf("returned a checkpoint but shouldn't have")
+			// Now set up the http server.
+			r := mux.NewRouter()
+			server := NewServer(w)
+			server.RegisterHandlers(r)
+			ts := httptest.NewServer(r)
+			defer ts.Close()
+
+			client := ts.Client()
+			chkptQ := fmt.Sprintf(api.HTTPGetCheckpoint, test.queryID)
+			url := fmt.Sprintf("%s/%s", ts.URL, chkptQ)
+			resp, err := client.Get(url)
+			if err != nil {
+				t.Errorf("error response: %v", err)
 			}
-			// If we got something then verify it under the log and
-			// witness public keys.
-			if test.wantThere {
-				if err != nil {
-					t.Errorf("failed to get latest: %v", err)
-				}
-				wV, err := note.NewVerifier(wPK)
-				if err != nil {
-					t.Fatalf("couldn't create a witness verifier: %v", err)
-				}
-				logV, err := note.NewVerifier(test.queryPK)
-				if err != nil {
-					t.Fatalf("couldn't create a log verifier: %v", err)
-				}
-				n, err := note.Open(cosigned, note.VerifierList(logV, wV))
-				if err != nil {
-					t.Fatalf("couldn't verify the co-signed checkpoint: %v", err)
-				}
-				if len(n.Sigs) != 2 {
-					t.Fatalf("checkpoint doesn't verify under enough keys")
-				}
+			if got, want := resp.StatusCode, test.wantStatus; got != want {
+				t.Errorf("status code got != want (%d, %d)", got, want)
 			}
 		})
 	}
@@ -266,66 +279,60 @@ func TestGetChkpt(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	for _, test := range []struct {
-		desc     string
-		initC    []byte
-		initSize uint64
-		newC     []byte
-		pf       [][]byte
-		useCR    bool
-		initCR   [][]byte
-		isGood   bool
+		desc       string
+		initC      []byte
+		initSize   uint64
+		useCR      bool
+		initCR     [][]byte
+		body       api.UpdateRequest
+		wantStatus int
 	}{
 		{
-			desc:     "vanilla consistency happy path",
-			initC:    mInit,
-			initSize: 5,
-			newC:     mNext,
-			pf:       consProof,
-			useCR:    false,
-			isGood:   true,
+			desc:       "vanilla consistency happy path",
+			initC:      mInit,
+			initSize:   5,
+			useCR:      false,
+			body:       api.UpdateRequest{mNext, consProof},
+			wantStatus: http.StatusOK,
 		}, {
-			desc:     "vanilla consistency smaller checkpoint",
-			initC:    mInit,
-			initSize: 5,
-			newC:     []byte("Log Checkpoint v0\n4\nhashhashhash\n"),
-			pf:       consProof,
-			useCR:    false,
-			isGood:   false,
+			desc:       "vanilla consistency smaller checkpoint",
+			initC:      mInit,
+			initSize:   5,
+			useCR:      false,
+			body:       api.UpdateRequest{[]byte("{Log Checkpoint v0\n4\nhashhashhash\n, %s}"), consProof},
+			wantStatus: http.StatusInternalServerError,
 		}, {
 			desc:     "vanilla consistency garbage proof",
 			initC:    mInit,
 			initSize: 5,
-			newC:     mNext,
-			pf: [][]byte{
+			body: api.UpdateRequest{mNext, [][]byte{
 				dh("aaaa", 2),
 				dh("bbbb", 2),
 				dh("cccc", 2),
 				dh("dddd", 2),
-			},
-			isGood: false,
+			}},
+			wantStatus: http.StatusInternalServerError,
 		}, {
-			desc:     "compact range happy path",
-			initC:    crInit,
-			initSize: 10,
-			newC:     crNext,
-			pf:       crProof,
-			useCR:    true,
-			initCR:   crInitRange,
-			isGood:   true,
+			desc:       "compact range happy path",
+			initC:      crInit,
+			initSize:   10,
+			useCR:      true,
+			initCR:     crInitRange,
+			body:       api.UpdateRequest{crNext, crProof},
+			wantStatus: http.StatusOK,
 		}, {
 			desc:     "compact range garbage proof",
 			initC:    crInit,
 			initSize: 10,
-			newC:     crNext,
-			pf: [][]byte{
+			body: api.UpdateRequest{crNext, [][]byte{
 				dh("aaaa", 2),
 				dh("bbbb", 2),
 				dh("cccc", 2),
 				dh("dddd", 2),
-			},
-			useCR:  true,
-			initCR: crInitRange,
-			isGood: false,
+			}},
+			useCR:      true,
+			initCR:     crInitRange,
+			wantStatus: http.StatusInternalServerError,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -341,19 +348,27 @@ func TestUpdate(t *testing.T) {
 			if _, _, err := w.Update(ctx, logID, test.initC, test.initCR); err != nil {
 				t.Errorf("failed to set checkpoint: %v", err)
 			}
-			// Now update from this checkpoint to a newer one.
-			size, _, err := w.Update(ctx, logID, test.newC, test.pf)
-			if test.isGood {
-				if err != nil {
-					t.Fatalf("can't update to new checkpoint: %v", err)
-				}
-				if size != test.initSize {
-					t.Fatal("witness returned the wrong size in updating")
-				}
-			} else {
-				if err == nil {
-					t.Fatal("should have gotten an error but didn't")
-				}
+			// Now set up the http server.
+			r := mux.NewRouter()
+			server := NewServer(w)
+			server.RegisterHandlers(r)
+			ts := httptest.NewServer(r)
+			defer ts.Close()
+
+			// Update to a newer checkpoint.
+			client := ts.Client()
+			req, err := json.Marshal(test.body)
+			if err != nil {
+				t.Fatalf("couldn't parse request: %v", err)
+			}
+			uQ := fmt.Sprintf(api.HTTPUpdate, logID)
+			url := fmt.Sprintf("%s/%s", ts.URL, uQ)
+			resp, err := client.Post(url, "application/json", strings.NewReader(string(req)))
+			if err != nil {
+				t.Errorf("error response: %v", err)
+			}
+			if got, want := resp.StatusCode, test.wantStatus; got != want {
+				t.Errorf("status code got != want (%d, %d)", got, want)
 			}
 		})
 	}

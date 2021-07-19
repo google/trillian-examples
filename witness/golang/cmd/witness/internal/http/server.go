@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/google/trillian-examples/witness/golang/api"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
@@ -43,11 +42,12 @@ func NewServer(witness *witness.Witness) *Server {
 
 // update handles requests to update checkpoints.
 // It expects a POSTed body containing a JSON-formatted api.UpdateRequest
-// statement.
+// statement and returns a JSON-formatted api.UpdateResponse statement.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	logID := v["logid"]
 	body, err := ioutil.ReadAll(r.Body)
+	fmt.Println(r.Body)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot read request body: %v", err.Error()), http.StatusBadRequest)
 		return
@@ -57,15 +57,22 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("cannot parse request body as proper JSON struct: %v", err.Error()), http.StatusBadRequest)
 		return
 	}
-	// Get the checkpoint size from the witness.
-	size, err := s.w.Update(r.Context(), logID, req.Checkpoint, req.Proof)
+	// Get the output from the witness.
+	size, chkpt, err := s.w.Update(r.Context(), logID, req.Checkpoint, req.Proof)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), httpForCode(http.StatusInternalServerError))
 		return
 	}
-
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte(strconv.FormatUint(size, 10)))
+	resp := api.UpdateResponse{Size: size,
+		Checkpoint: chkpt,
+	}
+	respJSON, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to convert update response to JSON: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/json")
+	w.Write(respJSON)
 }
 
 // getCheckpoint returns a checkpoint stored for a given log.
@@ -82,7 +89,7 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	w.Write(chkpt)
 }
 
-// getCheckpoint returns a list of all logs the witness is aware of.
+// getLogs returns a list of all logs the witness is aware of.
 func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 	logs, err := s.w.GetLogs()
 	if err != nil {

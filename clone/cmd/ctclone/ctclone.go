@@ -34,7 +34,7 @@ import (
 const getEntriesFormat = "ct/v1/get-entries?start=%d&end=%d"
 
 var (
-	logURL         = flag.String("log_url", "", "Log storage root URL, https://ct.googleapis.com/rocketeer/")
+	logURL         = flag.String("log_url", "", "Log storage root URL, e.g. https://ct.googleapis.com/rocketeer/")
 	mysqlURI       = flag.String("mysql_uri", "", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
 	fetchBatchSize = flag.Uint("fetch_batch_size", 32, "The number of entries to fetch from the log in each request.")
 	writeBatchSize = flag.Uint("write_batch_size", 32, "The number of leaves to write in each DB transaction.")

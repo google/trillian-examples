@@ -17,6 +17,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"io/ioutil"
@@ -31,11 +32,12 @@ import (
 )
 
 var (
-	mysqlURI = flag.String("mysql_uri", "", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
+	mysqlURI = flag.String("mysql_uri", "", "URL of the MySQL database containing the log.")
 )
 
 func main() {
 	flag.Parse()
+	ctx := context.Background()
 
 	if len(*mysqlURI) == 0 {
 		glog.Exit("Missing required parameter 'mysql_uri'")
@@ -59,8 +61,8 @@ func main() {
 	lh := func(_ uint64, preimage []byte) []byte {
 		return h.HashLeaf(preimage)
 	}
-	v := verify.NewLogVerifier(db.StreamLeaves, lh, h.HashChildren)
-	root, err := v.MerkleRoot(cp.TreeSize)
+	v := verify.NewLogVerifier(db, lh, h.HashChildren)
+	root, crs, err := v.MerkleRoot(ctx, cp.TreeSize)
 	if err != nil {
 		glog.Exitf("Failed to compute root: %q", err)
 	}
@@ -69,6 +71,10 @@ func main() {
 	} else {
 		glog.Exitf("Computed root %x != provided checkpoint %x for tree size %d", root, cp.RootHash, cp.TreeSize)
 	}
+	if err := db.WriteCheckpoint(ctx, cp.TreeSize, bs, crs); err != nil {
+		glog.Exitf("Failed to update database with new checkpoint: %v", err)
+	}
+	glog.Info("Updated database with checkpoint")
 }
 
 // CTCheckpointResponse mirrors the RFC6962 STH format for `get-sth` to allow the

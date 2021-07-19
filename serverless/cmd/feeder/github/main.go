@@ -16,6 +16,7 @@
 package main
 
 import (
+  "context"
   "flag"
   "fmt"
   "os"
@@ -87,7 +88,7 @@ func main() {
   }
 
   // Clone the fork of the log, so we can go on to make a PR against it.
-  // TODO: this requires auth.
+  //   git clone -o origin "https://${GIT_USERNAME}:${FEEDER_GITHUB_TOKEN}@github.com/${fork_repo}.git" "${temp}"
   forkLogURL := fmt.Sprintf("https://%v:%v@github.com/%v.git", gitUsername, githubAuthToken, *witnessOwnerRepo)
   forkRepo, err := git.PlainClone(forkedLogDir, false, &git.CloneOptions{
 		URL: forkLogURL,
@@ -98,6 +99,7 @@ func main() {
   glog.Infof("Cloned %q into %q", forkLogURL, forkedLogDir)
 
   // Create a remote -> logOwnerRepo
+  //  git remote add upstream "https://github.com/${log_repo}.git"
   logURL := fmt.Sprintf("https://github.com/%v.git", *logOwnerRepo)
   logRemote, err := forkRepo.CreateRemote(&config.RemoteConfig{
     Name: "upstream",
@@ -109,6 +111,8 @@ func main() {
   glog.Infof("Added remote upstream->%q for %q: %v", logURL, *witnessOwnerRepo, logRemote)
 
   // Ensure the forkRepo config has git username and email set.
+  //  git config user.name "${GIT_USERNAME}"
+  //  git config user.email "${GIT_EMAIL}"
   cfg, err := forkRepo.Config()
   if err != nil {
     glog.Exitf("Failed to read config for repo %q: %v", *witnessOwnerRepo, err)
@@ -118,10 +122,38 @@ func main() {
   if err = forkRepo.SetConfig(cfg); err != nil {
     glog.Exitf("Failed to update config for repo %q: %v", *witnessOwnerRepo, err)
   }
-/*
-  git fetch --all
-  git branch -u upstream/master
-*/
+
+  //  git fetch --all
+  ctx := context.Background()
+  if err = forkRepo.FetchContext(ctx, &git.FetchOptions{}); err != nil && err != git.NoErrAlreadyUpToDate {
+    glog.Exitf("Failed to fetch repo %q: %v", *witnessOwnerRepo, err)
+  }
+
+  //  git branch -u upstream/master
+  // TODO: hmm: not sure if the go-git library lets me do this.  At this point the
+  // forkRepo's local .git/config has:
+  /*
+  [core]
+  	bare = false
+  [remote "origin"]
+  	url = https://phad:<personal-api-token>@github.com/phad/serverless-test.git
+  	fetch = +refs/heads/*:refs/remotes/origin/*
+  [remote "upstream"]
+  	url = https://github.com/AlCutter/serverless-test.git
+  	fetch = +refs/heads/*:refs/remotes/upstream/*
+  [branch "master"]
+  	remote = origin
+  	merge = refs/heads/master
+  [user]
+  	name = phad
+  	email = hadfieldp@google.com
+  */
+  // so am I expecting the [branch "master"] section to look like:
+  /*
+  [branch "master"]
+  	remote = upstream
+  	merge = refs/heads/master
+  */
 
     //   3. auth to Github
     //

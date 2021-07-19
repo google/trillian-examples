@@ -16,12 +16,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -225,17 +227,18 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 }
 
 func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository) error {
-
-	// 1. git pull
+	// 1. TODO: git pull
 
 	// 2. kick off feeder. (TODO: refactor feeder to a library so we don't need to spawn a process)
-	witnessed, err := spawnFeeder(ctx, opts)
+	cpLines, err := spawnFeeder(ctx, opts)
 	if err != nil {
 		return err
 	}
 
 	// 3. did feeder add a signuture or update the existing checkpoint.witnessed file?
-	if !witnessed {
+	// TODO: len(cpLines) is not the correct way to do this.  we need to examine
+	// the diff created in the forkRepo
+	if len(cpLines) == 0 {
 		fmt.Println("No signatures added")
 		return nil
 	}
@@ -246,21 +249,49 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	return nil
 }
 
-func spawnFeeder(ctx context.Context, opts *options) (bool, error) {
-	// TODO: kick off feeder process
-	// -config_file="${feeder_conf}" --logtostderr --input="https://raw.githubusercontent.com/${log_repo}/master/${log_path}/checkpoint" --output="${temp}/${log_path}/checkpoint.witnessed" -v 2
+func spawnFeeder(ctx context.Context, opts *options) ([]string, error) {
 	cmd := exec.Command("feeder", fmt.Sprintf("--config_file=%v", opts.feederConfigFile),
 		fmt.Sprintf("--input=https://raw.githubusercontent.com/%v/master/%v/checkpoint", opts.logOwnerRepo, opts.logRepoPath),
-		fmt.Sprintf("--output=%v/checkpoint.witnessed", path.Join(opts.witnessClonePath, opts.logRepoPath)),
-		"-v=2", "-logtostderr")
+		fmt.Sprintf("--output=%v/checkpoint.witnessed", path.Join(opts.witnessClonePath, opts.logRepoPath)), "-v=2",
+		"-alsologtostderr") // TODO remove this final flag
 
-	glog.Infof("cmd: \n%v", cmd)
-	out, err := cmd.CombinedOutput()
+	glog.V(1).Infof("cmd: \n%v", cmd)
+
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		glog.Errorf("feeder output:\n%v", string(out))
-		return false, err
+		return nil, err
 	}
 
-	fmt.Sprintf("feeder output:\n%v\n", out)
-	return true, nil
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	// TODO: this is ugly.  We're assuming that the feeder program outputs
+	// exactly in this format on stderr, and keeping all but the first line.
+	/*
+		I0719 18:17:17.082115  109363 main.go:104] CP to feed:
+		Log Checkpoint v0
+		14
+		gWLB7VlSWbHzuh0ZTg7W7cYjUdxpGIQ0g02hNl0PHkA=
+	*/
+	// I'm outputting this for now just to get more detail on what feeder is doing
+	// but we really need to determine that based on the diffs it might, or might
+	// not have created in the checkpoint.witnessed file at --output
+	var out []string
+	first := true
+	scanner := bufio.NewScanner(stderr)
+	for scanner.Scan() {
+		if first {
+			first = false
+			continue
+		}
+		out = append(out, scanner.Text())
+	}
+
+	if err := cmd.Wait(); err != nil {
+		glog.Errorf("feeder command err:%v", err)
+		return nil, err
+	}
+	glog.Infof("feeder stderr:\n%v", strings.Join(out, "\n"))
+	return out, nil
 }

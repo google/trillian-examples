@@ -45,9 +45,9 @@ Where:
 var (
   logOwnerRepo     = flag.String("log_owner_repo", "", "The repo owner/fragment from the log repo URL.")
   witnessOwnerRepo = flag.String("witness_owner_repo", "", "The repo owner/fragment from the witness (forked log) repo URL.")
-	logRepoPath      = flag.String("log_repo_path", "", "Path from the root of the repo where the log files can be found.")
-	feederConfig     = flag.String("feeder_config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
-	interval         = flag.Duration("interval", time.Duration(0), "Interval between checkpoints.")
+  logRepoPath      = flag.String("log_repo_path", "", "Path from the root of the repo where the log files can be found.")
+  feederConfig     = flag.String("feeder_config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
+  interval         = flag.Duration("interval", time.Duration(0), "Interval between checkpoints.")
 )
 
 func main() {
@@ -72,16 +72,16 @@ func main() {
     glog.Exitf("Error creating temp dir: %v", err)
   }
 
-  // Preparation:
-  //   2. clone the fork of the log, so we can go on to make a PR against it
-  logURL := fmt.Sprintf("https://github.com/%v", *logOwnerRepo)
-  glog.Infof("Cloning %q... into %q", logURL, forkedLogDir)
+  // Clone the fork of the log, so we can go on to make a PR against it.
+  // TODO: this requires auth.
+  forkLogURL := fmt.Sprintf("https://github.com/%v", *witnessOwnerRepo)
   _, err = git.PlainClone(forkedLogDir, false, &git.CloneOptions{
-		URL: logURL,
+		URL: forkLogURL,
 	})
   if err != nil {
-    glog.Exitf("Failed to clone repo %q: %v", logURL, err)
+    glog.Exitf("Failed to clone fork repo %q: %v", forkLogURL, err)
   }
+  glog.Infof("Cloned %q into %q", forkLogURL, forkedLogDir)
 
 
     //   3. auth to Github
@@ -100,7 +100,7 @@ func main() {
     CreateCheckpointPR()
 }
 
-
+func gitUsername,
 func CreateCheckpointPR() {
   fmt.Println("creating checkpoint PR ...")
 

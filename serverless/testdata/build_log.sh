@@ -14,7 +14,7 @@ rm -fr log
 go run ../cmd/integrate --logtostderr --storage_dir=${LOG} --initialise
 
 export LEAF=`mktemp`
-for i in one two three four five six seven; do
+for i in one two three four five six seven eit nain ten ileven twelf threeten fourten fivten; do
   echo -n "$i" > ${LEAF}
   go run ../cmd/sequence --storage_dir=${LOG} --entries="${LEAF}"
   go run ../cmd/integrate --logtostderr --storage_dir=${LOG}

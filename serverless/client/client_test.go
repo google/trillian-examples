@@ -56,6 +56,14 @@ var (
 			Size: 7,
 			Hash: b64("IrSXADBqJ7EQoUODSDKROySgNveeL6CFhik2w/+fS7U="),
 		},
+		{
+			Size: 14,
+			Hash: b64("SvCd38yNade7xEPY1a/aAc1M3A2AHYVF8lIiUnsH1ao="),
+		},
+		{
+			Size: 15,
+			Hash: b64("rKbDipCvhuX1GZ7g5BBe8sA6BbJ7ja/1nk427v383cs="),
+		},
 	}
 )
 
@@ -95,6 +103,13 @@ func TestCheckConsistency(t *testing.T) {
 				testCheckpoints[3],
 				testCheckpoints[5],
 				testCheckpoints[6],
+			},
+		}, {
+			desc: "big CPs",
+			cp: []log.Checkpoint{
+				testCheckpoints[3],
+				testCheckpoints[7],
+				testCheckpoints[8],
 			},
 		}, {
 			desc: "Identical CP",

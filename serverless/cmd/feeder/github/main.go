@@ -250,12 +250,14 @@ func spawnFeeder(ctx context.Context, opts *options) (bool, error) {
 	// TODO: kick off feeder process
 	// -config_file="${feeder_conf}" --logtostderr --input="https://raw.githubusercontent.com/${log_repo}/master/${log_path}/checkpoint" --output="${temp}/${log_path}/checkpoint.witnessed" -v 2
 	cmd := exec.Command("feeder", fmt.Sprintf("--config_file=%v", opts.feederConfigFile),
-		fmt.Sprintf("--input=\"https://raw.githubusercontent.com/%v/master/%v/checkpoint\"", opts.logOwnerRepo, opts.logRepoPath),
-		fmt.Sprintf("--output=\"%v/checkpoint.witnessed", path.Join(opts.witnessClonePath, opts.logRepoPath)),
-		"-v 2")
+		fmt.Sprintf("--input=https://raw.githubusercontent.com/%v/master/%v/checkpoint", opts.logOwnerRepo, opts.logRepoPath),
+		fmt.Sprintf("--output=%v/checkpoint.witnessed", path.Join(opts.witnessClonePath, opts.logRepoPath)),
+		"-v=2", "-logtostderr")
 
-	out, err := cmd.Output()
+	glog.Infof("cmd: \n%v", cmd)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
+		glog.Errorf("feeder output:\n%v", string(out))
 		return false, err
 	}
 

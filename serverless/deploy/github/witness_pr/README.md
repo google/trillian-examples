@@ -58,7 +58,7 @@ The combining of signatures is done using the
 Input          | Description
 ---------------|-----------------
 `log_dir`      | Path to the root of the serverless log files in this repo.
-`pr_repo_root` | Location within `${GITHUB_WORSPACE}` where the PR branch is checked out.
+`pr_repo_root` | Location within `${GITHUB_WORKSPACE}` where the PR branch is checked out.
 `pristine_repo_root` | Location within `${GITHUB_WORKSPACE}` where the pristine copy of the master repo is checked out.
 `witness_key_files` | Path glob matching the set of known witness keys in note format.
 `log_public_key` | The serverless log's public key (note: the key itself, not a path to a file containing the key).

@@ -24,6 +24,7 @@ import (
 	"github.com/golang/glog"
 //  "github.com/google/go-github"
   "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 //  "github.com/go-git/go-git/v5/plumbing"
 )
 
@@ -66,6 +67,19 @@ func main() {
     glog.Exitf("Missing required --feeder_config_file flag.\n\n%v", usage)
   }
 
+  githubAuthToken := os.Getenv("GITHUB_AUTH_TOKEN")
+  if githubAuthToken == "" {
+    glog.Exitf("Unauthorized: No GITHUB_AUTH_TOKEN present")
+  }
+  gitUsername := os.Getenv("GIT_USERNAME")
+  if gitUsername == "" {
+    glog.Exitf("Environment variable GIT_USERNAME is required to make commits")
+  }
+  gitEmail := os.Getenv("GIT_EMAIL")
+  if gitEmail == "" {
+    glog.Exitf("Environment variable GIT_EMAIL is required to make commits")
+  }
+
   // Make a tempdir to clone the witness (forked) log into.
   forkedLogDir, err := os.MkdirTemp(os.TempDir(), "feeder-github")
   if err != nil {
@@ -74,8 +88,8 @@ func main() {
 
   // Clone the fork of the log, so we can go on to make a PR against it.
   // TODO: this requires auth.
-  forkLogURL := fmt.Sprintf("https://github.com/%v", *witnessOwnerRepo)
-  _, err = git.PlainClone(forkedLogDir, false, &git.CloneOptions{
+  forkLogURL := fmt.Sprintf("https://%v:%v@github.com/%v.git", gitUsername, githubAuthToken, *witnessOwnerRepo)
+  forkRepo, err := git.PlainClone(forkedLogDir, false, &git.CloneOptions{
 		URL: forkLogURL,
 	})
   if err != nil {
@@ -83,6 +97,30 @@ func main() {
   }
   glog.Infof("Cloned %q into %q", forkLogURL, forkedLogDir)
 
+  // Ensure the forkRepo config has git username and email set.
+  remotes, err := forkRepo.Remotes()
+  for _, r := range remotes {
+    fmt.Sprintf("remote: %v\n", r)
+  }
+
+  // Create a remote -> logOwnerRepo
+  logURL := fmt.Sprintf("https://github.com/%v.git", *logOwnerRepo)
+  logRemote, err := forkRepo.CreateRemote(&config.RemoteConfig{
+    Name: "upstream",
+    URLs: []string{logURL},
+  })
+  if err != nil {
+    glog.Exitf("Failed to add remote %q to fork repo: %v", logURL, err)
+  }
+  glog.Infof("Added remote upstream->%q for %q: %v", logURL, *witnessOwnerRepo, logRemote)
+
+/*
+  git config user.name "${GIT_USERNAME}"
+  git config user.email "${GIT_EMAIL}"
+  git remote add upstream "https://github.com/${log_repo}.git"
+  git fetch --all
+  git branch -u upstream/master
+*/
 
     //   3. auth to Github
     //
@@ -100,7 +138,6 @@ func main() {
     CreateCheckpointPR()
 }
 
-func gitUsername,
 func CreateCheckpointPR() {
   fmt.Println("creating checkpoint PR ...")
 

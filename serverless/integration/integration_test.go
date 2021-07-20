@@ -41,7 +41,7 @@ const (
 	privKey = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 )
 
-func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Hasher, signer note.Signer) {
+func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.Hasher, signer note.Signer) {
 	ctx := context.Background()
 	lv := logverifier.New(lh)
 
@@ -127,7 +127,7 @@ func TestServerlessViaFile(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, root, h, s)
+	st := mustCreateAndInitialiseStorage(t, root, h.EmptyRoot(), s)
 
 	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
@@ -156,7 +156,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, root, h, s)
+	st := mustCreateAndInitialiseStorage(t, root, h.EmptyRoot(), s)
 
 	// Arrange for its files to be served via HTTP
 	listener, err := net.Listen("tcp", ":0")
@@ -225,9 +225,9 @@ func mustGetSigner(t *testing.T, privKey string) note.Signer {
 	return s
 }
 
-func mustCreateAndInitialiseStorage(t *testing.T, root string, h *hasher.Hasher, s note.Signer) *fs.Storage {
+func mustCreateAndInitialiseStorage(t *testing.T, root string, emptyRoot []byte, s note.Signer) *fs.Storage {
 	t.Helper()
-	st, err := fs.Create(root, h.EmptyRoot())
+	st, err := fs.Create(root, emptyRoot)
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}

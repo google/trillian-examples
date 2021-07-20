@@ -126,7 +126,7 @@ func main() {
 // to accomplish this.
 type logClientTool struct {
 	Fetcher  client.Fetcher
-	Hasher   *hasher.Hasher
+	Hasher   *rfc6962.Hasher
 	Verifier logverifier.LogVerifier
 	Tracker  client.LogStateTracker
 }

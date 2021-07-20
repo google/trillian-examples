@@ -30,7 +30,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -126,7 +126,7 @@ func main() {
 // to accomplish this.
 type logClientTool struct {
 	Fetcher  client.Fetcher
-	Hasher   *hasher.Hasher
+	Hasher   *rfc6962.Hasher
 	Verifier logverifier.LogVerifier
 	Tracker  client.LogStateTracker
 }
@@ -143,7 +143,7 @@ func newLogClientTool(ctx context.Context, logID string, f client.Fetcher, pubKe
 		glog.Info("Local log state cache disabled")
 	}
 
-	hasher := hasher.DefaultHasher
+	hasher := rfc6962.DefaultHasher
 	lv := logverifier.New(hasher)
 	v, err := note.NewVerifier(pubKey)
 	if err != nil {

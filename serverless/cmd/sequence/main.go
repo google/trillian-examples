@@ -30,7 +30,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 )
 
 var (
@@ -65,7 +65,7 @@ func main() {
 		glog.Exit("Sequence must be run with at least one valid entry")
 	}
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	// init storage
 
 	cpRaw, err := fs.ReadCheckpoint(*storageDir)

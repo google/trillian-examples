@@ -26,7 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/clone/internal/verify"
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -57,7 +57,7 @@ func main() {
 	}
 	glog.Infof("Parsed checkpoint with size %d and root hash %x. Calculating root hash for local data...", cp.TreeSize, cp.RootHash)
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	lh := func(_ uint64, preimage []byte) []byte {
 		return h.HashLeaf(preimage)
 	}

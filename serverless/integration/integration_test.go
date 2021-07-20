@@ -32,7 +32,7 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/hashers"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -41,7 +41,7 @@ const (
 	privKey = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 )
 
-func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Hasher, signer note.Signer) {
+func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.Hasher, signer note.Signer) {
 	ctx := context.Background()
 	lv := logverifier.New(lh)
 
@@ -118,7 +118,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *hasher.Ha
 }
 
 func TestServerlessViaFile(t *testing.T) {
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 
 	// Create log instance
 	root := filepath.Join(t.TempDir(), "log")
@@ -127,7 +127,7 @@ func TestServerlessViaFile(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, root, h, s)
+	st := mustCreateAndInitialiseStorage(t, root, h.EmptyRoot(), s)
 
 	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
@@ -147,7 +147,7 @@ func TestServerlessViaFile(t *testing.T) {
 }
 
 func TestServerlessViaHTTP(t *testing.T) {
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 
 	// Create log instance
 	root := filepath.Join(t.TempDir(), "log")
@@ -156,7 +156,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, root, h, s)
+	st := mustCreateAndInitialiseStorage(t, root, h.EmptyRoot(), s)
 
 	// Arrange for its files to be served via HTTP
 	listener, err := net.Listen("tcp", ":0")
@@ -225,9 +225,9 @@ func mustGetSigner(t *testing.T, privKey string) note.Signer {
 	return s
 }
 
-func mustCreateAndInitialiseStorage(t *testing.T, root string, h *hasher.Hasher, s note.Signer) *fs.Storage {
+func mustCreateAndInitialiseStorage(t *testing.T, root string, emptyRoot []byte, s note.Signer) *fs.Storage {
 	t.Helper()
-	st, err := fs.Create(root, h.EmptyRoot())
+	st, err := fs.Create(root, emptyRoot)
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}

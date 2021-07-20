@@ -23,7 +23,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
 )
@@ -77,7 +77,7 @@ func newOpts(d *sql.DB, logs []LogOpts, wSK string) (Opts, error) {
 	if err != nil {
 		return Opts{}, fmt.Errorf("newOpts: couldn't create a note signer: %v", err)
 	}
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	logMap := make(map[string]LogInfo)
 	for _, log := range logs {
 		logV, err := note.NewVerifier(log.PK)

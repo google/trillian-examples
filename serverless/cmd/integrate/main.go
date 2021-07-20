@@ -27,7 +27,7 @@ import (
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"
@@ -45,7 +45,7 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	// Read log public key from file or environment variable
 	var pubKey string
 	var err error

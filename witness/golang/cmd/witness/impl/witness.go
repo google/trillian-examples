@@ -25,7 +25,7 @@ import (
 	"github.com/golang/glog"
 	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
@@ -60,7 +60,7 @@ type ServerOpts struct {
 // buildLogMap loads the log configuration information into a map.
 func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 	logMap := make(map[string]witness.LogInfo)
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	for _, log := range config.Logs {
 		// TODO(smeiklej): Extend witness to handle other hashing strategies.
 		if log.HashStrategy != "default" {

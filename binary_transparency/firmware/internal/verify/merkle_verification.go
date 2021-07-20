@@ -16,7 +16,7 @@ package verify
 
 import (
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 )
 
 // NewLogVerifier is a convenience function to return a log verifier suitable for use

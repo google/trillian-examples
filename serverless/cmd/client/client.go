@@ -30,7 +30,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 

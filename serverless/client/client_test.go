@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 )
 
 var (

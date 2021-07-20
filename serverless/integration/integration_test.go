@@ -32,7 +32,7 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/hashers"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 

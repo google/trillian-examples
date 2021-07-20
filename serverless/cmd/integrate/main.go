@@ -27,7 +27,7 @@ import (
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"

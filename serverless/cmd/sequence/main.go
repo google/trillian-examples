@@ -30,7 +30,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 )
 
 var (

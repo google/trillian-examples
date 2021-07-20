@@ -23,7 +23,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
 )

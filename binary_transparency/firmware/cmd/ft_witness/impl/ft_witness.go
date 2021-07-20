@@ -29,7 +29,7 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/mod/sumdb/note"
 
-	_ "github.com/google/trillian/merkle/rfc6962/hasher" // Load hashers
+	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
 )
 
 // WitnessOpts encapsulates options for running an FT witness.

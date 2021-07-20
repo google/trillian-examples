@@ -22,7 +22,7 @@ import (
 	trillian "github.com/google/trillian"
 	"github.com/google/trillian-examples/helloworld/personality"
 	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 
 	"github.com/google/trillian-examples/formats/log"
 	"golang.org/x/mod/sumdb/note"

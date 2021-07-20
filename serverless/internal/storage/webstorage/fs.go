@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package fs provides a simple filesystem log storage implementation.
+// Package webstorage provides a simple log storage implementation based on webstorage.
+// It only really makes sense for wasm targets.
+// +build wasm
 package fs
 
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
+	"syscall/js"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
@@ -30,24 +32,18 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/storage"
 )
 
-const (
-	dirPerm  = 0755
-	filePerm = 0644
-	// TODO(al): consider making immutable files completely readonly
-)
-
-// Storage is a serverless storage implementation which uses files to store tree state.
-// The on-disk structure is:
-//  <rootDir>/leaves/aa/bb/cc/ddeeff...
-//  <rootDir>/leaves/pending/aabbccddeeff...
-//  <rootDir>/seq/aa/bb/cc/ddeeff...
-//  <rootDir>/tile/<level>/aa/bb/ccddee...
-//  <rootDir>/checkpoint
+// Storage is a serverless storage implementation which uses webstorage entries to store tree state.
+// The storage key format is:
+//  <root>/leaves/aa/bb/cc/ddeeff...
+//  <root>/leaves/pending/aabbccddeeff...
+//  <root>/seq/aa/bb/cc/ddeeff...
+//  <root>/tile/<level>/aa/bb/ccddee...
+//  <root>/checkpoint
 //
 // The functions on this struct are not thread-safe.
 type Storage struct {
-	// rootDir is the root directory where tree data will be stored.
-	rootDir string
+	// root is the prefix of all webstorage keys which store tree data.
+	root string
 	// nextSeq is a hint to the Sequence func as to what the next available
 	// sequence number is to help performance.
 	// Note that nextSeq may be <= than the actual next available number, but
@@ -59,44 +55,47 @@ type Storage struct {
 
 const leavesPendingPathFmt = "leaves/pending/%0x"
 
-// Load returns a Storage instance initialised from the filesystem.
-func Load(rootDir string, checkpoint *log.Checkpoint) (*Storage, error) {
-	fi, err := os.Stat(rootDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat %q: %w", rootDir, err)
-	}
+func exists(k string) bool {
+	_, err := get(k)
+	return err == nil
+}
 
-	if !fi.IsDir() {
-		return nil, fmt.Errorf("%q is not a directory", rootDir)
+func get(k string) ([]byte, error) {
+	v := js.Global().Get("sessionStorage").Call("getItem", k)
+	if v.Undefined() {
+		return nil, os.ErrNotExist
 	}
+	return []byte(v.String()), nil
+}
 
+func set(k string, v []byte) error {
+	js.Global().Get("sessionStorage").Call("setItem", []string{k, string(v)})
+	// TODO(al) read back and check
+	return nil
+}
+
+func createExclusive(k string, v []byte) error {
+	if exists(k) {
+		return os.ErrExist
+	}
+	js.Global().Get("sessionStorage").Call("setItem", []string{k, string(v)})
+	// TODO(al) read back and check
+	return nil
+}
+
+// Load returns a Storage instance initialised from webstorage prefixed at root.
+func Load(root string, checkpoint *log.Checkpoint) (*Storage, error) {
 	return &Storage{
-		rootDir:    rootDir,
+		root:       root,
 		checkpoint: *checkpoint,
 		nextSeq:    checkpoint.Size,
 	}, nil
 }
 
 // Create creates a new filesystem hierarchy and returns a Storage representation for it.
-func Create(rootDir string, emptyHash []byte) (*Storage, error) {
-	_, err := os.Stat(rootDir)
-	if err == nil {
-		return nil, fmt.Errorf("%q %w", rootDir, os.ErrExist)
-	}
-
-	if err := os.MkdirAll(rootDir, dirPerm); err != nil {
-		return nil, fmt.Errorf("failed to create directory %q: %w", rootDir, err)
-	}
-
-	for _, sfx := range []string{"leaves/pending", "seq", "tile"} {
-		path := filepath.Join(rootDir, sfx)
-		if err := os.MkdirAll(path, dirPerm); err != nil {
-			return nil, fmt.Errorf("failed to create directory %q: %w", path, err)
-		}
-	}
-
+func Create(root string, emptyHash []byte) (*Storage, error) {
 	fs := &Storage{
-		rootDir: rootDir,
+		root:    root,
 		nextSeq: 0,
 		checkpoint: log.Checkpoint{
 			Size: 0,
@@ -124,31 +123,18 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 	// 3. Hard link temp -> seq file
 	// 4. Create leafhash file containing assigned sequence number
 
-	// Ensure the leafhash directory structure is present
-	leafDir, leafFile := layout.LeafPath(fs.rootDir, leafhash)
-	if err := os.MkdirAll(leafDir, dirPerm); err != nil {
-		return 0, fmt.Errorf("failed to make leaf directory structure: %w", err)
-	}
+	leafDir, leafFile := layout.LeafPath(fs.root, leafhash)
 	// Check for dupe leaf already present.
 	// If there is one, it should contain the existing leaf's sequence number,
 	// so read that back and return it.
 	leafFQ := filepath.Join(leafDir, leafFile)
-	if seqString, err := ioutil.ReadFile(leafFQ); !os.IsNotExist(err) {
+	if seqString, err := get(leafFQ); !os.IsNotExist(err) {
 		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
 		if err != nil {
 			return 0, err
 		}
 		return origSeq, storage.ErrDupeLeaf
 	}
-
-	// Write a temp file with the leaf data
-	tmp := filepath.Join(fs.rootDir, fmt.Sprintf(leavesPendingPathFmt, leafhash))
-	if err := createExclusive(tmp, leaf); err != nil {
-		return 0, fmt.Errorf("unable to write temporary file: %w", err)
-	}
-	defer func() {
-		os.Remove(tmp)
-	}()
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
 	// if Sequence has been called since the last time an Integrate/WriteCheckpoint
@@ -157,19 +143,12 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 		seq := fs.nextSeq
 
 		// Ensure the sequencing directory structure is present:
-		seqDir, seqFile := layout.SeqPath(fs.rootDir, seq)
-		if err := os.MkdirAll(seqDir, dirPerm); err != nil {
-			return 0, fmt.Errorf("failed to make seq directory structure: %w", err)
-		}
+		seqDir, seqFile := layout.SeqPath(fs.root, seq)
 
 		// Hardlink the sequence file to the temporary file
 		seqPath := filepath.Join(seqDir, seqFile)
-		if err := os.Link(tmp, seqPath); errors.Is(err, os.ErrExist) {
-			// That sequence number is in use, try the next one
-			fs.nextSeq++
-			continue
-		} else if err != nil {
-			return 0, fmt.Errorf("failed to link seq file: %w", err)
+		if err := createExclusive(seqPath, leaf); err != nil {
+			return 0, fmt.Errorf("failed to store sequenced leaf: %v", err)
 		}
 
 		// Create a leafhash file containing the assigned sequence number.
@@ -177,42 +156,12 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 		// sequence file above, but before doing this a resubmission of the
 		// same leafhash would be permitted.
 		//
-		// First create a temp file
-		leafTmp := fmt.Sprintf("%s.tmp", leafFQ)
-		if err := createExclusive(leafTmp, []byte(strconv.FormatUint(seq, 16))); err != nil {
+		if err := createExclusive(leafFQ, []byte(strconv.FormatUint(seq, 16))); err != nil {
 			return 0, fmt.Errorf("couldn't create temporary leafhash file: %w", err)
 		}
-		defer os.Remove(leafTmp)
-		// Link the temporary file in place, if it already exists we likely crashed after
-		//creating the tmp file above.
-		if err := os.Link(leafTmp, leafFQ); err != nil && !errors.Is(err, os.ErrExist) {
-			return 0, fmt.Errorf("couldn't link temporary leafhash file in place: %w", err)
-		}
-
 		// All done!
 		return seq, nil
 	}
-}
-
-// createExclusive creates the named file before writing the data in d to it.
-// It will error if the file already exists, or it's unable to fully write the
-// data & close the file.
-func createExclusive(f string, d []byte) error {
-	tmpFile, err := os.OpenFile(f, os.O_RDWR|os.O_CREATE|os.O_EXCL, filePerm)
-	if err != nil {
-		return fmt.Errorf("unable to create temporary file: %w", err)
-	}
-	n, err := tmpFile.Write(d)
-	if err != nil {
-		return fmt.Errorf("unable to write leafdata to temporary file: %w", err)
-	}
-	if got, want := n, len(d); got != want {
-		return fmt.Errorf("short write on leaf, wrote %d expected %d", got, want)
-	}
-	if err := tmpFile.Close(); err != nil {
-		return err
-	}
-	return nil
 }
 
 // ScanSequenced calls the provided function once for each contiguous entry
@@ -222,8 +171,8 @@ func createExclusive(f string, d []byte) error {
 func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
 	for {
-		sp := filepath.Join(layout.SeqPath(fs.rootDir, end))
-		entry, err := ioutil.ReadFile(sp)
+		sp := filepath.Join(layout.SeqPath(fs.root, end))
+		entry, err := get(sp)
 		if errors.Is(err, os.ErrNotExist) {
 			// we're done.
 			return end - begin, nil
@@ -242,8 +191,8 @@ func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) 
 // partial tile for the given tree size at that location.
 func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
 	tileSize := layout.PartialTileSize(level, index, logSize)
-	p := filepath.Join(layout.TilePath(fs.rootDir, level, index, tileSize))
-	t, err := ioutil.ReadFile(p)
+	p := filepath.Join(layout.TilePath(fs.root, level, index, tileSize))
+	t, err := get(p)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
@@ -273,41 +222,11 @@ func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 		return fmt.Errorf("failed to marshal tile: %w", err)
 	}
 
-	tDir, tFile := layout.TilePath(fs.rootDir, level, index, tileSize%256)
+	tDir, tFile := layout.TilePath(fs.root, level, index, tileSize%256)
 	tPath := filepath.Join(tDir, tFile)
 
-	if err := os.MkdirAll(tDir, dirPerm); err != nil {
-		return fmt.Errorf("failed to create directory %q: %w", tDir, err)
-	}
-
-	// TODO(al): use unlinked temp file
-	temp := fmt.Sprintf("%s.temp", tPath)
-	if err := ioutil.WriteFile(temp, t, filePerm); err != nil {
+	if err := createExclusive(tPath, t); err != nil {
 		return fmt.Errorf("failed to write temporary tile file: %w", err)
-	}
-	if err := os.Rename(temp, tPath); err != nil {
-		return fmt.Errorf("failed to rename temporary tile file: %w", err)
-	}
-
-	if tileSize == 256 {
-		partials, err := filepath.Glob(fmt.Sprintf("%s.*", tPath))
-		if err != nil {
-			return fmt.Errorf("failed to list partial tiles for clean up; %w", err)
-		}
-		// Clean up old partial tiles by symlinking them to the new full tile.
-		for _, p := range partials {
-			glog.V(2).Infof("relink partial %s to %s", p, tPath)
-			// We have to do a little dance here to get POSIX atomicity:
-			// 1. Create a new temporary symlink to the full tile
-			// 2. Rename the temporary symlink over the top of the old partial tile
-			tmp := fmt.Sprintf("%s.link", tPath)
-			if err := os.Symlink(tPath, tmp); err != nil {
-				return fmt.Errorf("failed to create temp link to full tile: %w", err)
-			}
-			if err := os.Rename(tmp, p); err != nil {
-				return fmt.Errorf("failed to rename temp link over partial tile: %w", err)
-			}
-		}
 	}
 
 	return nil
@@ -315,16 +234,12 @@ func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 
 // WriteCheckpoint stores a raw log checkpoint on disk.
 func (fs Storage) WriteCheckpoint(newCPRaw []byte) error {
-	oPath := filepath.Join(fs.rootDir, layout.CheckpointPath)
-	tmp := fmt.Sprintf("%s.tmp", oPath)
-	if err := createExclusive(tmp, newCPRaw); err != nil {
-		return fmt.Errorf("failed to create temporary checkpoint file: %w", err)
-	}
-	return os.Rename(tmp, oPath)
+	oPath := filepath.Join(fs.root, layout.CheckpointPath)
+	return createExclusive(oPath, newCPRaw)
 }
 
 // ReadCheckpoint reads and returns the contents of the log checkpoint file.
-func ReadCheckpoint(rootDir string) ([]byte, error) {
-	s := filepath.Join(rootDir, layout.CheckpointPath)
-	return ioutil.ReadFile(s)
+func ReadCheckpoint(root string) ([]byte, error) {
+	s := filepath.Join(root, layout.CheckpointPath)
+	return get(s)
 }

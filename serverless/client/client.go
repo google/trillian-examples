@@ -130,6 +130,9 @@ func (pb *ProofBuilder) InclusionProof(ctx context.Context, index uint64) ([][]b
 		}
 		ret = append(ret, h)
 	}
+	if ret, err = merkle.Rehash(ret, nodes, pb.h); err != nil {
+		return nil, fmt.Errorf("failed to rehash inclusion proof: %w", err)
+	}
 	return ret, nil
 }
 

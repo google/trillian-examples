@@ -28,8 +28,6 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_witness/internal/ws"
 	"github.com/gorilla/mux"
 	"golang.org/x/mod/sumdb/note"
-
-	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
 )
 
 // WitnessOpts encapsulates options for running an FT witness.

@@ -33,8 +33,7 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/mod/sumdb/note"
 
-	_ "github.com/google/trillian/merkle/rfc6962" // Load hashers
-	_ "github.com/mattn/go-sqlite3"               // Load drivers for sqlite3
+	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
 // PersonalityOpts encapsulates options for running an FT personality.

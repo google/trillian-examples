@@ -65,7 +65,7 @@ func main() {
 		glog.Exit("Sequence must be run with at least one valid entry")
 	}
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	// init storage
 
 	cpRaw, err := fs.ReadCheckpoint(*storageDir)

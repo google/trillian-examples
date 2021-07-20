@@ -143,7 +143,7 @@ func newLogClientTool(ctx context.Context, logID string, f client.Fetcher, pubKe
 		glog.Info("Local log state cache disabled")
 	}
 
-	hasher := hasher.DefaultHasher
+	hasher := rfc6962.DefaultHasher
 	lv := logverifier.New(hasher)
 	v, err := note.NewVerifier(pubKey)
 	if err != nil {

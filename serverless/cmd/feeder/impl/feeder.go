@@ -151,7 +151,7 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 // submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.
 func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, w Witness, logID string, logFetcher client.Fetcher, logSigV note.Verifier, witnessed chan<- []byte, errs chan<- error) {
 	// TODO(al): make this configurable
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	wSigV := w.SigVerifier()
 
 	// Keep submitting until success or context timeout...

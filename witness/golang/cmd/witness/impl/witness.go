@@ -60,7 +60,7 @@ type ServerOpts struct {
 // buildLogMap loads the log configuration information into a map.
 func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 	logMap := make(map[string]witness.LogInfo)
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	for _, log := range config.Logs {
 		// TODO(smeiklej): Extend witness to handle other hashing strategies.
 		if log.HashStrategy != "default" {

@@ -58,7 +58,7 @@ type Client struct {
 // personality to talk to.  In real usage, a client should persist this
 // checkpoint across different runs to ensure consistency.
 func NewClient(prsn Personality, nv note.Verifier) Client {
-	v := logverifier.New(hasher.DefaultHasher)
+	v := logverifier.New(rfc6962.DefaultHasher)
 	return Client{
 		person:      prsn,
 		v:           v,
@@ -68,7 +68,7 @@ func NewClient(prsn Personality, nv note.Verifier) Client {
 
 // VerIncl allows the client to check inclusion of a given entry.
 func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
-	leafHash := hasher.DefaultHasher.HashLeaf(entry)
+	leafHash := rfc6962.DefaultHasher.HashLeaf(entry)
 	if err := c.v.VerifyInclusionProof(pf.LeafIndex, int64(c.chkpt.Size),
 		pf.Hashes, c.chkpt.Hash, leafHash); err != nil {
 		return false

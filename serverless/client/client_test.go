@@ -78,7 +78,7 @@ func b64(r string) []byte {
 func TestCheckConsistency(t *testing.T) {
 	ctx := context.Background()
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 
 	f := func(_ context.Context, p string) ([]byte, error) {
 		path := filepath.Join("../testdata/log", p)

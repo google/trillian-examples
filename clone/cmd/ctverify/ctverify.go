@@ -57,7 +57,7 @@ func main() {
 	}
 	glog.Infof("Parsed checkpoint with size %d and root hash %x. Calculating root hash for local data...", cp.TreeSize, cp.RootHash)
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	lh := func(_ uint64, preimage []byte) []byte {
 		return h.HashLeaf(preimage)
 	}

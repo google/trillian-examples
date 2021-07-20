@@ -45,7 +45,7 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	// Read log public key from file or environment variable
 	var pubKey string
 	var err error

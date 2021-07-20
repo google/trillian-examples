@@ -12,17 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +build wasm
+
 // Package webstorage provides a simple log storage implementation based on webstorage.
 // It only really makes sense for wasm targets.
-// +build wasm
-package fs
+package webstorage
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall/js"
 
 	"github.com/golang/glog"
@@ -55,21 +58,25 @@ type Storage struct {
 
 const leavesPendingPathFmt = "leaves/pending/%0x"
 
+func getStorage() js.Value {
+	return js.Global().Get("sessionStorage")
+}
+
 func exists(k string) bool {
 	_, err := get(k)
 	return err == nil
 }
 
 func get(k string) ([]byte, error) {
-	v := js.Global().Get("sessionStorage").Call("getItem", k)
-	if v.Undefined() {
+	v := getStorage().Call("getItem", js.ValueOf(k))
+	if js.Null().Equal(v) {
 		return nil, os.ErrNotExist
 	}
 	return []byte(v.String()), nil
 }
 
 func set(k string, v []byte) error {
-	js.Global().Get("sessionStorage").Call("setItem", []string{k, string(v)})
+	getStorage().Call("setItem", js.ValueOf(k), js.ValueOf(string(v)))
 	// TODO(al) read back and check
 	return nil
 }
@@ -78,7 +85,7 @@ func createExclusive(k string, v []byte) error {
 	if exists(k) {
 		return os.ErrExist
 	}
-	js.Global().Get("sessionStorage").Call("setItem", []string{k, string(v)})
+	getStorage().Call("setItem", js.ValueOf(k), js.ValueOf(string(v)))
 	// TODO(al) read back and check
 	return nil
 }
@@ -104,6 +111,40 @@ func Create(root string, emptyHash []byte) (*Storage, error) {
 	}
 
 	return fs, nil
+}
+
+// Queue adds a leaf to the pending queue for integration.
+func (fs *Storage) Queue(leaf []byte) error {
+	h := sha256.Sum256(leaf)
+	return createExclusive(filepath.Join(fs.root, fmt.Sprintf(leavesPendingPathFmt, h)), leaf)
+}
+
+// PendingKeys returns the storage keys associated with pending leaves.
+func (fs *Storage) PendingKeys() ([]string, error) {
+	pk := []string{}
+	s := getStorage()
+	prefix := filepath.Join(fs.root, "leaves", "pending")
+	for i := 0; i < s.Get("length").Int(); i++ {
+		k := s.Call("key", js.ValueOf(i))
+		if js.Null().Equal(k) {
+			return nil, fmt.Errorf("key(%d) failed", i)
+		}
+		ks := k.String()
+		if strings.HasPrefix(ks, prefix) {
+			pk = append(pk, ks)
+		}
+	}
+	return pk, nil
+}
+
+// Pending returns a pending leaf stored under PendingKey.
+func (fs *Storage) Pending(f string) ([]byte, error) {
+	return get(f)
+}
+
+// DeletePending removes a pending leaf stored under PendingKey.
+func (fs *Storage) DeletePending(f string) {
+	getStorage().Call("removeItem", f)
 }
 
 // Checkpoint returns the current Checkpoint.
@@ -145,17 +186,21 @@ func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 		// Ensure the sequencing directory structure is present:
 		seqDir, seqFile := layout.SeqPath(fs.root, seq)
 
-		// Hardlink the sequence file to the temporary file
+		// Write the newly sequenced leaf
 		seqPath := filepath.Join(seqDir, seqFile)
-		if err := createExclusive(seqPath, leaf); err != nil {
-			return 0, fmt.Errorf("failed to store sequenced leaf: %v", err)
+		err := createExclusive(seqPath, leaf)
+		if err != nil {
+			if !errors.Is(err, os.ErrExist) {
+				return 0, fmt.Errorf("failed to store sequenced leaf: %v", err)
+			}
+			fs.nextSeq++
+			continue
 		}
 
 		// Create a leafhash file containing the assigned sequence number.
 		// This isn't infallible though, if we crash after hardlinking the
 		// sequence file above, but before doing this a resubmission of the
 		// same leafhash would be permitted.
-		//
 		if err := createExclusive(leafFQ, []byte(strconv.FormatUint(seq, 16))); err != nil {
 			return 0, fmt.Errorf("couldn't create temporary leafhash file: %w", err)
 		}
@@ -235,7 +280,7 @@ func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 // WriteCheckpoint stores a raw log checkpoint on disk.
 func (fs Storage) WriteCheckpoint(newCPRaw []byte) error {
 	oPath := filepath.Join(fs.root, layout.CheckpointPath)
-	return createExclusive(oPath, newCPRaw)
+	return set(oPath, newCPRaw)
 }
 
 // ReadCheckpoint reads and returns the contents of the log checkpoint file.

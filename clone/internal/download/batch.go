@@ -39,7 +39,7 @@ type BulkResult struct {
 // The resulting leaves are returned in order over `leafChan`, and any terminal errors are returned via `errc`.
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
 // Bulk takes ownership of `rc` and will close it when no more values will be written.
-func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, batchSize uint, rc chan<- BulkResult) {
+func Bulk(ctx context.Context, first, last uint64, batchFetch BatchFetch, workers, batchSize uint, rc chan<- BulkResult) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer close(rc)
@@ -54,6 +54,7 @@ func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, bat
 		go fetchWorker{
 			label:      fmt.Sprintf("worker %d", i),
 			start:      start,
+			last:       last,
 			count:      batchSize,
 			increment:  uint64(increment),
 			out:        rangeChans[i],
@@ -61,6 +62,7 @@ func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, bat
 		}.run(ctx)
 	}
 
+	lastStart := last - uint64(batchSize)
 	var r workerResult
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {
@@ -86,6 +88,9 @@ func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, bat
 				Err:  nil,
 			}
 		}
+		if r.start >= lastStart {
+			return
+		}
 	}
 }
 
@@ -96,21 +101,30 @@ type workerResult struct {
 }
 
 type fetchWorker struct {
-	label            string
-	start, increment uint64
-	count            uint
-	out              chan<- workerResult
-	batchFetch       BatchFetch
+	label                  string
+	start, last, increment uint64
+	count                  uint
+	out                    chan<- workerResult
+	batchFetch             BatchFetch
 }
 
 func (w fetchWorker) run(ctx context.Context) {
+	defer close(w.out)
 	// TODO(mhutchinson): Consider some way to reset this after intermittent connectivity issue.
 	// If this is pushed in the loop then it fixes this issue, but at the cost that the worker
 	// will never reach a stable rate if it is asked to back off. This is optimized for being
 	// gentle to the logs, which is a reasonable default for a happy ecosystem.
 	bo := backoff.NewExponentialBackOff()
 	for {
-		leaves := make([][]byte, w.count)
+		if w.start > w.last {
+			return
+		}
+		count := w.count
+		if left := w.last - w.start; left < uint64(count) {
+			count = uint(left)
+		}
+
+		leaves := make([][]byte, count)
 		var c workerResult
 		operation := func() error {
 			err := w.batchFetch(w.start, leaves)

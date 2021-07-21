@@ -28,18 +28,28 @@ import (
 // Enough leaves should be fetched to fully fill `leaves`, or an error should be returned.
 type BatchFetch func(start uint64, leaves [][]byte) error
 
+// BulkResult combines a downloaded leaf, or the error found when trying to obtain the leaf.
+type BulkResult struct {
+	Leaf []byte
+	Err  error
+}
+
 // Bulk keeps downloading leaves starting from `first`, using the given leaf fetcher.
 // The number of workers and the batch size to use for each of the fetch requests are also specified.
 // The resulting leaves are returned in order over `leafChan`, and any terminal errors are returned via `errc`.
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
-func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, batchSize uint, leafChan chan<- []byte, errc chan<- error) {
+// Bulk takes ownership of `rc` and will close it when no more values will be written.
+func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, batchSize uint, rc chan<- BulkResult) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	defer close(rc)
 	// Each worker gets its own unbuffered channel to make sure it can only be at most one ahead.
 	// This prevents lots of wasted work happening if one shard gets stuck.
-	rangeChans := make([]chan leafRange, workers)
+	rangeChans := make([]chan workerResult, workers)
 
 	increment := workers * batchSize
 	for i := uint(0); i < workers; i++ {
-		rangeChans[i] = make(chan leafRange)
+		rangeChans[i] = make(chan workerResult)
 		start := first + uint64(i*batchSize)
 		go fetchWorker{
 			label:      fmt.Sprintf("worker %d", i),
@@ -47,37 +57,49 @@ func Bulk(ctx context.Context, first uint64, batchFetch BatchFetch, workers, bat
 			count:      batchSize,
 			increment:  uint64(increment),
 			out:        rangeChans[i],
-			errc:       errc,
 			batchFetch: batchFetch,
 		}.run(ctx)
 	}
 
-	var r leafRange
+	var r workerResult
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {
 		select {
 		case <-ctx.Done():
-			errc <- ctx.Err()
+			rc <- BulkResult{
+				Leaf: nil,
+				Err:  ctx.Err(),
+			}
 			return
 		case r = <-rangeChans[i]:
 		}
+		if r.err != nil {
+			rc <- BulkResult{
+				Leaf: nil,
+				Err:  r.err,
+			}
+			return
+		}
 		for _, l := range r.leaves {
-			leafChan <- l
+			rc <- BulkResult{
+				Leaf: l,
+				Err:  nil,
+			}
 		}
 	}
 }
 
-type leafRange struct {
+type workerResult struct {
 	start  uint64
 	leaves [][]byte
+	err    error
 }
 
 type fetchWorker struct {
 	label            string
 	start, increment uint64
 	count            uint
-	out              chan<- leafRange
-	errc             chan<- error
+	out              chan<- workerResult
 	batchFetch       BatchFetch
 }
 
@@ -89,29 +111,26 @@ func (w fetchWorker) run(ctx context.Context) {
 	bo := backoff.NewExponentialBackOff()
 	for {
 		leaves := make([][]byte, w.count)
-		var c leafRange
+		var c workerResult
 		operation := func() error {
 			err := w.batchFetch(w.start, leaves)
 			if err != nil {
 				return fmt.Errorf("LeafFetcher.Batch(%d, %d): %w", w.start, w.count, err)
 			}
-			c = leafRange{
+			c = workerResult{
 				start:  w.start,
 				leaves: leaves,
+				err:    nil,
 			}
 			return nil
 		}
-		err := backoff.RetryNotify(operation, bo, func(e error, _ time.Duration) {
+		c.err = backoff.RetryNotify(operation, bo, func(e error, _ time.Duration) {
 			glog.V(1).Infof("%s: Retryable error getting data: %q", w.label, e)
 		})
-		if err != nil {
-			w.errc <- err
-		} else {
-			select {
-			case <-ctx.Done():
-				return
-			case w.out <- c:
-			}
+		select {
+		case <-ctx.Done():
+			return
+		case w.out <- c:
 		}
 		w.start += w.increment
 	}

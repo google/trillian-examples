@@ -29,7 +29,7 @@ import (
 
 	"github.com/google/trillian-examples/witness/golang/api"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	"github.com/gorilla/mux"
 	"golang.org/x/mod/sumdb/note"
 
@@ -74,7 +74,7 @@ func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *witness.Witness {
 	if err != nil {
 		t.Fatalf("couldn't create a witness signer: %v", err)
 	}
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	logMap := make(map[string]witness.LogInfo)
 	for _, log := range logs {
 		logV, err := note.NewVerifier(log.PK)

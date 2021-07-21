@@ -54,23 +54,24 @@ var (
 	}
 )
 
-type LogOpts struct {
+type logOpts struct {
 	ID         string
 	PK         string
 	useCompact bool
 }
 
-func newOpts(d *sql.DB, logs []LogOpts) (Opts, error) {
+func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *Witness {
+	// Set up Opts for the witness.
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
-		return Opts{}, fmt.Errorf("newOpts: couldn't create a note signer: %v", err)
+		t.Fatalf("couldn't create a witness signer: %v", err)
 	}
 	h := hasher.DefaultHasher
 	logMap := make(map[string]LogInfo)
 	for _, log := range logs {
 		logV, err := note.NewVerifier(log.PK)
 		if err != nil {
-			return Opts{}, fmt.Errorf("newOpts: couldn't create a log verifier")
+			t.Fatalf("couldn't create a log verifier: %v", err)
 		}
 		sigV := []note.Verifier{logV}
 		logInfo := LogInfo{
@@ -85,14 +86,7 @@ func newOpts(d *sql.DB, logs []LogOpts) (Opts, error) {
 		Signer:    ns,
 		KnownLogs: logMap,
 	}
-	return opts, nil
-}
-
-func newWitness(t *testing.T, d *sql.DB, logs []LogOpts) *Witness {
-	opts, err := newOpts(d, logs)
-	if err != nil {
-		t.Fatalf("couldn't create witness opt struct: %v", err)
-	}
+	// Create the witness
 	w, err := New(opts)
 	if err != nil {
 		t.Fatalf("couldn't create witness: %v", err)
@@ -148,9 +142,9 @@ func TestGetLogs(t *testing.T) {
 			defer closeFn()
 			ctx := context.Background()
 			// Set up witness.
-			logs := make([]LogOpts, len(test.logIDs))
+			logs := make([]logOpts, len(test.logIDs))
 			for i, logID := range test.logIDs {
-				logs[i] = LogOpts{ID: logID,
+				logs[i] = logOpts{ID: logID,
 					PK:         test.logPKs[i],
 					useCompact: false,
 				}
@@ -168,12 +162,12 @@ func TestGetLogs(t *testing.T) {
 				t.Fatalf("couldn't get logs from witness: %v", err)
 			}
 			if len(knownLogs) != len(test.logIDs) {
-				t.Fatalf("wanted %v logs but got %v", len(test.logIDs), len(knownLogs))
+				t.Fatalf("got %d logs, want %d", len(knownLogs), len(test.logIDs))
 			}
 			sort.Strings(knownLogs)
 			for i := range knownLogs {
 				if knownLogs[i] != test.logIDs[i] {
-					t.Fatalf("wanted %v but got %v", knownLogs[i], test.logIDs[i])
+					t.Fatalf("got %q, want %q", test.logIDs[i], knownLogs[i])
 				}
 			}
 		})
@@ -221,7 +215,7 @@ func TestGetChkpt(t *testing.T) {
 			defer closeFn()
 			ctx := context.Background()
 			// Set up witness.
-			w := newWitness(t, d, []LogOpts{{ID: test.setID,
+			w := newWitness(t, d, []logOpts{{ID: test.setID,
 				PK:         test.setPK,
 				useCompact: false}})
 			// Set a checkpoint for the log if we want to for this test.
@@ -331,7 +325,7 @@ func TestUpdate(t *testing.T) {
 			ctx := context.Background()
 			logID := "monkeys"
 			// Set up witness.
-			w := newWitness(t, d, []LogOpts{{ID: logID,
+			w := newWitness(t, d, []logOpts{{ID: logID,
 				PK:         mPK,
 				useCompact: test.useCR}})
 			// Set an initial checkpoint for the log.

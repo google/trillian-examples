@@ -59,10 +59,10 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	// Get the output from the witness.
 	chkpt, err := s.w.Update(r.Context(), logID, req.Checkpoint, req.Proof)
 	if err != nil {
-		// If the request aborted it's possible the caller was just out
-		// of date.  Give the returned checkpoint to help them form a new
-		// request.
-		if status.Code(err) == codes.Aborted {
+		// If there was a failed precondition it's possible the caller was
+		// just out of date.  Give the returned checkpoint to help them
+		// form a new request.
+		if status.Code(err) == codes.FailedPrecondition {
 			http.Error(w, string(chkpt), http.StatusConflict)
 			return
 		}
@@ -115,7 +115,7 @@ func httpForCode(c codes.Code) int {
 	switch c {
 	case codes.NotFound:
 		return http.StatusNotFound
-	case codes.Aborted:
+	case codes.FailedPrecondition:
 		return http.StatusConflict
 	default:
 		return http.StatusInternalServerError

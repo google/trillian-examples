@@ -131,8 +131,8 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 }
 
 // Update updates the latest checkpoint if nextRaw is consistent with the current
-// latest one for this log. If the update was successful it returns a cosigned
-// version of nextRaw and if not it returns its (signed) latest checkpoint.
+// latest one for this log. It returns the latest cosigned checkpoint held by
+// the witness, which is a signed version of nextRaw if the update was applied.
 func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proof [][]byte) ([]byte, error) {
 	// If we don't witness this log then no point in going further.
 	logInfo, ok := w.Logs[logID]
@@ -184,11 +184,11 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	}
 	if next.Size < prev.Size {
 		// Complain if prev is bigger than next.
-		return prevRaw, status.Errorf(codes.Aborted, "cannot prove consistency backwards (%d < %d)", next.Size, prev.Size)
+		return prevRaw, status.Errorf(codes.FailedPrecondition, "cannot prove consistency backwards (%d < %d)", next.Size, prev.Size)
 	}
 	if next.Size == prev.Size {
 		if !bytes.Equal(next.Hash, prev.Hash) {
-			return prevRaw, status.Errorf(codes.Aborted, "checkpoint for same size log with differing hash (got %x, have %x)", next.Hash, prev.Hash)
+			return prevRaw, status.Errorf(codes.FailedPrecondition, "checkpoint for same size log with differing hash (got %x, have %x)", next.Hash, prev.Hash)
 		}
 		// If it's identical to the previous one do nothing.
 		return prevRaw, nil
@@ -199,7 +199,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if logInfo.UseCompact {
 		nextRange, err := verifyRange(next, prev, logInfo.Hasher, prevRange, proof)
 		if err != nil {
-			return prevRaw, status.Errorf(codes.Aborted, "failed to verify compact range: %v", err)
+			return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify compact range: %v", err)
 		}
 		// If the proof is good store nextRaw and the new range.
 		r := []byte(log.Proof(nextRange).Marshal())
@@ -212,7 +212,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	logV := logverifier.New(logInfo.Hasher)
 	if err := logV.VerifyConsistencyProof(int64(prev.Size), int64(next.Size), prev.Hash, next.Hash, proof); err != nil {
 		// Complain if the checkpoints aren't consistent.
-		return prevRaw, status.Errorf(codes.Aborted, "failed to verify consistency proof: %v", err)
+		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
 	}
 	// If the consistency proof is good we store nextRaw.
 	if err := w.setChkptData(tx, logID, signed, nil); err != nil {

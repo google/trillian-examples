@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 
@@ -30,8 +31,9 @@ import (
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
 	"github.com/google/trillian/merkle/rfc6962/hasher"
 	"github.com/gorilla/mux"
-	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
+
+	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
 var (
@@ -60,23 +62,24 @@ var (
 	}
 )
 
-type LogOpts struct {
+type logOpts struct {
 	ID         string
 	PK         string
 	useCompact bool
 }
 
-func newOpts(d *sql.DB, logs []LogOpts) (witness.Opts, error) {
+func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *witness.Witness {
+	// Set up Opts for the witness.
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
-		return witness.Opts{}, fmt.Errorf("newOpts: couldn't create a note signer: %v", err)
+		t.Fatalf("couldn't create a witness signer: %v", err)
 	}
 	h := hasher.DefaultHasher
 	logMap := make(map[string]witness.LogInfo)
 	for _, log := range logs {
 		logV, err := note.NewVerifier(log.PK)
 		if err != nil {
-			return witness.Opts{}, fmt.Errorf("newOpts: couldn't create a log verifier")
+			t.Fatalf("couldn't create a log verifier: %v", err)
 		}
 		sigV := []note.Verifier{logV}
 		logInfo := witness.LogInfo{
@@ -91,14 +94,7 @@ func newOpts(d *sql.DB, logs []LogOpts) (witness.Opts, error) {
 		Signer:    ns,
 		KnownLogs: logMap,
 	}
-	return opts, nil
-}
-
-func newWitness(t *testing.T, d *sql.DB, logs []LogOpts) *witness.Witness {
-	opts, err := newOpts(d, logs)
-	if err != nil {
-		t.Fatalf("couldn't create witness opt struct: %v", err)
-	}
+	// Create the witness
 	w, err := witness.New(opts)
 	if err != nil {
 		t.Fatalf("couldn't create witness: %v", err)
@@ -127,6 +123,14 @@ func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
 	return db, db.Close
 }
 
+func createTestEnv(w *witness.Witness) (*httptest.Server, func()) {
+	r := mux.NewRouter()
+	server := NewServer(w)
+	server.RegisterHandlers(r)
+	ts := httptest.NewServer(r)
+	return ts, ts.Close
+}
+
 func TestGetLogs(t *testing.T) {
 	for _, test := range []struct {
 		desc       string
@@ -134,27 +138,27 @@ func TestGetLogs(t *testing.T) {
 		logPKs     []string
 		chkpts     [][]byte
 		wantStatus int
-		wantBody   string
+		wantBody   []string
 	}{
 		{
 			desc:       "no logs",
 			logIDs:     []string{},
 			wantStatus: http.StatusOK,
-			wantBody:   "",
+			wantBody:   []string{},
 		}, {
 			desc:       "one log",
 			logIDs:     []string{"monkeys"},
 			logPKs:     []string{mPK},
 			chkpts:     [][]byte{mInit},
 			wantStatus: http.StatusOK,
-			wantBody:   `["monkeys"]`,
+			wantBody:   []string{"monkeys"},
 		}, {
 			desc:       "two logs",
 			logIDs:     []string{"bananas", "monkeys"},
 			logPKs:     []string{bPK, mPK},
 			chkpts:     [][]byte{bInit, mInit},
 			wantStatus: http.StatusOK,
-			wantBody:   `["bananas","monkeys"]`,
+			wantBody:   []string{"bananas", "monkeys"},
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -162,9 +166,9 @@ func TestGetLogs(t *testing.T) {
 			defer closeFn()
 			ctx := context.Background()
 			// Set up witness and give it some checkpoints.
-			logs := make([]LogOpts, len(test.logIDs))
+			logs := make([]logOpts, len(test.logIDs))
 			for i, logID := range test.logIDs {
-				logs[i] = LogOpts{ID: logID,
+				logs[i] = logOpts{ID: logID,
 					PK:         test.logPKs[i],
 					useCompact: false,
 				}
@@ -176,12 +180,8 @@ func TestGetLogs(t *testing.T) {
 				}
 			}
 			// Now set up the http server.
-			r := mux.NewRouter()
-			server := NewServer(w)
-			server.RegisterHandlers(r)
-			ts := httptest.NewServer(r)
-			defer ts.Close()
-
+			ts, tsCloseFn := createTestEnv(w)
+			defer tsCloseFn()
 			client := ts.Client()
 			url := fmt.Sprintf("%s%s", ts.URL, api.HTTPGetLogs)
 			resp, err := client.Get(url)
@@ -189,15 +189,25 @@ func TestGetLogs(t *testing.T) {
 				t.Errorf("error response: %v", err)
 			}
 			if got, want := resp.StatusCode, test.wantStatus; got != want {
-				t.Errorf("status code got != want (%d, %d)", got, want)
+				t.Errorf("status code got %d, want %d", got, want)
 			}
 			if len(test.wantBody) > 0 {
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					t.Errorf("failed to read body: %v", err)
+					t.Fatalf("failed to read body: %v", err)
 				}
-				if got, want := string(body), test.wantBody; got != test.wantBody {
-					t.Errorf("got '%s' want '%s'", got, want)
+				var logs []string
+				if err := json.Unmarshal(body, &logs); err != nil {
+					t.Fatalf("failed to unmarshal body: %v", err)
+				}
+				if len(logs) != len(test.wantBody) {
+					t.Fatalf("got %d logs, want %d", len(logs), len(test.wantBody))
+				}
+				sort.Strings(logs)
+				for i := range logs {
+					if logs[i] != test.wantBody[i] {
+						t.Fatalf("got %q, want %q", logs[i], test.wantBody[i])
+					}
 				}
 			}
 		})
@@ -243,7 +253,7 @@ func TestGetChkpt(t *testing.T) {
 			defer closeFn()
 			ctx := context.Background()
 			// Set up witness.
-			w := newWitness(t, d, []LogOpts{{ID: test.setID,
+			w := newWitness(t, d, []logOpts{{ID: test.setID,
 				PK:         test.setPK,
 				useCompact: false}})
 			// Set a checkpoint for the log if we want to for this test.
@@ -253,12 +263,8 @@ func TestGetChkpt(t *testing.T) {
 				}
 			}
 			// Now set up the http server.
-			r := mux.NewRouter()
-			server := NewServer(w)
-			server.RegisterHandlers(r)
-			ts := httptest.NewServer(r)
-			defer ts.Close()
-
+			ts, tsCloseFn := createTestEnv(w)
+			defer tsCloseFn()
 			client := ts.Client()
 			chkptQ := fmt.Sprintf(api.HTTPGetCheckpoint, test.queryID)
 			url := fmt.Sprintf("%s%s", ts.URL, chkptQ)
@@ -267,7 +273,7 @@ func TestGetChkpt(t *testing.T) {
 				t.Errorf("error response: %v", err)
 			}
 			if got, want := resp.StatusCode, test.wantStatus; got != want {
-				t.Errorf("status code got != want (%d, %d)", got, want)
+				t.Errorf("status code got %d, want %d", got, want)
 			}
 		})
 	}
@@ -343,7 +349,7 @@ func TestUpdate(t *testing.T) {
 			ctx := context.Background()
 			logID := "monkeys"
 			// Set up witness.
-			w := newWitness(t, d, []LogOpts{{ID: logID,
+			w := newWitness(t, d, []logOpts{{ID: logID,
 				PK:         mPK,
 				useCompact: test.useCR}})
 			// Set an initial checkpoint for the log.
@@ -351,12 +357,8 @@ func TestUpdate(t *testing.T) {
 				t.Errorf("failed to set checkpoint: %v", err)
 			}
 			// Now set up the http server.
-			r := mux.NewRouter()
-			server := NewServer(w)
-			server.RegisterHandlers(r)
-			ts := httptest.NewServer(r)
-			defer ts.Close()
-
+			ts, tsCloseFn := createTestEnv(w)
+			defer tsCloseFn()
 			// Update to a newer checkpoint.
 			client := ts.Client()
 			reqBody, err := json.Marshal(test.body)
@@ -373,7 +375,7 @@ func TestUpdate(t *testing.T) {
 				t.Errorf("error response: %v", err)
 			}
 			if got, want := resp.StatusCode, test.wantStatus; got != want {
-				t.Errorf("status code got != want (%d, %d)", got, want)
+				t.Errorf("status code got %d, want %d", got, want)
 			}
 		})
 	}

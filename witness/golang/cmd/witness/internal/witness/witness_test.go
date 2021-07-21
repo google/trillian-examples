@@ -22,7 +22,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"golang.org/x/mod/sumdb/note"
 )
@@ -66,7 +66,7 @@ func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *Witness {
 	if err != nil {
 		t.Fatalf("couldn't create a witness signer: %v", err)
 	}
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	logMap := make(map[string]LogInfo)
 	for _, log := range logs {
 		logV, err := note.NewVerifier(log.PK)

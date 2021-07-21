@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
@@ -41,7 +41,7 @@ func TestRootFromScratch(t *testing.T) {
 		t.Fatalf("Failed to initialize database with leaves")
 	}
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	lh := func(_ uint64, preimage []byte) []byte {
 		return h.HashLeaf(preimage)
 	}
@@ -111,7 +111,7 @@ func TestPartialRoot(t *testing.T) {
 		t.Fatalf("Failed to init db with checkpoint: %v", err)
 	}
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 	lh := func(_ uint64, preimage []byte) []byte {
 		return h.HashLeaf(preimage)
 	}

@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian/merkle/rfc6962/hasher"
+	"github.com/google/trillian/merkle/rfc6962"
 )
 
 var (
@@ -78,7 +78,7 @@ func b64(r string) []byte {
 func TestCheckConsistency(t *testing.T) {
 	ctx := context.Background()
 
-	h := hasher.DefaultHasher
+	h := rfc6962.DefaultHasher
 
 	f := func(_ context.Context, p string) ([]byte, error) {
 		path := filepath.Join("../testdata/log", p)

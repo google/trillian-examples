@@ -12,7 +12,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.6
-	github.com/google/trillian v1.3.14-0.20210708134248-637bb0ae2c99
+	github.com/google/trillian v1.3.14-0.20210720093003-785d9ecb206b
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

@@ -29,7 +29,7 @@ We consider an interface for a witness defined as follows:
   the proof.  If all checks pass then add the checkpoint to the list maintained
   for this log. If the witness has no previous checkpoint for this log then this
   checkpoint is considered trust-on-first-use.  Either way, the witness
-  returns the size of the latest checkpoint it has stored for this log.
+  returns the latest checkpoint it has stored for this log.
 
 Index
 --------------------------

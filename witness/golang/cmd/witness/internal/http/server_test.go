@@ -12,25 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package witness
+package http
 
 import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 
+	"github.com/google/trillian-examples/witness/golang/api"
+	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
 	"github.com/google/trillian/merkle/rfc6962"
-	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
+	"github.com/gorilla/mux"
 	"golang.org/x/mod/sumdb/note"
+
+	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
 var (
 	mPK       = "monkeys+87be2a55+AeK/t7elVrIheVCPxQNYkvKFw/2ahkj6Gm9afBJw6S8q"
 	bPK       = "bananas+cf639f13+AaPjhFnPCQnid/Ql32KWhmh+uk72FVRfK+2DLmO3BI3M"
-	wPK       = "witness+f13a86db+AdYV1Ztajd9BvyjP2HgpwrqYL6TjOwIjGMOq8Bu42xbN"
 	wSK       = "PRIVATE+KEY+witness+f13a86db+AaLa/dfyBhyo/m0Z7WCi98ENVZWtrP8pxgRNrx7tIWiA"
 	mInit     = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n\n— monkeys h74qVe5jWoK8CX/zXrT9X80SyEaiwPb/0p7VW7u+cnXxq5pJYQ6vhxUZ5Ywz9WSD3HIyygccizAg+oMxOe6pRgqqOQE=\n")
 	bInit     = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n\n— bananas z2OfE18+NwUjjJBXH7m+fh67bu29p1Jbypr4GFUQohgQgCeuPJZtGTvfR9Pquh2Iebfq+6bhl3G/77lsKiGIea6NAwE=\n")
@@ -60,34 +68,34 @@ type logOpts struct {
 	useCompact bool
 }
 
-func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *Witness {
+func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *witness.Witness {
 	// Set up Opts for the witness.
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
 		t.Fatalf("couldn't create a witness signer: %v", err)
 	}
 	h := rfc6962.DefaultHasher
-	logMap := make(map[string]LogInfo)
+	logMap := make(map[string]witness.LogInfo)
 	for _, log := range logs {
 		logV, err := note.NewVerifier(log.PK)
 		if err != nil {
 			t.Fatalf("couldn't create a log verifier: %v", err)
 		}
 		sigV := []note.Verifier{logV}
-		logInfo := LogInfo{
+		logInfo := witness.LogInfo{
 			SigVs:      sigV,
 			Hasher:     h,
 			UseCompact: log.useCompact,
 		}
 		logMap[log.ID] = logInfo
 	}
-	opts := Opts{
+	opts := witness.Opts{
 		DB:        d,
 		Signer:    ns,
 		KnownLogs: logMap,
 	}
 	// Create the witness
-	w, err := New(opts)
+	w, err := witness.New(opts)
 	if err != nil {
 		t.Fatalf("couldn't create witness: %v", err)
 	}
@@ -115,33 +123,49 @@ func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
 	return db, db.Close
 }
 
+func createTestEnv(w *witness.Witness) (*httptest.Server, func()) {
+	r := mux.NewRouter()
+	server := NewServer(w)
+	server.RegisterHandlers(r)
+	ts := httptest.NewServer(r)
+	return ts, ts.Close
+}
+
 func TestGetLogs(t *testing.T) {
 	for _, test := range []struct {
-		desc   string
-		logIDs []string
-		logPKs []string
-		chkpts [][]byte
+		desc       string
+		logIDs     []string
+		logPKs     []string
+		chkpts     [][]byte
+		wantStatus int
+		wantBody   []string
 	}{
 		{
-			desc:   "no logs",
-			logIDs: []string{},
+			desc:       "no logs",
+			logIDs:     []string{},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{},
 		}, {
-			desc:   "one log",
-			logIDs: []string{"monkeys"},
-			logPKs: []string{mPK},
-			chkpts: [][]byte{mInit},
+			desc:       "one log",
+			logIDs:     []string{"monkeys"},
+			logPKs:     []string{mPK},
+			chkpts:     [][]byte{mInit},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{"monkeys"},
 		}, {
-			desc:   "two logs",
-			logIDs: []string{"bananas", "monkeys"},
-			logPKs: []string{bPK, mPK},
-			chkpts: [][]byte{bInit, mInit},
+			desc:       "two logs",
+			logIDs:     []string{"bananas", "monkeys"},
+			logPKs:     []string{bPK, mPK},
+			chkpts:     [][]byte{bInit, mInit},
+			wantStatus: http.StatusOK,
+			wantBody:   []string{"bananas", "monkeys"},
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			d, closeFn := mustCreateDB(t)
 			defer closeFn()
 			ctx := context.Background()
-			// Set up witness.
+			// Set up witness and give it some checkpoints.
 			logs := make([]logOpts, len(test.logIDs))
 			for i, logID := range test.logIDs {
 				logs[i] = logOpts{ID: logID,
@@ -150,24 +174,40 @@ func TestGetLogs(t *testing.T) {
 				}
 			}
 			w := newWitness(t, d, logs)
-			// Update to a checkpoint for all logs.
 			for i, logID := range test.logIDs {
 				if _, err := w.Update(ctx, logID, test.chkpts[i], nil); err != nil {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
-			// Now see if the witness knows about these logs.
-			knownLogs, err := w.GetLogs()
+			// Now set up the http server.
+			ts, tsCloseFn := createTestEnv(w)
+			defer tsCloseFn()
+			client := ts.Client()
+			url := fmt.Sprintf("%s%s", ts.URL, api.HTTPGetLogs)
+			resp, err := client.Get(url)
 			if err != nil {
-				t.Fatalf("couldn't get logs from witness: %v", err)
+				t.Errorf("error response: %v", err)
 			}
-			if len(knownLogs) != len(test.logIDs) {
-				t.Fatalf("got %d logs, want %d", len(knownLogs), len(test.logIDs))
+			if got, want := resp.StatusCode, test.wantStatus; got != want {
+				t.Errorf("status code got %d, want %d", got, want)
 			}
-			sort.Strings(knownLogs)
-			for i := range knownLogs {
-				if knownLogs[i] != test.logIDs[i] {
-					t.Fatalf("got %q, want %q", test.logIDs[i], knownLogs[i])
+			if len(test.wantBody) > 0 {
+				body, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatalf("failed to read body: %v", err)
+				}
+				var logs []string
+				if err := json.Unmarshal(body, &logs); err != nil {
+					t.Fatalf("failed to unmarshal body: %v", err)
+				}
+				if len(logs) != len(test.wantBody) {
+					t.Fatalf("got %d logs, want %d", len(logs), len(test.wantBody))
+				}
+				sort.Strings(logs)
+				for i := range logs {
+					if logs[i] != test.wantBody[i] {
+						t.Fatalf("got %q, want %q", logs[i], test.wantBody[i])
+					}
 				}
 			}
 		})
@@ -176,38 +216,36 @@ func TestGetLogs(t *testing.T) {
 
 func TestGetChkpt(t *testing.T) {
 	for _, test := range []struct {
-		desc      string
-		setID     string
-		setPK     string
-		queryID   string
-		queryPK   string
-		c         []byte
-		wantThere bool
+		desc       string
+		setID      string
+		setPK      string
+		queryID    string
+		queryPK    string
+		c          []byte
+		wantStatus int
 	}{
 		{
-			desc:      "happy path",
-			setID:     "monkeys",
-			setPK:     mPK,
-			queryID:   "monkeys",
-			queryPK:   mPK,
-			c:         mInit,
-			wantThere: true,
+			desc:       "happy path",
+			setID:      "monkeys",
+			setPK:      mPK,
+			queryID:    "monkeys",
+			queryPK:    mPK,
+			c:          mInit,
+			wantStatus: http.StatusOK,
 		}, {
-			desc:      "other log",
-			setID:     "monkeys",
-			setPK:     mPK,
-			queryID:   "bananas",
-			queryPK:   bPK,
-			c:         mInit,
-			wantThere: false,
+			desc:       "other log",
+			setID:      "monkeys",
+			setPK:      mPK,
+			queryID:    "bananas",
+			c:          mInit,
+			wantStatus: http.StatusNotFound,
 		}, {
-			desc:      "nothing there",
-			setID:     "monkeys",
-			setPK:     mPK,
-			queryID:   "monkeys",
-			queryPK:   mPK,
-			c:         nil,
-			wantThere: false,
+			desc:       "nothing there",
+			setID:      "monkeys",
+			setPK:      mPK,
+			queryID:    "monkeys",
+			c:          nil,
+			wantStatus: http.StatusNotFound,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -224,32 +262,18 @@ func TestGetChkpt(t *testing.T) {
 					t.Errorf("failed to set checkpoint: %v", err)
 				}
 			}
-			// Try to get the latest checkpoint.
-			cosigned, err := w.GetCheckpoint(test.queryID)
-			if !test.wantThere && err == nil {
-				t.Fatalf("returned a checkpoint but shouldn't have")
+			// Now set up the http server.
+			ts, tsCloseFn := createTestEnv(w)
+			defer tsCloseFn()
+			client := ts.Client()
+			chkptQ := fmt.Sprintf(api.HTTPGetCheckpoint, test.queryID)
+			url := fmt.Sprintf("%s%s", ts.URL, chkptQ)
+			resp, err := client.Get(url)
+			if err != nil {
+				t.Errorf("error response: %v", err)
 			}
-			// If we got something then verify it under the log and
-			// witness public keys.
-			if test.wantThere {
-				if err != nil {
-					t.Errorf("failed to get latest: %v", err)
-				}
-				wV, err := note.NewVerifier(wPK)
-				if err != nil {
-					t.Fatalf("couldn't create a witness verifier: %v", err)
-				}
-				logV, err := note.NewVerifier(test.queryPK)
-				if err != nil {
-					t.Fatalf("couldn't create a log verifier: %v", err)
-				}
-				n, err := note.Open(cosigned, note.VerifierList(logV, wV))
-				if err != nil {
-					t.Fatalf("couldn't verify the co-signed checkpoint: %v", err)
-				}
-				if len(n.Sigs) != 2 {
-					t.Fatalf("checkpoint doesn't verify under enough keys")
-				}
+			if got, want := resp.StatusCode, test.wantStatus; got != want {
+				t.Errorf("status code got %d, want %d", got, want)
 			}
 		})
 	}
@@ -257,66 +281,66 @@ func TestGetChkpt(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	for _, test := range []struct {
-		desc     string
-		initC    []byte
-		initSize uint64
-		newC     []byte
-		pf       [][]byte
-		useCR    bool
-		initCR   [][]byte
-		isGood   bool
+		desc       string
+		initC      []byte
+		initSize   uint64
+		useCR      bool
+		initCR     [][]byte
+		body       api.UpdateRequest
+		wantStatus int
 	}{
 		{
-			desc:     "vanilla consistency happy path",
-			initC:    mInit,
-			initSize: 5,
-			newC:     mNext,
-			pf:       consProof,
-			useCR:    false,
-			isGood:   true,
+			desc:       "vanilla consistency happy path",
+			initC:      mInit,
+			initSize:   5,
+			useCR:      false,
+			body:       api.UpdateRequest{Checkpoint: mNext, Proof: consProof},
+			wantStatus: http.StatusOK,
 		}, {
-			desc:     "vanilla consistency smaller checkpoint",
-			initC:    mInit,
-			initSize: 5,
-			newC:     []byte("Log Checkpoint v0\n4\nhashhashhash\n"),
-			pf:       consProof,
-			useCR:    false,
-			isGood:   false,
+			desc:       "vanilla consistency smaller checkpoint",
+			initC:      mInit,
+			initSize:   5,
+			useCR:      false,
+			body:       api.UpdateRequest{Checkpoint: []byte("Log Checkpoint v0\n4\nhashhashhash\n\n— monkeys h74qVTDSRnIt40mjmX32f6bSeEFbU67ZpyBltDJuN4KzBlQRe5/jPDCwXRmyWVj72aebO8u42oZVVKy8hjkDg6R0fAs=\n"), Proof: consProof},
+			wantStatus: http.StatusConflict,
 		}, {
 			desc:     "vanilla consistency garbage proof",
 			initC:    mInit,
 			initSize: 5,
-			newC:     mNext,
-			pf: [][]byte{
+			body: api.UpdateRequest{Checkpoint: mNext, Proof: [][]byte{
 				dh("aaaa", 2),
 				dh("bbbb", 2),
 				dh("cccc", 2),
 				dh("dddd", 2),
-			},
-			isGood: false,
+			}},
+			wantStatus: http.StatusConflict,
 		}, {
-			desc:     "compact range happy path",
-			initC:    crInit,
-			initSize: 10,
-			newC:     crNext,
-			pf:       crProof,
-			useCR:    true,
-			initCR:   crInitRange,
-			isGood:   true,
+			desc:       "vanilla consistency garbage checkpoint",
+			initC:      mInit,
+			initSize:   5,
+			body:       api.UpdateRequest{Checkpoint: []byte("aaa"), Proof: consProof},
+			wantStatus: http.StatusInternalServerError,
+		}, {
+			desc:       "compact range happy path",
+			initC:      crInit,
+			initSize:   10,
+			useCR:      true,
+			initCR:     crInitRange,
+			body:       api.UpdateRequest{Checkpoint: crNext, Proof: crProof},
+			wantStatus: http.StatusOK,
 		}, {
 			desc:     "compact range garbage proof",
 			initC:    crInit,
 			initSize: 10,
-			newC:     crNext,
-			pf: [][]byte{
+			body: api.UpdateRequest{Checkpoint: crNext, Proof: [][]byte{
 				dh("aaaa", 2),
 				dh("bbbb", 2),
 				dh("cccc", 2),
 				dh("dddd", 2),
-			},
-			useCR:  true,
-			initCR: crInitRange,
-			isGood: false,
+			}},
+			useCR:      true,
+			initCR:     crInitRange,
+			wantStatus: http.StatusConflict,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -332,16 +356,26 @@ func TestUpdate(t *testing.T) {
 			if _, err := w.Update(ctx, logID, test.initC, test.initCR); err != nil {
 				t.Errorf("failed to set checkpoint: %v", err)
 			}
-			// Now update from this checkpoint to a newer one.
-			_, err := w.Update(ctx, logID, test.newC, test.pf)
-			if test.isGood {
-				if err != nil {
-					t.Fatalf("can't update to new checkpoint: %v", err)
-				}
-			} else {
-				if err == nil {
-					t.Fatal("should have gotten an error but didn't")
-				}
+			// Now set up the http server.
+			ts, tsCloseFn := createTestEnv(w)
+			defer tsCloseFn()
+			// Update to a newer checkpoint.
+			client := ts.Client()
+			reqBody, err := json.Marshal(test.body)
+			if err != nil {
+				t.Fatalf("couldn't parse request: %v", err)
+			}
+			url := fmt.Sprintf("%s%s", ts.URL, fmt.Sprintf(api.HTTPUpdate, logID))
+			req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(string(reqBody)))
+			if err != nil {
+				t.Fatalf("couldn't form http request: %v", err)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Errorf("error response: %v", err)
+			}
+			if got, want := resp.StatusCode, test.wantStatus; got != want {
+				t.Errorf("status code got %d, want %d", got, want)
 			}
 		})
 	}

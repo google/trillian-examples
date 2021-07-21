@@ -28,13 +28,16 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"syscall/js"
 	"time"
 
+	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/webstorage"
 	"github.com/google/trillian/merkle/rfc6962"
+	"golang.org/x/mod/sumdb/note"
 
 	logfmt "github.com/google/trillian-examples/formats/log"
 )
@@ -46,6 +49,8 @@ const (
 
 var (
 	logStorage *webstorage.Storage
+	logSig     note.Signer
+	logVer     note.Verifier
 )
 
 func b64Sha(b []byte) string {
@@ -68,9 +73,20 @@ func monMsg(s interface{}) {
 	c.Set("scrollTop", c.Get("scrollHeight"))
 }
 
-func showCP() {
-	cp, _ := webstorage.ReadCheckpoint(logPrefix)
-	js.Global().Get("latestCP").Set("innerHTML", fmt.Sprintf("<pre>%s</pre>", cp))
+func showCP(f client.Fetcher) {
+	for {
+		<-time.Tick(time.Second)
+		_, cp, err := client.FetchCheckpoint(context.Background(), f, logVer)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				logMsg(err)
+				continue
+			}
+			cp = []byte("Checkpoint doesn't exist (yet) - queue, sequence, and integrate a leaf")
+		}
+
+		js.Global().Get("latestCP").Set("innerHTML", fmt.Sprintf("<pre>%s</pre>", cp))
+	}
 }
 
 func integrate() js.Func {
@@ -93,14 +109,17 @@ func integrate() js.Func {
 		}
 
 		newCp.Ecosystem = ecosystem
-		cpRaw := newCp.Marshal()
-		if err := logStorage.WriteCheckpoint(cpRaw); err != nil {
+		nRaw, err := note.Sign(&note.Note{Text: string(newCp.Marshal())}, logSig)
+		if err != nil {
+			logMsg(err)
+			return nil
+		}
+		if err := logStorage.WriteCheckpoint(nRaw); err != nil {
 			logMsg(err)
 			return nil
 		}
 
 		logMsg("Integrate OK")
-		showCP()
 		return nil
 	})
 	return jsonFunc
@@ -163,24 +182,57 @@ func queueLeaf() js.Func {
 	return jsonFunc
 }
 
-func monitor() {
+func monitor(f client.Fetcher) {
 	cpCur := &logfmt.Checkpoint{}
 
 	for {
 		<-time.Tick(time.Second)
-		cpRaw, _ := webstorage.ReadCheckpoint(logPrefix)
-		cp := &logfmt.Checkpoint{}
-		if _, err := cp.Unmarshal(cpRaw); err != nil {
-			monMsg(fmt.Sprintf("Couldn't parse CP: %v", err))
+		cp, cpRaw, err := client.FetchCheckpoint(context.Background(), f, logVer)
+		if err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				monMsg(err)
+			}
+			// CP likely just doesn't exist yet - no sequence/integrate run has happened.
 			continue
 		}
 
 		if cp.Size > cpCur.Size {
 			monMsg("----------------------------------")
-			monMsg(fmt.Sprintf("Saw new CP:\n%s", string(cp.Marshal())))
+			monMsg(fmt.Sprintf("Saw new CP:\n%s", string(cpRaw)))
 			cpCur = cp
 		}
 
+	}
+}
+
+func initKeys() {
+	var s, v string
+	var err error
+
+	prevV := js.Global().Get("sessionStorage").Call("getItem", "log.pub")
+	prevS := js.Global().Get("sessionStorage").Call("getItem", "log.sec")
+
+	if !js.Null().Equal(prevV) {
+		s = prevS.String()
+		v = prevV.String()
+		logMsg("Using previously generated keys")
+	} else {
+		s, v, err = note.GenerateKey(nil, "demo-log")
+		if err != nil {
+			panic(err)
+		}
+		js.Global().Get("sessionStorage").Call("setItem", "log.pub", v)
+		js.Global().Get("sessionStorage").Call("setItem", "log.sec", s)
+		logMsg("Generated new keys")
+	}
+
+	logSig, err = note.NewSigner(s)
+	if err != nil {
+		panic(err)
+	}
+	logVer, err = note.NewVerifier(v)
+	if err != nil {
+		panic(err)
 	}
 }
 
@@ -189,6 +241,9 @@ func main() {
 	flag.Set("logtostderr", "true")
 
 	fmt.Println("Serverless Web Assembly!")
+
+	initKeys()
+
 	js.Global().Set("queueLeaf", queueLeaf())
 	js.Global().Set("sequence", sequence())
 	js.Global().Set("integrate", integrate())
@@ -203,8 +258,13 @@ func main() {
 			panic(err)
 		}
 	} else {
+		n, err := note.Open(cpRaw, note.VerifierList(logVer))
+		if err != nil {
+			logMsg(string(cpRaw))
+			panic(err)
+		}
 		cp := &logfmt.Checkpoint{}
-		_, err := cp.Unmarshal(cpRaw)
+		_, err = cp.Unmarshal([]byte(n.Text))
 		if err != nil {
 			panic(err)
 		}
@@ -213,7 +273,16 @@ func main() {
 			panic(err)
 		}
 	}
-	showCP()
-	go monitor()
+
+	fetcher := func(ctx context.Context, path string) ([]byte, error) {
+		v := js.Global().Get("sessionStorage").Call("getItem", filepath.Join(logPrefix, path))
+		if js.Null().Equal(v) {
+			return nil, os.ErrNotExist
+		}
+		return []byte(v.String()), nil
+
+	}
+	go showCP(fetcher)
+	go monitor(fetcher)
 	<-make(chan bool)
 }

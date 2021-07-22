@@ -74,9 +74,8 @@ func main() {
 
 	fetcher := download.NewHTTPFetcher(lu)
 
-	errChan := make(chan error)
-	lc := make(chan []byte, *writeBatchSize*2)
-	go download.Bulk(ctx, next, certLeafFetcher{fetcher}.Batch, *workers, *fetchBatchSize, lc, errChan)
+	brc := make(chan download.BulkResult, *writeBatchSize*2)
+	go download.Bulk(ctx, next, certLeafFetcher{fetcher}.Batch, *workers, *fetchBatchSize, brc)
 
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -91,14 +90,15 @@ func main() {
 
 	for {
 		select {
-		case err := <-errChan:
-			glog.Exit(err)
 		case <-ticker.C:
 			r.report()
-		case l := <-lc:
+		case br := <-brc:
+			if br.Err != nil {
+				glog.Exit(err)
+			}
 			workDone := r.trackWork(next)
 			next++
-			batch[bi] = l
+			batch[bi] = br.Leaf
 			bi = (bi + 1) % int(*writeBatchSize)
 			if bi == 0 {
 				if err := db.WriteLeaves(ctx, bs, batch); err != nil {

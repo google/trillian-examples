@@ -36,6 +36,7 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/webstorage"
+	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
@@ -73,10 +74,14 @@ func monMsg(s interface{}) {
 	c.Set("scrollTop", c.Get("scrollHeight"))
 }
 
-func showCP(f client.Fetcher) {
+func showCP(ctx context.Context, f client.Fetcher) {
 	for {
-		<-time.Tick(time.Second)
-		_, cp, err := client.FetchCheckpoint(context.Background(), f, logVer)
+		select {
+		case <-time.Tick(time.Second):
+		case <-ctx.Done():
+			return
+		}
+		_, cp, err := client.FetchCheckpoint(ctx, f, logVer)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				logMsg(err)
@@ -182,12 +187,17 @@ func queueLeaf() js.Func {
 	return jsonFunc
 }
 
-func monitor(f client.Fetcher) {
+func monitor(ctx context.Context, f client.Fetcher) {
 	cpCur := &logfmt.Checkpoint{}
-
+	logProofVerifier := logverifier.New(rfc6962.DefaultHasher)
 	for {
-		<-time.Tick(time.Second)
-		cp, cpRaw, err := client.FetchCheckpoint(context.Background(), f, logVer)
+		select {
+		case <-time.Tick(time.Second):
+		case <-ctx.Done():
+			return
+		}
+
+		cp, _, err := client.FetchCheckpoint(ctx, f, logVer)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				monMsg(err)
@@ -196,12 +206,33 @@ func monitor(f client.Fetcher) {
 			continue
 		}
 
-		if cp.Size > cpCur.Size {
-			monMsg("----------------------------------")
-			monMsg(fmt.Sprintf("Saw new CP:\n%s", string(cpRaw)))
-			cpCur = cp
+		if cp.Size <= cpCur.Size {
+			continue
 		}
+		monMsg("----------------------------------")
+		monMsg(fmt.Sprintf("<invert>Saw new CP with size %d</invert>", cp.Size))
 
+		if cpCur.Size > 0 {
+
+			pb, err := client.NewProofBuilder(ctx, *cp, rfc6962.DefaultHasher.HashChildren, f)
+			if err != nil {
+				monMsg(err)
+				continue
+			}
+			proof, err := pb.ConsistencyProof(ctx, cpCur.Size, cp.Size)
+			if err != nil {
+				monMsg(err)
+				continue
+			}
+			if err := logProofVerifier.VerifyConsistencyProof(int64(cpCur.Size), int64(cp.Size), cpCur.Hash, cp.Hash, proof); err != nil {
+				monMsg(err)
+				continue
+			}
+			monMsg("Proof:")
+			monMsg(logfmt.Proof(proof).Marshal())
+			monMsg("New CP verified to be consistent")
+		}
+		cpCur = cp
 	}
 }
 
@@ -239,6 +270,7 @@ func initKeys() {
 func main() {
 	flag.Parse()
 	flag.Set("logtostderr", "true")
+	ctx := context.Background()
 
 	fmt.Println("Serverless Web Assembly!")
 
@@ -282,7 +314,7 @@ func main() {
 		return []byte(v.String()), nil
 
 	}
-	go showCP(fetcher)
-	go monitor(fetcher)
+	go showCP(ctx, fetcher)
+	go monitor(ctx, fetcher)
 	<-make(chan bool)
 }

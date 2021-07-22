@@ -236,6 +236,15 @@ func monitor(ctx context.Context, f client.Fetcher) {
 			monMsg(logfmt.Proof(proof).Marshal())
 			monMsg("New CP verified to be consistent")
 		}
+
+		for i := cpCur.Size; i < cp.Size; i++ {
+			l, err := client.GetLeaf(ctx, f, i)
+			if err != nil {
+				monMsg(fmt.Sprintf("Failed to fetch leaf at %d: %v", i, err))
+				continue
+			}
+			monMsg(fmt.Sprintf(" + Leaf %d: <i>%q</i>", i, string(l)))
+		}
 		cpCur = cp
 	}
 }

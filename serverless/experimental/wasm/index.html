@@ -22,6 +22,9 @@
 				margin: 5px;
 				border-radius: 5px;
 			}
+			.info::before {
+				content: "🐸 "
+			}
 			.controls {
 				padding-top: 5px;
 			}
@@ -31,7 +34,7 @@
 				font-size: 1.3em;
 				background-color: black;
 				background-image: radial-gradient(circle farthest-corner at 70% 70%,
-				rgba(255, 165, 0, 0.15), black 150%);
+				rgba(255, 165, 0, 0.25), black 150%);
 				height: 100vh;
 				max-width: 100vw;
 				text-shadow: 0 0 2px #C8C8C8;
@@ -69,6 +72,17 @@
 		</style>
 	</head>
 	<body>
+		<div id="clippy" class="info role" style="background: #ffd;">
+			<b>Welcome!</b><br/>
+			To get started, type something into the Publisher's <code>Leaf data</code> field below and click on the <code>Queue Leaf</code> button.<br/>
+			You can do this multiple times if you like, just make sure that the <code>Leaf data</code> field is different each time.<br/>
+			Next, click on the <code>Sequence</code> button and you should see some information in the Log's console about which index each of your leaves have been assigned.<br/>
+			Finally, click on the <code>Integrate</code> button and the log should incorporate your newly sequenced leaves into the tree and produce a new Checkpoint which will appear in the upper part of the Log's console.<br/>
+			<br/>
+			You should notice that the Monitor's console also updates as it notices that the log has produced a new Checkpoint.<br/>
+			If you add more leaves and <code>Sequence</code> and <code>Integrate</code> them, you'll see the Monitor's console adding information about new Checkpoints and consistency proofs.
+		</div>
+		<br/>
 		<div id="publisher" class="role" style="background: #fdd;">
 			<div><b>Publisher</b></div>
 			<label>Leaf data:</label><input type="text" id="leaf_value" style="width: 80%;"/>

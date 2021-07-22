@@ -40,14 +40,12 @@ func TestFetchWorkerRun(t *testing.T) {
 	go fw.run(context.Background())
 
 	for i := 0; i < 10; i++ {
-		select {
-		case r := <-wrc:
-			if r.err != nil {
-				t.Fatal(r.err)
-			}
-			if got, want := r.start, uint64(i*10); got != want {
-				t.Errorf("%d got != want (%d != %d)", i, got, want)
-			}
+		r := <-wrc
+		if r.err != nil {
+			t.Fatal(r.err)
+		}
+		if got, want := r.start, uint64(i*10); got != want {
+			t.Errorf("%d got != want (%d != %d)", i, got, want)
 		}
 	}
 }

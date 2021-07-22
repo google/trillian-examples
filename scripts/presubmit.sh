@@ -121,6 +121,8 @@ main() {
       docker build -f "${i}" .
     done
 
+    echo "Building serverless wasm ===================="
+    GOOS=js GOARCH=wasm go build -o /tmp/main.wasm -tags wasm ./serverless/experimental/wasm/
   fi
 
   if [[ "${run_lint}" -eq 1 ]]; then

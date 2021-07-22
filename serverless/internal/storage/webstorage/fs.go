@@ -31,7 +31,6 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
@@ -270,7 +269,6 @@ func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
 // stored with a .xx suffix where xx is the number of "tile leaves" in hex.
 func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 	tileSize := uint64(tile.NumLeaves)
-	glog.V(2).Infof("StoreTile: level %d index %x ts: %x", level, index, tileSize)
 	if tileSize == 0 || tileSize > 256 {
 		return fmt.Errorf("tileSize %d must be > 0 and <= 256", tileSize)
 	}

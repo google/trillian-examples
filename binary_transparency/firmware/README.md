@@ -47,7 +47,7 @@ subset of folks?
 Firmware Transparency and Discoverability
 -----------------------------------------
 
-Firware Transparency is a mechanism to ensure that all firmware is
+Firmware Transparency is a mechanism to ensure that all firmware is
 _discoverable_.
 This means that the _same list_ of published firmware is visible to the
 publisher, the devices which will be updated, and to folks like security

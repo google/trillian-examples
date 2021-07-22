@@ -22,6 +22,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/publisher/impl"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 var (
@@ -40,13 +42,16 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
 
+	testLogSigV, _ := note.NewVerifier(crypto.TestFTPersonalityPub)
+
 	if err := impl.Main(ctx, impl.PublishOpts{
-		LogURL:     *logURL,
-		DeviceID:   *deviceID,
-		Revision:   *revision,
-		BinaryPath: *binaryPath,
-		Timestamp:  *timestamp,
-		OutputPath: *outputPath,
+		LogURL:         *logURL,
+		DeviceID:       *deviceID,
+		Revision:       *revision,
+		BinaryPath:     *binaryPath,
+		Timestamp:      *timestamp,
+		OutputPath:     *outputPath,
+		LogSigVerifier: testLogSigV,
 	}); err != nil {
 		glog.Exitf(err.Error())
 	}

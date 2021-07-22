@@ -213,7 +213,6 @@ func monitor(ctx context.Context, f client.Fetcher) {
 		monMsg(fmt.Sprintf("<invert>Saw new CP with size %d</invert>", cp.Size))
 
 		if cpCur.Size > 0 {
-
 			pb, err := client.NewProofBuilder(ctx, *cp, rfc6962.DefaultHasher.HashChildren, f)
 			if err != nil {
 				monMsg(err)
@@ -240,6 +239,7 @@ func initKeys() {
 	var s, v string
 	var err error
 
+	// Don't forget, this is a DEMO - don't do this for your production things:
 	prevV := js.Global().Get("sessionStorage").Call("getItem", "log.pub")
 	prevS := js.Global().Get("sessionStorage").Call("getItem", "log.sec")
 

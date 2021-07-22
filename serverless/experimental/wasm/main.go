@@ -21,6 +21,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -28,16 +29,19 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"syscall/js"
 	"time"
 
+	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/webstorage"
-	"github.com/google/trillian/merkle/logverifier"
+	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
@@ -192,9 +196,27 @@ func queueLeaf() js.Func {
 	return jsonFunc
 }
 
+func tileFetcher(treeSize uint64, f client.Fetcher) client.GetTileFunc {
+	return func(ctx context.Context, l, i uint64) (*api.Tile, error) {
+		dir, p := layout.TilePath("", l, i, treeSize)
+		tRaw, err := f(ctx, path.Join(dir, p))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch tile at level: %d, index: %d: %v", l, i, err)
+		}
+		t := &api.Tile{}
+		if err := t.UnmarshalText(tRaw); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tile: %v", err)
+		}
+		return t, nil
+	}
+}
+
 func monitor(ctx context.Context, f client.Fetcher) {
 	cpCur := &logfmt.Checkpoint{}
-	logProofVerifier := logverifier.New(rfc6962.DefaultHasher)
+	rf := &compact.RangeFactory{Hash: rfc6962.DefaultHasher.HashChildren}
+	r := rf.NewEmptyRange(0)
+
+monitorLoop:
 	for {
 		select {
 		case <-time.Tick(time.Second):
@@ -214,38 +236,39 @@ func monitor(ctx context.Context, f client.Fetcher) {
 		if cp.Size <= cpCur.Size {
 			continue
 		}
-		monMsg("----------------------------------")
 		monMsg(fmt.Sprintf("<invert>Saw new CP with size %d</invert>", cp.Size))
 
-		if cpCur.Size > 0 {
-			pb, err := client.NewProofBuilder(ctx, *cp, rfc6962.DefaultHasher.HashChildren, f)
-			if err != nil {
-				monMsg(err.Error())
-				continue
-			}
-			proof, err := pb.ConsistencyProof(ctx, cpCur.Size, cp.Size)
-			if err != nil {
-				monMsg(err.Error())
-				continue
-			}
-			if err := logProofVerifier.VerifyConsistencyProof(int64(cpCur.Size), int64(cp.Size), cpCur.Hash, cp.Hash, proof); err != nil {
-				monMsg(err.Error())
-				continue
-			}
-			monMsg("Proof:")
-			monMsg(logfmt.Proof(proof).Marshal())
-			monMsg("New CP verified to be consistent")
-		}
-
+		rCP := rf.NewEmptyRange(cpCur.Size)
 		for i := cpCur.Size; i < cp.Size; i++ {
 			l, err := client.GetLeaf(ctx, f, i)
 			if err != nil {
 				monMsg(fmt.Sprintf("Failed to fetch leaf at %d: %v", i, err))
-				continue
+				break monitorLoop
 			}
 			monMsg(fmt.Sprintf(" + Leaf %d: <i>%q</i>", i, string(l)))
+
+			if err := rCP.Append(rfc6962.DefaultHasher.HashLeaf(l), nil); err != nil {
+				monMsg(fmt.Sprintf("Failed to update compact range for leaf at %d: %v", i, err))
+				break monitorLoop
+			}
 		}
+		if err := r.AppendRange(rCP, nil); err != nil {
+			monMsg(fmt.Sprintf("Failed to merge compact ranges: %v", err))
+			continue
+		}
+		root, err := r.GetRootHash(nil)
+		if err != nil {
+			monMsg(fmt.Sprintf("Failed to get root hash from compact range: %v", err))
+			continue
+		}
+		if !bytes.Equal(cp.Hash, root) {
+			monMsg(fmt.Sprintf("<b>Root hashes do not match: CP %x vs calculated %x</b>", cp.Hash, root))
+			monMsg("<invert>Bailing</invert>")
+			return
+		}
+		monMsg("New CP is consistent!")
 		cpCur = cp
+		monMsg("----------------------------------")
 	}
 }
 

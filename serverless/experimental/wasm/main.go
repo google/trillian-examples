@@ -21,6 +21,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -28,15 +29,19 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"syscall/js"
 	"time"
 
+	"github.com/google/trillian-examples/serverless/api"
+	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/webstorage"
-	"github.com/google/trillian/merkle/logverifier"
+	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
@@ -60,18 +65,21 @@ func b64Sha(b []byte) string {
 	return b64
 }
 
-func logMsg(s interface{}) {
-	c := js.Global().Get("logConsole")
-	o := c.Get("innerHTML")
-	c.Set("innerHTML", fmt.Sprintf("%s\n%v", o, s))
+const caret = "<blink>▒</blink>"
+
+func appendToElement(e, s string) {
+	c := js.Global().Get(e)
+	o := strings.TrimSuffix(c.Get("innerHTML").String(), caret)
+	c.Set("innerHTML", fmt.Sprintf("%s%s</br>%s", o, s, caret))
 	c.Set("scrollTop", c.Get("scrollHeight"))
 }
 
-func monMsg(s interface{}) {
-	c := js.Global().Get("monitorConsole")
-	o := c.Get("innerHTML")
-	c.Set("innerHTML", fmt.Sprintf("%s\n%v", o, s))
-	c.Set("scrollTop", c.Get("scrollHeight"))
+func logMsg(s string) {
+	appendToElement("logConsole", s)
+}
+
+func monMsg(s string) {
+	appendToElement("monitorConsole", s)
 }
 
 func showCP(ctx context.Context, f client.Fetcher) {
@@ -84,7 +92,7 @@ func showCP(ctx context.Context, f client.Fetcher) {
 		_, cp, err := client.FetchCheckpoint(ctx, f, logVer)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
-				logMsg(err)
+				logMsg(err.Error())
 				continue
 			}
 			cp = []byte("Checkpoint doesn't exist (yet) - queue, sequence, and integrate a leaf")
@@ -109,18 +117,18 @@ func integrate() js.Func {
 			return nil
 		}
 		if err != nil {
-			logMsg(err)
+			logMsg(err.Error())
 			return nil
 		}
 
 		newCp.Ecosystem = ecosystem
 		nRaw, err := note.Sign(&note.Note{Text: string(newCp.Marshal())}, logSig)
 		if err != nil {
-			logMsg(err)
+			logMsg(err.Error())
 			return nil
 		}
 		if err := logStorage.WriteCheckpoint(nRaw); err != nil {
-			logMsg(err)
+			logMsg(err.Error())
 			return nil
 		}
 
@@ -137,13 +145,13 @@ func sequence() js.Func {
 
 		pendingLeaves, err := logStorage.PendingKeys()
 		if err != nil {
-			logMsg(err)
+			logMsg(err.Error())
 			return nil
 		}
 		for _, lk := range pendingLeaves {
 			l, err := logStorage.Pending(lk)
 			if err != nil {
-				logMsg(err)
+				logMsg(err.Error())
 				return nil
 			}
 			h := rfc6962.DefaultHasher.HashLeaf(l)
@@ -151,18 +159,18 @@ func sequence() js.Func {
 			seq, err := logStorage.Sequence(h, l)
 			if err != nil {
 				if !errors.Is(err, storage.ErrDupeLeaf) {
-					logMsg(err)
+					logMsg(err.Error())
 					return nil
 				}
 				isDupe = true
 			}
-			s := fmt.Sprintf("index %d: %v", seq, lk)
+			s := fmt.Sprintf("index %d: %q", seq, l)
 			if isDupe {
 				s += " (dupe)"
 			}
 			logMsg(s)
 			if err := logStorage.DeletePending(lk); err != nil {
-				logMsg(err)
+				logMsg(err.Error())
 				return nil
 			}
 
@@ -182,14 +190,33 @@ func queueLeaf() js.Func {
 		if err := logStorage.Queue([]byte(leaf)); err != nil {
 			return fmt.Sprintf("failed to queue leaf: %v", err)
 		}
+		logMsg(fmt.Sprintf("<i>Queued leaf %q</i>", leaf))
 		return nil
 	})
 	return jsonFunc
 }
 
+func tileFetcher(treeSize uint64, f client.Fetcher) client.GetTileFunc {
+	return func(ctx context.Context, l, i uint64) (*api.Tile, error) {
+		dir, p := layout.TilePath("", l, i, treeSize)
+		tRaw, err := f(ctx, path.Join(dir, p))
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch tile at level: %d, index: %d: %v", l, i, err)
+		}
+		t := &api.Tile{}
+		if err := t.UnmarshalText(tRaw); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tile: %v", err)
+		}
+		return t, nil
+	}
+}
+
 func monitor(ctx context.Context, f client.Fetcher) {
 	cpCur := &logfmt.Checkpoint{}
-	logProofVerifier := logverifier.New(rfc6962.DefaultHasher)
+	rf := &compact.RangeFactory{Hash: rfc6962.DefaultHasher.HashChildren}
+	r := rf.NewEmptyRange(0)
+
+monitorLoop:
 	for {
 		select {
 		case <-time.Tick(time.Second):
@@ -200,7 +227,7 @@ func monitor(ctx context.Context, f client.Fetcher) {
 		cp, _, err := client.FetchCheckpoint(ctx, f, logVer)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
-				monMsg(err)
+				monMsg(err.Error())
 			}
 			// CP likely just doesn't exist yet - no sequence/integrate run has happened.
 			continue
@@ -209,29 +236,39 @@ func monitor(ctx context.Context, f client.Fetcher) {
 		if cp.Size <= cpCur.Size {
 			continue
 		}
-		monMsg("----------------------------------")
 		monMsg(fmt.Sprintf("<invert>Saw new CP with size %d</invert>", cp.Size))
 
-		if cpCur.Size > 0 {
-			pb, err := client.NewProofBuilder(ctx, *cp, rfc6962.DefaultHasher.HashChildren, f)
+		rCP := rf.NewEmptyRange(cpCur.Size)
+		for i := cpCur.Size; i < cp.Size; i++ {
+			l, err := client.GetLeaf(ctx, f, i)
 			if err != nil {
-				monMsg(err)
-				continue
+				monMsg(fmt.Sprintf("Failed to fetch leaf at %d: %v", i, err))
+				break monitorLoop
 			}
-			proof, err := pb.ConsistencyProof(ctx, cpCur.Size, cp.Size)
-			if err != nil {
-				monMsg(err)
-				continue
+			monMsg(fmt.Sprintf(" + Leaf %d: <i>%q</i>", i, string(l)))
+
+			if err := rCP.Append(rfc6962.DefaultHasher.HashLeaf(l), nil); err != nil {
+				monMsg(fmt.Sprintf("Failed to update compact range for leaf at %d: %v", i, err))
+				break monitorLoop
 			}
-			if err := logProofVerifier.VerifyConsistencyProof(int64(cpCur.Size), int64(cp.Size), cpCur.Hash, cp.Hash, proof); err != nil {
-				monMsg(err)
-				continue
-			}
-			monMsg("Proof:")
-			monMsg(logfmt.Proof(proof).Marshal())
-			monMsg("New CP verified to be consistent")
 		}
+		if err := r.AppendRange(rCP, nil); err != nil {
+			monMsg(fmt.Sprintf("Failed to merge compact ranges: %v", err))
+			continue
+		}
+		root, err := r.GetRootHash(nil)
+		if err != nil {
+			monMsg(fmt.Sprintf("Failed to get root hash from compact range: %v", err))
+			continue
+		}
+		if !bytes.Equal(cp.Hash, root) {
+			monMsg(fmt.Sprintf("<b>Root hashes do not match: CP %x vs calculated %x</b>", cp.Hash, root))
+			monMsg("<invert>Bailing</invert>")
+			return
+		}
+		monMsg("New CP is consistent!")
 		cpCur = cp
+		monMsg("----------------------------------")
 	}
 }
 

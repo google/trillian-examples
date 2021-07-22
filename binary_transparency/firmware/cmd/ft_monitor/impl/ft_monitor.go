@@ -122,7 +122,6 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 			// If we have processed all leaves in the current checkpoint, then persist this checkpoint
 			// so that we don't repeat work on startup.
 			ioutil.WriteFile(opts.StateFile, entry.Root.Envelope, 0o755)
-			glog.Infof("Persisted state: %v", entry.Root.Envelope)
 		}
 	}
 }

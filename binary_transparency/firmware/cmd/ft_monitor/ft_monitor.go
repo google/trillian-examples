@@ -31,6 +31,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_monitor/impl"
+	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"golang.org/x/mod/sumdb/note"
 )
 
 var (
@@ -44,6 +46,8 @@ var (
 func main() {
 	flag.Parse()
 
+	testLogSigV, _ := note.NewVerifier(crypto.TestFTPersonalityPub)
+
 	if err := impl.Main(context.Background(), impl.MonitorOpts{
 		LogURL:       *ftLog,
 		PollInterval: *pollInterval,
@@ -51,8 +55,9 @@ func main() {
 		Matched: func(idx uint64, fw api.FirmwareMetadata) {
 			glog.Warningf("Malware detected at log index %d, in firmware: %v", idx, fw)
 		},
-		Annotate:  *annotate,
-		StateFile: *stateFile,
+		Annotate:       *annotate,
+		StateFile:      *stateFile,
+		LogSigVerifier: testLogSigV,
 	}); err != nil {
 		glog.Exitf(err.Error())
 	}

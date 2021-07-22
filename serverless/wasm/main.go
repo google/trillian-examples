@@ -17,16 +17,7 @@
 // Package main provides a series of entrypoints for using a serverless log from
 // JavaScript in a browser.
 //
-// Build with:
-//   GOOS=js GOARCH=wasm go build -o serverless/wasm/main.wasm -tags wasm ./serverless/wasm/
-//
-// To view locally:
-//   # Copy Go wasm JS shim:
-//   cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" serverless/wasm/
-//   # Run a webserver serving the wasm dir
-//   # e.g. using goexec (to install goexec: go get -u github.com/shurcooL/goexec):
-//   goexec 'http.ListenAndServe(`:8080`, http.FileServer(http.Dir(`serverless/wasm`)))'
-// Then point your browser at the server.
+// See the accompanying README for details on how to spin this up in a browser.
 package main
 
 import (
@@ -146,7 +137,10 @@ func sequence() js.Func {
 				s += " (dupe)"
 			}
 			logMsg(s)
-			logStorage.DeletePending(lk)
+			if err := logStorage.DeletePending(lk); err != nil {
+				logMsg(err)
+				return nil
+			}
 
 		}
 		return nil

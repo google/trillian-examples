@@ -15,7 +15,10 @@
 // +build wasm
 
 // Package webstorage provides a simple log storage implementation based on webstorage.
-// It only really makes sense for wasm targets.
+// It only really makes sense for wasm targets in browsers where the sessionStorage
+// WebStorage API is available.
+// See https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API for more information
+// about the browser WebStorage API.
 package webstorage
 
 import (
@@ -139,12 +142,21 @@ func (fs *Storage) PendingKeys() ([]string, error) {
 
 // Pending returns a pending leaf stored under PendingKey.
 func (fs *Storage) Pending(f string) ([]byte, error) {
+	prefix := filepath.Join(fs.root, "leaves", "pending")
+	if !strings.HasPrefix(f, prefix) {
+		return nil, fmt.Errorf("pending key %q does not have prefix %q", f, prefix)
+	}
 	return get(f)
 }
 
 // DeletePending removes a pending leaf stored under PendingKey.
-func (fs *Storage) DeletePending(f string) {
+func (fs *Storage) DeletePending(f string) error {
+	prefix := filepath.Join(fs.root, "leaves", "pending")
+	if !strings.HasPrefix(f, prefix) {
+		return fmt.Errorf("pending key %q does not have prefix %q", f, prefix)
+	}
 	getStorage().Call("removeItem", f)
+	return nil
 }
 
 // Checkpoint returns the current Checkpoint.

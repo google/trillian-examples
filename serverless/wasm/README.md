@@ -20,7 +20,7 @@ then copy over the Go WASM shim into this directory:
 $ cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" serverless/wasm/
 ```
 
-Run up a webserver to serve the files (use something which can infer the correct ContentType header to send), can use `goexec` for this (install `goexec` with `go get -u github.com/shurcooL/goexec`):
+Run up a webserver to serve the files (use something which can infer the correct ContentType header to send). You can use `goexec` for this (install `goexec` with `go get -u github.com/shurcooL/goexec`):
 
 ```bash
 $ goexec "http.ListenAndServe(`:8080`, http.FileServer(http.Dir(`serverless/wasm`)))"

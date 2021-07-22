@@ -49,4 +49,4 @@ registers/mapid
 /trillian_log_signer
 
 # Artefacts of serverless
-/serverless/wasm/main.wasm
+/serverless/experimental/wasm/main.wasm

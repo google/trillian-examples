@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall/js"
 	"time"
 
@@ -60,18 +61,21 @@ func b64Sha(b []byte) string {
 	return b64
 }
 
-func logMsg(s interface{}) {
-	c := js.Global().Get("logConsole")
-	o := c.Get("innerHTML")
-	c.Set("innerHTML", fmt.Sprintf("%s\n%v", o, s))
+const caret = "<blink>▒</blink>"
+
+func appendToElement(e, s string) {
+	c := js.Global().Get(e)
+	o := strings.TrimSuffix(c.Get("innerHTML").String(), caret)
+	c.Set("innerHTML", fmt.Sprintf("%s%s</br>%s", o, s, caret))
 	c.Set("scrollTop", c.Get("scrollHeight"))
 }
 
-func monMsg(s interface{}) {
-	c := js.Global().Get("monitorConsole")
-	o := c.Get("innerHTML")
-	c.Set("innerHTML", fmt.Sprintf("%s\n%v", o, s))
-	c.Set("scrollTop", c.Get("scrollHeight"))
+func logMsg(s string) {
+	appendToElement("logConsole", s)
+}
+
+func monMsg(s string) {
+	appendToElement("monitorConsole", s)
 }
 
 func showCP(ctx context.Context, f client.Fetcher) {
@@ -84,7 +88,7 @@ func showCP(ctx context.Context, f client.Fetcher) {
 		_, cp, err := client.FetchCheckpoint(ctx, f, logVer)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
-				logMsg(err)
+				logMsg(err.Error())
 				continue
 			}
 			cp = []byte("Checkpoint doesn't exist (yet) - queue, sequence, and integrate a leaf")
@@ -109,18 +113,18 @@ func integrate() js.Func {
 			return nil
 		}
 		if err != nil {
-			logMsg(err)
+			logMsg(err.Error())
 			return nil
 		}
 
 		newCp.Ecosystem = ecosystem
 		nRaw, err := note.Sign(&note.Note{Text: string(newCp.Marshal())}, logSig)
 		if err != nil {
-			logMsg(err)
+			logMsg(err.Error())
 			return nil
 		}
 		if err := logStorage.WriteCheckpoint(nRaw); err != nil {
-			logMsg(err)
+			logMsg(err.Error())
 			return nil
 		}
 
@@ -137,13 +141,13 @@ func sequence() js.Func {
 
 		pendingLeaves, err := logStorage.PendingKeys()
 		if err != nil {
-			logMsg(err)
+			logMsg(err.Error())
 			return nil
 		}
 		for _, lk := range pendingLeaves {
 			l, err := logStorage.Pending(lk)
 			if err != nil {
-				logMsg(err)
+				logMsg(err.Error())
 				return nil
 			}
 			h := rfc6962.DefaultHasher.HashLeaf(l)
@@ -151,18 +155,18 @@ func sequence() js.Func {
 			seq, err := logStorage.Sequence(h, l)
 			if err != nil {
 				if !errors.Is(err, storage.ErrDupeLeaf) {
-					logMsg(err)
+					logMsg(err.Error())
 					return nil
 				}
 				isDupe = true
 			}
-			s := fmt.Sprintf("index %d: %v", seq, lk)
+			s := fmt.Sprintf("index %d: %q", seq, l)
 			if isDupe {
 				s += " (dupe)"
 			}
 			logMsg(s)
 			if err := logStorage.DeletePending(lk); err != nil {
-				logMsg(err)
+				logMsg(err.Error())
 				return nil
 			}
 
@@ -182,6 +186,7 @@ func queueLeaf() js.Func {
 		if err := logStorage.Queue([]byte(leaf)); err != nil {
 			return fmt.Sprintf("failed to queue leaf: %v", err)
 		}
+		logMsg(fmt.Sprintf("<i>Queued leaf %q</i>", leaf))
 		return nil
 	})
 	return jsonFunc
@@ -200,7 +205,7 @@ func monitor(ctx context.Context, f client.Fetcher) {
 		cp, _, err := client.FetchCheckpoint(ctx, f, logVer)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
-				monMsg(err)
+				monMsg(err.Error())
 			}
 			// CP likely just doesn't exist yet - no sequence/integrate run has happened.
 			continue
@@ -215,16 +220,16 @@ func monitor(ctx context.Context, f client.Fetcher) {
 		if cpCur.Size > 0 {
 			pb, err := client.NewProofBuilder(ctx, *cp, rfc6962.DefaultHasher.HashChildren, f)
 			if err != nil {
-				monMsg(err)
+				monMsg(err.Error())
 				continue
 			}
 			proof, err := pb.ConsistencyProof(ctx, cpCur.Size, cp.Size)
 			if err != nil {
-				monMsg(err)
+				monMsg(err.Error())
 				continue
 			}
 			if err := logProofVerifier.VerifyConsistencyProof(int64(cpCur.Size), int64(cp.Size), cpCur.Hash, cp.Hash, proof); err != nil {
-				monMsg(err)
+				monMsg(err.Error())
 				continue
 			}
 			monMsg("Proof:")

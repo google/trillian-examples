@@ -39,7 +39,7 @@ type BulkResult struct {
 // The resulting leaves are returned in order over `leafChan`, and any terminal errors are returned via `errc`.
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
 // Bulk takes ownership of `rc` and will close it when no more values will be written.
-func Bulk(ctx context.Context, first, last uint64, batchFetch BatchFetch, workers, batchSize uint, rc chan<- BulkResult) {
+func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, workers, batchSize uint, rc chan<- BulkResult) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	defer close(rc)
@@ -54,7 +54,7 @@ func Bulk(ctx context.Context, first, last uint64, batchFetch BatchFetch, worker
 		go fetchWorker{
 			label:      fmt.Sprintf("worker %d", i),
 			start:      start,
-			last:       last,
+			treeSize:   treeSize,
 			count:      batchSize,
 			increment:  uint64(increment),
 			out:        rangeChans[i],
@@ -62,7 +62,7 @@ func Bulk(ctx context.Context, first, last uint64, batchFetch BatchFetch, worker
 		}.run(ctx)
 	}
 
-	lastStart := last - uint64(batchSize)
+	lastStart := treeSize - uint64(batchSize)
 	var r workerResult
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {
@@ -101,11 +101,11 @@ type workerResult struct {
 }
 
 type fetchWorker struct {
-	label                  string
-	start, last, increment uint64
-	count                  uint
-	out                    chan<- workerResult
-	batchFetch             BatchFetch
+	label                      string
+	start, treeSize, increment uint64
+	count                      uint
+	out                        chan<- workerResult
+	batchFetch                 BatchFetch
 }
 
 func (w fetchWorker) run(ctx context.Context) {
@@ -118,11 +118,11 @@ func (w fetchWorker) run(ctx context.Context) {
 	// gentle to the logs, which is a reasonable default for a happy ecosystem.
 	bo := backoff.NewExponentialBackOff()
 	for {
-		if w.start > w.last {
+		if w.start >= w.treeSize {
 			return
 		}
 		count := w.count
-		if left := w.last - w.start; left < uint64(count) {
+		if left := w.treeSize - w.start; left < uint64(count) {
 			count = uint(left)
 		}
 

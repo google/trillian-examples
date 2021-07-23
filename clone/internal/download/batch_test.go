@@ -22,26 +22,26 @@ import (
 
 func TestFetchWorkerRun(t *testing.T) {
 	for _, test := range []struct {
-		name        string
-		first, last uint64
-		batchSize   uint
+		name            string
+		first, treeSize uint64
+		batchSize       uint
 	}{
 		{
 			name:      "smallest batch",
 			first:     0,
-			last:      10,
+			treeSize:  10,
 			batchSize: 1,
 		},
 		{
 			name:      "larger batch",
 			first:     0,
-			last:      110,
+			treeSize:  110,
 			batchSize: 10,
 		},
 		{
 			name:      "batch size non-divisor of range",
 			first:     0,
-			last:      107,
+			treeSize:  107,
 			batchSize: 10,
 		},
 	} {
@@ -54,7 +54,7 @@ func TestFetchWorkerRun(t *testing.T) {
 			fw := fetchWorker{
 				label:      test.name,
 				start:      test.first,
-				last:       test.last,
+				treeSize:   test.treeSize,
 				increment:  uint64(test.batchSize),
 				count:      test.batchSize,
 				out:        wrc,
@@ -74,8 +74,8 @@ func TestFetchWorkerRun(t *testing.T) {
 				seen = seen + len(r.leaves)
 				i++
 			}
-			if seen != int(test.last) {
-				t.Errorf("expected to see %d leaves but saw %d", test.last, seen)
+			if seen != int(test.treeSize) {
+				t.Errorf("expected to see %d leaves but saw %d", test.treeSize, seen)
 			}
 		})
 	}
@@ -83,29 +83,29 @@ func TestFetchWorkerRun(t *testing.T) {
 
 func TestBulk(t *testing.T) {
 	for _, test := range []struct {
-		name        string
-		first, last uint64
-		batchSize   uint
-		workers     uint
+		name            string
+		first, treeSize uint64
+		batchSize       uint
+		workers         uint
 	}{
 		{
 			name:      "smallest batch",
 			first:     0,
-			last:      10,
+			treeSize:  10,
 			batchSize: 1,
 			workers:   1,
 		},
 		{
 			name:      "larger batch",
 			first:     0,
-			last:      110,
+			treeSize:  110,
 			batchSize: 10,
 			workers:   4,
 		},
 		{
 			name:      "batch size non-divisor of range",
 			first:     0,
-			last:      107,
+			treeSize:  107,
 			batchSize: 10,
 			workers:   4,
 		},
@@ -118,7 +118,7 @@ func TestBulk(t *testing.T) {
 				}
 				return nil
 			}
-			go Bulk(context.Background(), test.first, test.last, fakeFetch, test.workers, test.batchSize, brc)
+			go Bulk(context.Background(), test.first, test.treeSize, fakeFetch, test.workers, test.batchSize, brc)
 
 			i := 0
 			for br := range brc {
@@ -130,8 +130,8 @@ func TestBulk(t *testing.T) {
 				}
 				i++
 			}
-			if i != int(test.last) {
-				t.Errorf("expected %d leaves, got %d", test.last, i)
+			if i != int(test.treeSize) {
+				t.Errorf("expected %d leaves, got %d", test.treeSize, i)
 			}
 		})
 	}
@@ -140,7 +140,7 @@ func TestBulk(t *testing.T) {
 func TestBulkCancelled(t *testing.T) {
 	brc := make(chan BulkResult, 10)
 	var first uint64
-	var last uint64 = 1000
+	var treeSize uint64 = 1000
 	var workers uint = 4
 	var batchSize uint = 10
 
@@ -150,10 +150,10 @@ func TestBulkCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go Bulk(ctx, first, last, fakeFetch, workers, batchSize, brc)
+	go Bulk(ctx, first, treeSize, fakeFetch, workers, batchSize, brc)
 
 	seen := 0
-	for i := 0; i < int(last); i++ {
+	for i := 0; i < int(treeSize); i++ {
 		br := <-brc
 		if br.Err != nil {
 			break
@@ -163,7 +163,7 @@ func TestBulkCancelled(t *testing.T) {
 			cancel()
 		}
 	}
-	if seen == int(last) {
+	if seen == int(treeSize) {
 		t.Error("Expected cancellation to prevent all leaves being read")
 	}
 }

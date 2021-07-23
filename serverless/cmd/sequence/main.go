@@ -87,7 +87,7 @@ func main() {
 	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
 		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
 	}
-	st, err := fs.Load(*storageDir, cp)
+	st, err := fs.Load(*storageDir, cp.Size)
 	if err != nil {
 		glog.Exitf("Failed to load storage: %q", err)
 	}

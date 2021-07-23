@@ -357,7 +357,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		logStorage, err = webstorage.Load(logPrefix, *cp)
+		logStorage, err = webstorage.Load(logPrefix, cp.Size)
 		if err != nil {
 			panic(err)
 		}

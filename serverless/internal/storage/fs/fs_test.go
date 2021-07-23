@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 )
 
@@ -51,15 +50,13 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("Create = %v", err)
 	}
 
-	cp := log.Checkpoint{}
-
-	if _, err := Load(d, cp); err != nil {
+	if _, err := Load(d, 0); err != nil {
 		t.Fatalf("Load = %v, want no error", err)
 	}
 }
 
 func TestLoadForNonExistentDir(t *testing.T) {
-	if _, err := Load("5oi4egdf93uyjigedfk", log.Checkpoint{}); !errors.Is(err, os.ErrNotExist) {
+	if _, err := Load("5oi4egdf93uyjigedfk", 0); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("Load = %v, want not exists error", err)
 	}
 }

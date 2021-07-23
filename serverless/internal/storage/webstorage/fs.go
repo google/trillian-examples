@@ -93,10 +93,11 @@ func createExclusive(k string, v []byte) error {
 }
 
 // Load returns a Storage instance initialised from webstorage prefixed at root.
-func Load(root string, checkpoint log.Checkpoint) (*Storage, error) {
+// cpSize should be the Size of the checkpoint produced from the last `log.Integrate` call.
+func Load(root string, cpSize uint64) (*Storage, error) {
 	return &Storage{
 		root:    root,
-		nextSeq: checkpoint.Size,
+		nextSeq: cpSize,
 	}, nil
 }
 

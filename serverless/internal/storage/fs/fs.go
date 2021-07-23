@@ -24,7 +24,6 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/google/trillian-examples/serverless/internal/storage"
@@ -57,8 +56,9 @@ type Storage struct {
 
 const leavesPendingPathFmt = "leaves/pending/%0x"
 
-// Load returns a Storage instance initialised from the filesystem.
-func Load(rootDir string, checkpoint log.Checkpoint) (*Storage, error) {
+// Load returns a Storage instance initialised from the filesystem at the provided location.
+// cpSize should be the Size of the checkpoint produced from the last `log.Integrate` call.
+func Load(rootDir string, cpSize uint64) (*Storage, error) {
 	fi, err := os.Stat(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat %q: %w", rootDir, err)
@@ -70,7 +70,7 @@ func Load(rootDir string, checkpoint log.Checkpoint) (*Storage, error) {
 
 	return &Storage{
 		rootDir: rootDir,
-		nextSeq: checkpoint.Size,
+		nextSeq: cpSize,
 	}, nil
 }
 

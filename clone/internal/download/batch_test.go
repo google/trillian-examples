@@ -16,70 +16,131 @@ package download
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"testing"
 )
 
 func TestFetchWorkerRun(t *testing.T) {
-	wrc := make(chan workerResult, 10)
-	var first uint64
-	var batchSize uint = 10
+	for _, test := range []struct {
+		name            string
+		first, treeSize uint64
+		batchSize       uint
+	}{
+		{
+			name:      "smallest batch",
+			first:     0,
+			treeSize:  10,
+			batchSize: 1,
+		},
+		{
+			name:      "larger batch",
+			first:     0,
+			treeSize:  110,
+			batchSize: 10,
+		},
+		{
+			name:      "batch size non-divisor of range",
+			first:     0,
+			treeSize:  107,
+			batchSize: 10,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			wrc := make(chan workerResult)
 
-	fakeFetch := func(start uint64, leaves [][]byte) error {
-		return nil
-	}
-	fw := fetchWorker{
-		label:      "solipsism",
-		start:      first,
-		increment:  uint64(batchSize),
-		count:      batchSize,
-		out:        wrc,
-		batchFetch: fakeFetch,
-	}
+			fakeFetch := func(start uint64, leaves [][]byte) error {
+				return nil
+			}
+			fw := fetchWorker{
+				label:      test.name,
+				start:      test.first,
+				treeSize:   test.treeSize,
+				increment:  uint64(test.batchSize),
+				count:      test.batchSize,
+				out:        wrc,
+				batchFetch: fakeFetch,
+			}
 
-	go fw.run(context.Background())
+			go fw.run(context.Background())
 
-	for i := 0; i < 10; i++ {
-		r := <-wrc
-		if r.err != nil {
-			t.Fatal(r.err)
-		}
-		if got, want := r.start, uint64(i*10); got != want {
-			t.Errorf("%d got != want (%d != %d)", i, got, want)
-		}
+			var seen, i int
+			for r := range wrc {
+				if r.err != nil {
+					t.Fatal(r.err)
+				}
+				if got, want := r.start, uint64(i*int(test.batchSize)); got != want {
+					t.Errorf("%d got != want (%d != %d)", i, got, want)
+				}
+				seen = seen + len(r.leaves)
+				i++
+			}
+			if seen != int(test.treeSize) {
+				t.Errorf("expected to see %d leaves but saw %d", test.treeSize, seen)
+			}
+		})
 	}
 }
 
 func TestBulk(t *testing.T) {
-	brc := make(chan BulkResult, 10)
-	var first uint64
-	var workers uint = 4
-	var batchSize uint = 10
+	for _, test := range []struct {
+		name            string
+		first, treeSize uint64
+		batchSize       uint
+		workers         uint
+	}{
+		{
+			name:      "smallest batch",
+			first:     0,
+			treeSize:  10,
+			batchSize: 1,
+			workers:   1,
+		},
+		{
+			name:      "larger batch",
+			first:     0,
+			treeSize:  110,
+			batchSize: 10,
+			workers:   4,
+		},
+		{
+			name:      "batch size non-divisor of range",
+			first:     0,
+			treeSize:  107,
+			batchSize: 10,
+			workers:   4,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			brc := make(chan BulkResult)
+			fakeFetch := func(start uint64, leaves [][]byte) error {
+				for i := range leaves {
+					leaves[i] = []byte(strconv.Itoa(int(start) + i))
+				}
+				return nil
+			}
+			go Bulk(context.Background(), test.first, test.treeSize, fakeFetch, test.workers, test.batchSize, brc)
 
-	fakeFetch := func(start uint64, leaves [][]byte) error {
-		for i := range leaves {
-			leaves[i] = []byte(fmt.Sprintf("%d.%d", start, i))
-		}
-		return nil
-	}
-	go Bulk(context.Background(), first, fakeFetch, workers, batchSize, brc)
-
-	for i := 0; i < 1000; i++ {
-		br := <-brc
-		if br.Err != nil {
-			t.Fatal(br.Err)
-		}
-		tens := (i / 10) * 10
-		units := i % 10
-		if got, want := string(br.Leaf), fmt.Sprintf("%d.%d", tens, units); got != want {
-			t.Errorf("%d got != want (%q != %q)", i, got, want)
-		}
+			i := 0
+			for br := range brc {
+				if br.Err != nil {
+					t.Fatal(br.Err)
+				}
+				if got, want := string(br.Leaf), strconv.Itoa(i); got != want {
+					t.Errorf("%d got != want (%q != %q)", i, got, want)
+				}
+				i++
+			}
+			if i != int(test.treeSize) {
+				t.Errorf("expected %d leaves, got %d", test.treeSize, i)
+			}
+		})
 	}
 }
 
 func TestBulkCancelled(t *testing.T) {
 	brc := make(chan BulkResult, 10)
 	var first uint64
+	var treeSize uint64 = 1000
 	var workers uint = 4
 	var batchSize uint = 10
 
@@ -89,10 +150,10 @@ func TestBulkCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	go Bulk(ctx, first, fakeFetch, workers, batchSize, brc)
+	go Bulk(ctx, first, treeSize, fakeFetch, workers, batchSize, brc)
 
 	seen := 0
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < int(treeSize); i++ {
 		br := <-brc
 		if br.Err != nil {
 			break
@@ -102,7 +163,7 @@ func TestBulkCancelled(t *testing.T) {
 			cancel()
 		}
 	}
-	if seen == 1000 {
+	if seen == int(treeSize) {
 		t.Error("Expected cancellation to prevent all leaves being read")
 	}
 }
@@ -121,7 +182,7 @@ func BenchmarkBulk(b *testing.B) {
 		}
 		return nil
 	}
-	go Bulk(context.Background(), first, fakeFetch, workers, batchSize, brc)
+	go Bulk(context.Background(), first, uint64(b.N), fakeFetch, workers, batchSize, brc)
 
 	for n := 0; n < b.N; n++ {
 		for i := 0; i < 1000; i++ {

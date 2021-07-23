@@ -60,7 +60,7 @@ func TestCertLeafFetcher(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			clf := certLeafFetcher{&fakeFetcher{test.urls}}
+			clf := ctFetcher{&fakeFetcher{test.urls}}
 			leaves := make([][]byte, test.count)
 			err := clf.Batch(test.start, leaves)
 			switch {

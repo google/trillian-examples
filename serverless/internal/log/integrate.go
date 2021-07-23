@@ -38,9 +38,6 @@ type Storage interface {
 	// StoreTile stores the tile at the given level & index.
 	StoreTile(level, index uint64, tile *api.Tile) error
 
-	// Checkpoint returns the current checkpoint of the stored log.
-	Checkpoint() log.Checkpoint
-
 	// WriteCheckpoint stores a newly updated log checkpoint.
 	WriteCheckpoint(newCPRaw []byte) error
 
@@ -57,22 +54,21 @@ type Storage interface {
 	Sequence(leafhash []byte, leaf []byte) (uint64, error)
 }
 
-// Integrate adds sequenced but not-yet-included entries into the tree.
+// Integrate adds all sequenced entries greater than checkpoint.Size into the tree.
 // Returns an updated Checkpoint, or an error.
-func Integrate(ctx context.Context, st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
-	rf := compact.RangeFactory{Hash: h.HashChildren}
-
-	// Fetch previously stored state
-	checkpoint := st.Checkpoint()
+func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
 	getTile := func(l, i uint64) (*api.Tile, error) {
 		return st.GetTile(l, i, checkpoint.Size)
 	}
+
 	hashes, err := client.FetchRangeNodes(ctx, checkpoint.Size, func(_ context.Context, l, i uint64) (*api.Tile, error) {
 		return getTile(l, i)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch compact range nodes: %w", err)
 	}
+
+	rf := compact.RangeFactory{Hash: h.HashChildren}
 	baseRange, err := rf.NewRange(0, checkpoint.Size, hashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create range covering existing log: %w", err)

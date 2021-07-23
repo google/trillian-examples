@@ -93,23 +93,18 @@ func createExclusive(k string, v []byte) error {
 }
 
 // Load returns a Storage instance initialised from webstorage prefixed at root.
-func Load(root string, checkpoint *log.Checkpoint) (*Storage, error) {
+func Load(root string, checkpoint log.Checkpoint) (*Storage, error) {
 	return &Storage{
-		root:       root,
-		checkpoint: *checkpoint,
-		nextSeq:    checkpoint.Size,
+		root:    root,
+		nextSeq: checkpoint.Size,
 	}, nil
 }
 
 // Create creates a new filesystem hierarchy and returns a Storage representation for it.
-func Create(root string, emptyHash []byte) (*Storage, error) {
+func Create(root string) (*Storage, error) {
 	fs := &Storage{
 		root:    root,
 		nextSeq: 0,
-		checkpoint: log.Checkpoint{
-			Size: 0,
-			Hash: emptyHash,
-		},
 	}
 
 	return fs, nil
@@ -156,11 +151,6 @@ func (fs *Storage) DeletePending(f string) error {
 	}
 	getStorage().Call("removeItem", f)
 	return nil
-}
-
-// Checkpoint returns the current Checkpoint.
-func (fs *Storage) Checkpoint() log.Checkpoint {
-	return fs.checkpoint
 }
 
 // Sequence assigns the given leaf entry to the next available sequence number.

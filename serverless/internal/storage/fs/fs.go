@@ -53,14 +53,12 @@ type Storage struct {
 	// Note that nextSeq may be <= than the actual next available number, but
 	// never greater.
 	nextSeq uint64
-	// checkpoint is the latest known checkpoint of the log.
-	checkpoint log.Checkpoint
 }
 
 const leavesPendingPathFmt = "leaves/pending/%0x"
 
 // Load returns a Storage instance initialised from the filesystem.
-func Load(rootDir string, checkpoint *log.Checkpoint) (*Storage, error) {
+func Load(rootDir string, checkpoint log.Checkpoint) (*Storage, error) {
 	fi, err := os.Stat(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to stat %q: %w", rootDir, err)
@@ -71,14 +69,13 @@ func Load(rootDir string, checkpoint *log.Checkpoint) (*Storage, error) {
 	}
 
 	return &Storage{
-		rootDir:    rootDir,
-		checkpoint: *checkpoint,
-		nextSeq:    checkpoint.Size,
+		rootDir: rootDir,
+		nextSeq: checkpoint.Size,
 	}, nil
 }
 
 // Create creates a new filesystem hierarchy and returns a Storage representation for it.
-func Create(rootDir string, emptyHash []byte) (*Storage, error) {
+func Create(rootDir string) (*Storage, error) {
 	_, err := os.Stat(rootDir)
 	if err == nil {
 		return nil, fmt.Errorf("%q %w", rootDir, os.ErrExist)
@@ -98,18 +95,9 @@ func Create(rootDir string, emptyHash []byte) (*Storage, error) {
 	fs := &Storage{
 		rootDir: rootDir,
 		nextSeq: 0,
-		checkpoint: log.Checkpoint{
-			Size: 0,
-			Hash: emptyHash,
-		},
 	}
 
 	return fs, nil
-}
-
-// Checkpoint returns the current Checkpoint.
-func (fs *Storage) Checkpoint() log.Checkpoint {
-	return fs.checkpoint
 }
 
 // Sequence assigns the given leaf entry to the next available sequence number.

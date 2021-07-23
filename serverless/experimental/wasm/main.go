@@ -108,9 +108,27 @@ func integrate() js.Func {
 			return "Invalid number of arguments passed - want no args"
 		}
 
-		newCp, err := log.Integrate(context.Background(), logStorage, rfc6962.DefaultHasher)
+		cpRaw, err := webstorage.ReadCheckpoint(logPrefix)
 		if err != nil {
-			panic(fmt.Errorf("Failed to integrate: %q", err))
+			logMsg(fmt.Sprintf("Failed to read checkpoint: %v", err))
+			panic(err)
+		}
+		n, err := note.Open(cpRaw, note.VerifierList(logVer))
+		if err != nil {
+			logMsg(string(cpRaw))
+			panic(err)
+		}
+		cp := &logfmt.Checkpoint{}
+		_, err = cp.Unmarshal([]byte(n.Text))
+		if err != nil {
+			logMsg(fmt.Sprintf("Failed to unmarshal checkpoint: %v", err))
+			panic(err)
+		}
+
+		newCp, err := log.Integrate(context.Background(), *cp, logStorage, rfc6962.DefaultHasher)
+		if err != nil {
+			logMsg(fmt.Sprintf("Failed to integrate: %q", err))
+			panic(err)
 		}
 		if newCp == nil {
 			logMsg("Nothing to integrate")
@@ -137,6 +155,7 @@ func integrate() js.Func {
 	})
 	return jsonFunc
 }
+
 func sequence() js.Func {
 	jsonFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) != 0 {
@@ -179,6 +198,7 @@ func sequence() js.Func {
 	})
 	return jsonFunc
 }
+
 func queueLeaf() js.Func {
 	jsonFunc := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 		if len(args) != 1 {
@@ -322,7 +342,7 @@ func main() {
 		if !errors.Is(err, os.ErrNotExist) {
 			panic(err)
 		}
-		logStorage, err = webstorage.Create(logPrefix, []byte("empty"))
+		logStorage, err = webstorage.Create(logPrefix)
 		if err != nil {
 			panic(err)
 		}
@@ -337,7 +357,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		logStorage, err = webstorage.Load(logPrefix, cp)
+		logStorage, err = webstorage.Load(logPrefix, *cp)
 		if err != nil {
 			panic(err)
 		}

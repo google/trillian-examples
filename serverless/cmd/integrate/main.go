@@ -81,11 +81,13 @@ func main() {
 	}
 
 	if *initialise {
-		st, err := fs.Create(*storageDir, h.EmptyRoot())
+		st, err := fs.Create(*storageDir)
 		if err != nil {
 			glog.Exitf("Failed to create log: %q", err)
 		}
-		cp := st.Checkpoint()
+		cp := fmtlog.Checkpoint{
+			Hash: h.EmptyRoot(),
+		}
 		if err := signAndWrite(&cp, cpNote, s, st); err != nil {
 			glog.Exitf("Failed to sign: %q", err)
 		}
@@ -111,13 +113,13 @@ func main() {
 	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
 		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
 	}
-	st, err := fs.Load(*storageDir, &cp)
+	st, err := fs.Load(*storageDir, cp.Size)
 	if err != nil {
 		glog.Exitf("Failed to load storage: %q", err)
 	}
 
 	// Integrate new entries
-	newCp, err := log.Integrate(ctx, st, h)
+	newCp, err := log.Integrate(ctx, cp, st, h)
 	if err != nil {
 		glog.Exitf("Failed to integrate: %q", err)
 	}

@@ -15,7 +15,6 @@
 package fs
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"errors"
 	"os"
@@ -23,25 +22,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 )
 
 func TestCreate(t *testing.T) {
-	empty := []byte("empty")
-
 	d := filepath.Join(t.TempDir(), "storage")
-	s, err := Create(d, empty)
+	_, err := Create(d)
 	if err != nil {
 		t.Fatalf("Create = %v", err)
-	}
-
-	cp := s.Checkpoint()
-	if got, want := cp.Size, uint64(0); got != want {
-		t.Errorf("New checkpoint has size %d, want %d", got, want)
-	}
-	if got, want := cp.Hash, empty; !bytes.Equal(got, want) {
-		t.Errorf("New checkpoint roothash %x, want %x", got, want)
 	}
 }
 
@@ -49,39 +37,34 @@ func TestCreateForExistingDirectory(t *testing.T) {
 	// This dir will already exist since the test framework just created it.
 	d := t.TempDir()
 
-	_, err := Create(d, []byte("empty"))
+	_, err := Create(d)
 	if !errors.Is(err, os.ErrExist) {
 		t.Fatalf("Create = %v, want already exists error", err)
 	}
 }
 
 func TestLoad(t *testing.T) {
-	empty := []byte("empty")
-
 	d := filepath.Join(t.TempDir(), "storage")
-	_, err := Create(d, empty)
+	_, err := Create(d)
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}
 
-	cp := log.Checkpoint{}
-
-	if _, err := Load(d, &cp); err != nil {
+	if _, err := Load(d, 0); err != nil {
 		t.Fatalf("Load = %v, want no error", err)
 	}
 }
 
 func TestLoadForNonExistentDir(t *testing.T) {
-	if _, err := Load("5oi4egdf93uyjigedfk", nil); !errors.Is(err, os.ErrNotExist) {
+	if _, err := Load("5oi4egdf93uyjigedfk", 0); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("Load = %v, want not exists error", err)
 	}
 }
 
 func TestWriteLoadState(t *testing.T) {
-	empty := []byte("empty")
 
 	d := filepath.Join(t.TempDir(), "storage")
-	s, err := Create(d, empty)
+	s, err := Create(d)
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}
@@ -124,7 +107,7 @@ func TestSequence(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			d := filepath.Join(t.TempDir(), "storage")
-			s, err := Create(d, []byte("empty"))
+			s, err := Create(d)
 			if err != nil {
 				t.Fatalf("Create = %v", err)
 			}

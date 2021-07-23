@@ -34,6 +34,8 @@ import (
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
+
+	fmtlog "github.com/google/trillian-examples/formats/log"
 )
 
 const (
@@ -71,7 +73,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 
 		// Integrate those leaves
 		{
-			update, err := log.Integrate(ctx, s, lh)
+			update, err := log.Integrate(ctx, checkpoint, s, lh)
 			if err != nil {
 				t.Fatalf("Integrate = %v", err)
 			}
@@ -127,7 +129,7 @@ func TestServerlessViaFile(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, root, h.EmptyRoot(), s)
+	st := mustCreateAndInitialiseStorage(t, root, s)
 
 	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
@@ -156,7 +158,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, root, h.EmptyRoot(), s)
+	st := mustCreateAndInitialiseStorage(t, root, s)
 
 	// Arrange for its files to be served via HTTP
 	listener, err := net.Listen("tcp", ":0")
@@ -225,13 +227,13 @@ func mustGetSigner(t *testing.T, privKey string) note.Signer {
 	return s
 }
 
-func mustCreateAndInitialiseStorage(t *testing.T, root string, emptyRoot []byte, s note.Signer) *fs.Storage {
+func mustCreateAndInitialiseStorage(t *testing.T, root string, s note.Signer) *fs.Storage {
 	t.Helper()
-	st, err := fs.Create(root, emptyRoot)
+	st, err := fs.Create(root)
 	if err != nil {
 		t.Fatalf("Create = %v", err)
 	}
-	cp := st.Checkpoint()
+	cp := fmtlog.Checkpoint{}
 	cp.Ecosystem = api.CheckpointHeaderV0
 	cpNote := note.Note{Text: string(cp.Marshal())}
 	cpNoteSigned, err := note.Sign(&cpNote, s)

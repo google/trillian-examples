@@ -162,11 +162,10 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to compute root: %q", err)
 	}
-	if bytes.Equal(targetCp.RootHash, root) {
-		glog.Infof("Got matching roots for tree size %d: %x", targetCp.TreeSize, root)
-	} else {
+	if !bytes.Equal(targetCp.RootHash, root) {
 		glog.Exitf("Computed root %x != provided checkpoint %x for tree size %d", root, targetCp.RootHash, targetCp.TreeSize)
 	}
+	glog.Infof("Got matching roots for tree size %d: %x", targetCp.TreeSize, root)
 	if err := db.WriteCheckpoint(ctx, targetCp.TreeSize, targetCp.raw, crs); err != nil {
 		glog.Exitf("Failed to update database with new checkpoint: %v", err)
 	}

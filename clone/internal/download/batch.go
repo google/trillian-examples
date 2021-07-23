@@ -109,6 +109,8 @@ type fetchWorker struct {
 }
 
 func (w fetchWorker) run(ctx context.Context) {
+	glog.V(2).Infof("fetchWorker %q started", w.label)
+	defer glog.V(2).Infof("fetchWorker %q finished", w.label)
 	defer close(w.out)
 	// TODO(mhutchinson): Consider some way to reset this after intermittent connectivity issue.
 	// If this is pushed in the loop then it fixes this issue, but at the cost that the worker

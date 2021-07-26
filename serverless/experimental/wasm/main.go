@@ -108,21 +108,26 @@ func integrate() js.Func {
 			return "Invalid number of arguments passed - want no args"
 		}
 
+		cp := &logfmt.Checkpoint{}
 		cpRaw, err := webstorage.ReadCheckpoint(logPrefix)
 		if err != nil {
-			logMsg(fmt.Sprintf("Failed to read checkpoint: %v", err))
-			panic(err)
-		}
-		n, err := note.Open(cpRaw, note.VerifierList(logVer))
-		if err != nil {
-			logMsg(string(cpRaw))
-			panic(err)
-		}
-		cp := &logfmt.Checkpoint{}
-		_, err = cp.Unmarshal([]byte(n.Text))
-		if err != nil {
-			logMsg(fmt.Sprintf("Failed to unmarshal checkpoint: %v", err))
-			panic(err)
+			if errors.Is(err, os.ErrNotExist) {
+				logMsg("No checkpoint found, log starting from scratch")
+			} else {
+				logMsg(fmt.Sprintf("Failed to read checkpoint: %v", err))
+				panic(err)
+			}
+		} else {
+			n, err := note.Open(cpRaw, note.VerifierList(logVer))
+			if err != nil {
+				logMsg(string(cpRaw))
+				panic(err)
+			}
+			_, err = cp.Unmarshal([]byte(n.Text))
+			if err != nil {
+				logMsg(fmt.Sprintf("Failed to unmarshal checkpoint: %v", err))
+				panic(err)
+			}
 		}
 
 		newCp, err := log.Integrate(context.Background(), *cp, logStorage, rfc6962.DefaultHasher)

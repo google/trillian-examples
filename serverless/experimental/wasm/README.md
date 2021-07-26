@@ -11,7 +11,7 @@ and the related ecosystem functions from within a browser environment.
 To build and run up a webserver which serves the WASM+support files, run the following commands from the root of this repo:
 
 ```bash
-$ GOOS=js GOARCH=wasm go build -o serverless/wasm/main.wasm -tags wasm ./serverless/experimental/wasm/
+$ GOOS=js GOARCH=wasm go build -o ./serverless/experimental/wasm/main.wasm -tags wasm ./serverless/experimental/wasm/
 ```
 
 then copy over the Go WASM shim into this directory:

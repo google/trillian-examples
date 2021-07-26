@@ -28,3 +28,5 @@ To run the job on Dataflow in such a GCP project:
 ```bash
 go run -ldflags "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn" ./experimental/batchmap/ctmap/cmd/build --alsologtostderr --v=2 --runner=dataflow --project=$GCP_PROJECT --region=us-central1 --staging_location=gs://$GCP_PROJECT-xenon2022/staging --mysql_log_uri 'mapper:letmein@tcp($MYSQL_IP)/googlexenon2022' --count 100 --map_output_root_dir=gs://$GCP_PROJECT-xenon2022/map/
 ```
+
+Note that this must be run from a machine that has access to the Cloud MySQL instance.

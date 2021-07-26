@@ -47,6 +47,7 @@ var (
 
 func init() {
 	beam.RegisterType(reflect.TypeOf((*writeTileFn)(nil)).Elem())
+	beam.RegisterType(reflect.TypeOf((*writeCheckpointFn)(nil)).Elem())
 }
 
 func main() {
@@ -77,9 +78,19 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to create pipeline: %v", err)
 	}
-	formatted := beam.ParDo(s, formatFn, r.DomainCertIndexLogs)
-	textio.Write(s, *mapOutputRootDir+"logs.txt", formatted)
+	// Write out the leaf values, i.e. the logs.
+	// This currently writes a single large file containing all the results.
+	textio.Write(s, *mapOutputRootDir+"logs.txt", beam.ParDo(s, formatFn, r.DomainCertIndexLogs))
+
+	// Write out all of the tiles that represent the map.
 	beam.ParDo0(s, &writeTileFn{*mapOutputRootDir}, r.MapTiles)
+
+	//Write out the map checkpoint.
+	beam.ParDo0(s, &writeCheckpointFn{
+		RootDir:       *mapOutputRootDir,
+		LogCheckpoint: r.Metadata.Checkpoint,
+		EntryCount:    uint64(r.Metadata.Entries),
+	}, r.MapTiles)
 
 	glog.Info("Pipeline constructed, calling beamx.Run()")
 	// All of the above constructs the pipeline but doesn't run it. Now we run it.
@@ -176,5 +187,37 @@ func (w *writeTileFn) ProcessElement(ctx context.Context, t *batchmap.Tile) erro
 	if err := buf.Flush(); err != nil {
 		return err
 	}
+	return fd.Close()
+}
+
+type writeCheckpointFn struct {
+	RootDir       string
+	LogCheckpoint []byte
+	EntryCount    uint64
+}
+
+func (w *writeCheckpointFn) ProcessElement(ctx context.Context, t *batchmap.Tile) error {
+	if len(t.Path) > 0 {
+		return nil
+	}
+	root := t.RootHash
+
+	filename := fmt.Sprintf("%scheckpoint", w.RootDir)
+	fs, err := filesystem.New(ctx, filename)
+	if err != nil {
+		return err
+	}
+	defer fs.Close()
+
+	fd, err := fs.OpenWrite(ctx, filename)
+	if err != nil {
+		return err
+	}
+
+	fd.Write([]byte(fmt.Sprintf("%d\n%x\n", w.EntryCount, root)))
+	fd.Write(w.LogCheckpoint)
+
+	// TODO(mhutchinson): Add signature to the map root.
+
 	return fd.Close()
 }

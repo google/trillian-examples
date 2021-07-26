@@ -340,14 +340,16 @@ go run cmd/publisher/publish.go --logtostderr --v=2 --timestamp="2020-10-10T23:0
 > Anybody else running a monitor also knows that malicious firmware has been
 > logged and can raise the alarm.
 
-Developer Notes
----------------
 
-This section is not intended for a general audience.
-The intended audience is developers of FT that have a deployment and need to inspect or modify it.
+Further Work: Annotations and Verifiable Summaries
+--------------------------------------------------
 
-#### Docker
+We have seen how to publish firmware and its metadata to a log, and how this can be used by firmware readers: clients flashing the firmware, and monitors scanning the firmware.
+Having all parties seeing the same view of the available data sets the foundation for a secure system, but making clients aware of bad firmware cannot be done only with the tools we have above.
 
-Connecting to the Trillian database:
+The [ftmap README](fmd/../cmd/ftmap/README.md) outlines a verifiable solution to this problem.
+There are 2 key changes from the solution above:
+  * In addition to firmware & metadata, the log also accepts annotations about firmware already in the log
+  * A Verifiable Map is built from the log, which aggregates each piece of firmware with the annotations for it
 
-`docker run -it --network deployment_default --rm mariadb mysql -hdeployment_mysql_1 -utest -pzaphod test`
+Clients can then use this verifiable map to efficiently discover all annotations about a piece of firmware before they rely on it.

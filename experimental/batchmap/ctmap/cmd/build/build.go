@@ -20,8 +20,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"path"
 	"reflect"
-	"strings"
 
 	"github.com/apache/beam/sdks/go/pkg/beam"
 	"github.com/apache/beam/sdks/go/pkg/beam/io/databaseio"
@@ -55,8 +55,8 @@ func main() {
 	beam.Init()
 
 	ctx := context.Background()
-	if !strings.HasSuffix(*mapOutputRootDir, "/") {
-		glog.Exitf("Required flag 'map_output_root_dir' must end with '/' (got %q)", *mapOutputRootDir)
+	if len(*mapOutputRootDir) == 0 {
+		glog.Exit("Required flag 'map_output_root_dir' required")
 	}
 	if len(*mysqlURI) == 0 {
 		glog.Exit("Missing required flag 'mysql_log_uri'")
@@ -80,12 +80,12 @@ func main() {
 	}
 	// Write out the leaf values, i.e. the logs.
 	// This currently writes a single large file containing all the results.
-	textio.Write(s, *mapOutputRootDir+"logs.txt", beam.ParDo(s, formatFn, r.DomainCertIndexLogs))
+	textio.Write(s, path.Join(*mapOutputRootDir, "logs.txt"), beam.ParDo(s, formatFn, r.DomainCertIndexLogs))
 
 	// Write out all of the tiles that represent the map.
 	beam.ParDo0(s, &writeTileFn{*mapOutputRootDir}, r.MapTiles)
 
-	//Write out the map checkpoint.
+	// Write out the map checkpoint.
 	beam.ParDo0(s, &writeCheckpointFn{
 		RootDir:       *mapOutputRootDir,
 		LogCheckpoint: r.Metadata.Checkpoint,
@@ -94,7 +94,7 @@ func main() {
 
 	glog.Info("Pipeline constructed, calling beamx.Run()")
 	// All of the above constructs the pipeline but doesn't run it. Now we run it.
-	if err := beamx.Run(context.Background(), p); err != nil {
+	if err := beamx.Run(ctx, p); err != nil {
 		glog.Exitf("Failed to execute job: %q", err)
 	}
 }
@@ -154,7 +154,7 @@ type writeTileFn struct {
 }
 
 func (w *writeTileFn) ProcessElement(ctx context.Context, t *batchmap.Tile) error {
-	filename := fmt.Sprintf("%stile-%x", w.RootDir, t.Path)
+	filename := path.Join(w.RootDir, fmt.Sprintf("tile-%x", t.Path))
 	fs, err := filesystem.New(ctx, filename)
 	if err != nil {
 		return err
@@ -202,7 +202,7 @@ func (w *writeCheckpointFn) ProcessElement(ctx context.Context, t *batchmap.Tile
 	}
 	root := t.RootHash
 
-	filename := fmt.Sprintf("%scheckpoint", w.RootDir)
+	filename := path.Join(w.RootDir, "checkpoint")
 	fs, err := filesystem.New(ctx, filename)
 	if err != nil {
 		return err

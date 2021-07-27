@@ -30,8 +30,6 @@ import (
 	"github.com/google/trillian/experimental/batchmap"
 )
 
-const treeID = int64(12345)
-
 var (
 	cntCertsWithNoDomain = beam.NewCounter("ctmap", "certs-zero-domains")
 	cntPrecerts          = beam.NewCounter("ctmap", "precerts")
@@ -115,10 +113,10 @@ func (b *MapBuilder) Create(ctx context.Context, s beam.Scope, size int64) (Resu
 	}
 	domains := beam.ParDo(s.Scope("keyByDomain"), rawLeafToDomainEntries, beam.Flatten(s, rawLeaves...))
 
-	entries, logs := MakeDomainLogs(s.Scope("MakeDomainLogs"), treeID, domains)
+	entries, logs := MakeDomainLogs(s.Scope("MakeDomainLogs"), b.treeID, domains)
 
 	glog.Infof("Creating new map revision from range [0, %d)", endID)
-	tiles, err := batchmap.Create(s, entries, b.treeID, crypto.SHA512_256, b.prefixStrata)
+	tiles, err := batchmap.Create(s, entries, b.treeID, crypto.SHA256, b.prefixStrata)
 
 	return Result{
 		MapTiles:            tiles,

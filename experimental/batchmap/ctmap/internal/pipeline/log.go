@@ -15,7 +15,6 @@
 package pipeline
 
 import (
-	"crypto"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -72,13 +71,11 @@ func (fn *moduleLogHashFn) ProcessElement(log *DomainCertIndexLog) (*batchmap.En
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log for %q: %v", log.Domain, err)
 	}
-	h := crypto.SHA512_256.New()
-	h.Write([]byte(log.Domain))
-	logKey := h.Sum(nil)
+	logKey := sha256.Sum256([]byte(log.Domain))
 
-	leafID := node.NewID(string(logKey), uint(len(logKey)*8))
+	leafID := node.NewID(string(logKey[:]), uint(len(logKey)*8))
 	return &batchmap.Entry{
-		HashKey:   logKey,
+		HashKey:   logKey[:],
 		HashValue: coniks.Default.HashLeaf(fn.TreeID, leafID, logRoot),
 	}, nil
 }

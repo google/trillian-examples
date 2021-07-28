@@ -278,6 +278,15 @@ func TestUpdate(t *testing.T) {
 			pf:       consProof,
 			useCR:    false,
 			isGood:   true,
+		},
+		{
+			desc:     "vanilla path, but the first line changed",
+			initC:    mInit,
+			initSize: 5,
+			newC:     []byte("Frog Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n\n— monkeys 202ffgCVdfZmrroccRdQoEfn2TfmXHez4R++GvVrFvFiaI85O12aTV5GpNOvWsuQW77eNxQ2b7ggYeglzF/QSy/EBws=\n"),
+			pf:       consProof,
+			useCR:    false,
+			isGood:   false,
 		}, {
 			desc:     "vanilla consistency smaller checkpoint",
 			initC:    mNext,

@@ -175,6 +175,9 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse stored checkpoint: %v", err)
 	}
+	if next.Ecosystem != prev.Ecosystem {
+		return nil, fmt.Errorf("line 0 (log/ecosystem string) changed. Was %q, but attempting to set to %q", prev.Ecosystem, next.Ecosystem)
+	}
 	// Parse the compact range if we're using one.
 	var prevRange log.Proof
 	if logInfo.UseCompact {

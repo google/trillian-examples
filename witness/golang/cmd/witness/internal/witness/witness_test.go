@@ -28,30 +28,34 @@ import (
 )
 
 var (
-	mPK       = "monkeys+87be2a55+AeK/t7elVrIheVCPxQNYkvKFw/2ahkj6Gm9afBJw6S8q"
+	// https://play.golang.org/p/PKcyNC2sjBL to regenerate any messages if needed.
+	mPK       = "monkeys+db4d9f7e+AULaJMvTtDLHPUcUrjdDad9vDlh/PTfC2VV60JUtCfWT"
+	mSK       = "PRIVATE+KEY+monkeys+db4d9f7e+ATWIAF3yVBG+Hv1rZFQoNt/BaURkLPtOFMAM2HrEeIr6"
 	bPK       = "bananas+cf639f13+AaPjhFnPCQnid/Ql32KWhmh+uk72FVRfK+2DLmO3BI3M"
 	wPK       = "witness+f13a86db+AdYV1Ztajd9BvyjP2HgpwrqYL6TjOwIjGMOq8Bu42xbN"
 	wSK       = "PRIVATE+KEY+witness+f13a86db+AaLa/dfyBhyo/m0Z7WCi98ENVZWtrP8pxgRNrx7tIWiA"
-	mInit     = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n\n— monkeys h74qVe5jWoK8CX/zXrT9X80SyEaiwPb/0p7VW7u+cnXxq5pJYQ6vhxUZ5Ywz9WSD3HIyygccizAg+oMxOe6pRgqqOQE=\n")
+	mInit     = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n\n— monkeys 202ffu1mJ0hrPIodgN0YQV7uZk9CAEzh+hOQyRjkf9CDY1IOr/oiH6WkzGIy7aEF0rw/9SHiZztjDiTOb53i6CE/zQ8=\n")
 	bInit     = []byte("Log Checkpoint v0\n5\n41smjBUiAU70EtKlT6lIOIYtRTYxYXsDB+XHfcvu/BE=\n\n— bananas z2OfE18+NwUjjJBXH7m+fh67bu29p1Jbypr4GFUQohgQgCeuPJZtGTvfR9Pquh2Iebfq+6bhl3G/77lsKiGIea6NAwE=\n")
-	mNext     = []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n\n— monkeys h74qVetPycmWeWIySx/cMKcLopNS9h2je2DWe2w7PLRmczqdqinRGPscYklpBQO5Un6B5eUMJDwZprVpJie0lSBNPg8=\n")
+	mNext     = []byte("Log Checkpoint v0\n8\nV8K9aklZ4EPB+RMOk1/8VsJUdFZR77GDtZUQq84vSbo=\n\n— monkeys 202ffm1n5/h7F3x0D6CCysNnqiL2WBu7iubseJggohhX6JBbeLts5NWKY/g0r6yNRVN/k+QJJx1Sii0MzbMUTnmO+wA=\n")
 	consProof = [][]byte{
 		dh("b9e1d62618f7fee8034e4c5010f727ab24d8e4705cb296c374bf2025a87a10d2", 32),
 		dh("aac66cd7a79ce4012d80762fe8eec3a77f22d1ca4145c3f4cee022e7efcd599d", 32),
 		dh("89d0f753f66a290c483b39cd5e9eafb12021293395fad3d4a2ad053cfbcfdc9e", 32),
 		dh("29e40bb79c966f4c6fe96aff6f30acfce5f3e8d84c02215175d6e018a5dee833", 32),
 	}
-	crInit      = []byte("Log Checkpoint v0\n10\ne/S4liN8tioogdwxlCaXdQBb/5bxM9AWKA0bcZa9TXw=\n\n— monkeys h74qVc07jPk7qD0incL5dTlPr9DYoD64X2mJpvIKutiyeBHSm8TGIey7EpRcxA1ZIqEbw2YA6i1a1V4pDjMX51znZQA=\n")
+	crInit      = []byte("Log Checkpoint v0\n10\ne/S4liN8tioogdwxlCaXdQBb/5bxM9AWKA0bcZa9TXw=\n\n— monkeys 202ffo2uuOa4Vo94IaAdawszJz+eyJRyK46Yp9K5tz7qREYFqb4D9WGsZHsM5tuc6jKVTnldCSCGJk/FwGUv/IACjwo=\n")
 	crInitRange = [][]byte{
 		dh("4e856ea495cf591cefb9eff66b311b2d5ec1d0901b8026909f88a3f126d9db11", 32),
 		dh("3a357a5ff22c69641ff59c08ca67ccabdefdf317476501db8cafc73ebb5ff547", 32),
 	}
-	crNext  = []byte("Log Checkpoint v0\n15\nsrKoB8sjvP1QAt1Ih3nqGHzjvmtRLs/geQdehrUHvqs=\n\n— monkeys h74qVU+3T1AVNo+tAsISWzMwEDag8xOwQLSzxJELzHH9N/4cz6M+VbJ89Ku//gybRPPUFP/8Fcvxpqb6++ZyLk83oAE=\n")
+	crNext  = []byte("Log Checkpoint v0\n15\nsrKoB8sjvP1QAt1Ih3nqGHzjvmtRLs/geQdehrUHvqs=\n\n— monkeys 202ffsI0bYEfiyoXANzIXNoUCcro6D4TfvQlU+zbxmJLGLXPGu15VNIWBOJr0EUQO0P3dxSJI5SsFLLYQLyqvRercQ4=\n")
 	crProof = [][]byte{
 		dh("ef626e0b64023948e57f34674c2574b3078c5af59a2faa095f4948736e8ca52e", 32),
 		dh("8f75f7d88d3679ac6dd5a68a81215bfbeafe8c566b93013bbc82e64295628c8b", 32),
 		dh("e034fb7af8223063c1c299ed91c11a0bc4cec15afd75e2abe4bb54c14d921ef0", 32),
 	}
+
+	_ = mSK
 )
 
 type logOpts struct {
@@ -276,9 +280,9 @@ func TestUpdate(t *testing.T) {
 			isGood:   true,
 		}, {
 			desc:     "vanilla consistency smaller checkpoint",
-			initC:    mInit,
-			initSize: 5,
-			newC:     []byte("Log Checkpoint v0\n4\nhashhashhash\n"),
+			initC:    mNext,
+			initSize: 8,
+			newC:     mInit,
 			pf:       consProof,
 			useCR:    false,
 			isGood:   false,

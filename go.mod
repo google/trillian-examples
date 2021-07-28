@@ -11,6 +11,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.6.0
+	github.com/google/certificate-transparency-go v1.1.2-0.20210512142713-bed466244fa6
 	github.com/google/go-cmp v0.5.6
 	github.com/google/trillian v1.3.14-0.20210720093003-785d9ecb206b
 	github.com/gorilla/mux v1.8.0

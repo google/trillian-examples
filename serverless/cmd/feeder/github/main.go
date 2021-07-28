@@ -16,21 +16,29 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
-	"os/exec"
-	"path"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/glog"
 	//  "github.com/google/go-github"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+
 	//  "github.com/go-git/go-git/v5/plumbing"
+	"github.com/google/trillian-examples/serverless/client"
+	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
+	"golang.org/x/mod/sumdb/note"
+
+	wit_http "github.com/google/trillian-examples/serverless/cmd/feeder/impl/http"
 )
 
 // TODO: copied from feed-to-github; adapt as necessary.
@@ -55,6 +63,27 @@ var (
 	feederConfig     = flag.String("feeder_config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
 	interval         = flag.Duration("interval", time.Duration(0), "Interval between checkpoints.")
 )
+
+type WitnessConfig struct {
+	Name      string `json:"name"`
+	URL       string `json:"url"`
+	PublicKey string `json:"public_key"`
+}
+
+// Config encapsulates the feeder config.
+type Config struct {
+	// The LogID used by the witnesses to identify this log.
+	LogID string `json:"log_id"`
+	// PublicKey associated with LogID.
+	LogPublicKey string `json:"log_public_key"`
+	// LogURL is the URL of the root of the log.
+	LogURL string `json:"log_url"`
+	// Witnesses is a list of all configured witnesses.
+	Witnesses []WitnessConfig `json:"witnesses"`
+	// NumRequired is the minimum number of cosignatures required for a feeding run
+	// to be considered successful.
+	NumRequired int `json:"num_required"`
+}
 
 func main() {
 	flag.Parse()
@@ -229,16 +258,27 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository) error {
 	// 1. TODO: git pull
 
-	// 2. kick off feeder. (TODO: refactor feeder to a library so we don't need to spawn a process)
-	cpLines, err := spawnFeeder(ctx, opts)
+	// TODO: if checkpoint and checkpoint.witnessed bodies are different (strictly, if checkpoint is newer),
+	// then we need to be feeding checkpoint to the witness, otherwise we can feed the witnessed one and
+	// short-circuit creating a PR if our witness(es) has/have already signed it.
+	inputCP := fmt.Sprintf("%s/checkpoint", filepath.Join(opts.witnessClonePath, opts.logRepoPath))
+	glog.V(1).Infof("Reading CP from %q", inputCP)
+	cp, err := ioutil.ReadFile(inputCP)
+	if err != nil {
+		return fmt.Errorf("failed to read input checkpoint: %v", err)
+	}
+
+	// 2. kick off feeder.
+	glog.V(1).Infof("CP to feed:\n%s", string(cp))
+
+	wCp, err := feed(ctx, cp, opts)
 	if err != nil {
 		return err
 	}
 
-	// 3. did feeder add a signuture or update the existing checkpoint.witnessed file?
-	// TODO: len(cpLines) is not the correct way to do this.  we need to examine
-	// the diff created in the forkRepo
-	if len(cpLines) == 0 {
+	glog.V(1).Infof("CP after feeding:\n%s", string(wCp))
+
+	if bytes.Equal(cp, wCp) {
 		fmt.Println("No signatures added")
 		return nil
 	}
@@ -249,49 +289,98 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	return nil
 }
 
-func spawnFeeder(ctx context.Context, opts *options) ([]string, error) {
-	cmd := exec.Command("feeder", fmt.Sprintf("--config_file=%v", opts.feederConfigFile),
-		fmt.Sprintf("--input=https://raw.githubusercontent.com/%v/master/%v/checkpoint", opts.logOwnerRepo, opts.logRepoPath),
-		fmt.Sprintf("--output=%v/checkpoint.witnessed", path.Join(opts.witnessClonePath, opts.logRepoPath)), "-v=2",
-		"-alsologtostderr") // TODO remove this final flag
+func feed(ctx context.Context, cp []byte, opts *options) ([]byte, error) {
+	cfg, err := readConfig(opts.feederConfigFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read feeder config file: %v", err)
+	}
 
-	glog.V(1).Infof("cmd: \n%v", cmd)
+	lURL, err := url.Parse(cfg.LogURL)
+	if err != nil {
+		return nil, fmt.Errorf("invalid LogURL %q: %v", cfg.LogURL, err)
+	}
 
-	stderr, err := cmd.StderrPipe()
+	logSigV, err := note.NewVerifier(cfg.LogPublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("invalid log public key: %v", err)
+	}
+
+	fOpts := impl.FeedOpts{
+		LogID:          cfg.LogID,
+		LogFetcher:     newFetcher(lURL),
+		LogSigVerifier: logSigV,
+		NumRequired:    cfg.NumRequired,
+	}
+	for _, w := range cfg.Witnesses {
+		u, err := url.Parse(w.URL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse witness URL %q: %v", w.URL, err)
+		}
+		wSigV, err := note.NewVerifier(w.PublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("invalid witness public key for url %q: %v", w.URL, err)
+		}
+		fOpts.Witnesses = append(fOpts.Witnesses, wit_http.Witness{
+			URL:      u,
+			Verifier: wSigV,
+		})
+	}
+
+	wCP, err := impl.Feed(ctx, cp, fOpts)
+	if err != nil {
+		return nil, fmt.Errorf("feeding failed: %v", err)
+	}
+
+	return wCP, nil
+}
+
+func readConfig(f string) (*Config, error) {
+	c, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %v", err)
+	}
+	cfg := Config{}
+	if err := json.Unmarshal(c, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
+	}
+	return &cfg, nil
+}
+
+// TODO(al): factor this stuff out and share between tools:
+
+// newFetcher creates a Fetcher for the log at the given root location.
+func newFetcher(root *url.URL) client.Fetcher {
+	get := getByScheme[root.Scheme]
+	if get == nil {
+		panic(fmt.Errorf("unsupported URL scheme %s", root.Scheme))
+	}
+
+	return func(ctx context.Context, p string) ([]byte, error) {
+		u, err := root.Parse(p)
+		if err != nil {
+			return nil, err
+		}
+		return get(ctx, u)
+	}
+}
+
+var getByScheme = map[string]func(context.Context, *url.URL) ([]byte, error){
+	"http":  readHTTP,
+	"https": readHTTP,
+	"file": func(_ context.Context, u *url.URL) ([]byte, error) {
+		return ioutil.ReadFile(u.Path)
+	},
+}
+
+func readHTTP(ctx context.Context, u *url.URL) ([]byte, error) {
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := cmd.Start(); err != nil {
+	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	if err != nil {
 		return nil, err
 	}
-
-	// TODO: this is ugly.  We're assuming that the feeder program outputs
-	// exactly in this format on stderr, and keeping all but the first line.
-	/*
-		I0719 18:17:17.082115  109363 main.go:104] CP to feed:
-		Log Checkpoint v0
-		14
-		gWLB7VlSWbHzuh0ZTg7W7cYjUdxpGIQ0g02hNl0PHkA=
-	*/
-	// I'm outputting this for now just to get more detail on what feeder is doing
-	// but we really need to determine that based on the diffs it might, or might
-	// not have created in the checkpoint.witnessed file at --output
-	var out []string
-	first := true
-	scanner := bufio.NewScanner(stderr)
-	for scanner.Scan() {
-		if first {
-			first = false
-			continue
-		}
-		out = append(out, scanner.Text())
-	}
-
-	if err := cmd.Wait(); err != nil {
-		glog.Errorf("feeder command err:%v", err)
-		return nil, err
-	}
-	glog.Infof("feeder stderr:\n%v", strings.Join(out, "\n"))
-	return out, nil
+	defer resp.Body.Close()
+	return ioutil.ReadAll(resp.Body)
 }

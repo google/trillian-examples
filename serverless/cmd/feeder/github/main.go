@@ -19,6 +19,7 @@ import (
 	_ "bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -30,7 +31,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	//  "github.com/google/go-github"
+	"github.com/google/go-github/v37/github"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 
@@ -39,6 +40,7 @@ import (
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"golang.org/x/mod/sumdb/note"
+	"golang.org/x/oauth2"
 
 	wit_http "github.com/google/trillian-examples/serverless/cmd/feeder/impl/http"
 )
@@ -107,24 +109,28 @@ func main() {
 
 	witnessRepo, err := setupWitnessRepo(ctx, opts)
 	if err != nil {
-		glog.Exitf("Error during set-up: %v", err)
+		glog.Exitf("Error during set-up of witness repo: %v", err)
 	}
 
-	//   3. auth to Github
-	//
-	//
-	// Main feeder loop.
+	// Authenticate to Github.
+	ghClient, err := authWithGithub(ctx, opts.githubAuthToken)
+	if err != nil {
+		glog.Exitf("Error authenticating to Github: %v", err)
+	}
+	glog.Info("Created Github client")
+
+	// Overview of the main feeder loop:
 	//   1. run feeder to check if there are new signatures
 	//   2. if not, sleep until next time to check.
 	//   3. if so, move output from feeder onto new branch
-
 	//   4. make commit to branch
 	//   5. create checkpoint PR
 	//   6. clean up
 	//   7. --end of cycle--
+
 	fmt.Println("[Starting feeding]---------------------------------------------------")
 	for {
-		if err = createCheckpointPR(ctx, opts, witnessRepo); err != nil || opts.feederInterval == 0 {
+		if err = createCheckpointPR(ctx, opts, witnessRepo, ghClient); err != nil || opts.feederInterval == 0 {
 			break
 		}
 		fmt.Println("[Feed cycle complete]------------------------------------------------")
@@ -259,6 +265,12 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	return forkRepo, nil
 }
 
+func authWithGithub(ctx context.Context, ghToken string) (*github.Client, error) {
+	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: ghToken})
+	tc := oauth2.NewClient(ctx, ts)
+	return github.NewClient(tc), nil
+}
+
 func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, error) {
 	// Figure out where the worktree is for repo 'r'.
 	wt, err := r.Worktree()
@@ -283,7 +295,7 @@ func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, 
 	return headRef, wt, nil
 }
 
-func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository) error {
+func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository, ghCli *github.Client) error {
 	// Pull forkRepo and get the ref for origin/master branch HEAD.
 	headRef, workTree, err := pullAndGetRepoHead(forkRepo)
 	if err != nil {
@@ -333,7 +345,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
 
 	// git checkout `branchRefName`
-	glog.V(1).Infof("git checkout -b %q", branchHashRef)
+	glog.V(1).Infof("git checkout -b %q", branchHashRef.Name())
 	if err := workTree.Checkout(&git.CheckoutOptions{
 		Branch: branchRefName,
 		Create: true,
@@ -394,10 +406,38 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 		return fmt.Errorf("git push -f: %v", err)
 	}
 
-	// 6. TODO: create GH pull request
-
+	// 6. Create GH pull request
 	// 7. git checkout master  (done in defer)
 	// 8. delete branch branchRefName  (done in defer)
+	branchName := strings.ReplaceAll(string(branchHashRef.Name()), "refs/heads/", "")
+	return createPR(ctx, opts, ghCli, "Witness @ " + cpSize, branchName, "master")
+}
+
+// createPR creates a pull request. Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create
+func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, commitBranch, prBranch string) error {
+	if title == "" {
+		return errors.New("missing `title`, won't create PR.")
+	}
+
+	newPR := &github.NewPullRequest{
+		Title:               github.String(title),
+		Head:                github.String(commitBranch),
+		Base:                github.String(prBranch),
+		Body:                github.String(title),
+		MaintainerCanModify: github.Bool(true),
+	}
+
+	prJson, _ := json.Marshal(newPR)
+	glog.V(1).Infof("Creating PR:\n%s", prJson)
+
+	owner := strings.Split(opts.logOwnerRepo, "/")[0]
+	repo :=  strings.Split(opts.witnessOwnerRepo, "/")[1]
+	pr, _, err := ghCli.PullRequests.Create(ctx, owner, repo, newPR)
+	if err != nil {
+		return err
+	}
+
+	glog.Infof("PR created: %s", pr.GetHTMLURL())
 	return nil
 }
 

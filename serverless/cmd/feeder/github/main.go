@@ -127,6 +127,8 @@ func main() {
 		if err = createCheckpointPR(ctx, opts, witnessRepo); err != nil || opts.feederInterval == 0 {
 			break
 		}
+		fmt.Println("[Feed cycle complete]------------------------------------------------")
+
 		<-time.After(opts.feederInterval)
 	}
 	if err != nil {
@@ -330,16 +332,26 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	branchRefName := plumbing.ReferenceName("refs/heads/witness_" + cpHash)
 	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
 
-	// The created reference is saved in the storage.
-	glog.V(1).Infof("Creating branch %q", branchHashRef)
-	if err := forkRepo.Storer.SetReference(branchHashRef); err != nil {
-		return fmt.Errorf("failed to store branch hashref for %q: %v", branchRefName, err)
+	// git checkout `branchRefName`
+	glog.V(1).Infof("git checkout -b %q", branchHashRef)
+	if err := workTree.Checkout(&git.CheckoutOptions{
+		Branch: branchRefName,
+		Create: true,
+	}); err != nil {
+		return fmt.Errorf("git checkout %v: %v", branchRefName, err)
 	}
 	defer func() {
-		glog.V(1).Infof("Deleting branch %q", branchHashRef)
 		if err := forkRepo.Storer.RemoveReference(branchHashRef.Name()); err != nil {
 			glog.Errorf("failed to delete branch hashref for %q: %v", branchHashRef.Name(), err)
 		}
+		glog.V(1).Infof("git branch -D %v", branchHashRef.Name())
+		if err := workTree.Checkout(&git.CheckoutOptions{
+			Branch: "refs/heads/master",
+		}); err != nil {
+			glog.Errorf("failed to git checkout master: %v", err)
+			return
+		}
+		glog.V(1).Info("git checkout master")
 	}()
 
 	// 2. serialize witnessed CP to file
@@ -372,13 +384,15 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	}
 	glog.V(1).Infof("git show -s:\n%v", obj)
 
-	// 5. git force-push to origin/branchrefname
+	// 5. TODO: git force-push to origin/branchrefname
+	// if err := workTree.Push(); err != nil {
 
-	// 6. create GH pull request
-	// 7. return to git master branch
-	// 8. delete branch branchRefName
+	// }
 
-	fmt.Println("[Feed cycle complete]------------------------------------------------")
+	// 6. TODO: create GH pull request
+
+	// 7. git checkout master  (done in defer)
+	// 8. delete branch branchRefName  (done in defer)
 	return nil
 }
 

@@ -32,7 +32,7 @@ import (
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"golang.org/x/mod/sumdb/note"
 
-	wit_http "github.com/google/trillian-examples/serverless/cmd/feeder/impl/http"
+	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
 var (

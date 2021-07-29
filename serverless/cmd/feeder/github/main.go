@@ -16,7 +16,7 @@
 package main
 
 import (
-	"bytes"
+	_ "bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -33,7 +34,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 
-	//  "github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"golang.org/x/mod/sumdb/note"
@@ -255,30 +256,36 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	return forkRepo, nil
 }
 
-func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository) error {
-	// Figure out where the worktree is for forkRepo
-	wt, err := forkRepo.Worktree()
+func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, error) {
+	// Figure out where the worktree is for repo 'r'.
+	wt, err := r.Worktree()
 	if err != nil {
-		glog.Errorf("workTree(%v) err: %v", forkRepo, err)
-		return err
+		return nil, fmt.Errorf("workTree(%v) err: %v", r, err)
 	}
-	// Pull the latest changes from the origin remote and merge into the current branch
+	// Pull the latest commits from remote 'origin'.
 	if err := wt.Pull(&git.PullOptions{RemoteName: "origin"}); err != nil && err != git.NoErrAlreadyUpToDate {
-		glog.Errorf("git pull %v/origin err: %v", forkRepo, err)
-		return err
+		return nil, fmt.Errorf("git pull %v/origin err: %v", r, err)
+	} 
+	// Get the master HEAD - we'll need this to branch from later on.
+	headRef, err := r.Head()
+	if err != nil {
+		return nil, fmt.Errorf("reading %v HEAD ref err: %v", r, err)
 	}
 	// Print the latest commit that was just pulled
-	ref, err := forkRepo.Head()
+	commit, err := r.CommitObject(headRef.Hash())
 	if err != nil {
-		glog.Errorf("reading %v HEAD ref err:", forkRepo, err)
+		return nil, fmt.Errorf("reading %v HEAD commit err: %v", r, err)
+	}
+	glog.V(1).Infof("Reading %v: HEAD commit:\n%v", r, commit)
+	return headRef, nil
+		}
+
+func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository) error {
+	// Pull forkRepo and get the ref for origin/master branch HEAD.
+	headRef, err := pullAndGetRepoHead(forkRepo)
+	if err != nil {
 		return err
 	}
-	commit, err := forkRepo.CommitObject(ref.Hash())
-	if err != nil {
-		glog.Errorf("reading %v HEAD commit err:", forkRepo, err)
-		return err
-	}
-	glog.Infof("Reading forkRepo: HEAD=%v", commit)
 
 	// TODO: if checkpoint and checkpoint.witnessed bodies are different (strictly, if checkpoint is newer),
 	// then we need to be feeding checkpoint to the witness, otherwise we can feed the witnessed one and
@@ -293,20 +300,35 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// 2. kick off feeder.
 	glog.Infof("CP to feed:\n%s", string(cp))
 
-	wCp, err := feed(ctx, cp, opts)
-	if err != nil {
-		return err
+	// TODO: reinstate this & remove nasty hack.
+	// wCp, err := feed(ctx, cp, opts)
+	// if err != nil {
+	// 	return err
+	// }
+	wCp := cp
+	wnote := string(wCp)
+	lines := strings.Split(wnote, "\n")
+
+	glog.Infof("CP after feeding:\n%s", wnote)
+	glog.Infof("lines:\n%s", lines)
+
+	// TODO: remove this nasty hack
+	// if bytes.Equal(cp, wCp) {
+	// 	fmt.Println("No signatures added")
+	// 	return nil
+	// }
+
+	// Create a git branch for the witnessed checkpoint to be added, named
+	// using the base64(checkpoint hash).  Construct a fully-specified
+	// reference name for the new branch, then create using git plumbing.
+	branchRefName := plumbing.ReferenceName("refs/heads/witness_" + lines[2])
+	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
+
+	// The created reference is saved in the storage.
+	glog.V(1).Infof("Creating branch %q", branchHashRef)
+	if err := forkRepo.Storer.SetReference(branchHashRef); err != nil {
+		return fmt.Errorf("failed to store branch hashref for %q: %v", branchRefName, err)
 	}
-
-	glog.Infof("CP after feeding:\n%s", string(wCp))
-
-	if bytes.Equal(cp, wCp) {
-		fmt.Println("No signatures added")
-		return nil
-	}
-
-	// TODO:
-	// 1. create git branch foo
 
 	// 2. serialize witnessed CP to file
 	// 3. git add the wCP file
@@ -314,7 +336,11 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// 5. git force-push to origin/foo
 	// 6. create GH pull request
 	// 7. return to git master branch
-	// 8. delete branch foo
+	// 8. delete branch branchRefName
+	glog.V(1).Infof("Deleting branch %q", branchHashRef)
+	if err := forkRepo.Storer.RemoveReference(branchHashRef.Name()); err != nil {
+		return fmt.Errorf("failed to delete branch hashref for %q: %v", branchHashRef.Name(), err)
+	}
 
 	fmt.Println("[Feed cycle complete]------------------------------------------------")
 	return nil
@@ -341,6 +367,7 @@ func feed(ctx context.Context, cp []byte, opts *options) ([]byte, error) {
 		LogFetcher:     newFetcher(lURL),
 		LogSigVerifier: logSigV,
 		NumRequired:    cfg.NumRequired,
+		WitnessTimeout: 5*time.Second,
 	}
 	for _, w := range cfg.Witnesses {
 		u, err := url.Parse(w.URL)

@@ -30,10 +30,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/golang/glog"
-	"github.com/google/go-github/v37/github"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/golang/glog"
+	"github.com/google/go-github/v37/github"
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -280,7 +280,7 @@ func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, 
 	// Pull the latest commits from remote 'origin'.
 	if err := wt.Pull(&git.PullOptions{RemoteName: "origin"}); err != nil && err != git.NoErrAlreadyUpToDate {
 		return nil, nil, fmt.Errorf("git pull %v/origin err: %v", r, err)
-	} 
+	}
 	// Get the master HEAD - we'll need this to branch from later on.
 	headRef, err := r.Head()
 	if err != nil {
@@ -384,8 +384,8 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	glog.V(1).Info("git commit")
 	commit, err := workTree.Commit(fmt.Sprintf("Witness checkpoint@%v", cpSize), &git.CommitOptions{
 		Author: &object.Signature{
-			Name:  opts.gitUsername,  // TODO: probably can remove this as we set up git config
-			Email: opts.gitEmail,  // TODO: as above.
+			Name:  opts.gitUsername, // TODO: probably can remove this as we set up git config
+			Email: opts.gitEmail,    // TODO: as above.
 			When:  time.Now(),
 		},
 	})
@@ -409,8 +409,9 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// 6. Create GH pull request
 	// 7. git checkout master  (done in defer)
 	// 8. delete branch branchRefName  (done in defer)
-	branchName := strings.ReplaceAll(string(branchHashRef.Name()), "refs/heads/", "")
-	return createPR(ctx, opts, ghCli, "Witness @ " + cpSize, branchName, "master")
+	forkOwner := strings.Split(opts.witnessOwnerRepo, "/")[0]
+	forkBranchName := strings.ReplaceAll(string(branchHashRef.Name()), "refs/heads/", "")
+	return createPR(ctx, opts, ghCli, "Witness @ "+cpSize, forkOwner+":"+forkBranchName, "master")
 }
 
 // createPR creates a pull request. Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create
@@ -423,7 +424,6 @@ func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, c
 		Title:               github.String(title),
 		Head:                github.String(commitBranch),
 		Base:                github.String(prBranch),
-		Body:                github.String(title),
 		MaintainerCanModify: github.Bool(true),
 	}
 
@@ -431,7 +431,7 @@ func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, c
 	glog.V(1).Infof("Creating PR:\n%s", prJson)
 
 	owner := strings.Split(opts.logOwnerRepo, "/")[0]
-	repo :=  strings.Split(opts.witnessOwnerRepo, "/")[1]
+	repo := strings.Split(opts.witnessOwnerRepo, "/")[1]
 	pr, _, err := ghCli.PullRequests.Create(ctx, owner, repo, newPR)
 	if err != nil {
 		return err
@@ -462,7 +462,7 @@ func feed(ctx context.Context, cp []byte, opts *options) ([]byte, error) {
 		LogFetcher:     newFetcher(lURL),
 		LogSigVerifier: logSigV,
 		NumRequired:    cfg.NumRequired,
-		WitnessTimeout: 5*time.Second,
+		WitnessTimeout: 5 * time.Second,
 	}
 	for _, w := range cfg.Witnesses {
 		u, err := url.Parse(w.URL)

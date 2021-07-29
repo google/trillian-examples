@@ -16,7 +16,7 @@
 package main
 
 import (
-	_ "bytes"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -117,7 +117,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Error authenticating to Github: %v", err)
 	}
-	glog.Info("Created Github client")
+	glog.V(1).Info("Created Github client")
 
 	// Overview of the main feeder loop:
 	//   1. run feeder to check if there are new signatures
@@ -205,7 +205,7 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	if err != nil {
 		return nil, fmt.Errorf("Failed to clone fork repo %q: %v", forkLogURL, err)
 	}
-	glog.Infof("Cloned %q into %q", forkLogURL, opts.witnessClonePath)
+	glog.V(1).Infof("Cloned %q into %q", forkLogURL, opts.witnessClonePath)
 
 	// Create a remote -> logOwnerRepo
 	//  git remote add upstream "https://github.com/${log_repo}.git"
@@ -217,7 +217,7 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	if err != nil {
 		return nil, fmt.Errorf("Failed to add remote %q to fork repo: %v", logURL, err)
 	}
-	glog.Infof("Added remote upstream->%q for %q: %v", logURL, opts.witnessOwnerRepo, logRemote)
+	glog.V(1).Infof("Added remote upstream->%q for %q: %v", logURL, opts.witnessOwnerRepo, logRemote)
 
 	// Ensure the forkRepo config has git username and email set.
 	//  git config user.name "${GIT_USERNAME}"
@@ -306,37 +306,33 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// then we need to be feeding checkpoint to the witness, otherwise we can feed the witnessed one and
 	// short-circuit creating a PR if our witness(es) has/have already signed it.
 	inputCP := fmt.Sprintf("%s/checkpoint", filepath.Join(opts.witnessClonePath, opts.logRepoPath))
-	glog.Infof("Reading CP from %q", inputCP)
+	glog.V(1).Infof("Reading CP from %q", inputCP)
 	cp, err := ioutil.ReadFile(inputCP)
 	if err != nil {
 		return fmt.Errorf("failed to read input checkpoint: %v", err)
 	}
 
 	// 2. kick off feeder.
-	glog.Infof("CP to feed:\n%s", string(cp))
-
-	// TODO: reinstate this
-	// wCp, err := feed(ctx, cp, opts)
-	// if err != nil {
-	// 	return err
-	// }
-	// TODO:  remove nasty hack.
-	wCp := cp
-	wnote := string(wCp)
-	lines := strings.Split(wnote, "\n")
-	if len(lines) < 3 {
-		return fmt.Errorf("witnessed checkpoint Note seems to have too few lines: \n%v", wnote)
+	glog.V(1).Infof("CP to feed:\n%s", string(cp))
+	wCp, err := feed(ctx, cp, opts)
+	if err != nil {
+		return err
 	}
+
+	witnessNote := string(wCp)
+	lines := strings.Split(witnessNote, "\n")
+	if len(lines) < 3 {
+		return fmt.Errorf("witnessed checkpoint Note seems to have too few lines: \n%v", witnessNote)
+	}
+	// TODO: can we use actual note struct to do this.
 	cpSize, cpHash := lines[1], lines[2]
 
-	glog.Infof("CP after feeding:\n%s", wnote)
-	glog.Infof("lines:\n%s", lines)
+	glog.V(1).Infof("CP after feeding:\n%s", witnessNote)
 
-	// TODO: reinstate this
-	// if bytes.Equal(cp, wCp) {
-	// 	fmt.Println("No signatures added")
-	// 	return nil
-	// }
+	if bytes.Equal(cp, wCp) {
+		fmt.Println("No signatures added")
+		return nil
+	}
 
 	// Create a git branch for the witnessed checkpoint to be added, named
 	// using the base64(checkpoint hash).  Construct a fully-specified
@@ -384,8 +380,9 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	glog.V(1).Info("git commit")
 	commit, err := workTree.Commit(fmt.Sprintf("Witness checkpoint@%v", cpSize), &git.CommitOptions{
 		Author: &object.Signature{
-			Name:  opts.gitUsername, // TODO: probably can remove this as we set up git config
-			Email: opts.gitEmail,    // TODO: as above.
+			// Name, Email required despite what we set up in git config earlier.
+			Name:  opts.gitUsername,
+			Email: opts.gitEmail,
 			When:  time.Now(),
 		},
 	})

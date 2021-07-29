@@ -15,6 +15,7 @@ require (
 	github.com/google/certificate-transparency-go v1.1.2-0.20210512142713-bed466244fa6
 	github.com/google/go-cmp v0.5.6
 	github.com/google/trillian v1.3.14-0.20210720093003-785d9ecb206b
+	github.com/google/go-github/v37 v37.0.0 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.8
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

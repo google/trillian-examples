@@ -256,34 +256,65 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 }
 
 func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository) error {
-	// 1. TODO: git pull
+	// Figure out where the worktree is for forkRepo
+	wt, err := forkRepo.Worktree()
+	if err != nil {
+		glog.Errorf("workTree(%v) err: %v", forkRepo, err)
+		return err
+	}
+	// Pull the latest changes from the origin remote and merge into the current branch
+	if err := wt.Pull(&git.PullOptions{RemoteName: "origin"}); err != nil && err != git.NoErrAlreadyUpToDate {
+		glog.Errorf("git pull %v/origin err: %v", forkRepo, err)
+		return err
+	}
+	// Print the latest commit that was just pulled
+	ref, err := forkRepo.Head()
+	if err != nil {
+		glog.Errorf("reading %v HEAD ref err:", forkRepo, err)
+		return err
+	}
+	commit, err := forkRepo.CommitObject(ref.Hash())
+	if err != nil {
+		glog.Errorf("reading %v HEAD commit err:", forkRepo, err)
+		return err
+	}
+	glog.Infof("Reading forkRepo: HEAD=%v", commit)
 
 	// TODO: if checkpoint and checkpoint.witnessed bodies are different (strictly, if checkpoint is newer),
 	// then we need to be feeding checkpoint to the witness, otherwise we can feed the witnessed one and
 	// short-circuit creating a PR if our witness(es) has/have already signed it.
 	inputCP := fmt.Sprintf("%s/checkpoint", filepath.Join(opts.witnessClonePath, opts.logRepoPath))
-	glog.V(1).Infof("Reading CP from %q", inputCP)
+	glog.Infof("Reading CP from %q", inputCP)
 	cp, err := ioutil.ReadFile(inputCP)
 	if err != nil {
 		return fmt.Errorf("failed to read input checkpoint: %v", err)
 	}
 
 	// 2. kick off feeder.
-	glog.V(1).Infof("CP to feed:\n%s", string(cp))
+	glog.Infof("CP to feed:\n%s", string(cp))
 
 	wCp, err := feed(ctx, cp, opts)
 	if err != nil {
 		return err
 	}
 
-	glog.V(1).Infof("CP after feeding:\n%s", string(wCp))
+	glog.Infof("CP after feeding:\n%s", string(wCp))
 
 	if bytes.Equal(cp, wCp) {
 		fmt.Println("No signatures added")
 		return nil
 	}
 
-	// TODO...
+	// TODO:
+	// 1. create git branch foo
+
+	// 2. serialize witnessed CP to file
+	// 3. git add the wCP file
+	// 4. git commit
+	// 5. git force-push to origin/foo
+	// 6. create GH pull request
+	// 7. return to git master branch
+	// 8. delete branch foo
 
 	fmt.Println("[Feed cycle complete]------------------------------------------------")
 	return nil

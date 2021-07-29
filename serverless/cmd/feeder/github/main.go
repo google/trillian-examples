@@ -35,6 +35,7 @@ import (
 	"github.com/go-git/go-git/v5/config"
 
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"golang.org/x/mod/sumdb/note"
@@ -256,33 +257,33 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	return forkRepo, nil
 }
 
-func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, error) {
+func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, error) {
 	// Figure out where the worktree is for repo 'r'.
 	wt, err := r.Worktree()
 	if err != nil {
-		return nil, fmt.Errorf("workTree(%v) err: %v", r, err)
+		return nil, nil, fmt.Errorf("workTree(%v) err: %v", r, err)
 	}
 	// Pull the latest commits from remote 'origin'.
 	if err := wt.Pull(&git.PullOptions{RemoteName: "origin"}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, fmt.Errorf("git pull %v/origin err: %v", r, err)
+		return nil, nil, fmt.Errorf("git pull %v/origin err: %v", r, err)
 	} 
 	// Get the master HEAD - we'll need this to branch from later on.
 	headRef, err := r.Head()
 	if err != nil {
-		return nil, fmt.Errorf("reading %v HEAD ref err: %v", r, err)
+		return nil, nil, fmt.Errorf("reading %v HEAD ref err: %v", r, err)
 	}
 	// Print the latest commit that was just pulled
 	commit, err := r.CommitObject(headRef.Hash())
 	if err != nil {
-		return nil, fmt.Errorf("reading %v HEAD commit err: %v", r, err)
+		return nil, nil, fmt.Errorf("reading %v HEAD commit err: %v", r, err)
 	}
 	glog.V(1).Infof("Reading %v: HEAD commit:\n%v", r, commit)
-	return headRef, nil
-		}
+	return headRef, wt, nil
+}
 
 func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository) error {
 	// Pull forkRepo and get the ref for origin/master branch HEAD.
-	headRef, err := pullAndGetRepoHead(forkRepo)
+	headRef, workTree, err := pullAndGetRepoHead(forkRepo)
 	if err != nil {
 		return err
 	}
@@ -300,19 +301,24 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// 2. kick off feeder.
 	glog.Infof("CP to feed:\n%s", string(cp))
 
-	// TODO: reinstate this & remove nasty hack.
+	// TODO: reinstate this
 	// wCp, err := feed(ctx, cp, opts)
 	// if err != nil {
 	// 	return err
 	// }
+	// TODO:  remove nasty hack.
 	wCp := cp
 	wnote := string(wCp)
 	lines := strings.Split(wnote, "\n")
+	if len(lines) < 3 {
+		return fmt.Errorf("witnessed checkpoint Note seems to have too few lines: \n%v", wnote)
+	}
+	cpSize, cpHash := lines[1], lines[2]
 
 	glog.Infof("CP after feeding:\n%s", wnote)
 	glog.Infof("lines:\n%s", lines)
 
-	// TODO: remove this nasty hack
+	// TODO: reinstate this
 	// if bytes.Equal(cp, wCp) {
 	// 	fmt.Println("No signatures added")
 	// 	return nil
@@ -321,7 +327,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// Create a git branch for the witnessed checkpoint to be added, named
 	// using the base64(checkpoint hash).  Construct a fully-specified
 	// reference name for the new branch, then create using git plumbing.
-	branchRefName := plumbing.ReferenceName("refs/heads/witness_" + lines[2])
+	branchRefName := plumbing.ReferenceName("refs/heads/witness_" + cpHash)
 	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
 
 	// The created reference is saved in the storage.
@@ -329,18 +335,48 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	if err := forkRepo.Storer.SetReference(branchHashRef); err != nil {
 		return fmt.Errorf("failed to store branch hashref for %q: %v", branchRefName, err)
 	}
+	defer func() {
+		glog.V(1).Infof("Deleting branch %q", branchHashRef)
+		if err := forkRepo.Storer.RemoveReference(branchHashRef.Name()); err != nil {
+			glog.Errorf("failed to delete branch hashref for %q: %v", branchHashRef.Name(), err)
+		}
+	}()
 
 	// 2. serialize witnessed CP to file
+	repoLocalCPPath := fmt.Sprintf("%s/checkpoint.witnessed", opts.logRepoPath)
+	absoluteWitnessedCPPath := filepath.Join(opts.witnessClonePath, repoLocalCPPath)
+	glog.Infof("Writing witnessed CP to %q", absoluteWitnessedCPPath)
+	if err := ioutil.WriteFile(absoluteWitnessedCPPath, wCp, 0644); err != nil {
+		return fmt.Errorf("Writing checkpoint.witnessed: %v", err)
+	}
+
 	// 3. git add the wCP file
+	if _, err := workTree.Add(repoLocalCPPath); err != nil {
+		return fmt.Errorf("git add checkpoint.witnessed: %v", err)
+	}
+
 	// 4. git commit
-	// 5. git force-push to origin/foo
+	commit, err := workTree.Commit(fmt.Sprintf("Witness checkpoint@%v", cpSize), &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  opts.gitUsername,  // TODO: probably can remove this as we set up git config
+			Email: opts.gitEmail,  // TODO: as above.
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("git commit: %v", err)
+	}
+	obj, err := forkRepo.CommitObject(commit)
+	if err != nil {
+		return fmt.Errorf("git show -s: %v", err)
+	}
+	glog.V(1).Infof("git show -s:\n%v", obj)
+
+	// 5. git force-push to origin/branchrefname
+
 	// 6. create GH pull request
 	// 7. return to git master branch
 	// 8. delete branch branchRefName
-	glog.V(1).Infof("Deleting branch %q", branchHashRef)
-	if err := forkRepo.Storer.RemoveReference(branchHashRef.Name()); err != nil {
-		return fmt.Errorf("failed to delete branch hashref for %q: %v", branchHashRef.Name(), err)
-	}
 
 	fmt.Println("[Feed cycle complete]------------------------------------------------")
 	return nil

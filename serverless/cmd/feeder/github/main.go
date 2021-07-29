@@ -363,11 +363,13 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	}
 
 	// 3. git add the wCP file
+	glog.V(1).Info("git add checkpoint.witnessed")
 	if _, err := workTree.Add(repoLocalCPPath); err != nil {
 		return fmt.Errorf("git add checkpoint.witnessed: %v", err)
 	}
 
 	// 4. git commit
+	glog.V(1).Info("git commit")
 	commit, err := workTree.Commit(fmt.Sprintf("Witness checkpoint@%v", cpSize), &git.CommitOptions{
 		Author: &object.Signature{
 			Name:  opts.gitUsername,  // TODO: probably can remove this as we set up git config
@@ -384,10 +386,13 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	}
 	glog.V(1).Infof("git show -s:\n%v", obj)
 
-	// 5. TODO: git force-push to origin/branchrefname
-	// if err := workTree.Push(); err != nil {
-
-	// }
+	// 5. git force-push to origin/branchrefname
+	glog.V(1).Info("git push -f origin/branchrefname")
+	if err := forkRepo.Push(&git.PushOptions{
+		Force: true,
+	}); err != nil {
+		return fmt.Errorf("git push -f: %v", err)
+	}
 
 	// 6. TODO: create GH pull request
 

@@ -144,8 +144,13 @@ func dataToLeaves(data []byte) [][]byte {
 }
 
 // TileHashes gets the hashes at the given level and offset.
-func (c *SumDBClient) TileHashes(level, offset int) ([]tlog.Hash, error) {
-	data, err := c.fetcher.GetData(fmt.Sprintf("/tile/%d/%d/%s", c.height, level, c.tilePath(offset)))
+// If partial > 0 then a partial tile will be fetched with the number of hashes.
+func (c *SumDBClient) TileHashes(level, offset, partial int) ([]tlog.Hash, error) {
+	url := fmt.Sprintf("/tile/%d/%d/%s", c.height, level, c.tilePath(offset))
+	if partial > 0 {
+		url = fmt.Sprintf("%s.p/%d", url, partial)
+	}
+	data, err := c.fetcher.GetData(url)
 	if err != nil {
 		return nil, err
 	}

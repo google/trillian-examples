@@ -230,7 +230,7 @@ func (s *Service) VerifyTiles(ctx context.Context, checkpoint *Checkpoint) error
 				}
 				return fmt.Errorf("failed to get tile hashes: %w", err)
 			}
-			sumDBHashes, err := s.sumDB.TileHashes(level, offset)
+			sumDBHashes, err := s.sumDB.TileHashes(level, offset, 0)
 			if err != nil {
 				return fmt.Errorf("failed to get tile hashes: %w", err)
 			}

@@ -3,6 +3,18 @@ Witness
 
 This [docker-compose.yaml](docker-compose.yaml) file can be used to spin up a witness daemon.
 
+## GitHub access
+
+You'll need to create a GitHub
+[Personal Access Token](https://docs.github.com/en/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token)
+for the feeder to use to create a PR on the log repo with the witnessed checkpoint.
+
+**Important:**
+When you create this token, tick **only** the `public_repo` checkbox - this witness does not need
+any extra priviledges beyond this basic level of authorization.
+
+## Configuration and running
+
 You should set the following environmemt variables (either `export` or with a `.env` file):
  Variable Name        | Required | Description
 |---------------------|:--------:|-------------------------------------------------|

@@ -76,7 +76,7 @@ func (w Witness) Update(ctx context.Context, logID string, cp []byte, proof [][]
 	if err != nil {
 		return fmt.Errorf("failed to parse URL: %v", err)
 	}
-	req, err := http.NewRequest("POST", u.String(), bytes.NewReader(reqBody))
+	req, err := http.NewRequest("PUT", u.String(), bytes.NewReader(reqBody))
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}

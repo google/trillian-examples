@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// feeder/github is a ....
+// feeder/github is a feeder implementation for GitHub Action based serverless logs.
+//
+// This tool feeds checkpoints from a github-based serverless log into one or more
+// witnesses, and then raises a PR against the log repo to add any resulting
+//  additional witness signatures to the log's checkpoint.witnessed file.
 package main
 
 import (

@@ -251,19 +251,6 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	}
 	glog.V(1).Infof("Added remote upstream->%q for %q: %v", logURL, opts.witnessRepo, logRemote)
 
-	// Ensure the forkRepo config has git username and email set.
-	//  git config user.name "${GIT_USERNAME}"
-	//  git config user.email "${GIT_EMAIL}"
-	cfg, err := forkRepo.Config()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config for repo %q: %v", opts.witnessRepo, err)
-	}
-	cfg.User.Name = opts.gitUsername
-	cfg.User.Email = opts.gitEmail
-	if err = forkRepo.SetConfig(cfg); err != nil {
-		return nil, fmt.Errorf("failed to update config for repo %q: %v", opts.witnessRepo, err)
-	}
-
 	//  git fetch --all
 	if err = forkRepo.FetchContext(ctx, &git.FetchOptions{}); err != nil && err != git.NoErrAlreadyUpToDate {
 		return nil, fmt.Errorf("failed to fetch repo %q: %v", *opts.witnessRepo, err)

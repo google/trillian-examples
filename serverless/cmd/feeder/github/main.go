@@ -161,31 +161,25 @@ type options struct {
 }
 
 func mustValidateFlagsAndEnv() *options {
-	if *logOwnerRepo == "" {
-		glog.Exitf("Missing required --log_owner_repo flag.\n\n%v", usage)
+	checkNotEmpty := func(v string, m string) {
+		if v == "" {
+			glog.Exitf("%s\n\n%s", m, usage)
+		}
 	}
-	if *witnessOwnerRepo == "" {
-		glog.Exitf("Missing required --witness_owner_repo flag.\n\n%v", usage)
-	}
-	if *logRepoPath == "" {
-		glog.Exitf("Missing required --log_repo_path flag.\n\n%v", usage)
-	}
-	if *feederConfig == "" {
-		glog.Exitf("Missing required --feeder_config_file flag.\n\n%v", usage)
-	}
+	// Check flags
+	checkNotEmpty("Missing required --log_owner_repo flag", *logOwnerRepo)
+	checkNotEmpty("Missing required --witness_owner_repo flag", *witnessOwnerRepo)
+	checkNotEmpty("Missing required --log_repo_path flag", *logRepoPath)
+	checkNotEmpty("Missing required --feeder_config_file flag", *feederConfig)
 
+	// Check env vars
 	githubAuthToken := os.Getenv("GITHUB_AUTH_TOKEN")
-	if githubAuthToken == "" {
-		glog.Exitf("Unauthorized: No GITHUB_AUTH_TOKEN present")
-	}
 	gitUsername := os.Getenv("GIT_USERNAME")
-	if gitUsername == "" {
-		glog.Exitf("Environment variable GIT_USERNAME is required to make commits")
-	}
 	gitEmail := os.Getenv("GIT_EMAIL")
-	if gitEmail == "" {
-		glog.Exitf("Environment variable GIT_EMAIL is required to make commits")
-	}
+
+	checkNotEmpty("Unauthorized: No GITHUB_AUTH_TOKEN present", githubAuthToken)
+	checkNotEmpty("Environment variable GIT_USERNAME is required to make commits", gitUsername)
+	checkNotEmpty("Environment variable GIT_EMAIL is required to make commits", gitEmail)
 
 	return &options{
 		logOwnerRepo:     *logOwnerRepo,

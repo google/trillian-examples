@@ -107,7 +107,7 @@ func main() {
 
 	defer func() {
 		if err := os.RemoveAll(tmpDir); err != nil {
-			glog.Warning("RemoveAll err: %v", err)
+			glog.Warningf("RemoveAll err: %v", err)
 		}
 	}()
 

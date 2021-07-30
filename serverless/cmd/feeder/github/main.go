@@ -241,31 +241,6 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 		return nil, fmt.Errorf("failed to fetch repo %q: %v", *witnessOwnerRepo, err)
 	}
 
-	//  git branch -u upstream/master
-	// TODO: hmm: not sure if the go-git library lets me do this.  At this point the
-	// forkRepo's local .git/config has:
-	/*
-	   [core]
-	   	bare = false
-	   [remote "origin"]
-	   	url = https://phad:<personal-api-token>@github.com/phad/serverless-test.git
-	   	fetch = +refs/heads/*:refs/remotes/origin/*
-	   [remote "upstream"]
-	   	url = https://github.com/AlCutter/serverless-test.git
-	   	fetch = +refs/heads/*:refs/remotes/upstream/*
-	   [branch "master"]
-	   	remote = origin
-	   	merge = refs/heads/master
-	   [user]
-	   	name = phad
-	   	email = hadfieldp@google.com
-	*/
-	// so am I expecting the [branch "master"] section to look like:
-	/*
-	   [branch "master"]
-	   	remote = upstream
-	   	merge = refs/heads/master
-	*/
 	return forkRepo, nil
 }
 

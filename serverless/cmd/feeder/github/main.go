@@ -505,7 +505,6 @@ type feederConfig struct {
 	LogURL string `json:"log_url"`
 	// Witnesses is a list of all configured witnesses.
 	Witnesses []struct {
-		Name      string `json:"name"`
 		URL       string `json:"url"`
 		PublicKey string `json:"public_key"`
 	} `json:"witnesses"`

@@ -309,23 +309,18 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 		return err
 	}
 
-	// TODO: if checkpoint and checkpoint.witnessed bodies are different (strictly, if checkpoint is newer),
-	// then we need to be feeding checkpoint to the witness, otherwise we can feed the witnessed one and
-	// short-circuit creating a PR if our witness(es) has/have already signed it.
-	inputCP := filepath.Join(opts.witnessClonePath, opts.logPath, "checkpoint")
-	glog.V(1).Infof("Reading CP from %q", inputCP)
-	cp, err := util.ReadFile(workTree.Filesystem, inputCP)
+	cpRaw, err := selectInputCP(workTree, opts)
 	if err != nil {
-		return fmt.Errorf("failed to read input checkpoint: %v", err)
+		return fmt.Errorf("failed to select input checkpoint: %v", err)
 	}
 
 	// 2. kick off feeder.
-	glog.V(1).Infof("CP to feed:\n%s", string(cp))
-	wRaw, err := impl.Feed(ctx, cp, opts.feederOpts)
+	glog.V(1).Infof("CP to feed:\n%s", string(cpRaw))
+	wRaw, err := impl.Feed(ctx, cpRaw, opts.feederOpts)
 	if err != nil {
 		return err
 	}
-	if bytes.Equal(cp, wRaw) {
+	if bytes.Equal(cpRaw, wRaw) {
 		fmt.Println("No signatures added")
 		return nil
 	}
@@ -366,6 +361,51 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	// 7. git checkout master  (done in defer)
 	// 8. delete branch branchRefName  (done in defer)
 	return createPR(ctx, opts, ghCli, fmt.Sprintf("Witness @ %d", wCp.Size), opts.witnessRepo.owner+":"+branchName, "master")
+}
+
+// selectInputCP decides whether we'll feed the log checkpoint or checkpoint.witnessed file to the witness.
+// This is just an optimisation for the case where both bodies are the same, and our witnesses have already
+// signed the witnessed checkpoint, as this allows us to detect that and short-circuit creating a PR.
+func selectInputCP(workTree *git.Worktree, opts *options) ([]byte, error) {
+	cpPath := filepath.Join(opts.logPath, "checkpoint")
+	cpPathWitnessed := cpPath + ".witnessed"
+
+	cp, cpR, err := readCP(workTree, cpPath, opts.feederOpts.LogSigVerifier)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %q: %v", cpPath, err)
+	}
+	cpW, cpWR, err := readCP(workTree, cpPathWitnessed, opts.feederOpts.LogSigVerifier)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %q: %v", cpPath, err)
+	}
+
+	if cp.Size > cpW.Size {
+		glog.Infof("Feeding newer log checkpoint to witness (Size %d > %d)", cp.Size, cpW.Size)
+		return cpR, nil
+	}
+	glog.Info("Feeding checkpoint.witnessed to witness")
+	return cpWR, nil
+}
+
+// readCP reads, verifies, and unmarshalls the specified checkpoint file from the repo.
+func readCP(workTree *git.Worktree, repoPath string, sigV note.Verifier) (*log.Checkpoint, []byte, error) {
+	glog.V(1).Infof("Reading CP from %q", repoPath)
+	raw, err := util.ReadFile(workTree.Filesystem, repoPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read file: %v", err)
+	}
+
+	n, err := note.Open(raw, note.VerifierList(sigV))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open checkpoint: %v", err)
+	}
+
+	cp := &log.Checkpoint{}
+	if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {
+		return nil, nil, fmt.Errorf("failed to unmarshall checkpoint from: %v", err)
+	}
+
+	return cp, raw, nil
 }
 
 // gitCreateLocalBranch creates a local branch on the given repo.

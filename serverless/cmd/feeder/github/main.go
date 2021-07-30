@@ -315,7 +315,7 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 		return fmt.Errorf("invalid witnessed checkpoint: %v", err)
 	}
 
-	glog.V(1).Infof("CP after feeding:\n%s", witnessNote)
+	glog.V(1).Infof("CP after feeding:\n%s", string(wRaw))
 
 	branchName := fmt.Sprintf("refs/heads/witness_%s", base64.StdEncoding.EncodeToString(wCp.Hash))
 	deleteBranch, err := gitCreateLocalBranch(forkRepo, headRef, branchName)
@@ -394,7 +394,7 @@ func gitCommitFile(workTree *git.Worktree, path string, raw []byte, commitMsg st
 	}
 
 	// 3. git add the wCP file
-	glog.V(1).Info("git add %s", path)
+	glog.V(1).Infof("git add %s", path)
 	if _, err := workTree.Add(path); err != nil {
 		return fmt.Errorf("failed to git add %q: %v", path, err)
 	}

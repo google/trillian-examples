@@ -207,7 +207,7 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 		URL: forkLogURL,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to clone fork repo %q: %v", forkLogURL, err)
+		return nil, fmt.Errorf("failed to clone fork repo %q: %v", forkLogURL, err)
 	}
 	glog.V(1).Infof("Cloned %q into %q", forkLogURL, opts.witnessClonePath)
 
@@ -219,7 +219,7 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 		URLs: []string{logURL},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Failed to add remote %q to fork repo: %v", logURL, err)
+		return nil, fmt.Errorf("failed to add remote %q to fork repo: %v", logURL, err)
 	}
 	glog.V(1).Infof("Added remote upstream->%q for %q: %v", logURL, opts.witnessOwnerRepo, logRemote)
 
@@ -228,17 +228,17 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	//  git config user.email "${GIT_EMAIL}"
 	cfg, err := forkRepo.Config()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read config for repo %q: %v", opts.witnessOwnerRepo, err)
+		return nil, fmt.Errorf("failed to read config for repo %q: %v", opts.witnessOwnerRepo, err)
 	}
 	cfg.User.Name = opts.gitUsername
 	cfg.User.Email = opts.gitEmail
 	if err = forkRepo.SetConfig(cfg); err != nil {
-		return nil, fmt.Errorf("Failed to update config for repo %q: %v", opts.witnessOwnerRepo, err)
+		return nil, fmt.Errorf("failed to update config for repo %q: %v", opts.witnessOwnerRepo, err)
 	}
 
 	//  git fetch --all
 	if err = forkRepo.FetchContext(ctx, &git.FetchOptions{}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, fmt.Errorf("Failed to fetch repo %q: %v", *witnessOwnerRepo, err)
+		return nil, fmt.Errorf("failed to fetch repo %q: %v", *witnessOwnerRepo, err)
 	}
 
 	//  git branch -u upstream/master
@@ -340,7 +340,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 
 	// Create a git branch for the witnessed checkpoint to be added, named
 	// using the base64(checkpoint hash).  Construct a fully-specified
-	// reference name for the new branch, then create using git plumbing.
+	// reference name for the new branch.
 	branchRefName := plumbing.ReferenceName("refs/heads/witness_" + cpHash)
 	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
 
@@ -371,7 +371,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	absoluteWitnessedCPPath := filepath.Join(opts.witnessClonePath, repoLocalCPPath)
 	glog.Infof("Writing witnessed CP to %q", absoluteWitnessedCPPath)
 	if err := ioutil.WriteFile(absoluteWitnessedCPPath, wCp, 0644); err != nil {
-		return fmt.Errorf("Writing checkpoint.witnessed: %v", err)
+		return fmt.Errorf("writing checkpoint.witnessed: %v", err)
 	}
 
 	// 3. git add the wCP file

@@ -31,6 +31,9 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
+// ErrNoSignaturesAdded is returned when all known witnesses have already signed the presented checkpoint.
+var ErrNoSignaturesAdded = errors.New("no additional signatures added")
+
 // Witness describes the operations the feeder needs to interact with a witness.
 type Witness interface {
 	// SigVerifier returns a verifier which can check signatures from this witness.
@@ -123,6 +126,10 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 			glog.Warning(e.Error())
 		case <-ctx.Done():
 		}
+	}
+
+	if len(allWitnessed) == 0 {
+		return cp, ErrNoSignaturesAdded
 	}
 
 	// ...and combine signatures.

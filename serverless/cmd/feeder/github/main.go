@@ -318,7 +318,11 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	glog.V(1).Infof("CP to feed:\n%s", string(cpRaw))
 	wRaw, err := impl.Feed(ctx, cpRaw, opts.feederOpts)
 	if err != nil {
-		return err
+		if err != impl.ErrNoSignaturesAdded {
+			return err
+		}
+		glog.Info("No new witness signatures added")
+		return nil
 	}
 	if bytes.Equal(cpRaw, wRaw) {
 		fmt.Println("No signatures added")

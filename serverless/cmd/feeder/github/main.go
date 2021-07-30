@@ -46,7 +46,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/oauth2"
 
-	wit_http "github.com/google/trillian-examples/serverless/cmd/feeder/impl/http"
+	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
 // TODO: copied from feed-to-github; adapt as necessary.
@@ -399,7 +399,10 @@ func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, c
 		MaintainerCanModify: github.Bool(true),
 	}
 
-	prJson, _ := json.Marshal(newPR)
+	prJson, err := json.Marshal(newPR)
+	if err != nil {
+		return fmt.Errorf("failed to marshal JSON for new PR request: %v", err)
+	}
 	glog.V(1).Infof("Creating PR:\n%s", prJson)
 
 	owner := strings.Split(opts.logOwnerRepo, "/")[0]

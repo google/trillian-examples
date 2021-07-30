@@ -68,34 +68,13 @@ var (
 	logOwnerRepo     = flag.String("log_owner_repo", "", "The repo owner/fragment from the log repo URL.")
 	witnessOwnerRepo = flag.String("witness_owner_repo", "", "The repo owner/fragment from the witness (forked log) repo URL.")
 	logRepoPath      = flag.String("log_repo_path", "", "Path from the root of the repo where the log files can be found.")
-	feederConfig     = flag.String("feeder_config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
+	feederConfigPath = flag.String("feeder_config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
 	interval         = flag.Duration("interval", time.Duration(0), "Interval between checkpoints.")
 )
 
-type WitnessConfig struct {
-	Name      string `json:"name"`
-	URL       string `json:"url"`
-	PublicKey string `json:"public_key"`
-}
-
-// Config encapsulates the feeder config.
-type Config struct {
-	// The LogID used by the witnesses to identify this log.
-	LogID string `json:"log_id"`
-	// PublicKey associated with LogID.
-	LogPublicKey string `json:"log_public_key"`
-	// LogURL is the URL of the root of the log.
-	LogURL string `json:"log_url"`
-	// Witnesses is a list of all configured witnesses.
-	Witnesses []WitnessConfig `json:"witnesses"`
-	// NumRequired is the minimum number of cosignatures required for a feeding run
-	// to be considered successful.
-	NumRequired int `json:"num_required"`
-}
-
 func main() {
 	flag.Parse()
-	opts := mustValidateFlagsAndEnv()
+	opts := mustConfigure()
 	ctx := context.Background()
 
 	// Make a tempdir to clone the witness (forked) log into.
@@ -134,12 +113,12 @@ func main() {
 
 	fmt.Println("[Starting feeding]---------------------------------------------------")
 	for {
-		if err = createCheckpointPR(ctx, opts, witnessRepo, ghClient); err != nil || opts.feederInterval == 0 {
+		if err = createCheckpointPR(ctx, opts, witnessRepo, ghClient); err != nil || opts.feedInterval == 0 {
 			break
 		}
 		fmt.Println("[Feed cycle complete]------------------------------------------------")
 
-		<-time.After(opts.feederInterval)
+		<-time.After(opts.feedInterval)
 	}
 	if err != nil {
 		glog.Exitf("CreateCheckpointPR error: %v", err)
@@ -177,15 +156,15 @@ type options struct {
 	logPath          string
 	witnessClonePath string
 
-	feederConfigFile string
-	feederInterval   time.Duration
+	feederOpts   impl.FeedOpts
+	feedInterval time.Duration
 }
 
 func usageExit(m string) {
 	glog.Exitf("%s\n\n%s", m, usage)
 }
 
-func mustValidateFlagsAndEnv() *options {
+func mustConfigure() *options {
 	checkNotEmpty := func(v string, m string) {
 		if v == "" {
 			usageExit(m)
@@ -195,7 +174,7 @@ func mustValidateFlagsAndEnv() *options {
 	checkNotEmpty("Missing required --log_owner_repo flag", *logOwnerRepo)
 	checkNotEmpty("Missing required --witness_owner_repo flag", *witnessOwnerRepo)
 	checkNotEmpty("Missing required --log_repo_path flag", *logRepoPath)
-	checkNotEmpty("Missing required --feeder_config_file flag", *feederConfig)
+	checkNotEmpty("Missing required --feeder_config_file flag", *feederConfigPath)
 
 	// Check env vars
 	githubAuthToken := os.Getenv("GITHUB_AUTH_TOKEN")
@@ -215,15 +194,20 @@ func mustValidateFlagsAndEnv() *options {
 		usageExit(fmt.Sprintf("--witness_owner_repo invalid: %v", err))
 	}
 
+	fOpts, err := readFeederConfig(*feederConfigPath)
+	if err != nil {
+		glog.Exitf("Feeder config in %q is invalid: %v", *feederConfigPath, err)
+	}
+
 	return &options{
-		logRepo:          lr,
-		witnessRepo:      wr,
-		logPath:          *logRepoPath,
-		feederConfigFile: *feederConfig,
-		feederInterval:   *interval,
-		githubAuthToken:  githubAuthToken,
-		gitUsername:      gitUsername,
-		gitEmail:         gitEmail,
+		logRepo:         lr,
+		witnessRepo:     wr,
+		logPath:         *logRepoPath,
+		githubAuthToken: githubAuthToken,
+		gitUsername:     gitUsername,
+		gitEmail:        gitEmail,
+		feederOpts:      *fOpts,
+		feedInterval:    *interval,
 	}
 }
 
@@ -308,7 +292,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 
 	// 2. kick off feeder.
 	glog.V(1).Infof("CP to feed:\n%s", string(cp))
-	wCp, err := feed(ctx, cp, opts)
+	wCp, err := impl.Feed(ctx, cp, opts.feederOpts)
 	if err != nil {
 		return err
 	}
@@ -434,10 +418,34 @@ func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, c
 	return nil
 }
 
-func feed(ctx context.Context, cp []byte, opts *options) ([]byte, error) {
-	cfg, err := readConfig(opts.feederConfigFile)
+// feederConfig is the format of the feeder config file.
+type feederConfig struct {
+	// The LogID used by the witnesses to identify this log.
+	LogID string `json:"log_id"`
+	// PublicKey associated with LogID.
+	LogPublicKey string `json:"log_public_key"`
+	// LogURL is the URL of the root of the log.
+	LogURL string `json:"log_url"`
+	// Witnesses is a list of all configured witnesses.
+	Witnesses []struct {
+		Name      string `json:"name"`
+		URL       string `json:"url"`
+		PublicKey string `json:"public_key"`
+	} `json:"witnesses"`
+	// NumRequired is the minimum number of cosignatures required for a feeding run
+	// to be considered successful.
+	NumRequired int `json:"num_required"`
+}
+
+// readFeederConfig parses the named file into a FeedOpts structure.
+func readFeederConfig(f string) (*impl.FeedOpts, error) {
+	c, err := ioutil.ReadFile(f)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read feeder config file: %v", err)
+		return nil, fmt.Errorf("failed to read file: %v", err)
+	}
+	cfg := &feederConfig{}
+	if err := json.Unmarshal(c, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
 
 	lURL, err := url.Parse(cfg.LogURL)
@@ -457,6 +465,7 @@ func feed(ctx context.Context, cp []byte, opts *options) ([]byte, error) {
 		NumRequired:    cfg.NumRequired,
 		WitnessTimeout: 5 * time.Second,
 	}
+
 	for _, w := range cfg.Witnesses {
 		u, err := url.Parse(w.URL)
 		if err != nil {
@@ -472,24 +481,7 @@ func feed(ctx context.Context, cp []byte, opts *options) ([]byte, error) {
 		})
 	}
 
-	wCP, err := impl.Feed(ctx, cp, fOpts)
-	if err != nil {
-		return nil, fmt.Errorf("feeding failed: %v", err)
-	}
-
-	return wCP, nil
-}
-
-func readConfig(f string) (*Config, error) {
-	c, err := ioutil.ReadFile(f)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %v", err)
-	}
-	cfg := Config{}
-	if err := json.Unmarshal(c, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
-	}
-	return &cfg, nil
+	return &fOpts, nil
 }
 
 // TODO(al): factor this stuff out and share between tools:

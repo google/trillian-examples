@@ -115,7 +115,7 @@ func main() {
 
 	fmt.Println("[Starting feeding]---------------------------------------------------")
 	for {
-		if err = createCheckpointPR(ctx, opts, witnessRepo, ghClient); err != nil || opts.feedInterval == 0 {
+		if err = feedOnce(ctx, opts, witnessRepo, ghClient); err != nil || opts.feedInterval == 0 {
 			break
 		}
 		fmt.Println("[Feed cycle complete]------------------------------------------------")
@@ -275,7 +275,8 @@ func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, 
 	return headRef, wt, nil
 }
 
-func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Repository, ghCli *github.Client) error {
+// feedOnce performs a one-shot "feed to witness and create PR" operation.
+func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCli *github.Client) error {
 	// Pull forkRepo and get the ref for origin/master branch HEAD.
 	headRef, workTree, err := pullAndGetRepoHead(forkRepo)
 	if err != nil {
@@ -314,33 +315,12 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 
 	glog.V(1).Infof("CP after feeding:\n%s", witnessNote)
 
-	// Create a git branch for the witnessed checkpoint to be added, named
-	// using the base64(checkpoint hash).  Construct a fully-specified
-	// reference name for the new branch.
-	branchRefName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/witness_%s", base64.StdEncoding.EncodeToString(wCp.Hash)))
-	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
-
-	// git checkout `branchRefName`
-	glog.V(1).Infof("git checkout -b %q", branchHashRef.Name())
-	if err := workTree.Checkout(&git.CheckoutOptions{
-		Branch: branchRefName,
-		Create: true,
-	}); err != nil {
-		return fmt.Errorf("git checkout %v: %v", branchRefName, err)
+	branchName := fmt.Sprintf("refs/heads/witness_%s", base64.StdEncoding.EncodeToString(wCp.Hash))
+	deleteBranch, err := gitCreateLocalBranch(forkRepo, headRef, branchName)
+	if err != nil {
+		return fmt.Errorf("failed to create git branch for PR: %v", err)
 	}
-	defer func() {
-		if err := forkRepo.Storer.RemoveReference(branchHashRef.Name()); err != nil {
-			glog.Errorf("failed to delete branch hashref for %q: %v", branchHashRef.Name(), err)
-		}
-		glog.V(1).Infof("git branch -D %v", branchHashRef.Name())
-		if err := workTree.Checkout(&git.CheckoutOptions{
-			Branch: "refs/heads/master",
-		}); err != nil {
-			glog.Errorf("failed to git checkout master: %v", err)
-			return
-		}
-		glog.V(1).Info("git checkout master")
-	}()
+	defer deleteBranch()
 
 	// 2. serialize witnessed CP to file
 	repoLocalCPPath := filepath.Join(opts.logPath, "checkpoint.witnessed")
@@ -388,8 +368,47 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// 6. Create GH pull request
 	// 7. git checkout master  (done in defer)
 	// 8. delete branch branchRefName  (done in defer)
-	forkBranchName := strings.ReplaceAll(string(branchHashRef.Name()), "refs/heads/", "")
-	return createPR(ctx, opts, ghCli, fmt.Sprintf("Witness @ %d", wCp.Size), opts.witnessRepo.owner+":"+forkBranchName, "master")
+	return createPR(ctx, opts, ghCli, fmt.Sprintf("Witness @ %d", wCp.Size), opts.witnessRepo.owner+":"+branchName, "master")
+}
+
+// gitCreateLocalBranch creates a local branch on the given repo.
+//
+// Returns a function which will delete the local branch when called.
+func gitCreateLocalBranch(repo *git.Repository, headRef *plumbing.Reference, branchName string) (func(), error) {
+	// Create a git branch for the witnessed checkpoint to be added, named
+	// using the base64(checkpoint hash).  Construct a fully-specified
+	// reference name for the new branch.
+	branchRefName := plumbing.ReferenceName(branchName)
+	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
+
+	workTree, err := repo.Worktree()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get work tree: %v", err)
+	}
+
+	// git checkout `branchRefName`
+	glog.V(1).Infof("git checkout -b %q", branchHashRef.Name())
+	if err := workTree.Checkout(&git.CheckoutOptions{
+		Branch: branchRefName,
+		Create: true,
+	}); err != nil {
+		return nil, fmt.Errorf("git checkout %v: %v", branchRefName, err)
+	}
+	d := func() {
+		if err := repo.Storer.RemoveReference(branchHashRef.Name()); err != nil {
+			glog.Errorf("failed to delete branch hashref for %q: %v", branchHashRef.Name(), err)
+		}
+		glog.V(1).Infof("git branch -D %v", branchHashRef.Name())
+		if err := workTree.Checkout(&git.CheckoutOptions{
+			Branch: "refs/heads/master",
+		}); err != nil {
+			glog.Errorf("failed to git checkout master: %v", err)
+			return
+		}
+		glog.V(1).Info("git checkout master")
+	}
+
+	return d, nil
 }
 
 // createPR creates a pull request. Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create

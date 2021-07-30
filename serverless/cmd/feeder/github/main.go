@@ -22,6 +22,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -41,6 +42,7 @@ import (
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"golang.org/x/mod/sumdb/note"
@@ -292,30 +294,30 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 
 	// 2. kick off feeder.
 	glog.V(1).Infof("CP to feed:\n%s", string(cp))
-	wCp, err := impl.Feed(ctx, cp, opts.feederOpts)
+	wRaw, err := impl.Feed(ctx, cp, opts.feederOpts)
 	if err != nil {
 		return err
 	}
-
-	witnessNote := string(wCp)
-	lines := strings.Split(witnessNote, "\n")
-	if len(lines) < 3 {
-		return fmt.Errorf("witnessed checkpoint Note seems to have too few lines: \n%v", witnessNote)
-	}
-	// TODO: can we use actual note struct to do this.
-	cpSize, cpHash := lines[1], lines[2]
-
-	glog.V(1).Infof("CP after feeding:\n%s", witnessNote)
-
-	if bytes.Equal(cp, wCp) {
+	if bytes.Equal(cp, wRaw) {
 		fmt.Println("No signatures added")
 		return nil
 	}
 
+	witnessNote, err := note.Open(wRaw, note.VerifierList(opts.feederOpts.LogSigVerifier))
+	if err != nil {
+		return fmt.Errorf("couldn't open witnessed checkpoint using log verifier: %v", err)
+	}
+	wCp := &log.Checkpoint{}
+	if _, err := wCp.Unmarshal([]byte(witnessNote.Text)); err != nil {
+		return fmt.Errorf("invalid witnessed checkpoint: %v", err)
+	}
+
+	glog.V(1).Infof("CP after feeding:\n%s", witnessNote)
+
 	// Create a git branch for the witnessed checkpoint to be added, named
 	// using the base64(checkpoint hash).  Construct a fully-specified
 	// reference name for the new branch.
-	branchRefName := plumbing.ReferenceName("refs/heads/witness_" + cpHash)
+	branchRefName := plumbing.ReferenceName(fmt.Sprintf("refs/heads/witness_%s", base64.StdEncoding.EncodeToString(wCp.Hash)))
 	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
 
 	// git checkout `branchRefName`
@@ -344,7 +346,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	repoLocalCPPath := filepath.Join(opts.logPath, "checkpoint.witnessed")
 	absoluteWitnessedCPPath := filepath.Join(opts.witnessClonePath, repoLocalCPPath)
 	glog.Infof("Writing witnessed CP to %q", absoluteWitnessedCPPath)
-	if err := ioutil.WriteFile(absoluteWitnessedCPPath, wCp, 0644); err != nil {
+	if err := ioutil.WriteFile(absoluteWitnessedCPPath, wRaw, 0644); err != nil {
 		return fmt.Errorf("writing checkpoint.witnessed: %v", err)
 	}
 
@@ -356,7 +358,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 
 	// 4. git commit
 	glog.V(1).Info("git commit")
-	commit, err := workTree.Commit(fmt.Sprintf("Witness checkpoint@%v", cpSize), &git.CommitOptions{
+	commit, err := workTree.Commit(fmt.Sprintf("Witness checkpoint@%v", wCp.Size), &git.CommitOptions{
 		Author: &object.Signature{
 			// Name, Email required despite what we set up in git config earlier.
 			Name:  opts.gitUsername,
@@ -387,7 +389,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// 7. git checkout master  (done in defer)
 	// 8. delete branch branchRefName  (done in defer)
 	forkBranchName := strings.ReplaceAll(string(branchHashRef.Name()), "refs/heads/", "")
-	return createPR(ctx, opts, ghCli, "Witness @ "+cpSize, opts.witnessRepo.owner+":"+forkBranchName, "master")
+	return createPR(ctx, opts, ghCli, fmt.Sprintf("Witness @ %d", wCp.Size), opts.witnessRepo.owner+":"+forkBranchName, "master")
 }
 
 // createPR creates a pull request. Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create

@@ -2,7 +2,7 @@ version: '3.2'
 services:
   witness:
     build:
-      context: ../../../../
+      context: ../../../..
       dockerfile: ./witness/golang/cmd/witness/Dockerfile
     volumes:
         - type: volume
@@ -27,7 +27,7 @@ services:
     depends_on:
       - witness
     build:
-      context: ../../../../
+      context: ../../../..
       dockerfile: ./serverless/cmd/feeder/github/Dockerfile
     command:
       - "--log_owner_repo=${SERVERLESS_LOG_REPO}"
@@ -36,6 +36,7 @@ services:
       - "--feeder_config_file=/feeder-config/${FEEDER_CONFIG_FILE:-feeder.config}"
       - "--interval=${FEEDER_INTERVAL_SECONDS:-300}"
       - "--clone_to_disk=${CLONE_TO_DISK:-false}"
+      - "--logtostderr"
     environment:
       - GITHUB_AUTH_TOKEN=${FEEDER_GITHUB_TOKEN}
       - GIT_USERNAME=${GIT_USERNAME}

@@ -29,3 +29,43 @@ Attaching to witness_witness_1
 witness_1  | I0714 18:20:19.300495       1 witness.go:88] Connecting to local DB at "/data/witness.sqlite"
 witness_1  | I0714 18:20:19.301276       1 witness.go:108] Starting witness server...
 ```
+
+> :frog:
+>
+> You can store the config files necessary for running this feeder in a directory somewhere other
+> than in the repo itself by using the `docker-compose` `--env-file` flag, along with absolute paths
+> for the `..._CONFIG_DIR` variables in your `.env` file.
+>
+> The example below uses the `${HOME}/data` directory for storing these config files:
+> 
+> ```bash
+> $ cd ${HOME}/data
+> $ find .
+> ./.env
+> ./feeder
+> ./feeder/feeder.config
+> ./witness
+> ./witness/witness.config
+> ```
+> 
+> and populate your `${HOME}/data/.env` file like so:
+> ```yaml
+> SERVERLESS_LOG_REPO=AlCutter/serverless-test
+> SERVERLESS_LOG_FORK=<YourGitHubUserName>/serverless-test
+> SERVERLESS_LOG_DIR=log
+> FEEDER_CONFIG_DIR=/home/<your username>/data/feeder
+> FEEDER_CONFIG_FILE=feeder.config
+> FEEDER_GITHUB_TOKEN=<YourGitHubPersonalAccessToken>
+> GIT_USERNAME=<YourGitHubUserName>
+> GIT_EMAIL=<your@email>
+> WITNESS_PRIVATE_KEY=<your witness private key>
+> WITNESS_CONFIG_DIR=/home/<your username>/data/witness
+> WITNESS_CONFIG_FILE=witness.config
+> FEEDER_INTERVAL_SECONDS=300s
+> ```
+>
+> Start the feeder from within your `${HOME}/data` directory like so:
+> ```bash
+> $ cd ${HOME}/data
+> $ docker-compose -f ../trillian/trillian-examples/serverless/deploy/docker/witness/docker-compose.yaml --env-file=./.env up
+> ```

@@ -35,6 +35,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -74,6 +75,7 @@ var (
 	logRepoPath      = flag.String("log_repo_path", "", "Path from the root of the repo where the log files can be found.")
 	feederConfigPath = flag.String("feeder_config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
 	interval         = flag.Duration("interval", time.Duration(0), "Interval between checkpoints.")
+	cloneToDisk      = flag.Bool("clone_to_disk", false, "Whether to clone the log repo to memory or disk.")
 )
 
 func main() {
@@ -81,18 +83,19 @@ func main() {
 	opts := mustConfigure()
 	ctx := context.Background()
 
-	// Make a tempdir to clone the witness (forked) log into.
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "feeder-github")
-	if err != nil {
-		glog.Exitf("Error creating temp dir: %v", err)
-	}
-	opts.witnessClonePath = tmpDir
-
-	defer func() {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			glog.Warningf("RemoveAll err: %v", err)
+	if *cloneToDisk {
+		// Make a tempdir to clone the witness (forked) log into.
+		tmpDir, err := os.MkdirTemp(os.TempDir(), "feeder-github")
+		if err != nil {
+			glog.Exitf("Error creating temp dir: %v", err)
 		}
-	}()
+		opts.witnessClonePath = tmpDir
+		defer func() {
+			if err := os.RemoveAll(tmpDir); err != nil {
+				glog.Warningf("RemoveAll err: %v", err)
+			}
+		}()
+	}
 
 	witnessRepo, err := setupWitnessRepo(ctx, opts)
 	if err != nil {
@@ -218,18 +221,27 @@ func mustConfigure() *options {
 func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, error) {
 	// Clone the fork of the log, so we can go on to make a PR against it.
 	//   git clone -o origin "https://${GIT_USERNAME}:${FEEDER_GITHUB_TOKEN}@github.com/${fork_repo}.git" "${temp}"
-	forkLogURL := fmt.Sprintf("https://%v:%v@github.com/%s.git", opts.gitUsername, opts.githubAuthToken, opts.witnessRepo)
-	forkRepo, err := git.PlainClone(opts.witnessClonePath, false, &git.CloneOptions{
-		URL: forkLogURL,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to clone fork repo %q: %v", forkLogURL, err)
+	cloneOpts := &git.CloneOptions{
+		URL: fmt.Sprintf("https://%v:%v@github.com/%s.git", opts.gitUsername, opts.githubAuthToken, opts.witnessRepo),
 	}
-	glog.V(1).Infof("Cloned %q into %q", forkLogURL, opts.witnessClonePath)
+
+	var forkRepo *git.Repository
+	var err error
+	dest := opts.witnessClonePath
+	if opts.witnessClonePath == "" {
+		forkRepo, err = git.Clone(memory.NewStorage(), memfs.New(), cloneOpts)
+		dest = "memory"
+	} else {
+		forkRepo, err = git.PlainClone(opts.witnessClonePath, false, cloneOpts)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to clone fork repo %q: %v", cloneOpts.URL, err)
+	}
+	glog.V(1).Infof("Cloned %q into %q", cloneOpts.URL, dest)
 
 	// Create a remote -> logOwnerRepo
 	//  git remote add upstream "https://github.com/${log_repo}.git"
-	logURL := fmt.Sprintf("https://github.com/%v.git", opts.logRepo.owner)
+	logURL := fmt.Sprintf("https://github.com/%v.git", opts.logRepo)
 	logRemote, err := forkRepo.CreateRemote(&config.RemoteConfig{
 		Name: "upstream",
 		URLs: []string{logURL},
@@ -237,7 +249,7 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to add remote %q to fork repo: %v", logURL, err)
 	}
-	glog.V(1).Infof("Added remote upstream->%q for %q: %v", logURL, opts.witnessRepo, logRemote)
+	glog.V(1).Infof("Added remote upstream->%q for %q:\n%v", logURL, opts.witnessRepo, logRemote)
 
 	//  git fetch --all
 	if err = forkRepo.FetchContext(ctx, &git.FetchOptions{}); err != nil && err != git.NoErrAlreadyUpToDate {

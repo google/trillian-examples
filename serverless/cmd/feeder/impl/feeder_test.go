@@ -68,6 +68,19 @@ func TestFeed(t *testing.T) {
 				},
 			},
 		}, {
+			desc:        "no new sigs added",
+			submitCP:    mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
+			numRequired: 1,
+			witnesses: []Witness{
+				&fakeWitness{
+					logSigV:  logSigV,
+					witSig:   witSig,
+					witSigV:  witSigV,
+					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
+				},
+			},
+			wantErr: true,
+		}, {
 			desc:    "submitting stale CP",
 			wantErr: true,
 			// This checkpoint is older than the witness' latestCP below:

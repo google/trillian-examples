@@ -148,22 +148,47 @@ func main() {
 	fmt.Println("[Completed feeding]--------------------------------------------------")
 }
 
+type repo struct {
+	owner    string
+	repoName string
+}
+
+func (r repo) String() string {
+	return fmt.Sprintf("%s/%s", r.owner, r.repoName)
+}
+
+func newRepo(or string) (*repo, error) {
+	s := strings.Split(or, "/")
+	if l, want := len(s), 2; l != want {
+		return nil, fmt.Errorf("can't split owner/repo %q, found %d parts want %d", or, l, want)
+	}
+	return &repo{
+		owner:    s[0],
+		repoName: s[1],
+	}, nil
+}
+
 type options struct {
 	gitUsername, gitEmail string
 	githubAuthToken       string
 
-	logOwnerRepo, logRepoPath string
-	witnessOwnerRepo          string
-	witnessClonePath          string
+	logRepo          *repo
+	witnessRepo      *repo
+	logPath          string
+	witnessClonePath string
 
 	feederConfigFile string
 	feederInterval   time.Duration
 }
 
+func usageExit(m string) {
+	glog.Exitf("%s\n\n%s", m, usage)
+}
+
 func mustValidateFlagsAndEnv() *options {
 	checkNotEmpty := func(v string, m string) {
 		if v == "" {
-			glog.Exitf("%s\n\n%s", m, usage)
+			usageExit(m)
 		}
 	}
 	// Check flags
@@ -181,10 +206,19 @@ func mustValidateFlagsAndEnv() *options {
 	checkNotEmpty("Environment variable GIT_USERNAME is required to make commits", gitUsername)
 	checkNotEmpty("Environment variable GIT_EMAIL is required to make commits", gitEmail)
 
+	lr, err := newRepo(*logOwnerRepo)
+	if err != nil {
+		usageExit(fmt.Sprintf("--log_owner_repo invalid: %v", err))
+	}
+	wr, err := newRepo(*witnessOwnerRepo)
+	if err != nil {
+		usageExit(fmt.Sprintf("--witness_owner_repo invalid: %v", err))
+	}
+
 	return &options{
-		logOwnerRepo:     *logOwnerRepo,
-		logRepoPath:      *logRepoPath,
-		witnessOwnerRepo: *witnessOwnerRepo,
+		logRepo:          lr,
+		witnessRepo:      wr,
+		logPath:          *logRepoPath,
 		feederConfigFile: *feederConfig,
 		feederInterval:   *interval,
 		githubAuthToken:  githubAuthToken,
@@ -196,7 +230,7 @@ func mustValidateFlagsAndEnv() *options {
 func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, error) {
 	// Clone the fork of the log, so we can go on to make a PR against it.
 	//   git clone -o origin "https://${GIT_USERNAME}:${FEEDER_GITHUB_TOKEN}@github.com/${fork_repo}.git" "${temp}"
-	forkLogURL := fmt.Sprintf("https://%v:%v@github.com/%v.git", opts.gitUsername, opts.githubAuthToken, opts.witnessOwnerRepo)
+	forkLogURL := fmt.Sprintf("https://%v:%v@github.com/%s.git", opts.gitUsername, opts.githubAuthToken, opts.witnessRepo)
 	forkRepo, err := git.PlainClone(opts.witnessClonePath, false, &git.CloneOptions{
 		URL: forkLogURL,
 	})
@@ -207,7 +241,7 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 
 	// Create a remote -> logOwnerRepo
 	//  git remote add upstream "https://github.com/${log_repo}.git"
-	logURL := fmt.Sprintf("https://github.com/%v.git", opts.logOwnerRepo)
+	logURL := fmt.Sprintf("https://github.com/%v.git", opts.logRepo.owner)
 	logRemote, err := forkRepo.CreateRemote(&config.RemoteConfig{
 		Name: "upstream",
 		URLs: []string{logURL},
@@ -215,19 +249,19 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to add remote %q to fork repo: %v", logURL, err)
 	}
-	glog.V(1).Infof("Added remote upstream->%q for %q: %v", logURL, opts.witnessOwnerRepo, logRemote)
+	glog.V(1).Infof("Added remote upstream->%q for %q: %v", logURL, opts.witnessRepo, logRemote)
 
 	// Ensure the forkRepo config has git username and email set.
 	//  git config user.name "${GIT_USERNAME}"
 	//  git config user.email "${GIT_EMAIL}"
 	cfg, err := forkRepo.Config()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config for repo %q: %v", opts.witnessOwnerRepo, err)
+		return nil, fmt.Errorf("failed to read config for repo %q: %v", opts.witnessRepo.owner, err)
 	}
 	cfg.User.Name = opts.gitUsername
 	cfg.User.Email = opts.gitEmail
 	if err = forkRepo.SetConfig(cfg); err != nil {
-		return nil, fmt.Errorf("failed to update config for repo %q: %v", opts.witnessOwnerRepo, err)
+		return nil, fmt.Errorf("failed to update config for repo %q: %v", opts.witnessRepo.owner, err)
 	}
 
 	//  git fetch --all
@@ -278,7 +312,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// TODO: if checkpoint and checkpoint.witnessed bodies are different (strictly, if checkpoint is newer),
 	// then we need to be feeding checkpoint to the witness, otherwise we can feed the witnessed one and
 	// short-circuit creating a PR if our witness(es) has/have already signed it.
-	inputCP := filepath.Join(opts.witnessClonePath, opts.logRepoPath, "checkpoint")
+	inputCP := filepath.Join(opts.witnessClonePath, opts.logPath, "checkpoint")
 	glog.V(1).Infof("Reading CP from %q", inputCP)
 	cp, err := ioutil.ReadFile(inputCP)
 	if err != nil {
@@ -336,7 +370,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	}()
 
 	// 2. serialize witnessed CP to file
-	repoLocalCPPath := filepath.Join(opts.logRepoPath, "checkpoint.witnessed")
+	repoLocalCPPath := filepath.Join(opts.logPath, "checkpoint.witnessed")
 	absoluteWitnessedCPPath := filepath.Join(opts.witnessClonePath, repoLocalCPPath)
 	glog.Infof("Writing witnessed CP to %q", absoluteWitnessedCPPath)
 	if err := ioutil.WriteFile(absoluteWitnessedCPPath, wCp, 0644); err != nil {
@@ -381,9 +415,8 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// 6. Create GH pull request
 	// 7. git checkout master  (done in defer)
 	// 8. delete branch branchRefName  (done in defer)
-	forkOwner := strings.Split(opts.witnessOwnerRepo, "/")[0]
 	forkBranchName := strings.ReplaceAll(string(branchHashRef.Name()), "refs/heads/", "")
-	return createPR(ctx, opts, ghCli, "Witness @ "+cpSize, forkOwner+":"+forkBranchName, "master")
+	return createPR(ctx, opts, ghCli, "Witness @ "+cpSize, opts.witnessRepo.owner+":"+forkBranchName, "master")
 }
 
 // createPR creates a pull request. Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create
@@ -405,9 +438,7 @@ func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, c
 	}
 	glog.V(1).Infof("Creating PR:\n%s", prJson)
 
-	owner := strings.Split(opts.logOwnerRepo, "/")[0]
-	repo := strings.Split(opts.witnessOwnerRepo, "/")[1]
-	pr, _, err := ghCli.PullRequests.Create(ctx, owner, repo, newPR)
+	pr, _, err := ghCli.PullRequests.Create(ctx, opts.logRepo.owner, opts.logRepo.repoName, newPR)
 	if err != nil {
 		return err
 	}

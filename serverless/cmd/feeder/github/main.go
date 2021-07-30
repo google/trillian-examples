@@ -64,7 +64,7 @@ Where:
  --witness_owner_repo is the repo owner/fragment of the forked log to use for the PR branch.
  --log_repo_path is the path from the root of the repo where the log files can be found,
  --feeder_config_file is the path to the config file for the serverless/cmd/feeder command.
- --interval if set, the script will continously feed and (if needed) create witness PRs sleeping
+ --interval if set, the script will continuously feed and (if needed) create witness PRs sleeping
      the specified number of seconds between attempts. If not provided, the tool does a one-shot feed.
 
 `
@@ -452,7 +452,7 @@ func gitCreateLocalBranch(repo *git.Repository, headRef *plumbing.Reference, bra
 	return d, nil
 }
 
-// gitCommitFile creates a commit on a repo's worktree which overwrites the specifed file path
+// gitCommitFile creates a commit on a repo's worktree which overwrites the specified file path
 // with the provided bytes.
 func gitCommitFile(workTree *git.Worktree, path string, raw []byte, commitMsg string, username, email string) error {
 	// 2. serialize witnessed CP to file
@@ -496,11 +496,11 @@ func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, c
 		MaintainerCanModify: github.Bool(true),
 	}
 
-	prJson, err := json.Marshal(newPR)
+	prJSON, err := json.Marshal(newPR)
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON for new PR request: %v", err)
 	}
-	glog.V(1).Infof("Creating PR:\n%s", prJson)
+	glog.V(1).Infof("Creating PR:\n%s", prJSON)
 
 	pr, _, err := ghCli.PullRequests.Create(ctx, opts.logRepo.owner, opts.logRepo.repoName, newPR)
 	if err != nil {

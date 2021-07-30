@@ -343,9 +343,9 @@ func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("workTree(%v) err: %v", r, err)
 	}
-	// Pull the latest commits from remote 'origin'.
-	if err := wt.Pull(&git.PullOptions{RemoteName: "origin"}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, nil, fmt.Errorf("git pull %v/origin err: %v", r, err)
+	// Pull the latest commits from remote 'upstream'.
+	if err := wt.Pull(&git.PullOptions{RemoteName: "upstream"}); err != nil && err != git.NoErrAlreadyUpToDate {
+		return nil, nil, fmt.Errorf("git pull %v/upstream err: %v", r, err)
 	}
 	// Get the master HEAD - we'll need this to branch from later on.
 	headRef, err := r.Head()

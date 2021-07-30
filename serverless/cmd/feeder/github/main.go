@@ -256,17 +256,17 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	//  git config user.email "${GIT_EMAIL}"
 	cfg, err := forkRepo.Config()
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config for repo %q: %v", opts.witnessRepo.owner, err)
+		return nil, fmt.Errorf("failed to read config for repo %q: %v", opts.witnessRepo, err)
 	}
 	cfg.User.Name = opts.gitUsername
 	cfg.User.Email = opts.gitEmail
 	if err = forkRepo.SetConfig(cfg); err != nil {
-		return nil, fmt.Errorf("failed to update config for repo %q: %v", opts.witnessRepo.owner, err)
+		return nil, fmt.Errorf("failed to update config for repo %q: %v", opts.witnessRepo, err)
 	}
 
 	//  git fetch --all
 	if err = forkRepo.FetchContext(ctx, &git.FetchOptions{}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, fmt.Errorf("failed to fetch repo %q: %v", *witnessOwnerRepo, err)
+		return nil, fmt.Errorf("failed to fetch repo %q: %v", *opts.witnessRepo, err)
 	}
 
 	return forkRepo, nil
@@ -422,7 +422,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 // createPR creates a pull request. Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create
 func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, commitBranch, prBranch string) error {
 	if title == "" {
-		return errors.New("missing `title`, won't create PR.")
+		return errors.New("missing `title`, won't create PR")
 	}
 
 	newPR := &github.NewPullRequest{

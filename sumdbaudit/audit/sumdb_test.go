@@ -112,7 +112,7 @@ func TestTileHashes(t *testing.T) {
 			values: map[string]string{"/tile/2/0/000": string(hashData)},
 		},
 	}
-	hashes, err := sumdb.TileHashes(0, 0)
+	hashes, err := sumdb.TileHashes(0, 0, 0)
 	if err != nil {
 		t.Fatalf("failed to get hashes: %v", err)
 	}

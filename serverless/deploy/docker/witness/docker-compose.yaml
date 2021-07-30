@@ -28,7 +28,7 @@ services:
       - witness
     build:
       context: ../../../../
-      dockerfile: ./serverless/cmd/feeder/Dockerfile
+      dockerfile: ./serverless/cmd/feeder/github/Dockerfile
     command:
       - "--log_owner_repo=${SERVERLESS_LOG_REPO}"
       - "--feeder_owner_repo=${SERVERLESS_LOG_FORK}"

@@ -20,7 +20,7 @@ You should set the following environmemt variables (either `export` or with a `.
 `FEEDER_INTERVAL_SECONDS` | no   | The number of seconds between feed/witness attempts, set to empty string for one-shot (default: 300s)
 
 
-The witness can be started with the following command:
+With the env variables configured, the witness can be started with the following command:
 
 ```bash
 $ docker-compose -f serverless/deploy/docker/witness/docker-compose.yaml up

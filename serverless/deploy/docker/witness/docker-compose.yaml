@@ -30,13 +30,14 @@ services:
       context: ../../../../
       dockerfile: ./serverless/cmd/feeder/Dockerfile
     command:
-      - "${SERVERLESS_LOG_REPO}"
-      - "${SERVERLESS_LOG_FORK}"
-      - "${SERVERLESS_LOG_DIR:-.}"
-      - "/feeder-config/${FEEDER_CONFIG_FILE:-feeder.config}"
-      - "${FEEDER_INTERVAL_SECONDS:-300}"
+      - "--log_owner_repo=${SERVERLESS_LOG_REPO}"
+      - "--feeder_owner_repo=${SERVERLESS_LOG_FORK}"
+      - "--log_repo_path=${SERVERLESS_LOG_DIR:-.}"
+      - "--feeder_config_file=/feeder-config/${FEEDER_CONFIG_FILE:-feeder.config}"
+      - "--interval=${FEEDER_INTERVAL_SECONDS:-300}"
+      - "--clone_to_disk=${CLONE_TO_DISK:-false}"
     environment:
-      - FEEDER_GITHUB_TOKEN=${FEEDER_GITHUB_TOKEN}
+      - GITHUB_AUTH_TOKEN=${FEEDER_GITHUB_TOKEN}
       - GIT_USERNAME=${GIT_USERNAME}
       - GIT_EMAIL=${GIT_EMAIL}
     volumes:

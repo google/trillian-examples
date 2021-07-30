@@ -35,8 +35,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-git/go-billy/v5/util"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/golang/glog"
 	"github.com/google/go-github/v37/github"
 
@@ -288,7 +290,7 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	// short-circuit creating a PR if our witness(es) has/have already signed it.
 	inputCP := filepath.Join(opts.witnessClonePath, opts.logPath, "checkpoint")
 	glog.V(1).Infof("Reading CP from %q", inputCP)
-	cp, err := ioutil.ReadFile(inputCP)
+	cp, err := util.ReadFile(workTree.Filesystem, inputCP)
 	if err != nil {
 		return fmt.Errorf("failed to read input checkpoint: %v", err)
 	}
@@ -322,43 +324,14 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	}
 	defer deleteBranch()
 
-	// 2. serialize witnessed CP to file
-	repoLocalCPPath := filepath.Join(opts.logPath, "checkpoint.witnessed")
-	absoluteWitnessedCPPath := filepath.Join(opts.witnessClonePath, repoLocalCPPath)
-	glog.Infof("Writing witnessed CP to %q", absoluteWitnessedCPPath)
-	if err := ioutil.WriteFile(absoluteWitnessedCPPath, wRaw, 0644); err != nil {
-		return fmt.Errorf("writing checkpoint.witnessed: %v", err)
-	}
-
-	// 3. git add the wCP file
-	glog.V(1).Info("git add checkpoint.witnessed")
-	if _, err := workTree.Add(repoLocalCPPath); err != nil {
-		return fmt.Errorf("git add checkpoint.witnessed: %v", err)
-	}
-
-	// 4. git commit
-	glog.V(1).Info("git commit")
-	commit, err := workTree.Commit(fmt.Sprintf("Witness checkpoint@%v", wCp.Size), &git.CommitOptions{
-		Author: &object.Signature{
-			// Name, Email required despite what we set up in git config earlier.
-			Name:  opts.gitUsername,
-			Email: opts.gitEmail,
-			When:  time.Now(),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("git commit: %v", err)
-	}
-	if glog.V(1) {
-		obj, err := forkRepo.CommitObject(commit)
-		if err != nil {
-			return fmt.Errorf("git show -s: %v", err)
-		}
-		glog.V(1).Infof("git show -s:\n%v", obj)
+	outputPath := filepath.Join(opts.logPath, "checkpoint.witnessed")
+	msg := fmt.Sprintf("Witness checkpoint@%v", wCp.Size)
+	if err := gitCommitFile(workTree, outputPath, wRaw, msg, opts.gitUsername, opts.gitEmail); err != nil {
+		return fmt.Errorf("failed to commit updated checkpoint.witnessed file: %v", err)
 	}
 
 	// 5. git force-push to origin/branchrefname
-	glog.V(1).Info("git push -f origin/branchrefname")
+	glog.V(1).Infof("git push -f origin/%s", branchName)
 	if err := forkRepo.Push(&git.PushOptions{
 		Force: true,
 	}); err != nil {
@@ -409,6 +382,37 @@ func gitCreateLocalBranch(repo *git.Repository, headRef *plumbing.Reference, bra
 	}
 
 	return d, nil
+}
+
+// gitCommitFile creates a commit on a repo's worktree which overwrites the specifed file path
+// with the provided bytes.
+func gitCommitFile(workTree *git.Worktree, path string, raw []byte, commitMsg string, username, email string) error {
+	// 2. serialize witnessed CP to file
+	glog.Infof("Writing %q", path)
+	if err := util.WriteFile(workTree.Filesystem, path, raw, 0644); err != nil {
+		return fmt.Errorf("failed to write to %q: %v", path, err)
+	}
+
+	// 3. git add the wCP file
+	glog.V(1).Info("git add %s", path)
+	if _, err := workTree.Add(path); err != nil {
+		return fmt.Errorf("failed to git add %q: %v", path, err)
+	}
+
+	// 4. git commit
+	glog.V(1).Info("git commit")
+	_, err := workTree.Commit(commitMsg, &git.CommitOptions{
+		Author: &object.Signature{
+			// Name, Email required despite what we set up in git config earlier.
+			Name:  username,
+			Email: email,
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("git commit: %v", err)
+	}
+	return nil
 }
 
 // createPR creates a pull request. Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create

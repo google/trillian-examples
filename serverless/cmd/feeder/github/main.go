@@ -134,15 +134,19 @@ func main() {
 	fmt.Println("[Completed feeding]--------------------------------------------------")
 }
 
+// repo represents an owner/repo fragment.
+// Used in the options struct below.
 type repo struct {
 	owner    string
 	repoName string
 }
 
+// String returns "<owner>/<repo>".
 func (r repo) String() string {
 	return fmt.Sprintf("%s/%s", r.owner, r.repoName)
 }
 
+// newRepo creates a new repo struct from an owner/repo fragment.
 func newRepo(or string) (*repo, error) {
 	s := strings.Split(or, "/")
 	if l, want := len(s), 2; l != want {
@@ -154,6 +158,7 @@ func newRepo(or string) (*repo, error) {
 	}, nil
 }
 
+// options contains the various configuration and state required to perform a feedOnce call.
 type options struct {
 	gitUsername, gitEmail string
 	githubAuthToken       string
@@ -167,10 +172,13 @@ type options struct {
 	feedInterval time.Duration
 }
 
+// usageExit prints out a message followed by the usage string, and then terminates execution.
 func usageExit(m string) {
 	glog.Exitf("%s\n\n%s", m, usage)
 }
 
+// mustConfigure creates an options struct from flags and env vars.
+// It will terminate execution on any error.
 func mustConfigure() *options {
 	checkNotEmpty := func(v string, m string) {
 		if v == "" {
@@ -218,6 +226,7 @@ func mustConfigure() *options {
 	}
 }
 
+// setupWitnessRepo clones a fork of the log repo, ready to be used to raise a PR against the log.
 func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, error) {
 	// Clone the fork of the log, so we can go on to make a PR against it.
 	//   git clone -o origin "https://${GIT_USERNAME}:${FEEDER_GITHUB_TOKEN}@github.com/${fork_repo}.git" "${temp}"
@@ -259,12 +268,15 @@ func setupWitnessRepo(ctx context.Context, opts *options) (*git.Repository, erro
 	return forkRepo, nil
 }
 
+// authWithGithub returns a github client struct which uses the provided OAuth token.
+// These tokens can be created using the github -> Settings -> Developers -> Personal Authentication Tokens page.
 func authWithGithub(ctx context.Context, ghToken string) (*github.Client, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: ghToken})
 	tc := oauth2.NewClient(ctx, ts)
 	return github.NewClient(tc), nil
 }
 
+// pullAndGetRepoHead ensures our local repo is up to date with the origin.
 func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, error) {
 	// Figure out where the worktree is for repo 'r'.
 	wt, err := r.Worktree()

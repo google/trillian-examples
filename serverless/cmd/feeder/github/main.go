@@ -368,11 +368,13 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	if err != nil {
 		return fmt.Errorf("git commit: %v", err)
 	}
-	obj, err := forkRepo.CommitObject(commit)
-	if err != nil {
-		return fmt.Errorf("git show -s: %v", err)
+	if glog.V(1) {
+		obj, err := forkRepo.CommitObject(commit)
+		if err != nil {
+			return fmt.Errorf("git show -s: %v", err)
+		}
+		glog.V(1).Infof("git show -s:\n%v", obj)
 	}
-	glog.V(1).Infof("git show -s:\n%v", obj)
 
 	// 5. git force-push to origin/branchrefname
 	glog.V(1).Info("git push -f origin/branchrefname")

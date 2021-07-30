@@ -284,7 +284,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	// TODO: if checkpoint and checkpoint.witnessed bodies are different (strictly, if checkpoint is newer),
 	// then we need to be feeding checkpoint to the witness, otherwise we can feed the witnessed one and
 	// short-circuit creating a PR if our witness(es) has/have already signed it.
-	inputCP := fmt.Sprintf("%s/checkpoint", filepath.Join(opts.witnessClonePath, opts.logRepoPath))
+	inputCP := filepath.Join(opts.witnessClonePath, opts.logRepoPath, "checkpoint")
 	glog.V(1).Infof("Reading CP from %q", inputCP)
 	cp, err := ioutil.ReadFile(inputCP)
 	if err != nil {
@@ -342,7 +342,7 @@ func createCheckpointPR(ctx context.Context, opts *options, forkRepo *git.Reposi
 	}()
 
 	// 2. serialize witnessed CP to file
-	repoLocalCPPath := fmt.Sprintf("%s/checkpoint.witnessed", opts.logRepoPath)
+	repoLocalCPPath := filepath.Join(opts.logRepoPath, "checkpoint.witnessed")
 	absoluteWitnessedCPPath := filepath.Join(opts.witnessClonePath, repoLocalCPPath)
 	glog.Infof("Writing witnessed CP to %q", absoluteWitnessedCPPath)
 	if err := ioutil.WriteFile(absoluteWitnessedCPPath, wCp, 0644); err != nil {

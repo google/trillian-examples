@@ -91,7 +91,7 @@ func (d *Database) Init() error {
 	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leaves (id INTEGER PRIMARY KEY, data BLOB)"); err != nil {
 		return err
 	}
-	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS tiles (height INTEGER, level INTEGER, offset INTEGER, hashes BLOB, PRIMARY KEY (height, level, offset))"); err != nil {
+	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS tiles (height INTEGER, level INTEGER, toffset INTEGER, hashes BLOB, PRIMARY KEY (height, level, toffset))"); err != nil {
 		return err
 	}
 	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS checkpoints (datetime TIMESTAMP PRIMARY KEY, checkpoint BLOB)"); err != nil {
@@ -208,7 +208,7 @@ func (d *Database) MaxLeafMetadata(ctx context.Context) (int64, error) {
 // Tile gets the leaf hashes for the given tile, or returns an error.
 func (d *Database) Tile(height, level, offset int) ([][]byte, error) {
 	var res []byte
-	err := d.db.QueryRow("SELECT hashes FROM tiles WHERE height=? AND level=? AND offset=?", height, level, offset).Scan(&res)
+	err := d.db.QueryRow("SELECT hashes FROM tiles WHERE height=? AND level=? AND toffset=?", height, level, offset).Scan(&res)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrNoDataFound
@@ -224,7 +224,7 @@ func (d *Database) SetTile(height, level, offset int, hashes []byte) error {
 	if got, want := len(hashes), (1<<height)*HashLenBytes; got != want {
 		return fmt.Errorf("wanted %d tile hash bytes but got %d", want, got)
 	}
-	_, err := d.db.Exec("INSERT INTO tiles (height, level, offset, hashes) VALUES (?, ?, ?, ?)", height, level, offset, hashes)
+	_, err := d.db.Exec("INSERT INTO tiles (height, level, toffset, hashes) VALUES (?, ?, ?, ?)", height, level, offset, hashes)
 	return err
 }
 

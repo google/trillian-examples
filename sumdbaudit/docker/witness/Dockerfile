@@ -16,10 +16,10 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build ./sumdbaudit/cli/witness
+RUN go build -o sumdbwitness ./sumdbaudit/cli/witness
 
 # Build release image
 FROM golang:buster
 
-COPY --from=builder /build/witness /bin/witness
+COPY --from=builder /build/sumdbwitness /bin/witness
 ENTRYPOINT ["/bin/witness"]

@@ -350,7 +350,7 @@ func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, 
 	}
 	// Pull the latest commits from remote 'upstream'.
 	if err := wt.Pull(&git.PullOptions{RemoteName: "upstream"}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, nil, fmt.Errorf("git pull upstream err: %v", r, err)
+		return nil, nil, fmt.Errorf("git pull %v upstream err: %v", r, err)
 	}
 	// Get the master HEAD - we'll need this to branch from later on.
 	headRef, err := r.Head()

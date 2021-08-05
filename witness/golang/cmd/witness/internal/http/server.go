@@ -63,7 +63,11 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		// just out of date.  Give the returned checkpoint to help them
 		// form a new request.
 		if status.Code(err) == codes.FailedPrecondition {
-			http.Error(w, string(chkpt), http.StatusConflict)
+			// This is the implementation of http.Error except we don't add any trailing newline chars.
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			w.WriteHeader(http.StatusConflict)
+			fmt.Fprint(w, err)
 			return
 		}
 		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), httpForCode(http.StatusInternalServerError))

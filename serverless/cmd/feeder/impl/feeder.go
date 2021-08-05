@@ -42,7 +42,9 @@ type Witness interface {
 	// Must return os.ErrNotExists if the logID is known, but it has no checkpoint for that log.
 	GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error)
 	// Update attempts to clock the witness forward for the given logID.
-	Update(ctx context.Context, logID string, newCP []byte, proof [][]byte) error
+	// The latest signed checkpoint will be returned if this succeeds, or if the error is
+	// http.ErrCheckpointTooOld. In all other cases no checkpoint should be expected.
+	Update(ctx context.Context, logID string, newCP []byte, proof [][]byte) ([]byte, error)
 }
 
 // FeedOpts holds parameters when calling the Feed function.
@@ -220,7 +222,9 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 			}
 		}
 
-		if err := w.Update(ctx, logID, cpRaw, conP); err != nil {
+		// TODO(mhutchinson): This returns the checkpoint, which can be used instead of getting
+		// the latest each time around the loop.
+		if _, err := w.Update(ctx, logID, cpRaw, conP); err != nil {
 			glog.Warningf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
 			continue
 		}

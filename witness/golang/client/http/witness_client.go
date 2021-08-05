@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -28,6 +29,9 @@ import (
 	wit_api "github.com/google/trillian-examples/witness/golang/api"
 	"golang.org/x/mod/sumdb/note"
 )
+
+// ErrCheckpointTooOld is returned if the checkpoint passed to Update needs to be updated.
+var ErrCheckpointTooOld error = errors.New("checkpoint too old")
 
 // Witness is a simple client for interacting with witnesses over HTTP.
 type Witness struct {
@@ -63,30 +67,39 @@ func (w Witness) GetLatestCheckpoint(ctx context.Context, logID string) ([]byte,
 	return ioutil.ReadAll(resp.Body)
 }
 
-// Update attempts to clock the witness forward for the given log ID.
-func (w Witness) Update(ctx context.Context, logID string, cp []byte, proof [][]byte) error {
+// Update attempts to clock the witness forward for the given logID.
+// The latest signed checkpoint will be returned if this succeeds, or if the error is
+// http.ErrCheckpointTooOld. In all other cases no checkpoint should be expected.
+func (w Witness) Update(ctx context.Context, logID string, cp []byte, proof [][]byte) ([]byte, error) {
 	reqBody, err := json.MarshalIndent(&wit_api.UpdateRequest{
 		Checkpoint: cp,
 		Proof:      proof,
 	}, "", " ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal update request: %v", err)
+		return nil, fmt.Errorf("failed to marshal update request: %v", err)
 	}
 	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPUpdate, logID))
 	if err != nil {
-		return fmt.Errorf("failed to parse URL: %v", err)
+		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
 	req, err := http.NewRequest("PUT", u.String(), bytes.NewReader(reqBody))
 	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
 	if err != nil {
-		return fmt.Errorf("failed to do http request: %v", err)
+		return nil, fmt.Errorf("failed to do http request: %v", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("bad status response: %s", resp.Status)
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read body: %v", err)
 	}
-	return nil
+	if resp.StatusCode != 200 {
+		if resp.StatusCode == 409 {
+			return body, ErrCheckpointTooOld
+		}
+		return nil, fmt.Errorf("bad status response (%s): %q", resp.Status, body)
+	}
+	return body, nil
 }

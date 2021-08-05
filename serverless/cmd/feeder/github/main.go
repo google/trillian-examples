@@ -22,7 +22,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -118,20 +118,25 @@ func main() {
 	//   6. clean up
 	//   7. --end of cycle--
 
-	fmt.Println("[Starting feeding]---------------------------------------------------")
+	glog.Info("[Starting feeding]---------------------------------------------------")
+	delay := time.Duration(0)
+mainLoop:
 	for {
-		if err = feedOnce(ctx, opts, feederRepo, ghClient); err != nil || opts.feedInterval == 0 {
-			break
+		select {
+		case <-time.After(delay):
+			delay = opts.feedInterval
+		case <-ctx.Done():
+			break mainLoop
 		}
-		fmt.Println("[Feed cycle complete]------------------------------------------------")
 
-		<-time.After(opts.feedInterval)
-	}
-	if err != nil {
-		glog.Exitf("feedOnce: %v", err)
+		if err := feedOnce(ctx, opts, feederRepo, ghClient); err != nil {
+			glog.Warningf("feedOnce: %v", err)
+			continue
+		}
+		glog.Info("[Feed cycle complete]------------------------------------------------")
 	}
 
-	fmt.Println("[Completed feeding]--------------------------------------------------")
+	glog.Info("[Completed feeding]--------------------------------------------------")
 }
 
 // feedOnce performs a one-shot "feed to witness and create PR" operation.
@@ -172,7 +177,7 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 
 	glog.V(1).Infof("CP after feeding:\n%s", string(wRaw))
 
-	branchName := fmt.Sprintf("refs/heads/witness_%s", base64.StdEncoding.EncodeToString(wCp.Hash))
+	branchName := fmt.Sprintf("refs/heads/witness_%s", hex.EncodeToString(wCp.Hash))
 	deleteBranch, err := gitCreateLocalBranch(forkRepo, headRef, branchName)
 	if err != nil {
 		return fmt.Errorf("failed to create git branch for PR: %v", err)
@@ -343,9 +348,9 @@ func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, 
 	if err != nil {
 		return nil, nil, fmt.Errorf("workTree(%v) err: %v", r, err)
 	}
-	// Pull the latest commits from remote 'origin'.
-	if err := wt.Pull(&git.PullOptions{RemoteName: "origin"}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, nil, fmt.Errorf("git pull %v/origin err: %v", r, err)
+	// Pull the latest commits from remote 'upstream'.
+	if err := wt.Pull(&git.PullOptions{RemoteName: "upstream"}); err != nil && err != git.NoErrAlreadyUpToDate {
+		return nil, nil, fmt.Errorf("git pull %v upstream err: %v", r, err)
 	}
 	// Get the master HEAD - we'll need this to branch from later on.
 	headRef, err := r.Head()
@@ -405,7 +410,7 @@ func readCP(workTree *git.Worktree, repoPath string, sigV note.Verifier) (*log.C
 // Returns a function which will delete the local branch when called.
 func gitCreateLocalBranch(repo *git.Repository, headRef *plumbing.Reference, branchName string) (func(), error) {
 	// Create a git branch for the witnessed checkpoint to be added, named
-	// using the base64(checkpoint hash).  Construct a fully-specified
+	// using hex(checkpoint hash).  Construct a fully-specified
 	// reference name for the new branch.
 	branchRefName := plumbing.ReferenceName(branchName)
 	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())

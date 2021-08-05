@@ -42,6 +42,8 @@ type Witness interface {
 	// Must return os.ErrNotExists if the logID is known, but it has no checkpoint for that log.
 	GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error)
 	// Update attempts to clock the witness forward for the given logID.
+	// The latest signed checkpoint will be returned if this succeeds, or if the error is
+	// http.ErrCheckpointTooOld. In all other cases no checkpoint should be expected.
 	Update(ctx context.Context, logID string, newCP []byte, proof [][]byte) ([]byte, error)
 }
 

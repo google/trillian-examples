@@ -67,7 +67,9 @@ func (w Witness) GetLatestCheckpoint(ctx context.Context, logID string) ([]byte,
 	return ioutil.ReadAll(resp.Body)
 }
 
-// Update attempts to clock the witness forward for the given log ID.
+// Update attempts to clock the witness forward for the given logID.
+// The latest signed checkpoint will be returned if this succeeds, or if the error is
+// http.ErrCheckpointTooOld. In all other cases no checkpoint should be expected.
 func (w Witness) Update(ctx context.Context, logID string, cp []byte, proof [][]byte) ([]byte, error) {
 	reqBody, err := json.MarshalIndent(&wit_api.UpdateRequest{
 		Checkpoint: cp,

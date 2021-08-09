@@ -4,7 +4,7 @@ This directory contains a dockerized deployment for a lightweight witness and fe
 Unlike the SumDB mirror & witness implementation in this repository, this version only acquires and stores a minimal amount of information.
 This makes it much easier & cheaper to deploy.
 
-The feeder will poll the SumDB periodically, and if the size of its checkpoint is larger than the one committed to by the witness, then a consistency proof will be generated and sent to the witness.
+The feeder will poll the SumDB periodically, and if the size of its checkpoint is larger than the one committed to by the witness, then the feeder will generate a consistency proof and send this to the witness.
 The witness is simply a deployment of the [generic witness](../../witness/golang/README.md).
 
 ## Running

@@ -109,7 +109,7 @@ func main() {
 // orchestration with a timer.
 // Note that feeder maintains its own state that represents the witness state.
 // This is optimized for the case where this is the only feeder for this log to
-// the witness. If the witness state is updated outwith this feeder, then the
+// the witness. If the witness state is updated by another entity, then the
 // number of successful updates from this feeder will drop. On the other hand,
 // if this is the only feeder then it avoids making requests to get the latest
 // checkpoint from the witness when it isn't changing.

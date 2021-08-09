@@ -1,0 +1,39 @@
+version: '3.2'
+services:
+  witness:
+    build:
+      context: ../..
+      dockerfile: ./witness/golang/cmd/witness/Dockerfile
+    volumes:
+        - type: volume
+          source: data
+          target: /data
+          volume:
+            nocopy: true
+        - type: bind
+          source: ${WITNESS_CONFIG_DIR:-/etc/witness/config}
+          target: /witness-config
+          read_only: true
+    command:
+      - "--listen=:8100"
+      - "--db_file=/data/witness.sqlite"
+      - "--private_key=${WITNESS_PRIVATE_KEY}"
+      - "--config_file=/witness-config/${WITNESS_CONFIG_FILE:-witness.config}"
+      - "--logtostderr"
+    restart: always
+    ports:
+      - "8100:8100"
+  feeder:
+    depends_on:
+      - witness
+    build:
+      context: ../..
+      dockerfile: ./sumdbaudit/witness/cmd/feeder/Dockerfile
+    command:
+      - "--w=http://witness:8100"
+      - "--wk=${WITNESS_PUBLIC_KEY}"
+      - "--lid=sumdb"
+      - "--alsologtostderr"
+      - "--v=1"
+volumes:
+  data:

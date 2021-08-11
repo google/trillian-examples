@@ -15,8 +15,6 @@
 package log
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 
 	"golang.org/x/mod/sumdb/note"
@@ -33,12 +31,11 @@ type CheckpointParser struct {
 
 // NewCheckpointParser creates a parser for checkpoints that must be signed by the log
 // which is verified by logVKey, and *all* of the other verifiers under otherVerifiers.
-func NewCheckpointParser(logVKey string, otherVerifiers ...string) (CheckpointParser, error) {
+func NewCheckpointParser(logVKey string, logID string, otherVerifiers ...string) (CheckpointParser, error) {
 	logVerifier, err := note.NewVerifier(string(logVKey))
 	if err != nil {
 		return CheckpointParser{}, fmt.Errorf("NewVerifier(%s): %v", logVKey, err)
 	}
-	logVKHash := sha256.Sum256([]byte(logVKey))
 
 	ovs := make([]note.Verifier, len(otherVerifiers))
 	for i, k := range otherVerifiers {
@@ -49,7 +46,7 @@ func NewCheckpointParser(logVKey string, otherVerifiers ...string) (CheckpointPa
 	}
 	return CheckpointParser{
 		logVerifier:       logVerifier,
-		logID:             base64.StdEncoding.EncodeToString(logVKHash[:]),
+		logID:             logID,
 		otherVerifiers:    note.VerifierList(ovs...),
 		requiredOtherSigs: len(otherVerifiers),
 	}, nil
@@ -66,7 +63,12 @@ func (p CheckpointParser) Parse(chkptRaw []byte) (Checkpoint, error) {
 	if _, err := r.Unmarshal([]byte(n.Text)); err != nil {
 		return *r, fmt.Errorf("failed to unmarshal new checkpoint: %v", err)
 	}
-	// TODO(mhutchinson): This is where we'd check the message contains p.logID
+	// TODO(mhutchinson): This assumes the first line is the LogID.
+	// This is proposal 2B. If we put the LogID further in the message (e.g. 4th line; 1A)
+	// then this should be updated.
+	if r.Ecosystem != p.logID {
+		return *r, fmt.Errorf("got logID %q but expected %q", r.Ecosystem, p.logID)
+	}
 
 	if p.requiredOtherSigs == 0 {
 		return *r, nil

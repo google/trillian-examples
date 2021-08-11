@@ -64,60 +64,76 @@ func TestParseCheckpoint(t *testing.T) {
 
 	for _, test := range []struct {
 		desc    string
+		logID   string
 		sigs    []note.Signer
 		wantErr bool
 	}{
 		{
 			desc:    "no sigs",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{},
 			wantErr: true,
 		},
 		{
 			desc:    "just log sig",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{lns},
 			wantErr: true,
 		},
 		{
 			desc:    "log and known1 sig",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{lns, k1ns},
 			wantErr: true,
 		},
 		{
 			desc:    "log and known2 sig",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{lns, k1ns},
 			wantErr: true,
 		},
 		{
 			desc:    "log, known1, and unknown sig",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{lns, k1ns, uns},
 			wantErr: true,
 		},
 		{
 			desc:    "just required sigs",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{lns, k1ns, k2ns},
 			wantErr: false,
 		},
 		{
 			desc:    "one verifier signs twice",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{lns, k1ns, k1ns},
 			wantErr: true,
 		},
 		{
 			desc:    "just required sigs in mixed order",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{k2ns, lns, k1ns},
 			wantErr: false,
 		}, {
 			desc:    "all sigs",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{lns, k1ns, k2ns, uns},
 			wantErr: false,
 		}, {
 			desc:    "just known",
+			logID:   "TestParseCheckpoint",
 			sigs:    []note.Signer{k1ns, k2ns},
+			wantErr: true,
+		}, {
+			desc:    "all sigs but wrong logID",
+			logID:   "this is not the logID you are looking for",
+			sigs:    []note.Signer{lns, k1ns, k2ns, uns},
 			wantErr: true,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			parser, err := log.NewCheckpointParser(logVK, known1VK, known2VK)
+			parser, err := log.NewCheckpointParser(logVK, test.logID, known1VK, known2VK)
 			if err != nil {
 				t.Fatalf("NewCheckpointParser: %v", err)
 			}
@@ -132,6 +148,56 @@ func TestParseCheckpoint(t *testing.T) {
 				t.Fatalf("gotErr %t != wantErr %t (%v)", gotErr, test.wantErr, err)
 			}
 			_ = cp
+		})
+	}
+}
+
+func TestSumDBNoteParsing(t *testing.T) {
+	noteString := `go.sum database tree
+6476701
+mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
+
+— sum.golang.org Az3grsLX85Gz+s1SiTbgkuqxgItqFq7gsMUEyVnrsa9LM7Us9S+1xbFIGu95949rj4nPRYfvimWEPWL+o3GeoWwOoAw=
+`
+
+	for _, test := range []struct {
+		desc    string
+		logID   string
+		sigs    []note.Signer
+		wantErr bool
+	}{
+		{
+			desc:    "hunky dory",
+			logID:   "go.sum database tree",
+			wantErr: false,
+		},
+		{
+			desc:    "wrong logID",
+			logID:   "Go rocks but I might have the wrong ID",
+			wantErr: true,
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			parser, err := log.NewCheckpointParser(
+				"sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8",
+				test.logID,
+			)
+			if err != nil {
+				t.Fatalf("Failed to create parser: %v", err)
+			}
+			cp, err := parser.Parse([]byte(noteString))
+			if err != nil && !test.wantErr {
+				t.Fatalf("Failed to parse checkpoint note: %v", err)
+			}
+			if err == nil && test.wantErr {
+				t.Fatal("Expected error but didn't get it")
+			}
+			if got, want := cp.Size, uint64(6476701); got != want {
+				t.Errorf("expected size %d but got %d", want, got)
+			}
+			if got, want := cp.Ecosystem, "go.sum database tree"; got != want {
+				t.Errorf("expected log ID %q but got %q", want, got)
+			}
 		})
 	}
 }

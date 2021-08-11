@@ -143,7 +143,7 @@ func TestParseCheckpoint(t *testing.T) {
 			}
 
 			// Now parse what we have created.
-			cp, err := parser.Parse(n)
+			cp, _, err := parser.Parse(n)
 			if gotErr := err != nil; gotErr != test.wantErr {
 				t.Fatalf("gotErr %t != wantErr %t (%v)", gotErr, test.wantErr, err)
 			}
@@ -185,7 +185,7 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 			if err != nil {
 				t.Fatalf("Failed to create parser: %v", err)
 			}
-			cp, err := parser.Parse([]byte(noteString))
+			cp, _, err := parser.Parse([]byte(noteString))
 			if err != nil && !test.wantErr {
 				t.Fatalf("Failed to parse checkpoint note: %v", err)
 			}

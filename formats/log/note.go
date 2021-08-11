@@ -54,31 +54,31 @@ func NewCheckpointParser(logVKey string, logID string, otherVerifiers ...string)
 
 // Parse returns a checkpoint parsed from the raw note, and any error if the note could
 // not be parsed, or any of the required signatures were missing.
-func (p CheckpointParser) Parse(chkptRaw []byte) (Checkpoint, error) {
+func (p CheckpointParser) Parse(chkptRaw []byte) (Checkpoint, *note.Note, error) {
 	r := &Checkpoint{}
 	n, err := note.Open(chkptRaw, note.VerifierList(p.logVerifier))
 	if err != nil {
-		return *r, fmt.Errorf("failed to verify log signature on checkpoint: %v", err)
+		return *r, n, fmt.Errorf("failed to verify log signature on checkpoint: %v", err)
 	}
 	if _, err := r.Unmarshal([]byte(n.Text)); err != nil {
-		return *r, fmt.Errorf("failed to unmarshal new checkpoint: %v", err)
+		return *r, n, fmt.Errorf("failed to unmarshal new checkpoint: %v", err)
 	}
 	// TODO(mhutchinson): This assumes the first line is the LogID.
 	// This is proposal 2B. If we put the LogID further in the message (e.g. 4th line; 1A)
 	// then this should be updated.
 	if r.Ecosystem != p.logID {
-		return *r, fmt.Errorf("got logID %q but expected %q", r.Ecosystem, p.logID)
+		return *r, n, fmt.Errorf("got logID %q but expected %q", r.Ecosystem, p.logID)
 	}
 
 	if p.requiredOtherSigs == 0 {
-		return *r, nil
+		return *r, n, nil
 	}
 
 	if n, err = note.Open(chkptRaw, p.otherVerifiers); err != nil {
-		return *r, fmt.Errorf("failed to verify required signatures on checkpoint: %v", err)
+		return *r, n, fmt.Errorf("failed to verify required signatures on checkpoint: %v", err)
 	}
 	if len(n.Sigs) != p.requiredOtherSigs {
-		return *r, fmt.Errorf("required %d non-log signatures but got %d", p.requiredOtherSigs, len(n.Sigs))
+		return *r, n, fmt.Errorf("required %d non-log signatures but got %d", p.requiredOtherSigs, len(n.Sigs))
 	}
-	return *r, nil
+	return *r, n, nil
 }

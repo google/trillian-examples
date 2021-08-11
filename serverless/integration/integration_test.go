@@ -120,6 +120,8 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 }
 
 func TestServerlessViaFile(t *testing.T) {
+	t.Parallel()
+
 	h := rfc6962.DefaultHasher
 
 	// Create log instance
@@ -149,6 +151,8 @@ func TestServerlessViaFile(t *testing.T) {
 }
 
 func TestServerlessViaHTTP(t *testing.T) {
+	t.Parallel()
+
 	h := rfc6962.DefaultHasher
 
 	// Create log instance

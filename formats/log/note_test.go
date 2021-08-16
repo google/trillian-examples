@@ -15,6 +15,7 @@
 package log_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/trillian-examples/formats/log"
@@ -196,6 +197,79 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 			}
 			if got, want := cp.Ecosystem, "go.sum database tree"; got != want {
 				t.Errorf("expected log ID %q but got %q", want, got)
+			}
+		})
+	}
+}
+
+func BenchmarkParse(b *testing.B) {
+	baseNote := `go.sum database tree
+6476701
+mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
+
+— sum.golang.org Az3grsLX85Gz+s1SiTbgkuqxgItqFq7gsMUEyVnrsa9LM7Us9S+1xbFIGu95949rj4nPRYfvimWEPWL+o3GeoWwOoAw=
+`
+	for _, test := range []struct {
+		desc      string
+		verifiers []string
+		sigs      []string
+	}{
+		{
+			desc: "bare minimum",
+		},
+		{
+			desc: "one verifier",
+			verifiers: []string{
+				"monkeys+db4d9f7e+AULaJMvTtDLHPUcUrjdDad9vDlh/PTfC2VV60JUtCfWT",
+			},
+			sigs: []string{
+				"— monkeys 202ffh9ve46Mqbhuyb4wnC2Pwdan5EsXQym/tF1ggXJqhjGosU4T5intH4iKMRgDLxrnXuIjRaU2NbvAnaepM6Y+8ww=",
+			},
+		},
+		{
+			desc: "many verifiers",
+			verifiers: []string{
+				"monkeys+db4d9f7e+AULaJMvTtDLHPUcUrjdDad9vDlh/PTfC2VV60JUtCfWT",
+				"bananas+cf639f13+AaPjhFnPCQnid/Ql32KWhmh+uk72FVRfK+2DLmO3BI3M",
+				"witness+f13a86db+AdYV1Ztajd9BvyjP2HgpwrqYL6TjOwIjGMOq8Bu42xbN",
+			},
+			sigs: []string{
+				"— monkeys 202ffh9ve46Mqbhuyb4wnC2Pwdan5EsXQym/tF1ggXJqhjGosU4T5intH4iKMRgDLxrnXuIjRaU2NbvAnaepM6Y+8ww=",
+				"— bananas z2OfE+2bbsBZ7NLgfuslc0v7NFW2QyexJ7fhePpoL2N/P7N/COd5S+JNHbQEAlYzz2C5sg0E+x/MggS1mDR6t3/9rQw=",
+				"— witness 8TqG25yWGFLdT7WPf/WoyeG3LwqtkXP+8S3yykOVm6EMh4hPgCke6eSVPU4BdtXNMPJBXKF+UpDbGgCdcpR8SVSoqAU=",
+			},
+		},
+		{
+			desc: "many sigs, 1 verifier",
+			verifiers: []string{
+				"monkeys+db4d9f7e+AULaJMvTtDLHPUcUrjdDad9vDlh/PTfC2VV60JUtCfWT",
+			},
+			sigs: []string{
+				"— monkeys 202ffh9ve46Mqbhuyb4wnC2Pwdan5EsXQym/tF1ggXJqhjGosU4T5intH4iKMRgDLxrnXuIjRaU2NbvAnaepM6Y+8ww=",
+				"— bananas z2OfE+2bbsBZ7NLgfuslc0v7NFW2QyexJ7fhePpoL2N/P7N/COd5S+JNHbQEAlYzz2C5sg0E+x/MggS1mDR6t3/9rQw=",
+				"— witness 8TqG25yWGFLdT7WPf/WoyeG3LwqtkXP+8S3yykOVm6EMh4hPgCke6eSVPU4BdtXNMPJBXKF+UpDbGgCdcpR8SVSoqAU=",
+				"— random1 8TqG25yWGFLdT7WPf/WoyeG3LwqtkXP+8S3yykOVm6EMh4hPgCke6eSVPU4BdtXNMPJBXKF+UpDbGgCdcpR8SVSoqAU=",
+				"— random2 8TqG25yWGFLdT7WPf/WoyeG3LwqtkXP+8S3yykOVm6EMh4hPgCke6eSVPU4BdtXNMPJBXKF+UpDbGgCdcpR8SVSoqAU=",
+			},
+		},
+	} {
+		b.Run(test.desc, func(b *testing.B) {
+			parser, err := log.NewCheckpointParser(
+				"sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8",
+				"go.sum database tree",
+				test.verifiers...,
+			)
+			if err != nil {
+				b.Fatalf("Failed to create parser: %v", err)
+			}
+			note := baseNote
+			for _, s := range test.sigs {
+				note = fmt.Sprintf("%s%s\n", note, s)
+			}
+			for n := 0; n < b.N; n++ {
+				if _, _, err := parser.Parse([]byte(note)); err != nil {
+					b.Fatalf("Failed to parse: %v", err)
+				}
 			}
 		})
 	}

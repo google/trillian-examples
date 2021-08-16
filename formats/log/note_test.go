@@ -163,7 +163,6 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 	for _, test := range []struct {
 		desc    string
 		logID   string
-		sigs    []note.Signer
 		wantErr bool
 	}{
 		{

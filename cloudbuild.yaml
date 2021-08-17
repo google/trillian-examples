@@ -60,27 +60,27 @@ steps:
   args: ['go', 'get', 'github.com/golang/protobuf/protoc-gen-go']
   waitFor: ['prepare']
 
-# Run the presubmit tests
+# Run the presubmit build, generate, and test with coverage enabled.
 - name: gcr.io/$PROJECT_ID/testbase
   entrypoint: 'bash'
-  id: 'presubmit'
+  id: 'presubmit-build-and-test-with-coverage'
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh
+      ./scripts/presubmit.sh --coverage --no-linters --no-actions --no-docker --no-serverless-wasm
       # Check re-generation didn't change anything.
       echo "Checking that generated files are the same as checked-in versions."
       git diff --  --exit-code
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
-# Run the presubmit tests with coverage enabled in parallel
+# Run the presubmit linters
 - name: gcr.io/$PROJECT_ID/testbase
   entrypoint: 'bash'
-  id: 'presubmit-with-coverage'
+  id: 'presubmit-lint'
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --coverage
+      ./scripts/presubmit.sh --no-build --no-generate --no-actions --no-docker --no-serverless-wasm
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Build serverless actions
@@ -90,7 +90,7 @@ steps:
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --no-build --no-generate --no-docker --no-serverless-wasm
+      ./scripts/presubmit.sh --no-build --no-linters --no-generate --no-docker --no-serverless-wasm
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Build serverless wasm
@@ -100,7 +100,7 @@ steps:
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --no-build --no-generate --no-docker --no-actions
+      ./scripts/presubmit.sh --no-build --no-linters --no-generate --no-docker --no-actions
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Build docker images
@@ -110,7 +110,7 @@ steps:
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --no-build --no-generate --no-actions --no-serverless-wasm
+      ./scripts/presubmit.sh --no-build --no-linters --no-generate --no-actions --no-serverless-wasm
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Test the USB Armory code as best we can
@@ -154,7 +154,7 @@ steps:
   - 'VCS_PULL_REQUEST=$_PR_NUMBER'
   - 'CI_BUILD_ID=$BUILD_ID'
   - 'CODECOV_TOKEN=$_CODECOV_TOKEN' # _CODECOV_TOKEN is specified in the cloud build trigger
-  waitFor: ['presubmit-with-coverage', 'firmware-integration-test']
+  waitFor: ['presubmit-build-and-test-with-coverage', 'firmware-integration-test']
 
 images:
   - 'gcr.io/$PROJECT_ID/testbase:latest'

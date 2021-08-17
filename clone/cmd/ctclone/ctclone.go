@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -177,27 +178,37 @@ type reporter struct {
 	lastWorked   uint64
 	treeSize     uint64
 	epochWorked  time.Duration
+
+	mu sync.RWMutex
 }
 
 func (r *reporter) report() {
-	elapsed := time.Since(r.lastReport)
-	workRatio := r.epochWorked.Seconds() / elapsed.Seconds()
+	func() {
+		r.mu.RLock()
+		defer r.mu.RUnlock()
+		elapsed := time.Since(r.lastReport)
+		workRatio := r.epochWorked.Seconds() / elapsed.Seconds()
 
-	remaining := r.treeSize - r.lastReported - 1
-	rate := float64(r.lastWorked-r.lastReported) / elapsed.Seconds()
-	eta := time.Duration(float64(remaining)/rate) * time.Second
-	glog.Infof("%.1f leaves/s, last leaf=%d (remaining: %d, ETA: %s), time working=%.1f%%", rate, r.lastReported, remaining, eta, 100*workRatio)
+		remaining := r.treeSize - r.lastReported - 1
+		rate := float64(r.lastWorked-r.lastReported) / elapsed.Seconds()
+		eta := time.Duration(float64(remaining)/rate) * time.Second
+		glog.Infof("%.1f leaves/s, last leaf=%d (remaining: %d, ETA: %s), time working=%.1f%%", rate, r.lastReported, remaining, eta, 100*workRatio)
+	}()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.lastReport = time.Now()
 	r.epochWorked = 0
 	r.lastReported = r.lastWorked
-	r.lastReport = time.Now()
 }
 
 func (r *reporter) trackWork(index uint64) func() {
 	start := time.Now()
-	r.lastWorked = index
 
 	return func() {
 		end := time.Now()
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.lastWorked = index
 		r.epochWorked += end.Sub(start)
 	}
 }

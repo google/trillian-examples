@@ -16,8 +16,10 @@ package download
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestFetchWorkerRun(t *testing.T) {
@@ -169,27 +171,60 @@ func TestBulkCancelled(t *testing.T) {
 }
 
 func BenchmarkBulk(b *testing.B) {
-	brc := make(chan BulkResult, 10)
-	var first uint64
-	var workers uint = 20
-	var batchSize uint = 10
+	for _, test := range []struct {
+		workers    uint
+		batchSize  uint
+		fetchDelay time.Duration
+	}{
+		{
+			workers:    20,
+			batchSize:  10,
+			fetchDelay: 50 * time.Microsecond,
+		},
+		{
+			workers:    20,
+			batchSize:  1,
+			fetchDelay: 50 * time.Microsecond,
+		},
+		{
+			workers:    1,
+			batchSize:  1,
+			fetchDelay: 50 * time.Microsecond,
+		},
+		{
+			workers:    1,
+			batchSize:  200,
+			fetchDelay: 50 * time.Microsecond,
+		},
+	} {
+		b.Run(fmt.Sprintf("w=%d,b=%d,delay=%s", test.workers, test.batchSize, test.fetchDelay), func(b *testing.B) {
+			brc := make(chan BulkResult, 10)
+			var first uint64
 
-	fakeFetch := func(start uint64, leaves [][]byte) error {
-		for i := range leaves {
-			// Allocate a non-trivial amount of memory for the leaf.
-			leaf := make([]byte, 1024)
-			leaves[i] = leaf
-		}
-		return nil
-	}
-	go Bulk(context.Background(), first, uint64(b.N), fakeFetch, workers, batchSize, brc)
-
-	for n := 0; n < b.N; n++ {
-		for i := 0; i < 1000; i++ {
-			br := <-brc
-			if br.Err != nil {
-				b.Fatal(br.Err)
+			fakeFetch := func(start uint64, leaves [][]byte) error {
+				time.Sleep(test.fetchDelay)
+				for i := range leaves {
+					// Allocate a non-trivial amount of memory for the leaf.
+					leaf := make([]byte, 1024)
+					leaves[i] = leaf
+				}
+				return nil
 			}
-		}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			const consumeSize = 1000
+			go Bulk(ctx, first, uint64(b.N*consumeSize), fakeFetch, test.workers, test.batchSize, brc)
+
+			for n := 0; n < b.N; n++ {
+				for i := 0; i < consumeSize; i++ {
+					br := <-brc
+					if br.Err != nil {
+						b.Fatal(br.Err)
+					}
+				}
+			}
+		})
 	}
 }

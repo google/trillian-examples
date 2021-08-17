@@ -16,8 +16,12 @@ package download
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strconv"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestFetchWorkerRun(t *testing.T) {
@@ -169,27 +173,104 @@ func TestBulkCancelled(t *testing.T) {
 }
 
 func BenchmarkBulk(b *testing.B) {
-	brc := make(chan BulkResult, 10)
-	var first uint64
-	var workers uint = 20
-	var batchSize uint = 10
+	for _, test := range []struct {
+		workers    uint
+		batchSize  uint
+		fetchDelay time.Duration
+		quota      int64
+	}{
+		{
+			workers:    20,
+			batchSize:  10,
+			fetchDelay: 50 * time.Microsecond,
+		},
+		{
+			workers:    20,
+			batchSize:  1,
+			fetchDelay: 50 * time.Microsecond,
+		},
+		{
+			workers:    1,
+			batchSize:  1,
+			fetchDelay: 50 * time.Microsecond,
+		},
+		{
+			workers:    1,
+			batchSize:  200,
+			fetchDelay: 50 * time.Microsecond,
+		},
+		{
+			workers:    20,
+			batchSize:  10,
+			fetchDelay: 50 * time.Microsecond,
+			quota:      1000,
+		},
+	} {
+		b.Run(fmt.Sprintf("w=%d,b=%d,delay=%s,q=%d", test.workers, test.batchSize, test.fetchDelay, test.quota), func(b *testing.B) {
+			brc := make(chan BulkResult, 10)
+			var first uint64
 
-	fakeFetch := func(start uint64, leaves [][]byte) error {
-		for i := range leaves {
-			// Allocate a non-trivial amount of memory for the leaf.
-			leaf := make([]byte, 1024)
-			leaves[i] = leaf
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			take := func(n int) error { return nil }
+			if test.quota > 0 {
+				th := throttle{
+					quota:  test.quota,
+					refill: test.quota,
+				}
+				go th.startRefillLoop(ctx)
+				take = th.take
+			}
+
+			fakeFetch := func(start uint64, leaves [][]byte) error {
+				time.Sleep(test.fetchDelay)
+				if err := take(len(leaves)); err != nil {
+					return err
+				}
+				for i := range leaves {
+					// Allocate a non-trivial amount of memory for the leaf.
+					leaf := make([]byte, 1024)
+					leaves[i] = leaf
+				}
+				return nil
+			}
+
+			const consumeSize = 1000
+			go Bulk(ctx, first, uint64(b.N*consumeSize), fakeFetch, test.workers, test.batchSize, brc)
+
+			for n := 0; n < b.N; n++ {
+				for i := 0; i < consumeSize; i++ {
+					br := <-brc
+					if br.Err != nil {
+						b.Fatal(br.Err)
+					}
+				}
+			}
+		})
+	}
+}
+
+type throttle struct {
+	quota  int64
+	refill int64
+}
+
+func (t *throttle) take(n int) error {
+	if atomic.AddInt64(&t.quota, int64(n*-1)) > 0 {
 		return nil
 	}
-	go Bulk(context.Background(), first, uint64(b.N), fakeFetch, workers, batchSize, brc)
+	return errors.New("out of quota")
+}
 
-	for n := 0; n < b.N; n++ {
-		for i := 0; i < 1000; i++ {
-			br := <-brc
-			if br.Err != nil {
-				b.Fatal(br.Err)
-			}
+func (t *throttle) startRefillLoop(ctx context.Context) {
+	tik := time.NewTicker(10 * time.Millisecond)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tik.C:
+			atomic.StoreInt64(&t.quota, t.refill)
 		}
 	}
 }

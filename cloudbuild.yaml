@@ -83,6 +83,36 @@ steps:
       ./scripts/presubmit.sh --coverage
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
+# Build serverless actions
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'presubmit-build-actions'
+  args:
+    - '-exc'
+    - |
+      ./scripts/presubmit.sh --no-build --no-generate --no-docker --no-serverless-wasm
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+# Build serverless wasm
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'presubmit-build-serverless-wasm'
+  args:
+    - '-exc'
+    - |
+      ./scripts/presubmit.sh --no-build --no-generate --no-docker --no-actions
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
+# Build docker images
+- name: gcr.io/$PROJECT_ID/testbase
+  entrypoint: 'bash'
+  id: 'presubmit-build-docker'
+  args:
+    - '-exc'
+    - |
+      ./scripts/presubmit.sh --no-build --no-generate --no-actions --no-serverless-wasm
+  waitFor: ['go-get-proto', 'go-get-proto-gen']
+
 # Test the USB Armory code as best we can
 - name: gcr.io/$PROJECT_ID/testbase
   id: 'usbarmory'

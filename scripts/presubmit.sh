@@ -26,13 +26,16 @@ check_cmd() {
 }
 
 usage() {
-  echo "$0 [--coverage] [--fix] [--no-build] [--no-linters] [--no-generate]"
+  echo "$0 [--coverage] [--fix] [--no-build] [--no-linters] [--no-generate] [--no-actions] [--no-docker] [--no-serverless-wasm]"
 }
 
 main() {
   local coverage=0
   local fix=0
   local run_build=1
+  local build_actions=1
+  local build_docker=1
+  local build_serverless_wasm=1
   local run_lint=1
   local run_generate=1
   while [[ $# -gt 0 ]]; do
@@ -55,6 +58,15 @@ main() {
         ;;
       --no-generate)
         run_generate=0
+        ;;
+      --no-actions)
+        build_actions=0
+        ;;
+      --no-docker)
+        build_docker=0
+        ;;
+      --no-serverless-wasm)
+        build_serverless_wasm=0
         ;;
       *)
         usage
@@ -108,19 +120,25 @@ main() {
         -timeout=${GO_TEST_TIMEOUT:-5m} \
         ./...
     fi
+  fi
 
+  if [[ "${build_actions}" -eq 1 ]]; then
     echo "Building serverless actions =================================="
     for i in $(find serverless/deploy/github -name Dockerfile); do
       echo "Building ${i} ------------------------------------------------"
       docker build -f "${i}" "$(dirname ${i})"
     done
+  fi
 
+  if [[ "${build_docker}" -eq 1 ]]; then
     echo "Building serverless non-action dockerfiles ===================="
     for i in $(find serverless -name Dockerfile -not -path 'serverless/deploy/github/*' ); do
       echo "Building ${i} ------------------------------------------------"
       docker build -f "${i}" .
     done
+  fi
 
+  if [[ "${build_serverless_wasm}" -eq 1 ]]; then
     echo "Building serverless wasm ===================="
     GOOS=js GOARCH=wasm go build -o /tmp/main.wasm -tags wasm ./serverless/experimental/wasm/
   fi

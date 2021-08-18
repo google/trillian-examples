@@ -17,7 +17,7 @@ function main {
 
     cd ${INPUT_PR_REPO_ROOT}
     # Now grab a list of all the modified/added/removed files in the PR
-    FILES=$(git diff origin/master HEAD --name-only)
+    FILES=$(rsync -ric --dry-run ${GITHUB_WORKSPACE}/${INPUT_PRISTINE_REPO_ROOT}/ ./ --exclude ".git" | cut -d" " -f 2)
 
     local has_non_log_files=0
     local has_witnessed_checkpoint=0

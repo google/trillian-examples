@@ -6,7 +6,7 @@ RUN CGO_ENABLED=0 go build -o /bin/combine_signatures github.com/google/trillian
 
 FROM alpine
 
-RUN apk add --no-cache bash git
+RUN apk add --no-cache bash git rsync
 
 COPY entrypoint.sh /entrypoint.sh
 COPY --from=build /bin/combine_signatures /bin/combine_signatures

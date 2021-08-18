@@ -77,6 +77,6 @@ defined above.  Currently it contains implementations in the following languages
 ## Feeders
 
 * [Go SumDB](https://github.com/google/trillian-examples/tree/master/sumdbaudit/witness) :
-    a custom feeder for sum.golang.org that can be easily deployed with this generic witness implementation
+    a custom feeder for sum.golang.org that can be easily deployed with the generic golang witness implementation
 * [Serverless](https://github.com/google/trillian-examples/tree/master/serverless/cmd/feeder) :
     a feeder command that acquires checkpoints from [serverless logs](https://github.com/google/trillian-examples/tree/master/serverless).

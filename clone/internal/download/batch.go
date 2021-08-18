@@ -112,10 +112,7 @@ func (w fetchWorker) run(ctx context.Context) {
 	glog.V(2).Infof("fetchWorker %q started", w.label)
 	defer glog.V(2).Infof("fetchWorker %q finished", w.label)
 	defer close(w.out)
-	// TODO(mhutchinson): Consider some way to reset this after intermittent connectivity issue.
-	// If this is pushed in the loop then it fixes this issue, but at the cost that the worker
-	// will never reach a stable rate if it is asked to back off. This is optimized for being
-	// gentle to the logs, which is a reasonable default for a happy ecosystem.
+	// This exponential backoff is always reset before use in backoff.RetryNotify.
 	bo := backoff.NewExponentialBackOff()
 	for {
 		if w.start >= w.treeSize {

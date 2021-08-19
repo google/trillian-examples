@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -172,32 +173,47 @@ func main() {
 }
 
 type reporter struct {
+	// treeSize is fixed for the lifetime of the reporter.
+	treeSize uint64
+
+	// Fields read/written only in report()
 	lastReport   time.Time
 	lastReported uint64
-	lastWorked   uint64
-	treeSize     uint64
-	epochWorked  time.Duration
+
+	// Fields shared across multiple threads, protected by workedMutex
+	lastWorked  uint64
+	epochWorked time.Duration
+	workedMutex sync.Mutex
 }
 
 func (r *reporter) report() {
-	elapsed := time.Since(r.lastReport)
-	workRatio := r.epochWorked.Seconds() / elapsed.Seconds()
+	lastWorked, epochWorked := func() (uint64, time.Duration) {
+		r.workedMutex.Lock()
+		defer r.workedMutex.Unlock()
+		lw, ew := r.lastWorked, r.epochWorked
+		r.epochWorked = 0
+		return lw, ew
+	}()
 
+	elapsed := time.Since(r.lastReport)
+	workRatio := epochWorked.Seconds() / elapsed.Seconds()
 	remaining := r.treeSize - r.lastReported - 1
-	rate := float64(r.lastWorked-r.lastReported) / elapsed.Seconds()
+	rate := float64(lastWorked-r.lastReported) / elapsed.Seconds()
 	eta := time.Duration(float64(remaining)/rate) * time.Second
 	glog.Infof("%.1f leaves/s, last leaf=%d (remaining: %d, ETA: %s), time working=%.1f%%", rate, r.lastReported, remaining, eta, 100*workRatio)
-	r.epochWorked = 0
-	r.lastReported = r.lastWorked
+
 	r.lastReport = time.Now()
+	r.lastReported = r.lastWorked
 }
 
 func (r *reporter) trackWork(index uint64) func() {
 	start := time.Now()
-	r.lastWorked = index
 
 	return func() {
 		end := time.Now()
+		r.workedMutex.Lock()
+		defer r.workedMutex.Unlock()
+		r.lastWorked = index
 		r.epochWorked += end.Sub(start)
 	}
 }

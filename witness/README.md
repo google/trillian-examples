@@ -1,15 +1,43 @@
-Witnessing
-============
+# Log Witnessing
 
-Witnessing is an important part of any transparent ecosystem, as it ensures that
-misbehavior on the part of logs can be prevented or detected. This is done by
-ensuring that the _checkpoints_ published by logs are _consistent_, which means 
-the log is presenting the same version of its contents to everyone and
-thus isn't carrying out a _split-view attack_.
+## Overview
 
-In terms of checkpoints, we consider witness implementations that use the
+Witnessing is an important part of log ecosystems that prevents logs from
+successfully accomplishing a _split-view attack_. A split-view attack is
+one in which the log presents different populations with different views.
+Each of these views may be append-only, and thus clients checking consistency
+proofs would be satisfied, yet the log is not fulfilling its claim of providing
+a _globally consistent_ list.
+
+For each witnessed log, a Witness cosigns log _checkpoints_ only if it
+can verify that it is consistent with the last checkpoint it cosigned, i.e.
+that this new checkpoint represents only new values being appended to the log.
+Clients that acquire checkpoints signed by multiple independent witnesses can
+have more confidence that they are seeing a truly globally consistent log.
+
+## Roles
+
+We consider witnessing to be composed of three primary _roles_:
+  1. Feeder: provides checkpoints and consistency proofs to the witness
+  2. Witness: maintains and cosigns a checkpoint for each log, and updates
+     this state to a new checkpoint only when convinced that the delta is only
+     appending new leaves
+  3. Distributor: makes cosigned checkpoints available to clients
+
+Note that this does not mean there needs to be three separate actors playing these roles.
+As a counterpoint, a common situation is to have the actor playing the witness role
+also polling the log for checkpoints and proofs (i.e. playing the feeder role), and
+making cosigned checkpoints available via some API (distributor).
+
+## Generic Witness Implementation
+
+This repository provides a witness that works for any log that uses the
 [format defined in this
 repository](https://github.com/google/trillian-examples/tree/master/formats/log).
+Each log requires a custom feeder to provide the binding between the log and the
+witness. Such feeders are intentionally not provided here in order to maintain a
+logical separation, and to avoid this package acquiring vast numbers of code
+dependencies. That said, [Feeders](#feeders) has links to known implementations.
 
 In terms of checking consistency, witnesses can do so in the following two 
 (non-exhaustive) ways:
@@ -31,8 +59,7 @@ We consider an interface for a witness defined as follows:
   checkpoint is considered trust-on-first-use.  Either way, the witness
   returns the latest checkpoint it has stored for this log.
 
-Index
---------------------------
+## Index
 
 This directory contains witness implementations that provide the interface
 defined above.  Currently it contains implementations in the following languages:
@@ -46,3 +73,10 @@ defined above.  Currently it contains implementations in the following languages
   This can be deployed as a smart contract on the Ethereum blockchain.  There are 
   two main contracts, each of which supports one of the consistency checks 
   described above.
+
+## Feeders
+
+* [Go SumDB](https://github.com/google/trillian-examples/tree/master/sumdbaudit/witness) :
+    a custom feeder for sum.golang.org that can be easily deployed with the generic golang witness implementation
+* [Serverless](https://github.com/google/trillian-examples/tree/master/serverless/cmd/feeder) :
+    a feeder command that acquires checkpoints from [serverless logs](https://github.com/google/trillian-examples/tree/master/serverless).

@@ -25,6 +25,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/sumdbaudit/audit"
+	"github.com/google/trillian-examples/sumdbaudit/client"
 	"github.com/gorilla/mux"
 )
 
@@ -91,7 +92,7 @@ func main() {
 		glog.Exitf("Failed to open DB: %v", err)
 	}
 
-	sumDB := audit.NewSumDB(*height, *vkey)
+	sumDB := client.NewSumDB(*height, *vkey)
 	auditor := audit.NewService(db, sumDB, *height)
 	server := &server{a: auditor}
 

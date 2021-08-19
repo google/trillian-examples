@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/sumdbaudit/audit"
+	"github.com/google/trillian-examples/sumdbaudit/client"
 )
 
 var (
@@ -44,7 +45,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to init DB: %v", err)
 	}
-	sumDB := audit.NewSumDB(*height, *vkey)
+	sumDB := client.NewSumDB(*height, *vkey)
 	s := audit.NewService(db, sumDB, *height)
 
 	for {

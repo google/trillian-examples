@@ -173,31 +173,36 @@ func main() {
 }
 
 type reporter struct {
+	// treeSize is fixed for the lifetime of the reporter.
+	treeSize uint64
+
+	// Fields read/written only in report()
 	lastReport   time.Time
 	lastReported uint64
-	lastWorked   uint64
-	treeSize     uint64
-	epochWorked  time.Duration
 
-	mu sync.RWMutex
+	// Fields shared across multiple threads, protected by workedMutex
+	lastWorked  uint64
+	epochWorked time.Duration
+	workedMutex sync.Mutex
 }
 
 func (r *reporter) report() {
-	func() {
-		r.mu.RLock()
-		defer r.mu.RUnlock()
-		elapsed := time.Since(r.lastReport)
-		workRatio := r.epochWorked.Seconds() / elapsed.Seconds()
-
-		remaining := r.treeSize - r.lastReported - 1
-		rate := float64(r.lastWorked-r.lastReported) / elapsed.Seconds()
-		eta := time.Duration(float64(remaining)/rate) * time.Second
-		glog.Infof("%.1f leaves/s, last leaf=%d (remaining: %d, ETA: %s), time working=%.1f%%", rate, r.lastReported, remaining, eta, 100*workRatio)
+	lastWorked, epochWorked := func() (uint64, time.Duration) {
+		r.workedMutex.Lock()
+		defer r.workedMutex.Unlock()
+		lw, ew := r.lastWorked, r.epochWorked
+		r.epochWorked = 0
+		return lw, ew
 	}()
-	r.mu.Lock()
-	defer r.mu.Unlock()
+
+	elapsed := time.Since(r.lastReport)
+	workRatio := epochWorked.Seconds() / elapsed.Seconds()
+	remaining := r.treeSize - r.lastReported - 1
+	rate := float64(lastWorked-r.lastReported) / elapsed.Seconds()
+	eta := time.Duration(float64(remaining)/rate) * time.Second
+	glog.Infof("%.1f leaves/s, last leaf=%d (remaining: %d, ETA: %s), time working=%.1f%%", rate, r.lastReported, remaining, eta, 100*workRatio)
+
 	r.lastReport = time.Now()
-	r.epochWorked = 0
 	r.lastReported = r.lastWorked
 }
 
@@ -206,8 +211,8 @@ func (r *reporter) trackWork(index uint64) func() {
 
 	return func() {
 		end := time.Now()
-		r.mu.Lock()
-		defer r.mu.Unlock()
+		r.workedMutex.Lock()
+		defer r.workedMutex.Unlock()
 		r.lastWorked = index
 		r.epochWorked += end.Sub(start)
 	}

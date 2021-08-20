@@ -60,7 +60,7 @@ function main {
     local invalid_checkpoint=0
     set +e
     for i in ${!witnessed_checkpoints[@]}; do
-        ./bin/verify_signatures \
+        /bin/validate_signatures \
             --logtostderr \
             --checkpoint="${witnessed_checkpoints[${i}]}" \
             --log_public_key="${INPUT_LOG_PUBLIC_KEY}" \

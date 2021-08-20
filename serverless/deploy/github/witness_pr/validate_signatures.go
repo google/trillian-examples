@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	checkpointPath = flag.String("checkpoint_path", "", "Path to checkpoint file to verify.")
+	checkpointPath = flag.String("checkpoint", "", "Path to checkpoint file to verify.")
 	logKey         = flag.String("log_public_key", "", "Log's public key.")
 	witnessKeys    = flag.String("witness_public_key_files", "", "One or more space-separated globs matching all the known witness keys.")
 )

@@ -127,6 +127,11 @@ func (c Cloner) Clone(ctx context.Context, treeSize uint64, fetcher download.Bat
 	return nil
 }
 
+// Next returns the first leaf index that will be cloned when Clone is called.
+// This should only be called before Clone, and allows for any prep work which is
+// required. For example, a common pattern is to serve leaves in tiles. If the
+// previous run finished with an incomplete tile, then it is convenient to download
+// that partial tile before running Clone to align workers perfectly with tiles.
 func (c Cloner) Next() (uint64, error) {
 	// Determine head: the index of the last leaf stored in the DB (or -1 if none present).
 	head, err := c.db.Head()

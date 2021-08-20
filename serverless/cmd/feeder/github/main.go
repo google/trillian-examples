@@ -177,14 +177,15 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 
 	glog.V(1).Infof("CP after feeding:\n%s", string(wRaw))
 
-	branchName := fmt.Sprintf("refs/heads/witness_%s", hex.EncodeToString(wCp.Hash))
+	hexHash := hex.EncodeToString(wCp.Hash)
+	branchName := fmt.Sprintf("refs/heads/witness_%s", hexHash)
 	deleteBranch, err := gitCreateLocalBranch(forkRepo, headRef, branchName)
 	if err != nil {
 		return fmt.Errorf("failed to create git branch for PR: %v", err)
 	}
 	defer deleteBranch()
 
-	outputPath := filepath.Join(opts.logPath, "checkpoint.witnessed")
+	outputPath := filepath.Join(opts.logPath, "witness", fmt.Sprintf("checkpoint_%s", hexHash))
 	msg := fmt.Sprintf("Witness checkpoint@%v", wCp.Size)
 	if err := gitCommitFile(workTree, outputPath, wRaw, msg, opts.gitUsername, opts.gitEmail); err != nil {
 		return fmt.Errorf("failed to commit updated checkpoint.witnessed file: %v", err)

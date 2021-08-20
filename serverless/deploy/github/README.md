@@ -30,10 +30,13 @@ directory of a serverless log.
 the [GitHub secrets docs](https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-a-repository)
 for details on how to do this.
 
-`push_to_master.yaml`
+`integrate_leaves.yaml`
 
 ```yaml
-on: [push]
+on:
+  push:
+    branches:
+      - master
 
 jobs:
   sequence_and_integrate_job:
@@ -80,7 +83,10 @@ you'd likely want to validate format, signatures, etc. too.
 `leaves_pr.yaml`
 
 ```yaml
-on: [pull_request]
+on: 
+  pull_request:
+    branches:
+      - master
 
 jobs:
   leaf_validator_job:

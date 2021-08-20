@@ -73,6 +73,8 @@ jobs:
     steps:
     # Checkout the PR branch
     - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
     # Verify the witnessed checkpoints are in the correct location and have the right signatures
     - name: Validate witness PR
       id: validate_witness_pr

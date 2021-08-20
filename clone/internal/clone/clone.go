@@ -101,7 +101,7 @@ func (c Cloner) Clone(ctx context.Context, treeSize uint64, fetcher download.Bat
 	bs := next
 	for br := range brc {
 		if br.Err != nil {
-			glog.Exit(err)
+			return fmt.Errorf("failed to get leaf at %d: %v", next, br.Err)
 		}
 		workDone := r.trackWork(next)
 		next++

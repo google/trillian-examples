@@ -1,0 +1,32 @@
+# action.yml
+name: 'Combine witness signatures'
+description: 'Serverless log: combine witness signatures'
+inputs:
+  log_dir:
+    description: 'Location of the log files in the repo'
+    required: true
+    default: '.'
+  witness_key_files:
+    description: 'Path glob within the pristine repo matching known witness keys'
+    required: true
+  log_public_key:
+    description: 'Log public key string (in note format)'
+    required: true
+  required_witness_signatures:
+    description: 'Minimum number of witness cosignatures required for checkpoint.witnessed file'
+    default: 1
+    required: false
+  delete_consumed:
+    description: 'Whether to delete merged witness checkpoint files from the witness/ directory'
+    default: true
+    required: false
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.log_dir }}
+
+branding:
+  icon: 'loader'
+  color: 'orange'

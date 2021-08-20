@@ -1,6 +1,6 @@
 # witness_pr
 
-`witness_pr` is a GitHub Action for handling incoming PRs from _witnesses_ containing a
+`witness_pr` is a GitHub Action for validating incoming PRs from _witnesses_ containing a
 co-signed log checkpoint which the witness has verified is consistent with earlier
 log checkpoints it has seen.
 
@@ -34,23 +34,18 @@ For more details on witnessing strategies as well as witness implementation(s), 
 
 ## Operation
 
-The `witness_pr` action requires a copy of the PR branch, as well as a pristine checkout of
-the log's `master` (or `main`) branch.
 Public keys for known witnesses should already be committed on the `master` branch.
 
 The `witness_pr` action:
-1. checks that there is only one modified file present in the PR: `checkpoint.witnessed`
-2. attempts to combine signatures from the PR's `checkpoint.witnessed` file with an existing
-   `checkpoint.witnessed` file in the `master` branch, and updates the file in the PR with
-   the union of the signatures.
-3. if step (2) failed (e.g. because the log published an updated `checkpoint` file which the
-   witness has signed), then it attempts to combine signatures from the PR's `checkpoint.witnessed`
-   file with the log signature on the `checkpoint` file in the log's `master` branch, and updates
-   the file in the PR with the union of the signatures.
+1. Ensures that if the PR contains any witnessed checkpoints, then it must contain ONLY witnessed checkpoints.
+2. Checks that the new witnessed checkpoints are signed by the log
+3. Checks that the new witnessed checkpoints are additionally signed by at least one known witness.
 
-The combining of signatures is done using the
-[`combine_signatures`](https://github.com/google/trillian-examples/serverless/cmd/combine_signatures) tool.
+TODO(al): This action could also check whether the checkpoint is equivalent to `checkpoint` or `checkpoint.witnessed`.
 
+Note that the witnessed checkpoint is not merged with `checkpoint.witnessed` at this stage,
+instead, that step once the witness PR has been merged, and is handled by the
+[combine_witness_signatures](../combine_witness_signatures) action.
 ## Usage
 
 ### Inputs
@@ -58,8 +53,6 @@ The combining of signatures is done using the
 Input          | Description
 ---------------|-----------------
 `log_dir`      | Path to the root of the serverless log files in this repo.
-`pr_repo_root` | Location within `${GITHUB_WORKSPACE}` where the PR branch is checked out.
-`pristine_repo_root` | Location within `${GITHUB_WORKSPACE}` where the pristine copy of the master repo is checked out.
 `witness_key_files` | Path glob matching the set of known witness keys in note format.
 `log_public_key` | The serverless log's public key (note: the key itself, not a path to a file containing the key).
 
@@ -74,39 +67,20 @@ on:
       - master
 
 jobs:
-  leaf_validator_job:
+  witness_pr_validator:
     runs-on: ubuntu-latest
     name: Handle witness PR
     steps:
-    # Checkout the PR branch into pr/
+    # Checkout the PR branch
     - uses: actions/checkout@v2
-      with:
-        path: 'pr'
-        fetch-depth: 0
-    # Checkout the log's master branch into pristine/
-    - uses: actions/checkout@v2
-      with:
-        path: 'pristine'
-        ref: 'master'
-        fetch-depth: 0
-    # Attempt to combine the signatures on the checkpoint in the PR with the log's latest checkpoint/checkpoint.witnessed file
-    - name: Validate and combine
-      id: validate_combine
+    # Verify the witnessed checkpoints are in the correct location and have the right signatures
+    - name: Validate witness PR
+      id: validate_witness_pr
       uses: google/trillian-examples/serverless/deploy/github/witness_pr@master
       with:
         log_dir: './log'
-        pr_repo_root: 'pr'
-        pristine_repo_root: 'pristine'
         # NOTE: this should point to the directory containing the public keys of known witnesses
         witness_key_files: 'witnesskeys/*pub'
         # NOTE: Replace this with the literal log public key (don't use a GitHub secrets variable here)
         log_public_key: '<PUT LOG PUBLIC KEY HERE>'
-    # Update the PR with merge results if necessary
-    - uses: stefanzweifel/git-auto-commit-action@v4
-      with:
-        repository: 'pr'
-        commit_user_name: Serverless Bot
-        commit_user_email: actions@github.com
-        commit_author: Serverless Bot <actions@github.com>
-        commit_message: Witness checkpoint merge
 ```

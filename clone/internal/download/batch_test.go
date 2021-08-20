@@ -43,6 +43,12 @@ func TestFetchWorkerRun(t *testing.T) {
 			batchSize: 10,
 		},
 		{
+			name:      "bigger batch than tree",
+			first:     0,
+			treeSize:  9,
+			batchSize: 10,
+		},
+		{
 			name:      "batch size non-divisor of range",
 			first:     0,
 			treeSize:  107,
@@ -105,6 +111,20 @@ func TestBulk(t *testing.T) {
 			treeSize:  110,
 			batchSize: 10,
 			workers:   4,
+		},
+		{
+			name:      "bigger batch than tree",
+			first:     0,
+			treeSize:  9,
+			batchSize: 10,
+			workers:   1,
+		},
+		{
+			name:      "batch size equals tree size",
+			first:     0,
+			treeSize:  10,
+			batchSize: 10,
+			workers:   1,
 		},
 		{
 			name:      "batch size non-divisor of range",

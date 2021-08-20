@@ -40,9 +40,9 @@ type BulkResult struct {
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
 // Bulk takes ownership of `rc` and will close it when no more values will be written.
 func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, workers, batchSize uint, rc chan<- BulkResult) {
+	defer close(rc)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	defer close(rc)
 	// Each worker gets its own unbuffered channel to make sure it can only be at most one ahead.
 	// This prevents lots of wasted work happening if one shard gets stuck.
 	rangeChans := make([]chan workerResult, workers)
@@ -62,7 +62,10 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 		}.run(ctx)
 	}
 
-	lastStart := treeSize - uint64(batchSize)
+	var lastStart uint64
+	if treeSize > uint64(batchSize) {
+		lastStart = treeSize - uint64(batchSize)
+	}
 	var r workerResult
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {

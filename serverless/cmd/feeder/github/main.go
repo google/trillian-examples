@@ -203,14 +203,15 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	return createPR(ctx, opts, ghCli, fmt.Sprintf("Witness @ %d", wCp.Size), opts.feederRepo.owner+":"+branchName, "master")
 }
 
-// cpID returns a stable identifier for a given checkpoint and set of known signatures.
+// cpID returns a stable identifier for a given checkpoint and list of known signatures.
 // This is used as a branch name, and for generating a file name for the witness PR.
 func wcpID(n note.Note) string {
-	bits := []string{n.Text}
+	parts := []string{n.Text}
+	// Note that n.Sigs is sorted by checkpoints.Combine, called by feeder.Feed
 	for _, s := range n.Sigs {
-		bits = append(bits, fmt.Sprintf("%x", s.Hash))
+		parts = append(parts, fmt.Sprintf("%x", s.Hash))
 	}
-	h := sha256.Sum256([]byte(strings.Join(bits, "-")))
+	h := sha256.Sum256([]byte(strings.Join(parts, "-")))
 	return hex.EncodeToString(h[:])
 
 }

@@ -6,14 +6,6 @@ inputs:
     description: 'Location of the log files in the repo'
     required: true
     default: '.'
-  pr_repo_root:
-    descritpion: 'Location of the checked-out PR branch'
-    required: true
-    default: 'pr'
-  pristine_repo_root:
-    description: 'Location of a pristine clone of the repo'
-    required: true
-    default: 'pristine'
   witness_key_files:
     description: 'Path glob within the pristine repo matching known witness keys'
     required: true
@@ -24,8 +16,6 @@ inputs:
 runs:
   using: 'docker'
   image: 'Dockerfile'
-  args:
-    - ${{ inputs.log_dir }}
 
 branding:
   icon: 'loader'

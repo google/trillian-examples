@@ -102,6 +102,9 @@ func main() {
 		if err != nil {
 			glog.Warningf("Failed to merge with checkpoint.witnessed file: %v", err)
 		}
+		// Note that we _don't_ delete everything from the `witness/` directory here since
+		// there could be some cosigs over `checkpoint` but not enough for the merge & promote
+		// step above - we want to keep those around until we get more.
 	}
 
 	if len(out) == 0 {

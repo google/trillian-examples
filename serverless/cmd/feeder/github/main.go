@@ -20,8 +20,8 @@
 package main
 
 import (
-	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -161,30 +161,32 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 		glog.Info("No new witness signatures added")
 		return nil
 	}
-	if bytes.Equal(cpRaw, wRaw) {
-		fmt.Println("No signatures added")
-		return nil
-	}
+	glog.V(1).Infof("Witnessed CP:\n%s", string(wRaw))
 
-	witnessNote, err := note.Open(wRaw, note.VerifierList(opts.feederOpts.LogSigVerifier))
+	// Check the witness signed a log statement.
+	_, err = note.Open(wRaw, note.VerifierList(opts.feederOpts.LogSigVerifier))
 	if err != nil {
-		return fmt.Errorf("couldn't open witnessed checkpoint using log verifier: %v", err)
+		return fmt.Errorf("couldn't open witnessed checkpoint with log verifier: %v", err)
 	}
-	wCp := &log.Checkpoint{}
-	if _, err := wCp.Unmarshal([]byte(witnessNote.Text)); err != nil {
-		return fmt.Errorf("invalid witnessed checkpoint: %v", err)
+	witnessNote, err := note.Open(wRaw, opts.witSigVs)
+	if err != nil {
+		return fmt.Errorf("couldn't open witnessed checkpoint with witness verifier(s): %v", err)
 	}
 
-	glog.V(1).Infof("CP after feeding:\n%s", string(wRaw))
-
-	branchName := fmt.Sprintf("refs/heads/witness_%s", hex.EncodeToString(wCp.Hash))
+	// Now form a PR with the cosigned CP.
+	id := wcpID(*witnessNote)
+	branchName := fmt.Sprintf("refs/heads/witness_%s", id)
 	deleteBranch, err := gitCreateLocalBranch(forkRepo, headRef, branchName)
 	if err != nil {
 		return fmt.Errorf("failed to create git branch for PR: %v", err)
 	}
 	defer deleteBranch()
 
-	outputPath := filepath.Join(opts.logPath, "checkpoint.witnessed")
+	wCp := &log.Checkpoint{}
+	if _, err := wCp.Unmarshal([]byte(witnessNote.Text)); err != nil {
+		return fmt.Errorf("failed to parse witnessed checkpoint: %v", err)
+	}
+	outputPath := filepath.Join(opts.logPath, "witness", fmt.Sprintf("checkpoint_%s", id))
 	msg := fmt.Sprintf("Witness checkpoint@%v", wCp.Size)
 	if err := gitCommitFile(workTree, outputPath, wRaw, msg, opts.gitUsername, opts.gitEmail); err != nil {
 		return fmt.Errorf("failed to commit updated checkpoint.witnessed file: %v", err)
@@ -199,6 +201,19 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 
 	glog.V(1).Info("Creating PR")
 	return createPR(ctx, opts, ghCli, fmt.Sprintf("Witness @ %d", wCp.Size), opts.feederRepo.owner+":"+branchName, "master")
+}
+
+// cpID returns a stable identifier for a given checkpoint and list of known signatures.
+// This is used as a branch name, and for generating a file name for the witness PR.
+func wcpID(n note.Note) string {
+	parts := []string{n.Text}
+	// Note that n.Sigs is sorted by checkpoints.Combine, called by feeder.Feed
+	for _, s := range n.Sigs {
+		parts = append(parts, fmt.Sprintf("%x", s.Hash))
+	}
+	h := sha256.Sum256([]byte(strings.Join(parts, "-")))
+	return hex.EncodeToString(h[:])
+
 }
 
 // repo represents an owner/repo fragment.
@@ -234,6 +249,8 @@ type options struct {
 	feederRepo      *repo
 	logPath         string
 	feederClonePath string
+
+	witSigVs note.Verifiers
 
 	feederOpts   impl.FeedOpts
 	feedInterval time.Duration
@@ -281,6 +298,11 @@ func mustConfigure() *options {
 		glog.Exitf("Feeder config in %q is invalid: %v", *feederConfigPath, err)
 	}
 
+	wSigV := []note.Verifier{}
+	for _, w := range fOpts.Witnesses {
+		wSigV = append(wSigV, w.SigVerifier())
+	}
+
 	return &options{
 		logRepo:         lr,
 		feederRepo:      fr,
@@ -288,6 +310,7 @@ func mustConfigure() *options {
 		githubAuthToken: githubAuthToken,
 		gitUsername:     gitUsername,
 		gitEmail:        gitEmail,
+		witSigVs:        note.VerifierList(wSigV...),
 		feederOpts:      *fOpts,
 		feedInterval:    *interval,
 	}

@@ -24,10 +24,10 @@ function main {
     while IFS= read -r f; do
             f=$(readlink -f -n ${f})
             if [[ ${f} = ${LOG_DIR}/checkpoint ]]; then
-                echo "::error: file=${f} Modifications to checkpoint not allowed, please add files to the witnessed/ directory."
+                echo "::error: file=${f} Modifications to checkpoint not allowed, please add files to the witness/ directory."
                 has_log_non_witness_files=1
             elif [[ ${f} = ${LOG_DIR}/checkpoint.witnessed ]]; then
-                echo "::error: file=${f} Modifications to checkpoint.witnessed not allowed, please add files to the witnessed/ directory."
+                echo "::error: file=${f} Modifications to checkpoint.witnessed not allowed, please add files to the witness/ directory."
                 has_log_non_witness_files=1
             elif [[ ${f} = ${LOG_DIR}/witness/* ]]; then
                 echo "::debug:Found entry in witness/"

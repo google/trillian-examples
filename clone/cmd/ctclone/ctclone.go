@@ -25,7 +25,7 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/clone/internal/clone"
+	"github.com/google/trillian-examples/clone/internal/cloner"
 	"github.com/google/trillian-examples/clone/internal/download"
 	"github.com/google/trillian-examples/clone/internal/verify"
 	"github.com/google/trillian-examples/clone/logdb"
@@ -69,8 +69,8 @@ func main() {
 		glog.Exitf("Failed to get latest checkpoint from log: %v", err)
 	}
 
-	cloner := clone.NewCloner(*workers, *fetchBatchSize, *writeBatchSize, db)
-	if err := cloner.Clone(ctx, targetCp.TreeSize, fetcher.Batch); err != nil {
+	cl := cloner.New(*workers, *fetchBatchSize, *writeBatchSize, db)
+	if err := cl.Clone(ctx, targetCp.TreeSize, fetcher.Batch); err != nil {
 		glog.Exitf("Failed to clone log: %v", err)
 	}
 

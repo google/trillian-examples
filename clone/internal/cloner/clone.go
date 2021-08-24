@@ -14,7 +14,7 @@
 
 // clone contains the core engine for quickly downloading leaves and adding
 // them to the database.
-package clone
+package cloner
 
 import (
 	"context"
@@ -37,8 +37,8 @@ type Cloner struct {
 	db *logdb.Database
 }
 
-// NewCloner creates a new Cloner with the given performance parameters and database.
-func NewCloner(wokers, fetchBatchSize, writeBatchSize uint, db *logdb.Database) Cloner {
+// New creates a new Cloner with the given performance parameters and database.
+func New(wokers, fetchBatchSize, writeBatchSize uint, db *logdb.Database) Cloner {
 	return Cloner{
 		workers:        wokers,
 		fetchBatchSize: fetchBatchSize,

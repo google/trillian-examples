@@ -14,7 +14,7 @@
 
 // clone contains the core engine for quickly downloading leaves and adding
 // them to the database.
-package clone
+package cloner
 
 import (
 	"context"
@@ -48,15 +48,14 @@ func TestClone(t *testing.T) {
 			fetchBatchSize: 5,
 			writeBatchSize: 10,
 		},
-		// Requires https://github.com/google/trillian-examples/pull/454
-		// {
-		// 	name:           "oversized batches",
-		// 	first:          0,
-		// 	treeSize:       10,
-		// 	workers:        10,
-		// 	fetchBatchSize: 100,
-		// 	writeBatchSize: 100,
-		// },
+		{
+			name:           "oversized batches",
+			first:          0,
+			treeSize:       10,
+			workers:        10,
+			fetchBatchSize: 100,
+			writeBatchSize: 100,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			db, close, err := newInMemoryDatabase()
@@ -65,7 +64,7 @@ func TestClone(t *testing.T) {
 			}
 			defer close()
 
-			cloner := NewCloner(test.workers, test.fetchBatchSize, test.writeBatchSize, db)
+			cloner := New(test.workers, test.fetchBatchSize, test.writeBatchSize, db)
 			fetcher := func(start uint64, leaves [][]byte) error {
 				for i := range leaves {
 					leaves[i] = []byte(fmt.Sprintf("leaf %d", start+1))

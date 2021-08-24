@@ -23,10 +23,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/clone/internal/cloner"
 	"github.com/google/trillian-examples/clone/internal/download"
 	"github.com/google/trillian-examples/clone/internal/verify"
 	"github.com/google/trillian-examples/clone/logdb"
@@ -63,95 +62,19 @@ func main() {
 		glog.Exitf("Failed to connect to database: %q", err)
 	}
 
-	// Determine head: the index of the last leaf stored in the DB (or -1 if none present).
-	head, err := db.Head()
-	if err != nil {
-		if err == logdb.ErrNoDataFound {
-			glog.Infof("Failed to find head of database, assuming empty and starting from scratch: %v", err)
-			head = -1
-		} else {
-			glog.Exitf("Failed to query for head of local log: %q", err)
-		}
-	}
-	next := uint64(head + 1)
-
-	// Load from the local DB the latest verified checkpoint for the leaves, if any.
-	cpSize, _, _, err := db.GetLatestCheckpoint(ctx)
-	if err != nil {
-		if err != logdb.ErrNoDataFound {
-			glog.Exitf("Failed to query for any checkpoints: %q", err)
-		}
-	} else if cpSize > next {
-		glog.Exitf("Illegal state: checkpoint size %d > downloaded leaf count %d", cpSize, next)
-	}
-
 	// Get the latest checkpoint from the log we are cloning: we will download all the leaves this commits to.
 	fetcher := ctFetcher{download.NewHTTPFetcher(lu)}
 	targetCp, err := fetcher.latestCheckpoint()
 	if err != nil {
 		glog.Exitf("Failed to get latest checkpoint from log: %v", err)
 	}
-	if targetCp.TreeSize <= cpSize {
-		glog.Infof("No work to do. Local tree size = %d, latest log tree size = %d", cpSize, targetCp.TreeSize)
-		return
-	}
-	glog.Infof("Fetching all leaves for tree size %d", targetCp.TreeSize)
 
-	// Start downloading leaves in a background thread, with the results put into brc.
-	brc := make(chan download.BulkResult, *writeBatchSize*2)
-	go download.Bulk(ctx, next, targetCp.TreeSize, fetcher.Batch, *workers, *fetchBatchSize, brc)
-
-	// Set up a background thread to report downloading progress (as it can take a long time).
-	rCtx, rCtxCancel := context.WithCancel(ctx)
-	r := reporter{
-		lastReported: next,
-		lastReport:   time.Now(),
-		treeSize:     targetCp.TreeSize,
+	cl := cloner.New(*workers, *fetchBatchSize, *writeBatchSize, db)
+	if err := cl.Clone(ctx, targetCp.TreeSize, fetcher.Batch); err != nil {
+		glog.Exitf("Failed to clone log: %v", err)
 	}
-	go func() {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				r.report()
-			case <-rCtx.Done():
-				return
-			}
-		}
-	}()
 
-	// This main thread will now take the downloaded leaves, batch them, and write to the DB.
-	batch := make([][]byte, *writeBatchSize)
-	bi := 0
-	bs := next
-	for br := range brc {
-		if br.Err != nil {
-			glog.Exit(err)
-		}
-		workDone := r.trackWork(next)
-		next++
-		batch[bi] = br.Leaf
-		bi = (bi + 1) % int(*writeBatchSize)
-		if bi == 0 {
-			if err := db.WriteLeaves(ctx, bs, batch); err != nil {
-				glog.Exitf("Failed to write to DB for batch starting at %d: %q", bs, err)
-			}
-			bs = next
-		}
-		workDone()
-	}
-	// All leaves are downloaded, but make sure we write the final (maybe partial) batch.
-	if bi > 0 {
-		if err := db.WriteLeaves(ctx, bs, batch[:bi]); err != nil {
-			glog.Exitf("Failed to write to DB for final batch starting at %d: %q", bs, err)
-		}
-	}
-	// Stop the reporting now downloading is finished.
-	rCtxCancel()
-	r.report()
-	glog.Infof("Downloaded %d leaves. Now verifying", bs+uint64(bi))
-
+	glog.Info("Verifying leaves")
 	// Verify the downloaded leaves with the target checkpoint, and if it verifies, persist the checkpoint.
 	// TODO(mhutchinson): Verify in parallel with downloading.
 	h := rfc6962.DefaultHasher
@@ -169,52 +92,6 @@ func main() {
 	glog.Infof("Got matching roots for tree size %d: %x", targetCp.TreeSize, root)
 	if err := db.WriteCheckpoint(ctx, targetCp.TreeSize, targetCp.raw, crs); err != nil {
 		glog.Exitf("Failed to update database with new checkpoint: %v", err)
-	}
-}
-
-type reporter struct {
-	// treeSize is fixed for the lifetime of the reporter.
-	treeSize uint64
-
-	// Fields read/written only in report()
-	lastReport   time.Time
-	lastReported uint64
-
-	// Fields shared across multiple threads, protected by workedMutex
-	lastWorked  uint64
-	epochWorked time.Duration
-	workedMutex sync.Mutex
-}
-
-func (r *reporter) report() {
-	lastWorked, epochWorked := func() (uint64, time.Duration) {
-		r.workedMutex.Lock()
-		defer r.workedMutex.Unlock()
-		lw, ew := r.lastWorked, r.epochWorked
-		r.epochWorked = 0
-		return lw, ew
-	}()
-
-	elapsed := time.Since(r.lastReport)
-	workRatio := epochWorked.Seconds() / elapsed.Seconds()
-	remaining := r.treeSize - r.lastReported - 1
-	rate := float64(lastWorked-r.lastReported) / elapsed.Seconds()
-	eta := time.Duration(float64(remaining)/rate) * time.Second
-	glog.Infof("%.1f leaves/s, last leaf=%d (remaining: %d, ETA: %s), time working=%.1f%%", rate, r.lastReported, remaining, eta, 100*workRatio)
-
-	r.lastReport = time.Now()
-	r.lastReported = r.lastWorked
-}
-
-func (r *reporter) trackWork(index uint64) func() {
-	start := time.Now()
-
-	return func() {
-		end := time.Now()
-		r.workedMutex.Lock()
-		defer r.workedMutex.Unlock()
-		r.lastWorked = index
-		r.epochWorked += end.Sub(start)
 	}
 }
 

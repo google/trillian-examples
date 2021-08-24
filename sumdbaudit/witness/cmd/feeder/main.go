@@ -26,7 +26,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian-examples/sumdbaudit/audit"
+	"github.com/google/trillian-examples/sumdbaudit/client"
 	"github.com/google/trillian-examples/witness/golang/client/http"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/rfc6962"
@@ -54,7 +54,7 @@ const (
 func main() {
 	flag.Parse()
 	ctx := context.Background()
-	sdb := audit.NewSumDB(tileHeight, *vkey)
+	sdb := client.NewSumDB(tileHeight, *vkey)
 	var w http.Witness
 	if wURL, err := url.Parse(*witness); err != nil {
 		glog.Exitf("Failed to parse witness URL: %v", err)
@@ -115,7 +115,7 @@ func main() {
 // checkpoint from the witness when it isn't changing.
 type feeder struct {
 	wcp *log.Checkpoint
-	sdb *audit.SumDBClient
+	sdb *client.SumDBClient
 	w   http.Witness
 }
 

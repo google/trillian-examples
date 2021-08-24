@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package audit
+// client contains a basic client for the SumDB log.
+package client
 
 import (
 	"fmt"

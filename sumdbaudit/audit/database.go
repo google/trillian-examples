@@ -23,11 +23,15 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/sumdbaudit/client"
 
 	// While flags are defined in this file, the drivers can be imported here.
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/mattn/go-sqlite3"
 )
+
+// hashLenBytes is the number of bytes in the SumDB hashes.
+const hashLenBytes = 32
 
 var (
 	sqliteFile = flag.String("sqlite_file", "", "database file location for local SumDB instance")
@@ -117,7 +121,7 @@ func (d *Database) Head() (int64, error) {
 }
 
 // GoldenCheckpoint gets the latest checkpoint, using the provided function to parse the note data.
-func (d *Database) GoldenCheckpoint(parse func([]byte) (*Checkpoint, error)) (*Checkpoint, error) {
+func (d *Database) GoldenCheckpoint(parse func([]byte) (*client.Checkpoint, error)) (*client.Checkpoint, error) {
 	var datetime sql.NullTime
 	var data []byte
 	if err := d.db.QueryRow("SELECT datetime, checkpoint FROM checkpoints ORDER BY datetime DESC LIMIT 1").Scan(&datetime, &data); err != nil {
@@ -133,7 +137,7 @@ func (d *Database) GoldenCheckpoint(parse func([]byte) (*Checkpoint, error)) (*C
 }
 
 // SetGoldenCheckpoint records the given checkpoint to the database.
-func (d *Database) SetGoldenCheckpoint(cp *Checkpoint) error {
+func (d *Database) SetGoldenCheckpoint(cp *client.Checkpoint) error {
 	now := time.Now()
 	_, err := d.db.Exec("INSERT INTO checkpoints (datetime, checkpoint) VALUES (?, ?)", now, cp.Raw)
 	if err != nil {
@@ -219,9 +223,9 @@ func (d *Database) Tile(height, level, offset int) ([][]byte, error) {
 }
 
 // SetTile sets the leaf hash data for the given tile.
-// The leaf hashes should be 2^height * HashLenBytes long.
+// The leaf hashes should be 2^height * hashLenBytes long.
 func (d *Database) SetTile(height, level, offset int, hashes []byte) error {
-	if got, want := len(hashes), (1<<height)*HashLenBytes; got != want {
+	if got, want := len(hashes), (1<<height)*hashLenBytes; got != want {
 		return fmt.Errorf("wanted %d tile hash bytes but got %d", want, got)
 	}
 	_, err := d.db.Exec("INSERT INTO tiles (height, level, toffset, hashes) VALUES (?, ?, ?, ?)", height, level, offset, hashes)
@@ -255,7 +259,7 @@ func SplitTile(hashes []byte, height int) [][]byte {
 	tileWidth := 1 << height
 	res := make([][]byte, tileWidth)
 	for i := 0; i < tileWidth; i++ {
-		hash := hashes[i*HashLenBytes : (i+1)*HashLenBytes]
+		hash := hashes[i*hashLenBytes : (i+1)*hashLenBytes]
 		res[i] = hash
 	}
 	return res

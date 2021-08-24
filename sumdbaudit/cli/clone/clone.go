@@ -22,6 +22,7 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/google/trillian-examples/sumdbaudit/audit"
+	"github.com/google/trillian-examples/sumdbaudit/client"
 )
 
 var (
@@ -48,7 +49,7 @@ func main() {
 		glog.Exitf("failed to init DB: %v", err)
 	}
 
-	sumDB := audit.NewSumDB(*height, *vkey)
+	sumDB := client.NewSumDB(*height, *vkey)
 	checkpoint, err := sumDB.LatestCheckpoint()
 	if err != nil {
 		glog.Exitf("failed to get latest checkpoint: %s", err)

@@ -92,7 +92,7 @@ func main() {
 	for {
 		glog.V(2).Infof("Tick: start feedOnce (witness size %d)", feeder.wcp.Size)
 		if err := feeder.feedOnce(ctx); err != nil {
-			glog.Exitf("Failed to feed: %v", err)
+			glog.Warningf("Failed to feed: %v", err)
 		}
 		glog.V(2).Infof("Tick: feedOnce complete (witness size %d)", feeder.wcp.Size)
 

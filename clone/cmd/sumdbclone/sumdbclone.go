@@ -33,11 +33,14 @@ import (
 )
 
 var (
-	height         = flag.Int("h", 8, "tile height")
-	vkey           = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
+	vkey           = flag.String("vkey", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "The verification key for the log checkpoints")
 	mysqlURI       = flag.String("mysql_uri", "", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
 	writeBatchSize = flag.Uint("write_batch_size", 1024, "The number of leaves to write in each DB transaction.")
 	workers        = flag.Uint("workers", 4, "The number of worker threads to run in parallel to fetch entries.")
+)
+
+const (
+	height = 8
 )
 
 func main() {
@@ -53,7 +56,7 @@ func main() {
 		glog.Exitf("Failed to connect to database: %q", err)
 	}
 
-	client := sdbclient.NewSumDB(*height, *vkey)
+	client := sdbclient.NewSumDB(height, *vkey)
 	targetCp, err := client.LatestCheckpoint()
 	if err != nil {
 		glog.Exitf("Failed to get latest checkpoint from log: %v", err)
@@ -84,7 +87,7 @@ func main() {
 }
 
 func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClient, targetCp *sdbclient.Checkpoint) error {
-	fullTileSize := 1 << *height
+	fullTileSize := 1 << height
 	cl := cloner.New(*workers, uint(fullTileSize), *writeBatchSize, db)
 
 	next, err := cl.Next()
@@ -102,7 +105,7 @@ func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClien
 		if start%uint64(fullTileSize) > 0 {
 			return backoff.Permanent(fmt.Errorf("%d is not the first leaf in a tile", start))
 		}
-		offset := int(start >> *height)
+		offset := int(start >> height)
 
 		var got [][]byte
 		var err error

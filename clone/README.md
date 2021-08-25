@@ -37,7 +37,7 @@ MariaDB [(none)]> FLUSH PRIVILEGES;
 ## Tuning
 
 The clone library logs information as it runs using `glog`.
-Providing `--alsologtostderr` is provided to any tool using the library, you should see output such as the following during the cloning process:
+Providing `--alsologtostderr` is passed to any tool using the library, you should see output such as the following during the cloning process:
 
 ```
 I0824 11:09:23.517796 2881011 clone.go:71] Fetching [4459168, 95054738): Remote leaves: 95054738. Local leaves: 4459168 (0 verified).
@@ -47,7 +47,7 @@ I0824 11:09:38.518542 2881011 clone.go:177] 1024.0 leaves/s, last leaf=4470430 (
 ```
 
 When tuning, it is recommended to also provide `--v=1` to see more verbose output.
-In particular, this will allow you to see if the tool is encountering errors (such as being told to back off) by the log server if you see lines such as `Retryable error getting data` in the output.
+In particular, this will allow you to see if the tool is encountering errors (such as being told to back off) by the log server, e.g. if you see lines such as `Retryable error getting data` in the output.
 
 Assuming you aren't being rate limited, then optimization goes as follows:
   1. Get the `working` percentage regularly around 100%: this measures how much time is being spent writing to the database. To do this, increase the number of `workers` to ensure that data is always available to the database writer

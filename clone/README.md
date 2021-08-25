@@ -1,15 +1,31 @@
 # Log Cloner
 
-A log client that copies a CT log to a local database for processing.
-The tool downloads batches of leaves in parallel, but always writes them to the local database in sequence.
-This ensures there are no missing ranges, which keeps state tracking easier.
+This directory contains a library, database, and tools for cloning transparency logs.
+The core library and database is log-agnostic, and each tool tailors this generic library to a specific log.
 
-One important implementation feature is that the download tools will exponentially back off if there are errors
-communicating with the log; this prevents the client from performing a DoS on any log it is downloading.
+The core library attempts to balance optimization of the following goals:
+  1. Downloading as quickly as possible
+  2. Backing off when requested by the log (i.e. not DoSing the log)
+  3. Simple local state / recovery
 
-## Setup
+This is achieved by:
+  1. Downloading batches of leaves in parallel
+  2. Using exponential backoff on transient failures
+  3. Writing leaves to the local database strictly in sequence
+     1. This ensures there are no missing ranges, which keeps state tracking easier
 
-In MariaDB, create a database and user:
+These tools are written to clone the log at a point in time.
+The first step is to download a checkpoint from the log, and then attempt to download all the leaves committed to by that checkpoint.
+Once all the leaves have been downloaded, the Merkle tree is computed for the downloaded leaves and compared against the checkpoint.
+If this verification succeeds, the checkpoint is persisted to a table in the database along with a compact range.
+The compact range allows further runs of the tool to quickly synthesize the Merkle structure of the existing leaves, which makes incremental verification much faster.
+
+This is designed such that downstream tooling can be written that reads from this local mirror of the log.
+Such tooling should only trust leaves that are committed to by a checkpoint; checkpoints are only written after verification, where leaves are written blindly and verified afterwards.
+
+## Database Setup
+
+In MariaDB, create a database and user. Below is an example of doing this for MariaDB 10.6, creating a database `google_xenon2022`, with a user `clonetool` with password `letmein`.
 
 ```
 MariaDB [(none)]> CREATE DATABASE google_xenon2022;
@@ -18,40 +34,32 @@ MariaDB [(none)]> GRANT ALL PRIVILEGES ON google_xenon2022.* TO 'clonetool'@loca
 MariaDB [(none)]> FLUSH PRIVILEGES;
 ```
 
-Now you can clone the log with:
+## Tuning
+
+The clone library logs information as it runs using `glog`.
+Providing `--alsologtostderr` is passed to any tool using the library, you should see output such as the following during the cloning process:
 
 ```
-go run ./clone/cmd/ctclone --alsologtostderr --v=1 --log_url https://ct.googleapis.com/logs/xenon2022/ --mysql_uri 'clonetool:letmein@tcp(localhost)/google_xenon2022'
+I0824 11:09:23.517796 2881011 clone.go:71] Fetching [4459168, 95054738): Remote leaves: 95054738. Local leaves: 4459168 (0 verified).
+I0824 11:09:28.519257 2881011 clone.go:177] 1202.8 leaves/s, last leaf=4459168 (remaining: 90595569, ETA: 20h55m21s), time working=24.2%
+I0824 11:09:33.518444 2881011 clone.go:177] 1049.6 leaves/s, last leaf=4465183 (remaining: 90589554, ETA: 23h58m29s), time working=23.0%
+I0824 11:09:38.518542 2881011 clone.go:177] 1024.0 leaves/s, last leaf=4470430 (remaining: 90584307, ETA: 24h34m21s), time working=23.3%
 ```
 
-See the optional flags in the `ctclone` tool to configure tuning parameters.
-## Docker
+When tuning, it is recommended to also provide `--v=1` to see more verbose output.
+In particular, this will allow you to see if the tool is encountering errors (such as being told to back off) by the log server, e.g. if you see lines such as `Retryable error getting data` in the output.
 
-To build a docker image, run the following from the `trillian-examples` root directory:
+Assuming you aren't being rate limited, then optimization goes as follows:
+  1. Get the `working` percentage regularly around 100%: this measures how much time is being spent writing to the database. To do this, increase the number of `workers` to ensure that data is always available to the database writer
+  2. If `working %` is around 100, then increasing the DB write batch size will increase throughput, to a point
 
-```
-docker build . -t ctclone -f ./clone/cmd/ctclone/Dockerfile
-```
+This process is somewhat iterative to find what works for your setup.
+It depends on many variables such as log latency and rate limiting, the database, the machine running the clone tool, etc.
 
-This can be pointed at a local MySQL instance running outside of docker using:
+## Download Clients
 
-```
-docker run --name clone_xenon2022 -d ctclone --alsologtostderr --v=1 --log_url https://ct.googleapis.com/logs/xenon2022/ --mysql_uri 'clonetool:letmein@tcp(host.docker.internal)/google_xenon2022'
-```
-
-# Verification
-
-The downloaded log contents should be checked against the checkpoints provided by the log.
-There isn't yet any support in the DB for storing checkpoints, so maintaining them is a DIY project for now.
-The `ctverify` tool takes a CT STH and uses its tree size to compute the root hash from the local data.
-The root hashes are compared, and the tool exits with a failure if they do not match.
-
-One way to accomplish this could be:
-
-```bash
-# 1. Get the checkpoint
-wget -O xenon2022.checkpoint https://ct.googleapis.com/logs/xenon2022/ct/v1/get-sth
-# 2. Clone the log as above ...
-# 3. Pipe the original checkpoint into verify tool to check the downloaded content matches
-cat xenon2022.checkpoint | go run ./clone/cmd/ctverify --alsologtostderr --mysql_uri 'mirror:letmein@tcp(localhost)/google_xenon2022'
-```
+Download clients are provided for:
+  * [CT](cmd/ctclone/)
+  * [sum.golang.org](cmd/sumdbclone/)
+ 
+See the documentation for these for specifics of each tool.

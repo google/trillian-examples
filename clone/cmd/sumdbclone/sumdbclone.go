@@ -40,7 +40,7 @@ var (
 )
 
 const (
-	height = 8
+	tileHeight = 8
 )
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 		glog.Exitf("Failed to connect to database: %q", err)
 	}
 
-	client := sdbclient.NewSumDB(height, *vkey)
+	client := sdbclient.NewSumDB(tileHeight, *vkey)
 	targetCp, err := client.LatestCheckpoint()
 	if err != nil {
 		glog.Exitf("Failed to get latest checkpoint from log: %v", err)
@@ -87,7 +87,7 @@ func main() {
 }
 
 func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClient, targetCp *sdbclient.Checkpoint) error {
-	fullTileSize := 1 << height
+	fullTileSize := 1 << tileHeight
 	cl := cloner.New(*workers, uint(fullTileSize), *writeBatchSize, db)
 
 	next, err := cl.Next()
@@ -105,7 +105,7 @@ func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClien
 		if start%uint64(fullTileSize) > 0 {
 			return backoff.Permanent(fmt.Errorf("%d is not the first leaf in a tile", start))
 		}
-		offset := int(start >> height)
+		offset := int(start >> tileHeight)
 
 		var got [][]byte
 		var err error

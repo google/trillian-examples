@@ -19,6 +19,78 @@ Yes, dear reader; read on!
 We can configure our log repository to use GitHub Actions to automate much of
 this process.
 
+### PR validation
+
+The following GitHub Actions workflow can be used to automatically handle common 
+incoming log PRs.
+
+Create a `.github/workflows/serverless_pr.yaml` file with the following config:
+
+```yaml
+name: Serverless PR
+on:
+  pull_request:
+    branches:
+      - master
+
+env:
+  # Update this to the location of your log root directory if different:
+  LOG_ROOT: "log"
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    name: Serverless PR handler
+    outputs:
+      # Add extra outputs to correspond to any additions to the matched patterns in the filter step below.
+      log: ${{ steps.filter.outputs.log }}
+      pending: ${{ steps.filter.outputs.pending }}
+    steps:
+      - name: Check for log structure PRs
+        id: filter
+        uses: dorny/paths-filter@v2
+        with:
+          list-files: shell
+          # Can add more patterns here if necessary, don't forget to update the outputs above if you do so!
+          filters: |
+            log:
+              - '${{ env.LOG_ROOT }}/**'
+            pending:
+              - added: '${{ env.LOG_ROOT }}/leaves/pending/*'
+
+      # Checks that no unexpected modifications are made within the log directory.
+      - name: Detect log structure changes
+        if: steps.filter.outputs.log == 'true' && steps.filter.outputs.pending == 'false'
+        run: |
+          for i in ${{ steps.filter.outputs.log_files }}; do
+            echo "::error file=${i}::Modified protected log structure - ensure additions are placed in the ${{ env.LOG_ROOT }}/leaves/pending directory"
+          done
+          exit 1
+
+# This job does a more detailed check on the contents of any pending leaves added.
+# We only run this if we've detected that this PR is an "add leaf" PR.
+  leaf_validator_job:
+    needs: changes
+    if: ${{ needs.changes.outputs.pending == 'true' }}
+    runs-on: ubuntu-latest
+    name: Validate pending leaves
+    steps:
+      # Set a label on this PR since we now know what it is
+      - uses: actions-ecosystem/action-add-labels@v1
+        with:
+          labels: add leaf
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      # In reality, this step does very minimal validation, but this is where you'd add your
+      # own validator action specific to the type of contents your log should contain.
+      - name: Leaf validator step
+        id: leaf_validator
+        uses: google/trillian-examples/serverless/deploy/github/leaf_validator@HEAD
+        with:
+          log_dir: '${{ env.LOG_ROOT }}'
+```
+
 ### Sequencing & integration
 
 Here is a GitHub actions workflow config which will automate the sequencing
@@ -30,7 +102,7 @@ directory of a serverless log.
 the [GitHub secrets docs](https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-a-repository)
 for details on how to do this.
 
-`push_to_master.yaml`
+`serverless_master.yaml`
 
 ```yaml
 on: [push]
@@ -69,33 +141,6 @@ the following steps:
 
 Specifying `ecosystem` input parameter is optional. If not specified the default
 `Log Checkpoint v0` string will be used.
-
-### Verifying "queue leaf" PRs
-
-Here is a GitHub actions workflow config which will automate the validation of
-incoming "queue leaf" request PRs, it uses the `leaf_validator` action which
-does the bare minimum to demonstrate the idea - if you were doing this for real
-you'd likely want to validate format, signatures, etc. too.
-
-`leaves_pr.yaml`
-
-```yaml
-on: [pull_request]
-
-jobs:
-  leaf_validator_job:
-    runs-on: ubuntu-latest
-    name: Validate pending leaves
-    steps:
-    - uses: actions/checkout@v2
-      with:
-         fetch-depth: 0
-    - name: Leaf validator step
-      id: leaf_validator
-      uses: google/trillian-examples/serverless/deploy/github/leaf_validator@master
-      with:
-        log_dir: './log'
-```
 
 ## Try it out yourself
 
@@ -140,6 +185,6 @@ I0430 17:49:34.648439 3389781 client.go:178] Inclusion verified in tree size 3, 
 
 ## Going further
 
-We could take it further, and have the `validate pending leaves` action
+We could take it further, and have the `serverless_pr` action
 automatically merge valid PRs and close others, but this is currently left as
 an exercise for the reader.

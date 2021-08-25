@@ -29,7 +29,7 @@ Create a `.github/workflows/serverless_pr.yaml` file with the following config:
 ```yaml
 name: Serverless PR
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - master
 
@@ -82,6 +82,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
+          ref: "refs/pull/${{ github.event.number }}/merge"
       # In reality, this step does very minimal validation, but this is where you'd add your
       # own validator action specific to the type of contents your log should contain.
       - name: Leaf validator step

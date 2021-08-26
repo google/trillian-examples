@@ -1,4 +1,4 @@
-module github.com/google/trillian-examples/serverless/deploy/github/sequence_and_integrate
+module github.com/google/trillian-examples/serverless/deploy/github/log/sequence_and_integrate
 
 go 1.16
 

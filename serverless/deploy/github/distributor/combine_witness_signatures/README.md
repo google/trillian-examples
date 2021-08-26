@@ -79,7 +79,7 @@ jobs:
     # Attempt to combine witness signatures with the log checkpoint.
     - name: Combine witness signatures
       id: combine_witness_sigs
-      uses: google/trillian-examples/serverless/deploy/github/combine_witness_signatures@master
+      uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@master
       with:
           log_dir: './log'
           # NOTE: this should point to the directory containing the public keys of known witnesses

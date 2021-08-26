@@ -78,7 +78,7 @@ jobs:
     # Verify the witnessed checkpoints are in the correct location and have the right signatures
     - name: Validate witness PR
       id: validate_witness_pr
-      uses: google/trillian-examples/serverless/deploy/github/witness_pr@master
+      uses: google/trillian-examples/serverless/deploy/github/distributor/witness_pr@master
       with:
         log_dir: './log'
         # NOTE: this should point to the directory containing the public keys of known witnesses

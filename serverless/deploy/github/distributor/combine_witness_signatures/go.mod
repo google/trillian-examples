@@ -1,4 +1,4 @@
-module github.com/google/trillian-examples/serverless/deploy/github/merge_witness_signatures
+module github.com/google/trillian-examples/serverless/deploy/github/distributor/merge_witness_signatures
 
 go 1.16
 

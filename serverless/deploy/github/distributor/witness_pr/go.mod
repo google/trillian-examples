@@ -1,4 +1,4 @@
-module github.com/google/trillian-examples/serverless/deploy/github/witness_pr
+module github.com/google/trillian-examples/serverless/deploy/github/distributor/witness_pr
 
 go 1.16
 

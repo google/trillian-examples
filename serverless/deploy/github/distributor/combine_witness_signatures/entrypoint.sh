@@ -23,10 +23,8 @@ function main {
 
     /bin/combine_witness_signatures \
         --logtostderr \
-        --storage_dir=${LOG_DIR} \
-        --log_public_key="${INPUT_LOG_PUBLIC_KEY}" \
-        --witness_public_key_files="${INPUT_WITNESS_KEY_FILES}" \
-        --output=${CP_WITNESSED}
+        --distributor_dir=${INPUT_DISTRIBUTOR_DIR} \
+        --config=${INPUT_CONFIG}
 }
 
 main

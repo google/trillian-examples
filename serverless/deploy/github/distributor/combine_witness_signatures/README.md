@@ -3,8 +3,7 @@
 `combine_witness_signatures` is a GitHub Action for combining signatures on checkpoints
 cosigned by known witnesses.
 
-This action would be used by a serverless log which was participating in an ecosystem
-with non-addressable witnesses.
+This action would be used by a serverless witness distributor.
 
 ## Overview
 
@@ -19,50 +18,63 @@ Entities which rely on the contents of the log can thereby trust that the view o
 _they_ see has also been seen by _at least_ the set of witnesses which have cosigned the
 checkpoint they hold.
 
-In order to facilitate the distribution of cosigned checkpoints, witnesses can return their
-cosigned checkpoints to the log, which in turn can serve them alongside the original `checkpoint`.
-Since the checkpoint signature format supports multiple signatures, the log can coalesce
-signatures on a given checkpoint from multiple witnesses into a single file: `checkpoint.witnessed`.
+A _distributor_ makes these cosigned checkpoints available to log clients.
 
-Note that at any given time, `checkpoint.witnessed` may represent a checkpoint which is
-equivalent to `checkpoint`, or may represent an _earlier_ checkpoint (e.g. if the log has
-just issued a new `checkpoint` and there have been no witness submissions for it as yet).
-
+This GitHub Action implements a serverless distributor.
 For more details on witnessing strategies as well as witness implementation(s), see the
 [witness](github.com/google/trillian-examples/witness) package.
 
 ## Operation
 
-Public keys for known witnesses should already be committed on the `master` branch.
+A JSON formatted config file must be created and checked-in to the repo.
+An example config file is shown below:
 
-PRs containing cosigned checkpoint files under the log's `.../witness` directory are
+```json
+{
+        "MaxWitnessSignatures": 5,
+
+        "Witnesses": [
+                "can-I-get-a-witness+b97a1e56+AZkpOlwZwR+wwasAENZwIa98ufmWmzlq0Tx0XN7voU6X",
+                "witness-over-here+29c4e8f4+AUbwUCBUM2sDdHeiKUrp6LnMErE7GEz0iH+0WbgbJZxx",
+                "wolsey-bank-alfred+0336ecb0+AVcofP6JyFkxhQ+/FK7omBtGLVS22tGC6fH+zvK5WrIx"
+        ],
+
+        "Logs": [
+                {
+                        "ID": "test",
+                        "PublicKey": "github.com/AlCutter/serverless-test/log+28035191+AVtQ/9lW+g90rQY3+pODJvMQ8X/tTvh/EuvCDLSmUk4S"
+                }
+        ]
+}
+```
+
+PRs containing cosigned checkpoint files under the distributor's `logs/<logID>/incoming` directory are
 raised by witnesses, and these PRs are validated by the [witness_pr](../witness_pr) action,
 and merged.
 
-The `combine_witness_signatures` action:
+Once these PRs are merged, this action:
 1. is triggered on pushes to `master`
-2. attempts to merge witness cosigned checkpoints under `.../witness` with
-   either `checkpoint` or `checkpoint.witnessed`:
-  1. if there are sufficient witness signatures to promote `checkpoint` to
-      `checkpoint.witnessed`, then merge and do so
-  2. otherwise, attempt to merge witness signaures with `checkpoint.witnessed` if
-     it exists.
+2. attempts to combine the checkpoints present for a given log with the ones
+   from the incoming directory
+3. produces one or more files containing checkpoints with merged signatures.
+
+The output files are named `checkpoint.0`, `checkpoint.1`, etc. and contain the largest
+checkpoint seen which has _at least_ the number of witness cosignatures specified by the
+file name. `checkpoint.0` will always have the largest checkpoint seen, regardless of whether
+or not it's been cosigned by witnesses.
 
 ## Usage
 
 ### Inputs
 
-Input                         | Description
-------------------------------|-----------------
-`log_dir`                     | Path to the root of the serverless log files in this repo.
-`witness_key_files`           | Path glob matching the set of known witness keys in note format.
-`log_public_key`              | The serverless log's public key (note: the key itself, not a path to a file containing the key).
-`required_witness_signatures` | Minimum number of witness signatures required to promote `checkpoint` to `checkpoint.witnessed`
-`delete_consumed`             | Whether to delete the cosigned checkpoints under `witness/` once they're consumed.
+Input             | Description
+------------------|-----------------
+`distributor_dir` | Path to the root of the distributor directory in this repo.
+`config`          | Path of distributor config file.
+`dry_run`         | Will not modify on-disk state if set to true.
 
-To use this PR with your log, create a `.github/workflows/combine_witness_sigs.yaml` file with the
-following contents (replace `<PUT LOG PUBLIC KEY HERE>` with the literal log public key - don't
-try to populate this from a GitHub secret as it won't be visible to on PRs from witness forks!):
+To use this PR with your log, create a `.github/workflows/distributor_master.yaml` file with the
+following contents:
 
 ```yaml
 on:
@@ -76,17 +88,12 @@ jobs:
     name: Combine witness signatures
     steps:
     - uses: actions/checkout@v2
-    # Attempt to combine witness signatures with the log checkpoint.
     - name: Combine witness signatures
-      id: combine_witness_sigs
-      uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@master
+      id: combine_witness_signatures
+      uses: AlCutter/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@serverless_distributor
       with:
-          log_dir: './log'
-          # NOTE: this should point to the directory containing the public keys of known witnesses
-          witness_key_files: 'witnesskeys/*pub'
-          # NOTE: Replace this with the literal log public key
-          log_public_key: '<PUT LOG PUBLIC KEY HERE>'
-          required_witness_signatures: 1
+          distributor_dir: './distributor'
+          config: './distributor/config.json'
     - uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_user_name: Serverless Bot

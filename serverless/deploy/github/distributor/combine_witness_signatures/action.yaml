@@ -2,12 +2,12 @@
 name: 'Combine witness signatures'
 description: 'Serverless witness distributor: combine witness signatures'
 inputs:
-  log_dir:
-    description: 'Location of the log files in the repo'
+  distributor_dir:
+    description: 'Location of the distributor files in the repo'
     required: true
-    default: '.'
-  witness_key_files:
-    description: 'Path glob within the pristine repo matching known witness keys'
+    default: 'distributor'
+  config:
+    description: 'Path to the config file in JSON format'
     required: true
   dry_run:
     description: 'Do not write or modify any files'

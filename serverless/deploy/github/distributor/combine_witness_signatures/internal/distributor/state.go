@@ -31,12 +31,12 @@ type UpdateOpts struct {
 	MaxWitnessSignatures uint
 }
 
-// UpdateState incorporates any incoming checkpoints into the distributor state.
+// UpdateState incorporates any incoming checkpoints for a single log into the distributor state.
 func UpdateState(state, incoming [][]byte, opts UpdateOpts) ([][]byte, error) {
 	// Handle changes in number of required CPs
 	requiredSlots := int(opts.MaxWitnessSignatures + 1)
 	if l := len(state); l > requiredSlots {
-		state = state[0:requiredSlots]
+		state = state[:requiredSlots]
 	} else if l < requiredSlots {
 		x := requiredSlots - l
 		state = append(state, make([][]byte, x)...)
@@ -92,7 +92,6 @@ nextCheckpoint:
 		ret[i] = nil
 	}
 	return ret, nil
-
 }
 
 func open(cpRaw []byte, sigV note.Verifiers) (*log.Checkpoint, *note.Note, error) {

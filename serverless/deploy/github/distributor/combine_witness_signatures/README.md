@@ -48,7 +48,7 @@ An example config file is shown below:
 }
 ```
 
-PRs containing cosigned checkpoint files under the distributor's `logs/<logID>/incoming` directory are
+PRs containing cosigned checkpoint files under the distributor's `.../logs/<logID>/incoming` directory are
 raised by witnesses, and these PRs are validated by the [witness_pr](../witness_pr) action,
 and merged.
 

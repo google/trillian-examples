@@ -6,8 +6,7 @@ Similar to serverless logs, we can deploy a file-based witnessed checkpoint
 distributor on GitHub too.
 
 For more details on witnessing, and the various roles involved (including
-`distributor`), please see the [witness README](/google/trillian-examples/witness)
-in this repo.
+`distributor`), please see the [witness README](/witness) in this repo.
 
 This directory provides some GitHub Actions and documentation to help with that.
 
@@ -117,9 +116,7 @@ jobs:
       uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@master
       with:
           distributor_dir: '${{ env.DISTRIBUTOR_ROOT }}'
-          witness_key_files: 'witnesskeys/*pub'
-          log_public_key: 'github.com/AlCutter/serverless-test/log+28035191+AVtQ/9lW+g90rQY3+pODJvMQ8X/tTvh/EuvCDLSmUk4S'
-          required_witness_signatures: 1
+          config: '${{ env.DISTRIBUTOR_ROOT }}/config.json'
     - uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_user_name: Serverless Bot
@@ -136,7 +133,7 @@ To try it out:
 2. Initialise the distributor state:
     1. we'll use a directory called `distributor` in our repo to
        store the state files
-    2. TODO: config file
+    2. create a `config.json` file ([example](combine_witness_signatures/examples_config.json))
     3. add and commit the config file to your new repo:
 
        ```bash
@@ -151,7 +148,7 @@ To try it out:
 Now you can raise "incoming checkpoint" PRs which drop cosigned checkpoints into the
 `distributor/logs/<log_id>/incoming` directory, whereupon the `witness_validator` action
 should check the contents. Once the "incoming checkpoint" PRs are merged you
-should see the `combine_witness_signs` action running in response (check the
+should see the `combine_witness_signatures` action running in response (check the
 `Actions` tab on your github repo's page).
 
 ## Going further

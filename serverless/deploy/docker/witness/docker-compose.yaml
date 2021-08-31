@@ -30,9 +30,9 @@ services:
       context: ../../../..
       dockerfile: ./serverless/cmd/feeder/github/Dockerfile
     command:
-      - "--log_owner_repo=${SERVERLESS_LOG_REPO}"
-      - "--feeder_owner_repo=${SERVERLESS_LOG_FORK}"
-      - "--log_repo_path=${SERVERLESS_LOG_DIR:-.}"
+      - "--distributor_owner_repo=${SERVERLESS_DISTRIBUTOR_REPO}"
+      - "--feeder_owner_repo=${SERVERLESS_DISTRIBUTOR_FORK}"
+      - "--distributor_repo_path=${SERVERLESS_DISTRIBUTOR_DIR:-.}"
       - "--feeder_config_file=/feeder-config/${FEEDER_CONFIG_FILE:-feeder.config}"
       - "--interval=${FEEDER_INTERVAL_SECONDS:-300}"
       - "--clone_to_disk=${CLONE_TO_DISK:-false}"

@@ -384,27 +384,6 @@ func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, 
 	return headRef, wt, nil
 }
 
-// readCP reads, verifies, and unmarshalls the specified checkpoint file from the repo.
-func readCP(workTree *git.Worktree, repoPath string, sigV note.Verifier) (*log.Checkpoint, []byte, error) {
-	glog.V(1).Infof("Reading CP from %q", repoPath)
-	raw, err := util.ReadFile(workTree.Filesystem, repoPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read file: %v", err)
-	}
-
-	n, err := note.Open(raw, note.VerifierList(sigV))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open checkpoint: %v", err)
-	}
-
-	cp := &log.Checkpoint{}
-	if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshall checkpoint from: %v", err)
-	}
-
-	return cp, raw, nil
-}
-
 // gitCreateLocalBranch creates a local branch on the given repo.
 //
 // Returns a function which will delete the local branch when called.

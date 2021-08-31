@@ -40,7 +40,7 @@ jobs:
     name: Serverless PR handler
     outputs:
       # Add extra outputs to correspond to any additions to the matched patterns in the filter step below.
-      log: ${{ steps.filter.outputs.incoming_cp }}
+      distributor: ${{ steps.filter.outputs.distributor }}
     steps:
       - name: Match files in PR against rules
         id: filter
@@ -50,24 +50,13 @@ jobs:
           # Can add more patterns here if necessary, don't forget to update the outputs above if you do so!
           filters: |
             distributor:
-              - '${{ env.DISTRIBUTOR_ROOT }}/**'
-            incoming_cp:
               - '${{ env.DISTRIBUTOR_ROOT }}/logs/*/incoming/*'
-
-      # Checks that no unexpected modifications are made within the log directory.
-      - name: Detect changes to distributor structure
-        if: steps.filter.outputs.distributor == 'true' && steps.filter.outputs.incoming_cp == 'false'
-        run: |
-          for i in ${{ steps.filter.outputs.distributor_files }}; do
-            echo "::error file=${i}::Modified protected distributor structure - ensure additions are placed in the ${{ env.DISTRIBUTOR_ROOT }}/logs/<log_id>/incoming directory"
-          done
-          exit 1
 
 # This job does a more detailed check on the contents of any incoming checkpoints added.
 # Run this job only when we've detected a witnessed checkpoint
-  witness_validator:
+  distributor_pr_validator:
     needs: changes
-    if: ${{ needs.changes.outputs.incoming_cp == 'true' }}
+    if: ${{ needs.changes.outputs.distributor == 'true' }}
     runs-on: ubuntu-latest
     name: Handle witness PR
     steps:
@@ -78,13 +67,12 @@ jobs:
         with:
           fetch-depth: 0
           ref: "refs/pull/${{ github.event.number }}/merge"
-      - name: Validate witness PR
-        id: validate_witness_pr
-        uses: google/trillian-examples/serverless/deploy/github/distributor/witness_pr@HEAD
+      - name: Validate distributor PR
+        uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@master
         with:
           distributor_dir: '${{ env.DISTRIBUTOR_ROOT }}'
-          witness_key_files: 'witnesskeys/*pub'
-          log_public_key: 'github.com/AlCutter/serverless-test/log+28035191+AVtQ/9lW+g90rQY3+pODJvMQ8X/tTvh/EuvCDLSmUk4S'
+          config: '${{ env.DISTRIBUTOR_ROOT }}/config.json'
+          dry_run: true
 ```
 
 ### Updating distributor state
@@ -146,10 +134,11 @@ To try it out:
 4. Push these commits up to github.
 
 Now you can raise "incoming checkpoint" PRs which drop cosigned checkpoints into the
-`distributor/logs/<log_id>/incoming` directory, whereupon the `witness_validator` action
-should check the contents. Once the "incoming checkpoint" PRs are merged you
-should see the `combine_witness_signatures` action running in response (check the
-`Actions` tab on your github repo's page).
+`distributor/logs/<log_id>/incoming` directory, whereupon the `ditributor_pr_validator`
+action should check the contents.
+Once the "incoming checkpoint" PRs are merged you should see the
+`combine_witness_signatures` action running in response (check the `Actions` tab on
+your github repo's page).
 
 ## Going further
 

@@ -12,201 +12,186 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// merge_witness_signatures is a tool to manage the checkpoint.witnessed file.
-//
-// Given the following files:
-// - checkpoint: a log checkpoint
-// - checkpoint.witnessed: a log checkpoint with additional witness signatures (optional)
-// - a collection of additional witnessed checkpoints
-// this tool will determine whether to update an existing checkpoint.witnessed
-// from the additional witnessed checkpoints, or replace it entirely by merging
-// witness cosignatures with the contents of the checkepoint file.
+// combine_witness_signatures is a tool to manage the distributor state files.
 package main
 
 import (
-	"errors"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
+	"regexp"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/checkpoints"
+	"github.com/google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures/internal/distributor"
 	"golang.org/x/mod/sumdb/note"
 )
 
 var (
-	storageDir     = flag.String("storage_dir", "", "Root directory of the log.")
-	logKey         = flag.String("log_public_key", "", "Log's public key.")
-	witnessKeys    = flag.String("witness_public_key_files", "", "One or more space-separated globs matching all the known witness keys.")
-	numRequired    = flag.Uint("required_witness_sigs", 0, "Specifies the minimum number of valid witness signatures required to be present on the output to consider the merge successful.")
-	output         = flag.String("output", "", "Output file to write combined checkpoint to.")
-	deleteConsumed = flag.Bool("delete_consumed", true, "Whether to delete files containing merged checkpoints.")
+	storageDir = flag.String("distributor_dir", "", "Root directory of the distributor.")
+	configFile = flag.String("config", "", "Distributor config file.")
+	dryRun     = flag.Bool("dry_run", false, "Don't write or update any files, just validate.")
 )
 
 func main() {
 	flag.Parse()
 
-	logSigV, err := note.NewVerifier(*logKey)
+	opts, err := loadConfig(*configFile)
 	if err != nil {
-		glog.Exitf("Failed to parse log public key: %v", err)
+		glog.Exitf("Unable to load config from %q: %v", *configFile, err)
 	}
 
-	witSigV, err := witnessVerifiers(*witnessKeys)
+	matcher, err := regexp.Compile(filepath.Join(*storageDir, "logs", "([^/]+)"))
 	if err != nil {
-		glog.Exitf("Failed to load witness keys: %v", err)
+		glog.Exitf("Failed to create matcher: %v", err)
+	}
+	incoming, err := filepath.Glob(filepath.Join(*storageDir, "logs", "*" /*log_id*/, "incoming"))
+	if err != nil {
+		glog.Exitf("Failed to match incoming checkpoint files: %v", err)
 	}
 
-	cpNote, cpRaw, err := openNote(filepath.Join(*storageDir, "checkpoint"), note.VerifierList(logSigV))
-	if err != nil {
-		glog.Exitf("Failed to open checkpoint: %v", err)
-	}
+	for _, i := range incoming {
+		m := matcher.FindStringSubmatch(i)
+		// First entry in m is the whole matched string, the second is the log ID
+		if got, want := len(m), 2; got != want {
+			glog.Warningf("Unexpected match on %q, got %d parts but want %d", i, got, want)
+		}
+		logID := m[1]
 
-	cpwNote, cpwRaw, err := openNote(filepath.Join(*storageDir, "checkpoint.witnessed"), witSigV)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			glog.Exitf("Failed to open checkpoint.witnessed: %v", err)
+		o, ok := opts[logID]
+		if !ok {
+			glog.Warningf("Found incoming directory for unknown log %q", logID)
+			continue
+		}
+
+		// Read state
+		state, incoming, err := readState(m[0])
+		if err != nil {
+			glog.Warningf("Error reading distributor state for log %q: %v", logID, err)
+			continue
+		}
+		newState, err := distributor.UpdateState(state, incoming, o)
+		if err != nil {
+			glog.Warningf("Error updating distributor state: %v", err)
+			continue
+		}
+		if *dryRun {
+			glog.Warning("Not writing new state to disk because --dry_run is set")
+			continue
+		}
+		if err := storeState(m[0], newState); err != nil {
+			glog.Warningf("Error storing distributor state for log %q: %v", logID, err)
+			continue
 		}
 	}
+}
 
-	witnessDir := filepath.Join(*storageDir, "witness")
-
-	ans, err := additionalNotes(filepath.Join(witnessDir, "*"))
+// readState loads the distributor state stored in the specified root directory.
+// This state consists of the checkpoint.N files, along with any additional files
+// stored under an incoming/ directory.
+func readState(root string) ([][]byte, [][]byte, error) {
+	sFiles, err := filepath.Glob(filepath.Join(root, "checkpoint.[0-9]"))
 	if err != nil {
-		glog.Exitf("Failed to read additional checkpoints: %v", err)
+		return nil, nil, fmt.Errorf("failed to glob checkpoints: %v", err)
+	}
+	iFiles, err := filepath.Glob(filepath.Join(root, "incoming", "*"))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to glob incoming checkpoints: %v", err)
 	}
 
-	var out []byte
-	// If checkpoints are different (or there is no checkpoint.witnessed file), see
-	// if we have sufficient witness cosigs to promote checkpoint to
-	// checkpoint.witnessed
-	if cpwNote == nil || cpNote.Text != cpwNote.Text {
-		out, err = mergeCheckpoints(cpRaw, ans, *numRequired, logSigV, witSigV, false)
+	state, err := readFiles(sFiles)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read state files: %v", err)
+	}
+	incoming, err := readFiles(iFiles)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to read incoming files: %v", err)
+	}
+	return state, incoming, nil
+}
+
+// readFiles reads and returns the provided list of files.
+func readFiles(f []string) ([][]byte, error) {
+	r := make([][]byte, 0, len(f))
+	for _, p := range f {
+		b, err := ioutil.ReadFile(p)
 		if err != nil {
-			glog.Warningf("Failed to merge with new checkpoint file: %v", err)
+			return nil, fmt.Errorf("failed to read %q: %v", p, err)
+		}
+		r = append(r, b)
+	}
+	return r, nil
+}
+
+// storeState updates the distributor state stored in the specified directory.
+// The state param must contain the ordered 0..N checkpoints which will replace
+// any existing checkpoint.N files.
+// The contents of the incoming/ directory will be removed.
+func storeState(root string, state [][]byte) error {
+	i := 0
+	for ; i < len(state); i++ {
+		o := filepath.Join(root, fmt.Sprintf("checkpoint.%d", i))
+		if len(state[i]) > 0 {
+			if err := os.WriteFile(o, state[i], 0o644); err != nil {
+				return fmt.Errorf("error writing state[%d] in distributor directory %q: %v", i, root, err)
+			}
 		} else {
-			// Since we've just promoted the new checkpoint and merged any compatible
-			// cosignatures, we can delete all additional Checkpoints:
-			if err := os.RemoveAll(witnessDir); err != nil {
-				glog.Warningf("Failed to remove witness directory: %v", err)
-			}
+			_ = os.Remove(o)
 		}
 	}
-
-	// If we failed above, or the checkpoint and checkpoint.witnessed files are
-	// equivalent, try to merge more sigs into checkpoint.witnessed
-	if len(out) == 0 && cpwNote != nil {
-		out, err = mergeCheckpoints(cpwRaw, ans, 0, logSigV, witSigV, *deleteConsumed)
-		if err != nil {
-			glog.Warningf("Failed to merge with checkpoint.witnessed file: %v", err)
-		}
-		// Note that we _don't_ delete everything from the `witness/` directory here since
-		// there could be some cosigs over `checkpoint` but not enough for the merge & promote
-		// step above - we want to keep those around until we get more.
+	// clean up any unwanted old state files
+	for ; i < 10; i++ {
+		o := filepath.Join(root, fmt.Sprintf("checkpoint.%d", i))
+		_ = os.Remove(o)
 	}
-
-	if len(out) == 0 {
-		glog.Infof("Not updating %q", *output)
-		return
-	}
-
-	if err := ioutil.WriteFile(*output, out, 644); err != nil {
-		glog.Exitf("Failed to write output checkpoint to %q: %v", *output, err)
-	}
-}
-
-func mergeCheckpoints(into []byte, additional map[string][]byte, n uint, logSigV note.Verifier, wSigV note.Verifiers, deleteConsumed bool) ([]byte, error) {
-	cp, err := note.Open(into, note.VerifierList(logSigV))
-	if err != nil {
-		return nil, err
-	}
-	good := make([][]byte, 0)
-	toDelete := make([]string, 0)
-	for wName, wRaw := range additional {
-		if strings.HasPrefix(string(wRaw), cp.Text) {
-			good = append(good, wRaw)
-			toDelete = append(toDelete, wName)
-		}
-	}
-	outRaw, err := checkpoints.Combine(append([][]byte{into}, good...), logSigV, wSigV)
-	if err != nil {
-		glog.Exitf("Failed to combine checkpoints: %v", err)
-	}
-	out, err := note.Open(outRaw, wSigV)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open combined checkpoint: %v", err)
-	}
-	if got, want := len(out.Sigs), int(n); got < want {
-		return nil, fmt.Errorf("insufficient signatures, got %d < want %d", got, want)
-	}
-	if deleteConsumed {
-		for _, n := range toDelete {
-			if err := os.Remove(n); err != nil {
-				glog.Warningf("Failed to delete consumed witness checkpoint %q: %v", n, err)
-			}
-		}
-	}
-	return outRaw, nil
-
-}
-
-func openNote(f string, v note.Verifiers) (*note.Note, []byte, error) {
-	r, err := ioutil.ReadFile(f)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read note %q: %v", f, err)
-	}
-	n, err := note.Open(r, v)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open note %q: %v", f, err)
-	}
-	return n, r, nil
-}
-
-func witnessVerifiers(globs string) (note.Verifiers, error) {
-	vs := make([]note.Verifier, 0)
-	err := readGlobs(globs, func(f string, b []byte) error {
-		v, err := note.NewVerifier(string(b))
-		if err != nil {
-			return fmt.Errorf("invalid witness key file %q: %v", f, err)
-		}
-		vs = append(vs, v)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return note.VerifierList(vs...), nil
-}
-
-func additionalNotes(globs string) (map[string][]byte, error) {
-	ret := make(map[string][]byte, 0)
-	err := readGlobs(globs, func(f string, b []byte) error {
-		ret[f] = b
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
-func readGlobs(globs string, f func(n string, b []byte) error) error {
-	for _, glob := range strings.Split(globs, " ") {
-		files, err := filepath.Glob(glob)
-		if err != nil {
-			return fmt.Errorf("glob %q failed: %v", glob, err)
-		}
-		for _, fn := range files {
-			raw, err := ioutil.ReadFile(fn)
-			if err != nil {
-				return fmt.Errorf("failed to read witness key file %q: %v", fn, err)
-			}
-			if err := f(fn, raw); err != nil {
-				return fmt.Errorf("f() = %v", err)
-			}
-		}
+	// clean up any unwanted old incoming files
+	o := filepath.Join(root, "incoming")
+	if err := os.RemoveAll(o); err != nil {
+		return fmt.Errorf("failed to remove contents of %q: %v", o, err)
 	}
 	return nil
+}
+
+func loadConfig(f string) (map[string]distributor.UpdateOpts, error) {
+	cfg := &struct {
+		Logs []struct {
+			ID        string
+			PublicKey string
+		}
+		Witnesses            []string
+		MaxWitnessSignatures uint
+	}{}
+	raw, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file %q: %v", f, err)
+	}
+	if err := json.Unmarshal(raw, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config: %v", err)
+	}
+
+	// Witnesses are currently valid for all logs in the config.
+	witnesses := []note.Verifier{}
+	for wi, w := range cfg.Witnesses {
+		sv, err := note.NewVerifier(w)
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate public key for witness at index %d: %v", wi, err)
+		}
+		witnesses = append(witnesses, sv)
+	}
+
+	ret := make(map[string]distributor.UpdateOpts)
+	for li, l := range cfg.Logs {
+		sv, err := note.NewVerifier(l.PublicKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate public key for log at index %d: %v", li, err)
+		}
+		ret[l.ID] = distributor.UpdateOpts{
+			MaxWitnessSignatures: cfg.MaxWitnessSignatures,
+			LogSigV:              sv,
+			Witnesses:            witnesses,
+		}
+	}
+	return ret, nil
 }

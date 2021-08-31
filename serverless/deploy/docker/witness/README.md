@@ -18,9 +18,9 @@ any extra priviledges beyond this basic level of authorization.
 You should set the following environmemt variables (either `export` or with a `.env` file):
  Variable Name        | Required | Description
 |---------------------|:--------:|-------------------------------------------------|
-`SERVERLESS_LOG_REPO` | yes      | The GitHub "<owner/repo>" fragment of the serverless log
-`SERVERLESS_LOG_FORK` | yes      | The GitHub "<owner/repo>" fragment of the witness' fork of the serverless log
-`SERVERLESS_LOG_DIR`  | yes      | The path to the root of the serverless log in its repo
+`SERVERLESS_DISTRIBUTOR_REPO` | yes      | The GitHub "<owner/repo>" fragment of the serverless distributor
+`SERVERLESS_DISTRIBUTOR_FORK` | yes      | The GitHub "<owner/repo>" fragment of the witness' fork of the serverless distributor
+`SERVERLESS_DISTRIBUTOR_DIR`  | yes      | The path to the root of the serverless distributor in its repo
 `FEEDER_CONFIG_DIR`   | yes      | The path to the directory containing the `serverless/cmd/feeder` command's config file
 `FEEDER_CONFIG_FILE`  | yes      | The name of the `serverless/cmd/feeder` command's config file in `${FEEDER_CONFIG_DIR}`
 `FEEDER_GITHUB_TOKEN` | yes      | A GitHub [Personal Access Token](https://docs.github.com/en/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token) for the feeder to use to create a PR on the log repo with the witnessed checkpoint
@@ -62,9 +62,9 @@ witness_1  | I0714 18:20:19.301276       1 witness.go:108] Starting witness serv
 > 
 > and populate your `${HOME}/data/.env` file like so:
 > ```yaml
-> SERVERLESS_LOG_REPO=AlCutter/serverless-test
-> SERVERLESS_LOG_FORK=<YourGitHubUserName>/serverless-test
-> SERVERLESS_LOG_DIR=log
+> SERVERLESS_DISTRIBUTOR_REPO=AlCutter/serverless-test
+> SERVERLESS_DISTRIBUTOR_FORK=<YourGitHubUserName>/serverless-test
+> SERVERLESS_DISTRIBUTOR_DIR=distributor
 > FEEDER_CONFIG_DIR=/home/<your username>/data/feeder
 > FEEDER_CONFIG_FILE=feeder.config
 > FEEDER_GITHUB_TOKEN=<YourGitHubPersonalAccessToken>

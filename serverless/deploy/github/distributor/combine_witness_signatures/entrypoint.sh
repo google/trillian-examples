@@ -9,7 +9,8 @@ function main {
     /bin/combine_witness_signatures \
         --logtostderr \
         --distributor_dir=${INPUT_DISTRIBUTOR_DIR} \
-        --config=${INPUT_CONFIG}
+        --config=${INPUT_CONFIG} \
+        --dry_run=${INPUT_DRY_RUN}
 }
 
 main

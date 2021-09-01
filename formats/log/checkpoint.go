@@ -26,8 +26,8 @@ import (
 
 // Checkpoint represents a minimal log checkpoint (STH).
 type Checkpoint struct {
-	// Ecosystem is the ecosystem/version string
-	Ecosystem string
+	// Origin is the string identifing the log which issued this checkpoint.
+	Origin string
 	// Size is the number of entries in the log at this checkpoint.
 	Size uint64
 	// Hash is the hash which commits to the contents of the entire log.
@@ -36,7 +36,7 @@ type Checkpoint struct {
 
 // Marshal returns the common format representation of this Checkpoint.
 func (c Checkpoint) Marshal() []byte {
-	return []byte(fmt.Sprintf("%s\n%d\n%s\n", c.Ecosystem, c.Size, base64.StdEncoding.EncodeToString(c.Hash)))
+	return []byte(fmt.Sprintf("%s\n%d\n%s\n", c.Origin, c.Size, base64.StdEncoding.EncodeToString(c.Hash)))
 }
 
 // Unmarshal parses the common formatted checkpoint data and stores the result
@@ -53,9 +53,9 @@ func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 	if len(l) < 4 {
 		return nil, errors.New("invalid checkpoint - too few newlines")
 	}
-	eco := string(l[0])
-	if len(eco) == 0 {
-		return nil, errors.New("invalid checkpoint - empty ecosystem")
+	origin := string(l[0])
+	if len(origin) == 0 {
+		return nil, errors.New("invalid checkpoint - empty origin")
 	}
 	size, err := strconv.ParseUint(string(l[1]), 10, 64)
 	if err != nil {
@@ -70,9 +70,9 @@ func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 		rest = l[3]
 	}
 	*c = Checkpoint{
-		Ecosystem: eco,
-		Size:      size,
-		Hash:      h,
+		Origin: origin,
+		Size:   size,
+		Hash:   h,
 	}
 	return rest, nil
 }

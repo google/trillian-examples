@@ -102,9 +102,9 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 
 	lcp := api.LogCheckpoint{
 		Checkpoint: log.Checkpoint{
-			Ecosystem: api.FTLogCheckpointEcosystemv0,
-			Size:      logRootV1.TreeSize,
-			Hash:      logRootV1.RootHash,
+			Origin: api.FTLogOrigin,
+			Size:   logRootV1.TreeSize,
+			Hash:   logRootV1.RootHash,
 		},
 		TimestampNanos: logRootV1.TimestampNanos,
 	}

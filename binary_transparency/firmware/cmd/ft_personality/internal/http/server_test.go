@@ -48,11 +48,11 @@ func TestRoot(t *testing.T) {
 		{
 			desc:     "valid 1",
 			root:     types.LogRootV1{TreeSize: 1, TimestampNanos: 123, RootHash: []byte{0x12, 0x34}},
-			wantBody: "Firmware Transparency Log v0\n1\nEjQ=\n123\n",
+			wantBody: "Firmware Transparency Log\n1\nEjQ=\n123\n",
 		}, {
 			desc:     "valid 2",
 			root:     types.LogRootV1{TreeSize: 10, TimestampNanos: 1230, RootHash: []byte{0x34, 0x12}},
-			wantBody: "Firmware Transparency Log v0\n10\nNBI=\n1230\n",
+			wantBody: "Firmware Transparency Log\n10\nNBI=\n1230\n",
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {

@@ -88,9 +88,9 @@ func (p *TrillianP) getCheckpoint(ctx context.Context) (*log.Checkpoint, error) 
 		return nil, err
 	}
 	return &log.Checkpoint{
-		Ecosystem: "Hello World v0",
-		Hash:      logRoot.RootHash,
-		Size:      logRoot.TreeSize,
+		Origin: "Hello World Log",
+		Hash:   logRoot.RootHash,
+		Size:   logRoot.TreeSize,
 	}, nil
 }
 

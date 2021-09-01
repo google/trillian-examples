@@ -39,8 +39,9 @@ const (
 	// HTTPGetRoot is the path of the URL to get a recent log root.
 	HTTPGetRoot = "ft/v0/get-root"
 
-	// FTLogCheckpointEcosystemv0 is the v0 identifier for FT log checkpoints.
-	FTLogCheckpointEcosystemv0 = "Firmware Transparency Log v0"
+	// FTLogOrigin is the identifier of the demo log.
+	// TODO(al): extract this so it's a config option on the log.
+	FTLogOrigin = "Firmware Transparency Log"
 )
 
 // LogCheckpoint commits to the state of the log.

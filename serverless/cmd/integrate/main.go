@@ -24,7 +24,6 @@ import (
 	"os"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian/merkle/rfc6962"
@@ -38,12 +37,16 @@ var (
 	initialise  = flag.Bool("initialise", false, "Set when creating a new log to initialise the structure.")
 	pubKeyFile  = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
 	privKeyFile = flag.String("private_key", "", "Location of private key file. If unset, uses the contents of the SERVERLESS_LOG_PRIVATE_KEY environment variable.")
-	ecosystem   = flag.String("ecosystem", api.CheckpointHeaderV0, "Ecosystem string to use in produced checkpoint.")
+	origin      = flag.String("origin", "", "Log origin string to use in produced checkpoint.")
 )
 
 func main() {
 	flag.Parse()
 	ctx := context.Background()
+
+	if len(*origin) == 0 {
+		glog.Exitf("Please set --origin flag to log identifier.")
+	}
 
 	h := rfc6962.DefaultHasher
 	// Read log public key from file or environment variable
@@ -142,7 +145,7 @@ func getKeyFile(path string) (string, error) {
 }
 
 func signAndWrite(cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs.Storage) error {
-	cp.Ecosystem = *ecosystem
+	cp.Origin = *origin
 	cpNote.Text = string(cp.Marshal())
 	cpNoteSigned, err := note.Sign(&cpNote, s)
 	if err != nil {

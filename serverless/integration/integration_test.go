@@ -26,7 +26,6 @@ import (
 	"testing"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
@@ -77,7 +76,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			if err != nil {
 				t.Fatalf("Integrate = %v", err)
 			}
-			update.Ecosystem = api.CheckpointHeaderV0
+			update.Origin = "Serverless Integration Test Log"
 			cpNote := note.Note{Text: string(update.Marshal())}
 			cpNoteSigned, err := note.Sign(&cpNote, signer)
 			if err != nil {
@@ -238,7 +237,7 @@ func mustCreateAndInitialiseStorage(t *testing.T, root string, s note.Signer) *f
 		t.Fatalf("Create = %v", err)
 	}
 	cp := fmtlog.Checkpoint{}
-	cp.Ecosystem = api.CheckpointHeaderV0
+	cp.Origin = "Serverless Integration Test Log"
 	cpNote := note.Note{Text: string(cp.Marshal())}
 	cpNoteSigned, err := note.Sign(&cpNote, s)
 	if err != nil {

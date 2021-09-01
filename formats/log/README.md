@@ -59,7 +59,7 @@ The first 3 lines of the body **MUST** be present in all Checkpoints.
 
   The presence of this identifier forms part of the log claim, and prevents witness
   signatures being moved between log checkpoints with identical contents, preventing a
-  particular type of targetted attack.
+  particular type of targeted attack.
 
 * `<Decimal log size>` is the ASCII decimal representation of the number of leaves committed
   to by this checkpoint. It should not have leading zeroes.
@@ -77,7 +77,7 @@ The first 3 lines of the body **MUST** be present in all Checkpoints.
 <https://github.com/golang/mod/blob/d6ab96f2441f9631f81862375ef66782fc4a9c12/sumdb/tlog/note.go#L52>).
 
 The first signature on a checkpoint should be from the log which issued it, but there MUST NOT
-be more than one signature from a log identity present on the checkpoint ()
+be more than one signature from a log identity present on the checkpoint.
 
 **Differences from sumdb root:**
 The sumbdb note has `go.sum database tree` as its `Origin`.

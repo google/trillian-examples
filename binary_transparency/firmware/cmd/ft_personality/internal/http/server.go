@@ -316,9 +316,9 @@ func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 	sth := s.c.Root()
 	checkpoint := api.LogCheckpoint{
 		Checkpoint: log.Checkpoint{
-			Ecosystem: api.FTLogCheckpointEcosystemv0,
-			Size:      sth.TreeSize,
-			Hash:      sth.RootHash,
+			Origin: api.FTLogOrigin,
+			Size:   sth.TreeSize,
+			Hash:   sth.RootHash,
 		},
 		TimestampNanos: sth.TimestampNanos,
 	}

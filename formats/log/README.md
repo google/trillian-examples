@@ -45,25 +45,38 @@ signatures, the format itself is not restricted to this scheme.
 The checkpoint body is of the form:
 
 ```text
-<Ecosystem & version string>
+<Origin string>
 <Decimal log size>
 <Base64 log root hash>
 [otherdata]
 ```
 
 The first 3 lines of the body **MUST** be present in all Checkpoints.
-`otherdata` is opaque and optional, and, if necessary, can be used to tie extra
-data to the checkpoint, however its format must conform to the sumdb signed
-note spec (e.g. it must not contain blank lines.)
+
+* `<Origin string>` should be a unique identifier for the log identity which issued the checkpoint.
+  The exact format of this is left undefined, but examples of types of value to put here
+  are the log's URL, a base64 encoded hash of its public key, etc.
+
+  The presence of this identifier forms part of the log claim, and guards against two
+  logs producing bytewise identical checkpoints.
+
+* `<Decimal log size>` is the ASCII decimal representation of the number of leaves committed
+  to by this checkpoint. It should not have leading zeroes.
+
+* `<Base64 log root hash>` is an
+  [RFC4684 standard encoding](https://datatracker.ietf.org/doc/html/rfc4648#section-4) base-64
+  representation of the log root hash at the specified log size.
+
+* `[otherdata]` is opaque and optional, and, if necessary, can be used to tie extra
+  data to the checkpoint, however its format must conform to the sumdb signed
+  note spec (e.g. it must not contain blank lines.)
 
 > Note that golang sumdb implementation is already compatible with this
 `[otherdata]` extension (see
 <https://github.com/golang/mod/blob/d6ab96f2441f9631f81862375ef66782fc4a9c12/sumdb/tlog/note.go#L52>).
 
-The first signature on a checkpoint must be from the log which issued it.
-
-**Differences from sumdb root:**
-The sumbdb note has `go.sum database tree` as its ecosystem string.
+The first signature on a checkpoint should be from the log which issued it, but there MUST NOT
+be more than one signature from a log identity present on the checkpoint.
 
 ## Example
 
@@ -72,12 +85,15 @@ An annotated example signed checkpoint in this format is shown below:
 ![format](images/format.png)
 
 
-The log size is 4027504, in the `other data` section a timestamp is encoded as a 64bit hex value, and further application-specific data relating to the phase of the moon at the point the checkpoint was issued is supplied following that.
+This checkpoint was issued by the log known as "Moon Log", the log's size is
+4027504, in the `other data` section a timestamp is encoded as a 64bit hex
+value, and further application-specific data relating to the phase of the moon
+at the point the checkpoint was issued is supplied following that.
 
 ## Log proof format
 
 The individual proof hashes are base64 encoded and written one per line (terminating with `\n`).
-The interpretation and ordering of these hashes MUST be defined by the ecosystem identified by the ecosystem string in the checkpoints the proof is presented with.
+The interpretation and ordering of these hashes MUST be defined by the ecosystem the origin log is a member of.
 
 E.g.:
 

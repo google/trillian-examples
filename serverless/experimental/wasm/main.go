@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build wasm
 // +build wasm
 
 // Package main provides a series of entrypoints for using a serverless log from
@@ -50,7 +51,7 @@ import (
 
 const (
 	logPrefix = "log"
-	ecosystem = "WASM Log v0"
+	origin    = "WASM Log"
 )
 
 var (
@@ -144,7 +145,7 @@ func integrate() js.Func {
 			return nil
 		}
 
-		newCp.Ecosystem = ecosystem
+		newCp.Origin = origin
 		nRaw, err := note.Sign(&note.Note{Text: string(newCp.Marshal())}, logSig)
 		if err != nil {
 			logMsg(err.Error())

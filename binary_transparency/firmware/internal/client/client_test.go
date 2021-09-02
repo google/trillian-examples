@@ -167,23 +167,23 @@ func TestGetCheckpoint(t *testing.T) {
 	}{
 		{
 			desc: "valid 1",
-			body: mustSignCPNote(t, "Firmware Transparency Log v0\n1\nEjQ=\n123\n"),
+			body: mustSignCPNote(t, "Firmware Transparency Log\n1\nEjQ=\n123\n"),
 			want: api.LogCheckpoint{
 				Checkpoint: log.Checkpoint{
-					Ecosystem: "Firmware Transparency Log v0",
-					Size:      1,
-					Hash:      []byte{0x12, 0x34},
+					Origin: "Firmware Transparency Log",
+					Size:   1,
+					Hash:   []byte{0x12, 0x34},
 				},
 				TimestampNanos: 123,
 			},
 		}, {
 			desc: "valid 2",
-			body: mustSignCPNote(t, "Firmware Transparency Log v0\n10\nNBI=\n1230\n"),
+			body: mustSignCPNote(t, "Firmware Transparency Log\n10\nNBI=\n1230\n"),
 			want: api.LogCheckpoint{
 				Checkpoint: log.Checkpoint{
-					Ecosystem: "Firmware Transparency Log v0",
-					Size:      10,
-					Hash:      []byte{0x34, 0x12},
+					Origin: "Firmware Transparency Log",
+					Size:   10,
+					Hash:   []byte{0x34, 0x12},
 				},
 				TimestampNanos: 1230,
 			},

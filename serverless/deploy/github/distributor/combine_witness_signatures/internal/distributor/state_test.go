@@ -288,9 +288,9 @@ func TestUpdate(t *testing.T) {
 func newCP(t *testing.T, size int, sigs ...note.Signer) []byte {
 	t.Helper()
 	cp := log.Checkpoint{
-		Ecosystem: "testing",
-		Size:      uint64(size),
-		Hash:      []byte("banana"),
+		Origin: "testing log",
+		Size:   uint64(size),
+		Hash:   []byte("banana"),
 	}
 	ret, err := note.Sign(&note.Note{Text: string(cp.Marshal())}, sigs...)
 	if err != nil {

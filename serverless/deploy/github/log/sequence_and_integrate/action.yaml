@@ -7,15 +7,15 @@ inputs:
     description: 'Location of the log files in the repo'
     required: true
     default: '.'
-  ecosystem:
-    description: 'Ecosystem string'
-    required: false
+  origin:
+    description: 'Origin string'
+    required: true
 runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
     - ${{ inputs.log_dir }}
-    - ${{ inputs.ecosystem }}
+    - ${{ inputs.origin }}
 
 branding:
   icon: 'loader'

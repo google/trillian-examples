@@ -16,8 +16,9 @@ any extra priviledges beyond this basic level of authorization.
 ## Configuration and running
 
 You should set the following environmemt variables (either `export` or with a `.env` file):
- Variable Name        | Required | Description
-|---------------------|:--------:|-------------------------------------------------|
+
+Variable Name        | Required | Description
+---------------------|:--------:|-------------------------------------------------
 `SERVERLESS_DISTRIBUTOR_REPO` | yes      | The GitHub "<owner/repo>" fragment of the serverless distributor
 `SERVERLESS_DISTRIBUTOR_FORK` | yes      | The GitHub "<owner/repo>" fragment of the witness' fork of the serverless distributor
 `SERVERLESS_DISTRIBUTOR_DIR`  | yes      | The path to the root of the serverless distributor in its repo

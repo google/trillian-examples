@@ -98,6 +98,9 @@ Here is a GitHub actions workflow config which will automate the sequencing
 and integration of "leaves" which have been added to the `leaves/pending`
 directory of a serverless log.
 
+Be sure to replace the `origin:` value with a unique string which identifies
+your log.
+
 > :shipit: Note that it expects a pair of GitHub secrets called
 `SERVERLESS_LOG_PRIVATE_KEY` and `SERVERLESS_LOG_PUBLIC_KEY` to exist, see 
 the [GitHub secrets docs](https://docs.github.com/en/actions/reference/encrypted-secrets#creating-encrypted-secrets-for-a-repository)
@@ -119,7 +122,7 @@ jobs:
       uses: google/trillian-examples/serverless/deploy/github/log/sequence_and_integrate@master
       with:
         log_dir: './log'
-        ecosystem: 'Log Checkpoint v0'
+        origin: '<Log identifier>'
       env:
         SERVERLESS_LOG_PRIVATE_KEY: ${{ secrets.SERVERLESS_LOG_PRIVATE_KEY }}
         SERVERLESS_LOG_PUBLIC_KEY: ${{ secrets.SERVERLESS_LOG_PUBLIC_KEY }}
@@ -139,9 +142,6 @@ the following steps:
 - integrates all sequenced but unintegrated leaves
 - commits all changes from the sequencing/integration,
 - pushes this commit to master, thereby updating the public state of the log repo.
-
-Specifying `ecosystem` input parameter is optional. If not specified the default
-`Log Checkpoint v0` string will be used.
 
 ## Try it out yourself
 

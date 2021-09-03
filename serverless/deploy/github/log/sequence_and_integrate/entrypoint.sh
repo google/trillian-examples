@@ -11,17 +11,17 @@ function main {
         echo "Missing log dir input."
         exit 1
     fi
+    if [ "${INPUT_ORIGIN}" == "" ]; then
+        echo "Missing origin input."
+        exit 1
+    fi
     echo "::debug:Log directory is ${GITHUB_WORKSPACE}/${INPUT_LOG_DIR}"
 
     cd ${GITHUB_WORKSPACE}
 
     if [ ! -f "${INPUT_LOG_DIR}/checkpoint" ]; then
         echo "::debug:No checkpoint file - initialising log"
-        if [ -z "${INPUT_ECOSYSTEM}" ]; then 
-            /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --initialise --logtostderr
-        else
-            /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --ecosystem="${INPUT_ECOSYSTEM}" --initialise --logtostderr
-        fi
+        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --origin="${INPUT_ORIGIN}" --initialise --logtostderr
 
         exit
     fi
@@ -37,11 +37,7 @@ function main {
     rm ${PENDING}/*
 
     echo "::debug:Integrating..."
-    if [ -z "${INPUT_ECOSYSTEM}" ]; then 
-        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --logtostderr
-    else
-        /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --ecosystem="${INPUT_ECOSYSTEM}" --logtostderr
-    fi
+    /bin/integrate --storage_dir="${INPUT_LOG_DIR}" --origin="${INPUT_ORIGIN}" --logtostderr
 }
 
 main

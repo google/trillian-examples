@@ -184,7 +184,7 @@ func TestParseCheckpoint(t *testing.T) {
 			}
 
 			// Now parse what we have created.
-			_, n, err := log.ParseCheckpoint(test.logID, logVerifier, []note.Verifier{known1Verifier, known2Verifier}, nBs)
+			_, n, err := log.ParseCheckpoint(nBs, test.logID, logVerifier, known1Verifier, known2Verifier)
 			if gotErr := err != nil; gotErr != test.wantErr {
 				t.Errorf("gotErr %t != wantErr %t (%v)", gotErr, test.wantErr, err)
 			}
@@ -228,7 +228,7 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			cp, _, err := log.ParseCheckpoint(test.logID, logVerifier, []note.Verifier{}, []byte(noteString))
+			cp, _, err := log.ParseCheckpoint([]byte(noteString), test.logID, logVerifier)
 			if err != nil {
 				if !test.wantErr {
 					t.Fatalf("Failed to parse checkpoint note: %v", err)
@@ -322,7 +322,7 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 				note = fmt.Sprintf("%s%s\n", note, s)
 			}
 			for n := 0; n < b.N; n++ {
-				if _, _, err := log.ParseCheckpoint("go.sum database tree", logVerifier, vs, []byte(note)); err != nil {
+				if _, _, err := log.ParseCheckpoint([]byte(note), "go.sum database tree", logVerifier, vs...); err != nil {
 					b.Fatalf("Failed to parse: %v", err)
 				}
 			}

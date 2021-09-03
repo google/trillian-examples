@@ -230,8 +230,15 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			cp, _, err := log.ParseCheckpoint(test.logID, logVerifier, []note.Verifier{}, []byte(noteString))
-			if err != nil && !test.wantErr {
-				t.Fatalf("Failed to parse checkpoint note: %v", err)
+			if err != nil {
+				if !test.wantErr {
+					t.Fatalf("Failed to parse checkpoint note: %v", err)
+				}
+				if cp.Size > 0 {
+					t.Errorf("Expected empty checkpoint because of error but got %+v", cp)
+				}
+				// Always return after error because remaining checks are for cp, which is empty.
+				return
 			}
 			if err == nil && test.wantErr {
 				t.Fatal("Expected error but didn't get it")

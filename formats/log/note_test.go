@@ -184,7 +184,7 @@ func TestParseCheckpoint(t *testing.T) {
 			}
 
 			// Now parse what we have created.
-			cp, n, err := log.ParseCheckpoint(test.logID, logVerifier, []note.Verifier{known1Verifier, known2Verifier}, nBs)
+			_, n, err := log.ParseCheckpoint(test.logID, logVerifier, []note.Verifier{known1Verifier, known2Verifier}, nBs)
 			if gotErr := err != nil; gotErr != test.wantErr {
 				t.Errorf("gotErr %t != wantErr %t (%v)", gotErr, test.wantErr, err)
 			}
@@ -195,7 +195,6 @@ func TestParseCheckpoint(t *testing.T) {
 			if gotSigs != test.wantSigs {
 				t.Errorf("got %d signatures but wanted %d", gotSigs, test.wantSigs)
 			}
-			_ = cp
 		})
 	}
 }
@@ -234,13 +233,13 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 				if !test.wantErr {
 					t.Fatalf("Failed to parse checkpoint note: %v", err)
 				}
-				if cp.Size > 0 {
+				if cp != nil {
 					t.Errorf("Expected empty checkpoint because of error but got %+v", cp)
 				}
-				// Always return after error because remaining checks are for cp, which is empty.
+				// Always return after error because remaining checks are for cp, which is nil.
 				return
 			}
-			if err == nil && test.wantErr {
+			if test.wantErr {
 				t.Fatal("Expected error but didn't get it")
 			}
 			if got, want := cp.Size, uint64(6476701); got != want {

@@ -15,29 +15,27 @@
 package log
 
 import (
-	"errors"
 	"fmt"
 
 	"golang.org/x/mod/sumdb/note"
 )
 
 // ParseCheckpoint takes a raw checkpoint as bytes and returns a parsed checkpoint
-// providing that a valid log signature is found, the checkpoint unmarshals
-// correctly, and the log origin is that expected. In all other cases, an empty
+// providing that:
+// * a valid log signature is found; and
+// * the checkpoint unmarshals correctly; and
+// * the log origin is that expected.
+// In all other cases, an empty
 // checkpoint is returned. The underlying note is always returned where possible.
 // The signatures on the note will include the log signature if no error is returned,
 // plus any signatures from otherVerifiers that were found.
-func ParseCheckpoint(origin string, logVerifier note.Verifier, otherVerifiers []note.Verifier, chkpt []byte) (Checkpoint, *note.Note, error) {
-	vs := make([]note.Verifier, len(otherVerifiers)+1)
-	vs[0] = logVerifier
-	if n := copy(vs[1:], otherVerifiers); n < len(otherVerifiers) {
-		return Checkpoint{}, nil, errors.New("failed to create verifier list")
-	}
+func ParseCheckpoint(origin string, logVerifier note.Verifier, otherVerifiers []note.Verifier, chkpt []byte) (*Checkpoint, *note.Note, error) {
+	vs := append(append(make([]note.Verifier, 0, len(otherVerifiers)+1), logVerifier), otherVerifiers...)
 	verifiers := note.VerifierList(vs...)
 
 	n, err := note.Open(chkpt, verifiers)
 	if err != nil {
-		return Checkpoint{}, n, fmt.Errorf("failed to verify signatures on checkpoint: %v", err)
+		return nil, n, fmt.Errorf("failed to verify signatures on checkpoint: %v", err)
 	}
 
 	for _, s := range n.Sigs {
@@ -45,13 +43,13 @@ func ParseCheckpoint(origin string, logVerifier note.Verifier, otherVerifiers []
 			// The log has signed this checkpoint. It is now safe to parse.
 			cp := &Checkpoint{}
 			if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {
-				return Checkpoint{}, n, fmt.Errorf("failed to unmarshal checkpoint: %v", err)
+				return nil, n, fmt.Errorf("failed to unmarshal checkpoint: %v", err)
 			}
 			if cp.Origin != origin {
-				return Checkpoint{}, n, fmt.Errorf("got Origin %q but expected %q", cp.Origin, origin)
+				return nil, n, fmt.Errorf("got Origin %q but expected %q", cp.Origin, origin)
 			}
-			return *cp, n, nil
+			return cp, n, nil
 		}
 	}
-	return Checkpoint{}, n, fmt.Errorf("no log signature found on note")
+	return nil, n, fmt.Errorf("no log signature found on note")
 }

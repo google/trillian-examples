@@ -61,14 +61,9 @@ func mustGetVerifier(t *testing.T) note.Verifier {
 
 func mustOpenCheckpoint(t *testing.T, cRaw []byte) *log.Checkpoint {
 	t.Helper()
-	r, err := note.Open(cRaw, note.VerifierList(mustGetVerifier(t)))
+	cp, _, err := log.ParseCheckpoint("Hello World Log", mustGetVerifier(t), []note.Verifier{}, cRaw)
 	if err != nil {
 		t.Fatalf("Failed to open checkpoint: %q", err)
-	}
-	cp := &log.Checkpoint{}
-	_, err = cp.Unmarshal([]byte(r.Text))
-	if err != nil {
-		t.Fatalf("Failed to unmarshal checkpoint: %q", err)
 	}
 	return cp
 }

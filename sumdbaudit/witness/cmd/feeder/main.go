@@ -36,6 +36,7 @@ import (
 
 var (
 	vkey         = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
+	origin       = flag.String("origin", "go.sum database tree", "The expected first origin log (first line of the checkpoint)")
 	witness      = flag.String("w", "", "The endpoint of the witness HTTP REST API")
 	witnessKey   = flag.String("wk", "", "The public key of the witness")
 	logID        = flag.String("lid", "", "The ID of the log within the witness")
@@ -71,14 +72,9 @@ func main() {
 			glog.Exitf("Failed to get witness checkpoint: %v", err)
 		}
 	} else {
-		n, err := note.Open(wcpRaw, note.VerifierList(w.Verifier))
+		wcp, _, err = log.ParseCheckpoint(*origin, w.Verifier, []note.Verifier{}, wcpRaw)
 		if err != nil {
 			glog.Exitf("Failed to open CP: %v", err)
-		}
-
-		_, err = wcp.Unmarshal([]byte(n.Text))
-		if err != nil {
-			glog.Exitf("Failed to unmarshal CP: %v", err)
 		}
 	}
 
@@ -158,14 +154,9 @@ func (f *feeder) feedOnce(ctx context.Context) error {
 	// An optimization would be to immediately retry the Update if we get
 	// http.ErrCheckpointTooOld. For now, we'll update the local state and
 	// retry only the next time this method is called.
-
-	n, err := note.Open(wcpRaw, note.VerifierList(f.w.Verifier))
+	f.wcp, _, err = log.ParseCheckpoint(*origin, f.w.Verifier, []note.Verifier{}, wcpRaw)
 	if err != nil {
-		return fmt.Errorf("failed to open CP: %v", err)
-	}
-	_, err = f.wcp.Unmarshal([]byte(n.Text))
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal CP: %v", err)
+		return fmt.Errorf("failed to parse checkpoint: %v", err)
 	}
 	return nil
 }

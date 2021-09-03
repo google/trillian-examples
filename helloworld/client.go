@@ -79,15 +79,10 @@ func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 // UpdateChkpt allows a client to update its stored checkpoint.  In a real use
 // case it would be important for the client to check the signature contained
 // in the checkpoint before verifying consistency.
-func (c Client) UpdateChkpt(chkptNewRaw personality.SignedCheckpoint, pf *trillian.Proof) error {
-	n, err := note.Open(chkptNewRaw, note.VerifierList(c.sigVerifier))
+func (c *Client) UpdateChkpt(chkptNewRaw personality.SignedCheckpoint, pf *trillian.Proof) error {
+	chkptNew, _, err := log.ParseCheckpoint("Hello World Log", c.sigVerifier, []note.Verifier{}, chkptNewRaw)
 	if err != nil {
 		return fmt.Errorf("failed to verify checkpoint: %w", err)
-	}
-	chkptNew := &log.Checkpoint{}
-	_, err = chkptNew.Unmarshal([]byte(n.Text))
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal new checkpoint: %w", err)
 	}
 	// If there is no checkpoint then just use this one no matter what.
 	if c.chkpt.Size != 0 {

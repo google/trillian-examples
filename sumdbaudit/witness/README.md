@@ -21,8 +21,8 @@ You should also generate a keypair for the witness using `note.GenerateKey`, e.g
 Change the environment variables below to the values you have generated, and set the config directory/file variables similarly if needed.
 
 ```bash
-export WITNESS_PRIVATE_KEY="PRIVATE+KEY+WitnessName+privatekey"; \
 export WITNESS_PUBLIC_KEY="WitnessName+publickey"; \
+export WITNESS_PRIVATE_KEY="PRIVATE+KEY+WitnessName+privatekey"; \
 docker compose -f ./sumdbaudit/witness/docker-compose.yaml up -d
 ```
 

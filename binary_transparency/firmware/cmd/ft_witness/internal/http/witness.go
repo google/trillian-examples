@@ -59,13 +59,11 @@ func NewWitness(ws WitnessStore, logURL string, logSigVerifier note.Verifier, po
 		Envelope: gcpRaw,
 	}
 	if len(gcpRaw) > 0 {
-		n, err := note.Open(gcpRaw, note.VerifierList(logSigVerifier))
+		cp, _, err := api.ParseCheckpoint(gcpRaw, logSigVerifier)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open stored checkpoint: %w", err)
 		}
-		if err := gcp.Unmarshal([]byte(n.Text)); err != nil {
-			return nil, fmt.Errorf("failed to parse stored checkpoint: %w", err)
-		}
+		gcp = *cp
 	}
 
 	return &Witness{

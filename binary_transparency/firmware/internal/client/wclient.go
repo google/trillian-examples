@@ -51,15 +51,8 @@ func (c WitnessClient) GetWitnessCheckpoint() (*api.LogCheckpoint, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
-	n, err := note.Open(b, note.VerifierList(c.LogSigVerifier))
-	if err != nil {
-		return nil, fmt.Errorf("failed to open returned checkpoint: %w", err)
-	}
-	wcp := api.LogCheckpoint{Envelope: b}
-	if err := wcp.Unmarshal([]byte(n.Text)); err != nil {
-		return nil, err
-	}
-	return &wcp, nil
+	cp, _, err := api.ParseCheckpoint(b, c.LogSigVerifier)
+	return cp, err
 }
 
 func errFromRsp(m string, r *http.Response) error {

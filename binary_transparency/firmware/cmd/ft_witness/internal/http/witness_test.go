@@ -39,7 +39,7 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 	}{
 		{
 			desc:     "Successful Witness Checkpoint retrieval",
-			wantBody: "Firmware Transparency Log v0\n1\nEjQ=\n123\n",
+			wantBody: "Firmware Transparency Log\n1\nEjQ=\n123\n",
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {

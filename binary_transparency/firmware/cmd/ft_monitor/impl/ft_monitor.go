@@ -85,14 +85,11 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		// This could fail here unless a force flag is provided, for better security.
 		glog.Warningf("State file %q did not exist; first log checkpoint will be trusted implicitly", opts.StateFile)
 	} else {
-		n, err := note.Open(state, note.VerifierList(opts.LogSigVerifier))
+		cp, _, err := api.ParseCheckpoint(state, opts.LogSigVerifier)
 		if err != nil {
 			return fmt.Errorf("failed to open state: %w", err)
 		}
-		latestCP.Envelope = state
-		if err := (&latestCP).Unmarshal([]byte(n.Text)); err != nil {
-			return fmt.Errorf("failed to unmarshal state: %w", err)
-		}
+		latestCP = *cp
 	}
 	head := latestCP.Size
 	follow := client.NewLogFollower(c)

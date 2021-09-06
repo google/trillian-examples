@@ -42,6 +42,7 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/golang/glog"
 	"github.com/google/go-github/v37/github"
+	"gopkg.in/yaml.v2"
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
@@ -469,19 +470,22 @@ func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, c
 
 // feederConfig is the format of the feeder config file.
 type feederConfig struct {
-	// The LogID used by the witnesses to identify this log.
-	LogID string `json:"log_id"`
-	// PublicKey associated with LogID.
-	LogPublicKey string `json:"log_public_key"`
-	// LogURL is the URL of the root of the log.
-	LogURL string `json:"log_url"`
-	// LogOrigin is the expected first line of checkpoints from the source log.
-	LogOrigin string `json:"log_origin"`
+	Log struct {
+		// The LogID used by the witnesses to identify this log.
+		ID string `yaml:"ID"`
+		// PublicKey associated with LogID.
+		PublicKey string `yaml:"PublicKey"`
+		// LogURL is the URL of the root of the log.
+		URL string `yaml:"URL"`
+		// Origin is the expected first line of checkpoints from the source log.
+		Origin string `yaml:"Origin"`
+	} `yaml:"Log"`
+
 	// Witness defines the target witness
 	Witness struct {
-		URL       string `json:"url"`
-		PublicKey string `json:"public_key"`
-	} `json:"witness"`
+		URL       string `yaml:"URL"`
+		PublicKey string `yaml:"PublicKey"`
+	} `yaml:"Witness"`
 }
 
 // readFeederConfig parses the named file into a FeedOpts structure.
@@ -491,25 +495,25 @@ func readFeederConfig(f string) (*impl.FeedOpts, error) {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
 	cfg := &feederConfig{}
-	if err := json.Unmarshal(c, &cfg); err != nil {
+	if err := yaml.Unmarshal(c, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
 
-	lURL, err := url.Parse(cfg.LogURL)
+	lURL, err := url.Parse(cfg.Log.URL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid LogURL %q: %v", cfg.LogURL, err)
+		return nil, fmt.Errorf("invalid LogURL %q: %v", cfg.Log.URL, err)
 	}
 
-	logSigV, err := note.NewVerifier(cfg.LogPublicKey)
+	logSigV, err := note.NewVerifier(cfg.Log.PublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("invalid log public key: %v", err)
 	}
 
 	fOpts := impl.FeedOpts{
-		LogID:          cfg.LogID,
+		LogID:          cfg.Log.ID,
 		LogFetcher:     newFetcher(lURL),
 		LogSigVerifier: logSigV,
-		LogOrigin:      cfg.LogOrigin,
+		LogOrigin:      cfg.Log.Origin,
 		WitnessTimeout: 5 * time.Second,
 	}
 

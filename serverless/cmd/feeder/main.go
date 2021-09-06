@@ -17,7 +17,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -31,6 +30,7 @@ import (
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"golang.org/x/mod/sumdb/note"
+	"gopkg.in/yaml.v2"
 
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
@@ -42,21 +42,23 @@ var (
 	timeout    = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for witnesses to respond.")
 )
 
-type WitnessConfig struct {
-	URL       string `json:"url"`
-	PublicKey string `json:"public_key"`
-}
-
 // Config encapsulates the feeder config.
 type Config struct {
-	// The LogID used by the witnesses to identify this log.
-	LogID string `json:"log_id"`
-	// PublicKey associated with LogID.
-	LogPublicKey string `json:"log_public_key"`
-	// LogURL is the URL of the root of the log.
-	LogURL string `json:"log_url"`
-	// Witnesses is the configured witness.
-	Witness WitnessConfig `json:"witness"`
+	// Log defines the source log to feed from.
+	Log struct {
+		// The ID used by the witnesses to identify this log.
+		ID string `yaml:"ID"`
+		// PublicKey associated with LogID.
+		PublicKey string `yaml:"PublicKey"`
+		// URL is the URL of the root of the log.
+		URL string `yaml:"URL"`
+	} `yaml:"Log"`
+
+	// Witness is the configured witness.
+	Witness struct {
+		PublicKey string `yaml:"PublicKey"`
+		URL       string `yaml:"URL"`
+	} `yaml:"Witness"`
 }
 
 func main() {
@@ -69,16 +71,16 @@ func main() {
 		glog.Exitf("Failed to read config: %v", err)
 	}
 
-	lURL, err := url.Parse(cfg.LogURL)
+	lURL, err := url.Parse(cfg.Log.URL)
 	if err != nil {
-		glog.Exitf("Invalid LogURL %q: %v", cfg.LogURL, err)
+		glog.Exitf("Invalid LogURL %q: %v", cfg.Log.URL, err)
 	}
 	f := newFetcher(lURL)
 
 	opts := impl.FeedOpts{
-		LogID:          cfg.LogID,
+		LogID:          cfg.Log.ID,
 		LogFetcher:     f,
-		LogSigVerifier: mustCreateVerifier(cfg.LogPublicKey),
+		LogSigVerifier: mustCreateVerifier(cfg.Log.PublicKey),
 	}
 	u, err := url.Parse(cfg.Witness.URL)
 	if err != nil {
@@ -120,7 +122,7 @@ func readConfig(f string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
 	cfg := Config{}
-	if err := json.Unmarshal(c, &cfg); err != nil {
+	if err := yaml.Unmarshal(c, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
 	return &cfg, nil

@@ -29,7 +29,7 @@ import (
 // checkpoint is returned. The underlying note is always returned where possible.
 // The signatures on the note will include the log signature if no error is returned,
 // plus any signatures from otherVerifiers that were found.
-func ParseCheckpoint(origin string, logVerifier note.Verifier, otherVerifiers []note.Verifier, chkpt []byte) (*Checkpoint, *note.Note, error) {
+func ParseCheckpoint(chkpt []byte, origin string, logVerifier note.Verifier, otherVerifiers ...note.Verifier) (*Checkpoint, *note.Note, error) {
 	vs := append(append(make([]note.Verifier, 0, len(otherVerifiers)+1), logVerifier), otherVerifiers...)
 	verifiers := note.VerifierList(vs...)
 

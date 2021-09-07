@@ -50,21 +50,16 @@ type Fetcher func(ctx context.Context, path string) ([]byte, error)
 
 // FetchCheckpoint retrieves and opens a checkpoint from the log.
 // Returns both the parsed structure and the raw serialised checkpoint.
-func FetchCheckpoint(ctx context.Context, f Fetcher, v note.Verifier) (*log.Checkpoint, []byte, error) {
+func FetchCheckpoint(ctx context.Context, f Fetcher, v note.Verifier, origin string) (*log.Checkpoint, []byte, error) {
 	cpRaw, err := f(ctx, layout.CheckpointPath)
 	if err != nil {
 		return nil, nil, err
 	}
-	n, err := note.Open(cpRaw, note.VerifierList(v))
+	cp, _, _, err := log.ParseCheckpoint(cpRaw, origin, v)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open Checkpoint: %v", err)
+		return nil, nil, fmt.Errorf("failed to parse Checkpoint: %v", err)
 	}
-	cp := log.Checkpoint{}
-	if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {
-		glog.V(1).Infof("Bad checkpoint: %q", cpRaw)
-		return nil, nil, fmt.Errorf("failed to unmarshal checkpoint: %v", err)
-	}
-	return &cp, cpRaw, nil
+	return cp, cpRaw, nil
 }
 
 // ProofBuilder knows how to build inclusion and consistency proofs from tiles.
@@ -310,6 +305,8 @@ type LogStateTracker struct {
 	Hasher   hashers.LogHasher
 	Verifier logverifier.LogVerifier
 	Fetcher  Fetcher
+	// Origin is the expected first line of checkpoints from the log.
+	Origin string
 
 	// LatestConsistentRaw holds the raw bytes of the latest proven-consistent
 	// LogState seen by this tracker.
@@ -323,13 +320,14 @@ type LogStateTracker struct {
 // NewLogStateTracker creates a newly initialised tracker.
 // If a serialised LogState representation is provided then this is used as the
 // initial tracked state, otherwise a log state is fetched from the target log.
-func NewLogStateTracker(ctx context.Context, f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier) (LogStateTracker, error) {
+func NewLogStateTracker(ctx context.Context, f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier, origin string) (LogStateTracker, error) {
 	ret := LogStateTracker{
 		Fetcher:          f,
 		Hasher:           h,
 		Verifier:         logverifier.New(h),
 		LatestConsistent: log.Checkpoint{},
 		CpSigVerifier:    nV,
+		Origin:           origin,
 	}
 	if len(checkpointRaw) > 0 {
 		ret.LatestConsistentRaw = checkpointRaw
@@ -367,7 +365,7 @@ func (e ErrInconsistency) Error() string {
 // that it is consistent with the local state before updating the tracker's
 // view.
 func (lst *LogStateTracker) Update(ctx context.Context) error {
-	c, cRaw, err := FetchCheckpoint(ctx, lst.Fetcher, lst.CpSigVerifier)
+	c, cRaw, err := FetchCheckpoint(ctx, lst.Fetcher, lst.CpSigVerifier, lst.Origin)
 	if err != nil {
 		return err
 	}

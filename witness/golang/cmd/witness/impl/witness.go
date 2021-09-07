@@ -40,6 +40,7 @@ type LogConfig struct {
 // strategy, and public key.
 type LogInfo struct {
 	LogID        string `json:"logID"`
+	Origin       string `json:"origin"`
 	HashStrategy string `json:"hashStrategy"`
 	PubKey       string `json:"pubKey"`
 	UseCompact   bool   `json:"useCompact"`
@@ -70,9 +71,9 @@ func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
-		sigVs := []note.Verifier{logV}
 		logInfo := witness.LogInfo{
-			SigVs:      sigVs,
+			SigV:       logV,
+			Origin:     log.Origin,
 			Hasher:     h,
 			UseCompact: log.UseCompact,
 		}

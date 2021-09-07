@@ -73,25 +73,25 @@ func (l LogCheckpoint) Marshal() []byte {
 // ParseCheckpoint wraps `log.ParseCheckpoint` with the additional behaviour of
 // enforcing that a timestamp is included in the `otherdata`, and returning a
 // LogCheckpoint constructed from this data.
-func ParseCheckpoint(chkpt []byte, logVerifier note.Verifier, otherVerifiers ...note.Verifier) (*LogCheckpoint, *log.CheckpointNote, error) {
-	cn, err := log.ParseCheckpoint(chkpt, FTLogOrigin, logVerifier, otherVerifiers...)
+func ParseCheckpoint(chkpt []byte, logVerifier note.Verifier, otherVerifiers ...note.Verifier) (*LogCheckpoint, error) {
+	cp, otherData, _, err := log.ParseCheckpoint(chkpt, FTLogOrigin, logVerifier, otherVerifiers...)
 	if err != nil {
-		return nil, cn, err
+		return nil, err
 	}
 	const delim = "\n"
-	lines := strings.Split(strings.TrimRight(string(cn.OtherData), delim), delim)
+	lines := strings.Split(strings.TrimRight(string(otherData), delim), delim)
 	if el := len(lines); el != 1 {
-		return nil, cn, fmt.Errorf("expected 1 line of other data, got %d", el)
+		return nil, fmt.Errorf("expected 1 line of other data, got %d", el)
 	}
 	ts, err := strconv.ParseUint(lines[0], 10, 64)
 	if err != nil {
-		return nil, cn, fmt.Errorf("failed to parse timestamp: %w", err)
+		return nil, fmt.Errorf("failed to parse timestamp: %w", err)
 	}
 	return &LogCheckpoint{
-		Checkpoint:     *cn.Checkpoint,
+		Checkpoint:     *cp,
 		TimestampNanos: ts,
 		Envelope:       chkpt,
-	}, cn, err
+	}, err
 }
 
 // GetConsistencyRequest is sent to ask for a proof that the tree at ToSize

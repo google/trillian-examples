@@ -72,11 +72,10 @@ func main() {
 			glog.Exitf("Failed to get witness checkpoint: %v", err)
 		}
 	} else {
-		cn, err := log.ParseCheckpoint(wcpRaw, *origin, w.Verifier)
+		wcp, _, _, err = log.ParseCheckpoint(wcpRaw, *origin, w.Verifier)
 		if err != nil {
 			glog.Exitf("Failed to open CP: %v", err)
 		}
-		wcp = cn.Checkpoint
 	}
 
 	feeder := feeder{
@@ -155,11 +154,10 @@ func (f *feeder) feedOnce(ctx context.Context) error {
 	// An optimization would be to immediately retry the Update if we get
 	// http.ErrCheckpointTooOld. For now, we'll update the local state and
 	// retry only the next time this method is called.
-	cn, err := log.ParseCheckpoint(wcpRaw, *origin, f.w.Verifier)
+	f.wcp, _, _, err = log.ParseCheckpoint(wcpRaw, *origin, f.w.Verifier)
 	if err != nil {
 		return fmt.Errorf("failed to parse checkpoint: %v", err)
 	}
-	f.wcp = cn.Checkpoint
 	return nil
 }
 

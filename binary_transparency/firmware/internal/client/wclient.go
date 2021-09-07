@@ -51,7 +51,7 @@ func (c WitnessClient) GetWitnessCheckpoint() (*api.LogCheckpoint, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
-	cp, _, err := api.ParseCheckpoint(b, c.LogSigVerifier)
+	cp, err := api.ParseCheckpoint(b, c.LogSigVerifier)
 	return cp, err
 }
 

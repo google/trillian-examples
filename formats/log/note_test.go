@@ -184,13 +184,13 @@ func TestParseCheckpoint(t *testing.T) {
 			}
 
 			// Now parse what we have created.
-			cn, err := log.ParseCheckpoint(nBs, test.logID, logVerifier, known1Verifier, known2Verifier)
+			_, _, n, err := log.ParseCheckpoint(nBs, test.logID, logVerifier, known1Verifier, known2Verifier)
 			if gotErr := err != nil; gotErr != test.wantErr {
 				t.Errorf("gotErr %t != wantErr %t (%v)", gotErr, test.wantErr, err)
 			}
 			gotSigs := 0
-			if cn != nil {
-				gotSigs = len(cn.Sigs)
+			if n != nil {
+				gotSigs = len(n.Sigs)
 			}
 			if gotSigs != test.wantSigs {
 				t.Errorf("got %d signatures but wanted %d", gotSigs, test.wantSigs)
@@ -228,12 +228,12 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			cn, err := log.ParseCheckpoint([]byte(noteString), test.logID, logVerifier)
+			cp, _, _, err := log.ParseCheckpoint([]byte(noteString), test.logID, logVerifier)
 			if err != nil {
 				if !test.wantErr {
 					t.Fatalf("Failed to parse checkpoint note: %v", err)
 				}
-				if cp := cn.Checkpoint; cp != nil {
+				if cp != nil {
 					t.Errorf("Expected empty checkpoint because of error but got %+v", cp)
 				}
 				// Always return after error because remaining checks are for cp, which is nil.
@@ -242,7 +242,6 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 			if test.wantErr {
 				t.Fatal("Expected error but didn't get it")
 			}
-			cp := cn.Checkpoint
 			if got, want := cp.Size, uint64(6476701); got != want {
 				t.Errorf("expected size %d but got %d", want, got)
 			}
@@ -323,7 +322,7 @@ mb8QLQIs0Z0yP5Cstq6guj87oXWeC9gEM8oVikmm9Wk=
 				note = fmt.Sprintf("%s%s\n", note, s)
 			}
 			for n := 0; n < b.N; n++ {
-				if _, err := log.ParseCheckpoint([]byte(note), "go.sum database tree", logVerifier, vs...); err != nil {
+				if _, _, _, err := log.ParseCheckpoint([]byte(note), "go.sum database tree", logVerifier, vs...); err != nil {
 					b.Fatalf("Failed to parse: %v", err)
 				}
 			}

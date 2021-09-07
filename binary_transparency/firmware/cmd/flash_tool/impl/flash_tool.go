@@ -181,7 +181,7 @@ func verifyUpdate(c *client.ReadonlyClient, logSigVerifier note.Verifier, up api
 	if err != nil {
 		return pb, fwMeta, fmt.Errorf("failed to fetch the device checkpoint: %w", err)
 	}
-	dc, _, err := api.ParseCheckpoint([]byte(n), logSigVerifier)
+	dc, err := api.ParseCheckpoint([]byte(n), logSigVerifier)
 	if err != nil {
 		return pb, fwMeta, fmt.Errorf("failed to open the device checkpoint: %w", err)
 	}

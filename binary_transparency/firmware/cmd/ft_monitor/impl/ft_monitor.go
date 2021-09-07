@@ -85,7 +85,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		// This could fail here unless a force flag is provided, for better security.
 		glog.Warningf("State file %q did not exist; first log checkpoint will be trusted implicitly", opts.StateFile)
 	} else {
-		cp, _, err := api.ParseCheckpoint(state, opts.LogSigVerifier)
+		cp, err := api.ParseCheckpoint(state, opts.LogSigVerifier)
 		if err != nil {
 			return fmt.Errorf("failed to open state: %w", err)
 		}

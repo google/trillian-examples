@@ -140,7 +140,7 @@ func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
 
-	cp, _, err := api.ParseCheckpoint(b, c.LogSigVerifier)
+	cp, err := api.ParseCheckpoint(b, c.LogSigVerifier)
 	return cp, err
 }
 

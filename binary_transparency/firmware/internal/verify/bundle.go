@@ -45,7 +45,7 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 		return proofBundle, fwMeta, fmt.Errorf("firmware update image hash does not match metadata (0x%x != 0x%x)", got, want)
 	}
 
-	pc, _, err := api.ParseCheckpoint(proofBundle.Checkpoint, logSigVerifier)
+	pc, err := api.ParseCheckpoint(proofBundle.Checkpoint, logSigVerifier)
 	if err != nil {
 		return proofBundle, fwMeta, fmt.Errorf("failed to open the device checkpoint: %w", err)
 	}
@@ -74,7 +74,7 @@ func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc Consiste
 		return fmt.Errorf("remote verification failed wcp treesize(%d)<device cp index(%d)", rc.Size, pb.InclusionProof.LeafIndex)
 	}
 
-	bundleCP, _, err := api.ParseCheckpoint(pb.Checkpoint, logSigVerifier)
+	bundleCP, err := api.ParseCheckpoint(pb.Checkpoint, logSigVerifier)
 	if err != nil {
 		return fmt.Errorf("failed to open the proof bundle checkpoint: %w", err)
 	}
@@ -115,7 +115,7 @@ func verifyBundle(bundleRaw []byte, logSigVerifier note.Verifier) (api.ProofBund
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to parse proof bundle: %w", err)
 	}
 
-	bundleCP, _, err := api.ParseCheckpoint(pb.Checkpoint, logSigVerifier)
+	bundleCP, err := api.ParseCheckpoint(pb.Checkpoint, logSigVerifier)
 	if err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to open the proof bundle checkpoint: %w", err)
 	}

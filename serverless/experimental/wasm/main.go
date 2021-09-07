@@ -90,7 +90,7 @@ func showCP(ctx context.Context, f client.Fetcher) {
 		case <-ctx.Done():
 			return
 		}
-		_, cp, err := client.FetchCheckpoint(ctx, f, logVer)
+		_, cp, err := client.FetchCheckpoint(ctx, f, logVer, origin)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				logMsg(err.Error())
@@ -119,14 +119,9 @@ func integrate() js.Func {
 				panic(err)
 			}
 		} else {
-			n, err := note.Open(cpRaw, note.VerifierList(logVer))
+			cp, _, _, err = logfmt.ParseCheckpoint(cpRaw, origin, logVer)
 			if err != nil {
 				logMsg(string(cpRaw))
-				panic(err)
-			}
-			_, err = cp.Unmarshal([]byte(n.Text))
-			if err != nil {
-				logMsg(fmt.Sprintf("Failed to unmarshal checkpoint: %v", err))
 				panic(err)
 			}
 		}
@@ -250,7 +245,7 @@ monitorLoop:
 			return
 		}
 
-		cp, _, err := client.FetchCheckpoint(ctx, f, logVer)
+		cp, _, err := client.FetchCheckpoint(ctx, f, logVer, origin)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				monMsg(err.Error())
@@ -353,14 +348,9 @@ func main() {
 			panic(err)
 		}
 	} else {
-		n, err := note.Open(cpRaw, note.VerifierList(logVer))
+		cp, _, _, err := logfmt.ParseCheckpoint(cpRaw, origin, logVer)
 		if err != nil {
 			logMsg(string(cpRaw))
-			panic(err)
-		}
-		cp := &logfmt.Checkpoint{}
-		_, err = cp.Unmarshal([]byte(n.Text))
-		if err != nil {
 			panic(err)
 		}
 		logStorage, err = webstorage.Load(logPrefix, cp.Size)

@@ -58,6 +58,8 @@ type FeedOpts struct {
 	LogFetcher client.Fetcher
 	// LogSigVerifier a verifier for log checkpoint signatures.
 	LogSigVerifier note.Verifier
+	// LogOrigin is the expected first line of checkpoints from the source log.
+	LogOrigin string
 
 	Witness Witness
 
@@ -72,20 +74,16 @@ type FeedOpts struct {
 // Returns the provided checkpoint plus at least cfg.NumRequired signatures.
 func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 	have := make(map[uint32]bool)
-	n, err := note.Open(cp, note.VerifierList([]note.Verifier{opts.LogSigVerifier, opts.Witness.SigVerifier()}...))
+
+	cpSubmit, _, n, err := log.ParseCheckpoint(cp, opts.LogOrigin, opts.LogSigVerifier, opts.Witness.SigVerifier())
 	if err != nil {
-		return nil, fmt.Errorf("failed to verify signature on checkpoint: %v", err)
+		return nil, fmt.Errorf("failed to parse checkpoint: %v", err)
 	}
 	for _, s := range n.Sigs {
 		have[s.Hash] = true
 	}
 	if !have[opts.LogSigVerifier.KeyHash()] {
 		return nil, errors.New("cp not signed by log")
-	}
-	cpSubmit := &log.Checkpoint{}
-	_, err = cpSubmit.Unmarshal([]byte(n.Text))
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal CP: %v", err)
 	}
 
 	if opts.WitnessTimeout > 0 {
@@ -96,7 +94,7 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 	if have[opts.Witness.SigVerifier().KeyHash()] {
 		return nil, ErrNoSignaturesAdded
 	}
-	wCP, err := submitToWitness(ctx, cp, *cpSubmit, opts.Witness, opts.LogID, opts.LogFetcher, opts.LogSigVerifier)
+	wCP, err := submitToWitness(ctx, cp, *cpSubmit, opts)
 	if err != nil {
 		return nil, fmt.Errorf("witness submission failed: %v", err)
 	}
@@ -111,10 +109,10 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 }
 
 // submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.
-func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, w Witness, logID string, logFetcher client.Fetcher, logSigV note.Verifier) ([]byte, error) {
+func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, opts FeedOpts) ([]byte, error) {
 	// TODO(al): make this configurable
 	h := rfc6962.DefaultHasher
-	wSigV := w.SigVerifier()
+	wSigV := opts.Witness.SigVerifier()
 
 	// Keep submitting until success or context timeout...
 	t := time.NewTicker(1)
@@ -126,7 +124,7 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 			t.Reset(time.Second)
 		}
 
-		latestCPRaw, err := w.GetLatestCheckpoint(ctx, logID)
+		latestCPRaw, err := opts.Witness.GetLatestCheckpoint(ctx, opts.LogID)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			glog.Warningf("%s: failed to fetch latest CP: %v", wSigV.Name(), err)
 			continue
@@ -134,20 +132,13 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 
 		var conP [][]byte
 		if len(latestCPRaw) > 0 {
-			n, err := note.Open(latestCPRaw, note.VerifierList(logSigV, wSigV))
+			latestCP, _, n, err := log.ParseCheckpoint(latestCPRaw, opts.LogOrigin, opts.LogSigVerifier, wSigV)
 			if err != nil {
-				glog.Warningf("%s: failed to open CP: %v", wSigV.Name(), err)
+				glog.Warningf("%s: failed to parse CP: %v", wSigV.Name(), err)
 				continue
 			}
 			if numSigs := len(n.Sigs); numSigs != 2 {
 				return nil, errors.New("checkpoint from witness was not signed by at least log + witness")
-			}
-
-			latestCP := &log.Checkpoint{}
-			_, err = latestCP.Unmarshal([]byte(n.Text))
-			if err != nil {
-				glog.Warningf("%s: failed to unmarshal CP: %v", wSigV.Name(), err)
-				continue
 			}
 
 			if latestCP.Size > cpSubmit.Size {
@@ -158,7 +149,7 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 				return latestCPRaw, nil
 			}
 
-			pb, err := client.NewProofBuilder(ctx, cpSubmit, h.HashChildren, logFetcher)
+			pb, err := client.NewProofBuilder(ctx, cpSubmit, h.HashChildren, opts.LogFetcher)
 			if err != nil {
 				glog.Warningf("%s: failed to create proof builder: %v", wSigV.Name(), err)
 				continue
@@ -173,7 +164,7 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 
 		// TODO(mhutchinson): This returns the checkpoint, which can be used instead of getting
 		// the latest each time around the loop.
-		if _, err := w.Update(ctx, logID, cpRaw, conP); err != nil {
+		if _, err := opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
 			glog.Warningf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
 			continue
 		}

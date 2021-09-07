@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	goldenProofBundle   = `{"ManifestStatement":"eyJUeXBlIjoxMDIsIlN0YXRlbWVudCI6ImV5SkVaWFpwWTJWSlJDSTZJbVIxYlcxNUlpd2lSbWx5YlhkaGNtVlNaWFpwYzJsdmJpSTZNU3dpUm1seWJYZGhjbVZKYldGblpWTklRVFV4TWlJNkltZ3ZTblpLTURVeE1GZE5Ua05hZG1wWFQwTXdVMUZxTDFKUFJHVXpLMGh6Uld0dE5HMUhUbnBWVEhSd1lXVlVhblkyU2xrcmQzSTBlVk51Vm5aNVJqVXdZa055TVhSd2NYZERiMEZvWm5CeFFscHNNbUpSUFQwaUxDSkZlSEJsWTNSbFpFWnBjbTEzWVhKbFRXVmhjM1Z5WlcxbGJuUWlPaUkyZEZWWGVYbHJlbmRtYjI5dVIzVm5ibVl4WkV3clkyZGtObUpGVjFWb2IyeEJUbUZFVERoS1dVdFhkR1J0VUdORlpWbDJaMDgyYmsxeUwwbE1aMWRRWTFWWloyZDJRVUZ5Y25SaFUwSnRZVzQxU0RSTFp6MDlJaXdpUW5WcGJHUlVhVzFsYzNSaGJYQWlPaUl5TURJd0xURXdMVEV3VkRFMU9qTXdPakl3TGpFd1dpSjkiLCJTaWduYXR1cmUiOiJUeUxVdFpCdHJHbyt3anRoSjI2Rk8wVE5QUHpTTDZhU0c1V0ZTanRCcjZLZ2x4a0RjR3dmZUxTTEpjbklmUnhZMnVJZHZLL09tMStXMndLNEkxSFRUYTdIUFZlSHo2MmF0V09hZm9TL1ZGc01OdEx1RkplaU5WNE5uY2Y0bllYMFBDdnN0MHRpYm5TVFRzNnEwMUZ1cEhaMnFwc2lyY2hFVXgwLzFjOFFOM2hGZVArSXcwVWxPNTVvZUhlWGtlRGRwL2w5SCsvZjYxYndFMmpHZVl1cFcvbld2bmN2NFgrS00weXgrYW1oVi9od0lCMDQ2aitNQzVndkd4LzJ2TkkySk5JeTBOQk13YWRIK1VONnp1MzRIZzM5NkY4MkxJU2NTOXU2MENBY3hzRlozR3d5NGpoR1JXR1lwSnhXdEJ6Zk5hZ1IvaVdmUzRJY2tJVmZ5Z2ZQUXc9PSJ9","Checkpoint":"RmlybXdhcmUgVHJhbnNwYXJlbmN5IExvZyB2MAo1Clg2VEY4QWNkSUh2OVp0UWwrU1NhZVZOYy9aNVJjNDJweDFpRlJLVGNDdHc9CjE2MDc0NTA3MzgxMTE1MDYwODgKCuKAlCBmdF9wZXJzb25hbGl0eSA2S0pDdlVyOWRqRGJ5Wm44dlRmYU9UN0hqRzZtMzkyaUkzMStHc2Naak9hclFnRHRVVlZEY2YreG5QTU90ZG5pMEV5bmNQdmNENjA1VDVPeXhQNXM5a2ZnOUFjPQo=","InclusionProof":{"Value":null,"LeafIndex":4,"Proof":["KFh4IVeIwbsvbWyz2QHVCXXyjWTRDqusRa0ZEjS2fls="]}}`
+	goldenProofBundle   = `{"ManifestStatement":"eyJUeXBlIjoxMDIsIlN0YXRlbWVudCI6ImV5SkVaWFpwWTJWSlJDSTZJbVIxYlcxNUlpd2lSbWx5YlhkaGNtVlNaWFpwYzJsdmJpSTZNU3dpUm1seWJYZGhjbVZKYldGblpWTklRVFV4TWlJNkltZ3ZTblpLTURVeE1GZE5Ua05hZG1wWFQwTXdVMUZxTDFKUFJHVXpLMGh6Uld0dE5HMUhUbnBWVEhSd1lXVlVhblkyU2xrcmQzSTBlVk51Vm5aNVJqVXdZa055TVhSd2NYZERiMEZvWm5CeFFscHNNbUpSUFQwaUxDSkZlSEJsWTNSbFpFWnBjbTEzWVhKbFRXVmhjM1Z5WlcxbGJuUWlPaUkyZEZWWGVYbHJlbmRtYjI5dVIzVm5ibVl4WkV3clkyZGtObUpGVjFWb2IyeEJUbUZFVERoS1dVdFhkR1J0VUdORlpWbDJaMDgyYmsxeUwwbE1aMWRRWTFWWloyZDJRVUZ5Y25SaFUwSnRZVzQxU0RSTFp6MDlJaXdpUW5WcGJHUlVhVzFsYzNSaGJYQWlPaUl5TURJd0xURXdMVEV3VkRFMU9qTXdPakl3TGpFd1dpSjkiLCJTaWduYXR1cmUiOiJUeUxVdFpCdHJHbyt3anRoSjI2Rk8wVE5QUHpTTDZhU0c1V0ZTanRCcjZLZ2x4a0RjR3dmZUxTTEpjbklmUnhZMnVJZHZLL09tMStXMndLNEkxSFRUYTdIUFZlSHo2MmF0V09hZm9TL1ZGc01OdEx1RkplaU5WNE5uY2Y0bllYMFBDdnN0MHRpYm5TVFRzNnEwMUZ1cEhaMnFwc2lyY2hFVXgwLzFjOFFOM2hGZVArSXcwVWxPNTVvZUhlWGtlRGRwL2w5SCsvZjYxYndFMmpHZVl1cFcvbld2bmN2NFgrS00weXgrYW1oVi9od0lCMDQ2aitNQzVndkd4LzJ2TkkySk5JeTBOQk13YWRIK1VONnp1MzRIZzM5NkY4MkxJU2NTOXU2MENBY3hzRlozR3d5NGpoR1JXR1lwSnhXdEJ6Zk5hZ1IvaVdmUzRJY2tJVmZ5Z2ZQUXc9PSJ9","Checkpoint":"RmlybXdhcmUgVHJhbnNwYXJlbmN5IExvZwo1Clg2VEY4QWNkSUh2OVp0UWwrU1NhZVZOYy9aNVJjNDJweDFpRlJLVGNDdHc9CjE2MDc0NTA3MzgxMTE1MDYwODgKCuKAlCBmdF9wZXJzb25hbGl0eSA2S0pDdlg1NTYrSGxNSnozMlhnQVhBYit1ODVOUEpSTkt2eHJ5enU1WTVibGkxWTh0YURsNDNjS2lmeVdsT1pYQWVnYndCaDUyUlNWc3ZJSUovTXY1K2Z0WHdjPQo=","InclusionProof":{"Value":null,"LeafIndex":4,"Proof":["KFh4IVeIwbsvbWyz2QHVCXXyjWTRDqusRa0ZEjS2fls="]}}`
 	goldenFirmwareImage = `Firmware image`
 	// goldenFirmwareHashB64 is a base64 encoded string for ExpectedMeasurement field inside ManifestStatement.
 	// For the dummy device, this is SHA512("dummy"||img), where img is the base64 decoded bytes from
@@ -49,7 +49,7 @@ func mustGetLogSigVerifier(t *testing.T) note.Verifier {
 
 // This test is useful for creating the Checkpoint field of the goldenProofBundle above.
 func TestGenerateGoldenCheckpoint(t *testing.T) {
-	cp := "RmlybXdhcmUgVHJhbnNwYXJlbmN5IExvZyB2MAo1Clg2VEY4QWNkSUh2OVp0UWwrU1NhZVZOYy9aNVJjNDJweDFpRlJLVGNDdHc9CjE2MDc0NTA3MzgxMTE1MDYwODgK"
+	cp := "RmlybXdhcmUgVHJhbnNwYXJlbmN5IExvZwo1Clg2VEY4QWNkSUh2OVp0UWwrU1NhZVZOYy9aNVJjNDJweDFpRlJLVGNDdHc9CjE2MDc0NTA3MzgxMTE1MDYwODgKCuKAlCBmdF9wZXJzb25hbGl0eSA2S0pDdlg1NTYrSGxNSnozMlhnQVhBYit1ODVOUEpSTkt2eHJ5enU1WTVibGkxWTh0YURsNDNjS2lmeVdsT1pYQWVnYndCaDUyUlNWc3ZJSUovTXY1K2Z0WHdjPQo="
 	nb, _ := base64.StdEncoding.DecodeString(cp)
 	s, err := note.NewSigner(crypto.TestFTPersonalityPriv)
 	if err != nil {
@@ -61,7 +61,6 @@ func TestGenerateGoldenCheckpoint(t *testing.T) {
 	}
 	t.Log(string(n))
 	t.Log(base64.StdEncoding.EncodeToString(n))
-
 }
 
 func TestBundleForUpdate(t *testing.T) {
@@ -122,7 +121,7 @@ func TestBundleForBoot(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			err := verify.BundleForBoot([]byte(goldenProofBundle), test.measurement, note.VerifierList(mustGetLogSigVerifier(t)))
+			err := verify.BundleForBoot([]byte(goldenProofBundle), test.measurement, mustGetLogSigVerifier(t))
 			if (err != nil) != test.wantErr {
 				t.Fatalf("want err %v, got %q", test.wantErr, err)
 			}

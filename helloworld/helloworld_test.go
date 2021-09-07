@@ -61,7 +61,7 @@ func mustGetVerifier(t *testing.T) note.Verifier {
 
 func mustOpenCheckpoint(t *testing.T, cRaw []byte) *log.Checkpoint {
 	t.Helper()
-	cp, _, err := log.ParseCheckpoint(cRaw, "Hello World Log", mustGetVerifier(t))
+	cp, _, _, err := log.ParseCheckpoint(cRaw, "Hello World Log", mustGetVerifier(t))
 	if err != nil {
 		t.Fatalf("Failed to open checkpoint: %q", err)
 	}

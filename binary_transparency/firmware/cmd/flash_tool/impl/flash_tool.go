@@ -181,18 +181,14 @@ func verifyUpdate(c *client.ReadonlyClient, logSigVerifier note.Verifier, up api
 	if err != nil {
 		return pb, fwMeta, fmt.Errorf("failed to fetch the device checkpoint: %w", err)
 	}
-	dcNote, err := note.Open(n, note.VerifierList(logSigVerifier))
+	dc, err := api.ParseCheckpoint([]byte(n), logSigVerifier)
 	if err != nil {
 		return pb, fwMeta, fmt.Errorf("failed to open the device checkpoint: %w", err)
-	}
-	dc := api.LogCheckpoint{Envelope: []byte(n)}
-	if err := dc.Unmarshal([]byte(dcNote.Text)); err != nil {
-		return pb, fwMeta, fmt.Errorf("failed to unmarshal the device checkpoint: %w", err)
 	}
 
 	cpFunc := getConsistencyFunc(c)
 	fwHash := sha512.Sum512(up.FirmwareImage)
-	pb, fwMeta, err = verify.BundleForUpdate(up.ProofBundle, fwHash[:], dc, cpFunc, logSigVerifier)
+	pb, fwMeta, err = verify.BundleForUpdate(up.ProofBundle, fwHash[:], *dc, cpFunc, logSigVerifier)
 	if err != nil {
 		return pb, fwMeta, fmt.Errorf("failed to verify proof bundle: %w", err)
 	}

@@ -140,16 +140,7 @@ func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
 
-	n, err := note.Open(b, note.VerifierList(c.LogSigVerifier))
-	if err != nil {
-		return nil, err
-	}
-
-	cp := api.LogCheckpoint{Envelope: b}
-	if err := cp.Unmarshal([]byte(n.Text)); err != nil {
-		return nil, err
-	}
-	return &cp, nil
+	return api.ParseCheckpoint(b, c.LogSigVerifier)
 }
 
 // GetInclusion returns an inclusion proof for the statement under the given checkpoint.

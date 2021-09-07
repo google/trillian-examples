@@ -1,4 +1,5 @@
-//+build armory
+//go:build armory
+// +build armory
 
 package main
 
@@ -45,7 +46,7 @@ func verifyIntegrity(proof, firmware *Partition) error {
 	fmt.Printf("firmware partition hash: 0x%x\n", h)
 	logSigVerifier, err := note.NewVerifier(crypto.TestFTPersonalityPub)
 
-	if err := verify.BundleForBoot(rawBundle, h, note.VerifierList(logSigVerifier)); err != nil {
+	if err := verify.BundleForBoot(rawBundle, h, logSigVerifier); err != nil {
 		return fmt.Errorf("failed to verify bundle: %w", err)
 	}
 	return nil

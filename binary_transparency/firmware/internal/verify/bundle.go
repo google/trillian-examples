@@ -36,7 +36,7 @@ type ConsistencyProofFunc func(from, to uint64) ([][]byte, error)
 // and device log point (for non zero device tree size). Upon successful verification
 // returns a proof bundle
 func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc ConsistencyProofFunc, logSigVerifier note.Verifier) (api.ProofBundle, api.FirmwareMetadata, error) {
-	proofBundle, fwMeta, err := verifyBundle(bundleRaw, note.VerifierList(logSigVerifier))
+	proofBundle, fwMeta, err := verifyBundle(bundleRaw, logSigVerifier)
 	if err != nil {
 		return proofBundle, fwMeta, err
 	}
@@ -45,13 +45,9 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 		return proofBundle, fwMeta, fmt.Errorf("firmware update image hash does not match metadata (0x%x != 0x%x)", got, want)
 	}
 
-	pcNote, err := note.Open(proofBundle.Checkpoint, note.VerifierList(logSigVerifier))
+	pc, err := api.ParseCheckpoint(proofBundle.Checkpoint, logSigVerifier)
 	if err != nil {
 		return proofBundle, fwMeta, fmt.Errorf("failed to open the device checkpoint: %w", err)
-	}
-	pc := &api.LogCheckpoint{Envelope: proofBundle.Checkpoint}
-	if err := pc.Unmarshal([]byte(pcNote.Text)); err != nil {
-		return proofBundle, fwMeta, fmt.Errorf("failed to unmarshal the device checkpoint: %w", err)
 	}
 
 	cProof, err := cpFunc(dc.Size, pc.Size)
@@ -78,15 +74,11 @@ func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc Consiste
 		return fmt.Errorf("remote verification failed wcp treesize(%d)<device cp index(%d)", rc.Size, pb.InclusionProof.LeafIndex)
 	}
 
-	bundleCPNote, err := note.Open(pb.Checkpoint, note.VerifierList(logSigVerifier))
+	bundleCP, err := api.ParseCheckpoint(pb.Checkpoint, logSigVerifier)
 	if err != nil {
 		return fmt.Errorf("failed to open the proof bundle checkpoint: %w", err)
 	}
-	bundleCP := api.LogCheckpoint{Envelope: pb.Checkpoint}
-	if err := bundleCP.Unmarshal([]byte(bundleCPNote.Text)); err != nil {
-		return fmt.Errorf("failed to unmarshal the proof bundle checkpoint: %w", err)
-	}
-	fromCP, toCP := rc, bundleCP
+	fromCP, toCP := rc, *bundleCP
 	// swap the remote checkpoint(fromCP) with published checkpoint (toCP) if it is ahead of published checkpoint
 	if rc.Size > bundleCP.Size {
 		fromCP, toCP = toCP, fromCP
@@ -104,8 +96,8 @@ func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc Consiste
 // BundleForBoot checks that the manifest, checkpoint, and proofs in a bundle
 // are all self-consistent, and that the provided firmware measurement matches
 // the one expected by the bundle.
-func BundleForBoot(bundleRaw, measurement []byte, logSigVerifiers note.Verifiers) error {
-	_, fwMeta, err := verifyBundle(bundleRaw, logSigVerifiers)
+func BundleForBoot(bundleRaw, measurement []byte, logSigVerifier note.Verifier) error {
+	_, fwMeta, err := verifyBundle(bundleRaw, logSigVerifier)
 	if err != nil {
 		return err
 	}
@@ -117,19 +109,15 @@ func BundleForBoot(bundleRaw, measurement []byte, logSigVerifiers note.Verifiers
 }
 
 // verifyBundle parses a proof bundle and verifies its self-consistency.
-func verifyBundle(bundleRaw []byte, logSigVerifiers note.Verifiers) (api.ProofBundle, api.FirmwareMetadata, error) {
+func verifyBundle(bundleRaw []byte, logSigVerifier note.Verifier) (api.ProofBundle, api.FirmwareMetadata, error) {
 	var pb api.ProofBundle
 	if err := json.Unmarshal(bundleRaw, &pb); err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to parse proof bundle: %w", err)
 	}
 
-	bundleCPNote, err := note.Open(pb.Checkpoint, logSigVerifiers)
+	bundleCP, err := api.ParseCheckpoint(pb.Checkpoint, logSigVerifier)
 	if err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to open the proof bundle checkpoint: %w", err)
-	}
-	bundleCP := &api.LogCheckpoint{Envelope: pb.Checkpoint}
-	if err := bundleCP.Unmarshal([]byte(bundleCPNote.Text)); err != nil {
-		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to unmarshal the proof bundle checkpoint: %w", err)
 	}
 
 	var fwStatement api.SignedStatement

@@ -75,7 +75,7 @@ func Reset(storagePath string) (Chain, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create sig verifier: %w", err)
 	}
-	if err := verify.BundleForBoot(bundleRaw, fwMeasurement[:], note.VerifierList(v)); err != nil {
+	if err := verify.BundleForBoot(bundleRaw, fwMeasurement[:], v); err != nil {
 		return nil, fmt.Errorf("failed to verify bundle: %w", err)
 	}
 

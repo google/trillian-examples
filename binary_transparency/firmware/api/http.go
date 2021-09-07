@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/google/trillian-examples/formats/log"
+	"golang.org/x/mod/sumdb/note"
 )
 
 const (
@@ -69,23 +70,28 @@ func (l LogCheckpoint) Marshal() []byte {
 	return b.Bytes()
 }
 
-// Unmarshal knows how to deserialise a LogCheckpoint.
-func (l *LogCheckpoint) Unmarshal(data []byte) error {
-	const delim = "\n"
-	rest, err := l.Checkpoint.Unmarshal(data)
+// ParseCheckpoint wraps `log.ParseCheckpoint` with the additional behaviour of
+// enforcing that a timestamp is included in the `otherdata`, and returning a
+// LogCheckpoint constructed from this data.
+func ParseCheckpoint(chkpt []byte, logVerifier note.Verifier, otherVerifiers ...note.Verifier) (*LogCheckpoint, error) {
+	cp, otherData, _, err := log.ParseCheckpoint(chkpt, FTLogOrigin, logVerifier, otherVerifiers...)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	lines := strings.Split(strings.TrimRight(string(rest), delim), delim)
+	const delim = "\n"
+	lines := strings.Split(strings.TrimRight(string(otherData), delim), delim)
 	if el := len(lines); el != 1 {
-		return fmt.Errorf("expected 1 line of other data, got %d", el)
+		return nil, fmt.Errorf("expected 1 line of other data, got %d", el)
 	}
 	ts, err := strconv.ParseUint(lines[0], 10, 64)
 	if err != nil {
-		return fmt.Errorf("failed to parse timestamp: %w", err)
+		return nil, fmt.Errorf("failed to parse timestamp: %w", err)
 	}
-	l.TimestampNanos = ts
-	return nil
+	return &LogCheckpoint{
+		Checkpoint:     *cp,
+		TimestampNanos: ts,
+		Envelope:       chkpt,
+	}, err
 }
 
 // GetConsistencyRequest is sent to ask for a proof that the tree at ToSize

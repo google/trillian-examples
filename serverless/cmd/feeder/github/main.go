@@ -168,7 +168,7 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	if err != nil {
 		return fmt.Errorf("couldn't open witnessed checkpoint with log verifier: %v", err)
 	}
-	witnessNote, err := note.Open(wRaw, opts.witSigVs)
+	witnessNote, err := note.Open(wRaw, note.VerifierList(opts.witSigV))
 	if err != nil {
 		return fmt.Errorf("couldn't open witnessed checkpoint with witness verifier(s): %v", err)
 	}
@@ -251,7 +251,7 @@ type options struct {
 	distributorPath string
 	feederClonePath string
 
-	witSigVs note.Verifiers
+	witSigV note.Verifier
 
 	feederOpts   impl.FeedOpts
 	feedInterval time.Duration
@@ -299,11 +299,6 @@ func mustConfigure() *options {
 		glog.Exitf("Feeder config in %q is invalid: %v", *feederConfigPath, err)
 	}
 
-	wSigV := []note.Verifier{}
-	for _, w := range fOpts.Witnesses {
-		wSigV = append(wSigV, w.SigVerifier())
-	}
-
 	return &options{
 		distributorRepo: dr,
 		feederRepo:      fr,
@@ -311,7 +306,7 @@ func mustConfigure() *options {
 		githubAuthToken: githubAuthToken,
 		gitUsername:     gitUsername,
 		gitEmail:        gitEmail,
-		witSigVs:        note.VerifierList(wSigV...),
+		witSigV:         fOpts.Witness.SigVerifier(),
 		feederOpts:      *fOpts,
 		feedInterval:    *interval,
 	}
@@ -487,14 +482,11 @@ type feederConfig struct {
 	LogPublicKey string `json:"log_public_key"`
 	// LogURL is the URL of the root of the log.
 	LogURL string `json:"log_url"`
-	// Witnesses is a list of all configured witnesses.
-	Witnesses []struct {
+	// Witness defines the target witness
+	Witness struct {
 		URL       string `json:"url"`
 		PublicKey string `json:"public_key"`
-	} `json:"witnesses"`
-	// NumRequired is the minimum number of cosignatures required for a feeding run
-	// to be considered successful.
-	NumRequired int `json:"num_required"`
+	} `json:"witness"`
 }
 
 // readFeederConfig parses the named file into a FeedOpts structure.
@@ -522,23 +514,20 @@ func readFeederConfig(f string) (*impl.FeedOpts, error) {
 		LogID:          cfg.LogID,
 		LogFetcher:     newFetcher(lURL),
 		LogSigVerifier: logSigV,
-		NumRequired:    cfg.NumRequired,
 		WitnessTimeout: 5 * time.Second,
 	}
 
-	for _, w := range cfg.Witnesses {
-		u, err := url.Parse(w.URL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse witness URL %q: %v", w.URL, err)
-		}
-		wSigV, err := note.NewVerifier(w.PublicKey)
-		if err != nil {
-			return nil, fmt.Errorf("invalid witness public key for url %q: %v", w.URL, err)
-		}
-		fOpts.Witnesses = append(fOpts.Witnesses, wit_http.Witness{
-			URL:      u,
-			Verifier: wSigV,
-		})
+	u, err := url.Parse(cfg.Witness.URL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse witness URL %q: %v", cfg.Witness.URL, err)
+	}
+	wSigV, err := note.NewVerifier(cfg.Witness.PublicKey)
+	if err != nil {
+		return nil, fmt.Errorf("invalid witness public key for url %q: %v", cfg.Witness.URL, err)
+	}
+	fOpts.Witness = wit_http.Witness{
+		URL:      u,
+		Verifier: wSigV,
 	}
 
 	return &fOpts, nil

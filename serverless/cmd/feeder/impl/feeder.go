@@ -59,12 +59,7 @@ type FeedOpts struct {
 	// LogSigVerifier a verifier for log checkpoint signatures.
 	LogSigVerifier note.Verifier
 
-	// NumRequired is the number of witness signatures required on checkpoint
-	// (including any pre-existing signatures from known witnesses).
-	NumRequired int
-
-	// Witnesses is a list of witnesses to feed to.
-	Witnesses []Witness
+	Witness Witness
 
 	// WitnessTimeout defines the maximum duration for each attempt to update a witness.
 	// No timeout if unset.
@@ -76,16 +71,8 @@ type FeedOpts struct {
 // or the context becomes done.
 // Returns the provided checkpoint plus at least cfg.NumRequired signatures.
 func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
-	if nw := len(opts.Witnesses); opts.NumRequired > nw {
-		return nil, fmt.Errorf("NumRequired is %d, but only %d witnesses provided", opts.NumRequired, nw)
-	}
-	wSigVs := make([]note.Verifier, 0, len(opts.Witnesses))
-	for _, w := range opts.Witnesses {
-		wSigVs = append(wSigVs, w.SigVerifier())
-	}
-
 	have := make(map[uint32]bool)
-	n, err := note.Open(cp, note.VerifierList(append([]note.Verifier{opts.LogSigVerifier}, wSigVs...)...))
+	n, err := note.Open(cp, note.VerifierList([]note.Verifier{opts.LogSigVerifier, opts.Witness.SigVerifier()}...))
 	if err != nil {
 		return nil, fmt.Errorf("failed to verify signature on checkpoint: %v", err)
 	}
@@ -101,64 +88,30 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 		return nil, fmt.Errorf("failed to unmarshal CP: %v", err)
 	}
 
-	witnessed := make(chan []byte, len(opts.Witnesses))
-	errs := make(chan error, len(opts.Witnesses))
-
 	if opts.WitnessTimeout > 0 {
 		var c func()
 		ctx, c = context.WithTimeout(ctx, opts.WitnessTimeout)
 		defer c()
 	}
-	for _, w := range opts.Witnesses {
-		if have[w.SigVerifier().KeyHash()] {
-			errs <- fmt.Errorf("skipping %q - already have their signature", w.SigVerifier().Name())
-			continue
-		}
-		go submitToWitness(ctx, cp, *cpSubmit, w, opts.LogID, opts.LogFetcher, opts.LogSigVerifier, witnessed, errs)
-
+	if have[opts.Witness.SigVerifier().KeyHash()] {
+		return nil, ErrNoSignaturesAdded
 	}
-
-	// Gather results...
-	allWitnessed := make([][]byte, 0, len(opts.Witnesses)+1)
-	for range opts.Witnesses {
-		select {
-		case w := <-witnessed:
-			allWitnessed = append(allWitnessed, w)
-		case e := <-errs:
-			glog.Warning(e.Error())
-		case <-ctx.Done():
-		}
-	}
-
-	if len(allWitnessed) == 0 {
-		return cp, ErrNoSignaturesAdded
+	wCP, err := submitToWitness(ctx, cp, *cpSubmit, opts.Witness, opts.LogID, opts.LogFetcher, opts.LogSigVerifier)
+	if err != nil {
+		return nil, fmt.Errorf("witness submission failed: %v", err)
 	}
 
 	// ...and combine signatures.
-	wvList := note.VerifierList(wSigVs...)
-	r, err := checkpoints.Combine(append([][]byte{cp}, allWitnessed...), opts.LogSigVerifier, wvList)
+	r, err := checkpoints.Combine(append([][]byte{cp}, wCP), opts.LogSigVerifier, note.VerifierList(opts.Witness.SigVerifier()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to combine checkpoints: %v", err)
-	}
-
-	// Finally, check how many witness signatures we now have:
-	n, err = note.Open(r, wvList)
-	if err != nil {
-		nErr, ok := err.(*note.UnverifiedNoteError)
-		if !ok {
-			return nil, fmt.Errorf("failed to open combined CP: %v", err)
-		}
-		n = nErr.Note
-	}
-	if got := len(n.Sigs); got < opts.NumRequired {
-		return nil, fmt.Errorf("number of witness signatures (%d) < number required (%d)", got, opts.NumRequired)
 	}
 
 	return r, nil
 }
 
 // submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.
-func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, w Witness, logID string, logFetcher client.Fetcher, logSigV note.Verifier, witnessed chan<- []byte, errs chan<- error) {
+func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, w Witness, logID string, logFetcher client.Fetcher, logSigV note.Verifier) ([]byte, error) {
 	// TODO(al): make this configurable
 	h := rfc6962.DefaultHasher
 	wSigV := w.SigVerifier()
@@ -168,8 +121,7 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 	for {
 		select {
 		case <-ctx.Done():
-			errs <- fmt.Errorf("giving up on %s", wSigV.Name())
-			return
+			return nil, fmt.Errorf("giving up on %s", wSigV.Name())
 		case <-t.C:
 			t.Reset(time.Second)
 		}
@@ -188,8 +140,7 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 				continue
 			}
 			if numSigs := len(n.Sigs); numSigs != 2 {
-				errs <- errors.New("checkpoint from witness was not signed by at least log + witness")
-				return
+				return nil, errors.New("checkpoint from witness was not signed by at least log + witness")
 			}
 
 			latestCP := &log.Checkpoint{}
@@ -200,13 +151,11 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 			}
 
 			if latestCP.Size > cpSubmit.Size {
-				errs <- fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", wSigV.Name(), latestCP.Size, cpSubmit.Size)
-				return
+				return nil, fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", wSigV.Name(), latestCP.Size, cpSubmit.Size)
 			}
 			if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
 				glog.V(1).Infof("got sig from witness: %v", wSigV.Name())
-				witnessed <- latestCPRaw
-				return
+				return latestCPRaw, nil
 			}
 
 			pb, err := client.NewProofBuilder(ctx, cpSubmit, h.HashChildren, logFetcher)

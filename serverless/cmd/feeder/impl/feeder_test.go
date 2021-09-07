@@ -37,70 +37,50 @@ func TestFeed(t *testing.T) {
 	witSig := mustCreateSigner(t, testWitnessSecretKey)
 	witSigV := mustCreateVerifier(t, testWitnessPublicKey)
 	for _, test := range []struct {
-		desc        string
-		submitCP    []byte
-		numRequired int
-		witnesses   []Witness
-		wantErr     bool
+		desc     string
+		submitCP []byte
+		witness  Witness
+		wantErr  bool
 	}{
 		{
-			desc:        "works",
-			submitCP:    testdata.Checkpoint(t, 2),
-			numRequired: 1,
-			witnesses: []Witness{
-				&fakeWitness{
-					logSigV:  logSigV,
-					witSig:   witSig,
-					witSigV:  witSigV,
-					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
-				},
+			desc:     "works",
+			submitCP: testdata.Checkpoint(t, 2),
+			witness: &fakeWitness{
+				logSigV:  logSigV,
+				witSig:   witSig,
+				witSigV:  witSigV,
+				latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
 			},
 		}, {
-			desc:        "works - submitCP == latest",
-			submitCP:    testdata.Checkpoint(t, 1),
-			numRequired: 1,
-			witnesses: []Witness{
-				&fakeWitness{
-					logSigV:  logSigV,
-					witSig:   witSig,
-					witSigV:  witSigV,
-					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
-				},
+			desc:     "works - submitCP == latest",
+			submitCP: testdata.Checkpoint(t, 1),
+			witness: &fakeWitness{
+				logSigV:  logSigV,
+				witSig:   witSig,
+				witSigV:  witSigV,
+				latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
 			},
 		}, {
-			desc:        "no new sigs added",
-			submitCP:    mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
-			numRequired: 1,
-			witnesses: []Witness{
-				&fakeWitness{
-					logSigV:  logSigV,
-					witSig:   witSig,
-					witSigV:  witSigV,
-					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
-				},
+			desc:     "no new sigs added",
+			submitCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
+			witness: &fakeWitness{
+				logSigV:  logSigV,
+				witSig:   witSig,
+				witSigV:  witSigV,
+				latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
 			},
 			wantErr: true,
 		}, {
 			desc:    "submitting stale CP",
 			wantErr: true,
 			// This checkpoint is older than the witness' latestCP below:
-			submitCP:    testdata.Checkpoint(t, 1),
-			numRequired: 1,
-			witnesses: []Witness{
-				&fakeWitness{
-					logSigV:  logSigV,
-					witSig:   witSig,
-					witSigV:  witSigV,
-					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 2), logSigV, witSig),
-				},
+			submitCP: testdata.Checkpoint(t, 1),
+			witness: &fakeWitness{
+				logSigV:  logSigV,
+				witSig:   witSig,
+				witSigV:  witSigV,
+				latestCP: mustCosignCP(t, testdata.Checkpoint(t, 2), logSigV, witSig),
 			},
-		}, {
-			desc:    "invalid opts - numRequired > num witnesses",
-			wantErr: true,
-			// Whoops:
-			numRequired: 100,
-			submitCP:    testdata.Checkpoint(t, 1),
-			witnesses:   []Witness{&fakeWitness{}},
 		},
 	} {
 		sCP := mustOpenCheckpoint(t, test.submitCP, testdata.LogSigVerifier(t))
@@ -108,8 +88,7 @@ func TestFeed(t *testing.T) {
 		opts := FeedOpts{
 			LogFetcher:     f.Fetcher(),
 			LogSigVerifier: testdata.LogSigVerifier(t),
-			NumRequired:    test.numRequired,
-			Witnesses:      test.witnesses,
+			Witness:        test.witness,
 		}
 		t.Run(test.desc, func(t *testing.T) {
 			_, err := Feed(ctx, test.submitCP, opts)

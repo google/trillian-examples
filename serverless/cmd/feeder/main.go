@@ -43,7 +43,6 @@ var (
 )
 
 type WitnessConfig struct {
-	Name      string `json:"name"`
 	URL       string `json:"url"`
 	PublicKey string `json:"public_key"`
 }
@@ -56,11 +55,8 @@ type Config struct {
 	LogPublicKey string `json:"log_public_key"`
 	// LogURL is the URL of the root of the log.
 	LogURL string `json:"log_url"`
-	// Witnesses is a list of all configured witnesses.
-	Witnesses []WitnessConfig `json:"witnesses"`
-	// NumRequired is the minimum number of cosignatures required for a feeding run
-	// to be considered successful.
-	NumRequired int `json:"num_required"`
+	// Witnesses is the configured witness.
+	Witness WitnessConfig `json:"witness"`
 }
 
 func main() {
@@ -83,17 +79,14 @@ func main() {
 		LogID:          cfg.LogID,
 		LogFetcher:     f,
 		LogSigVerifier: mustCreateVerifier(cfg.LogPublicKey),
-		NumRequired:    cfg.NumRequired,
 	}
-	for _, w := range cfg.Witnesses {
-		u, err := url.Parse(w.URL)
-		if err != nil {
-			glog.Exitf("Failed to parse witness URL %q: %v", w.URL, err)
-		}
-		opts.Witnesses = append(opts.Witnesses, wit_http.Witness{
-			URL:      u,
-			Verifier: mustCreateVerifier(w.PublicKey),
-		})
+	u, err := url.Parse(cfg.Witness.URL)
+	if err != nil {
+		glog.Exitf("Failed to parse witness URL %q: %v", cfg.Witness.URL, err)
+	}
+	opts.Witness = wit_http.Witness{
+		URL:      u,
+		Verifier: mustCreateVerifier(cfg.Witness.PublicKey),
 	}
 
 	cp, err := readCP(ctx, *input)

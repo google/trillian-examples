@@ -16,7 +16,6 @@
 package distributor
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/google/trillian-examples/formats/checkpoints"
@@ -27,6 +26,7 @@ import (
 // UpdateOpts contains the settings for the distributor update.
 type UpdateOpts struct {
 	LogSigV              note.Verifier
+	LogOrigin            string
 	Witnesses            []note.Verifier
 	MaxWitnessSignatures uint
 }
@@ -54,14 +54,13 @@ func UpdateState(state, incoming [][]byte, opts UpdateOpts) ([][]byte, error) {
 		}
 	}
 	wSigV := note.VerifierList(opts.Witnesses...)
-	allSigV := note.VerifierList(append([]note.Verifier{opts.LogSigV}, opts.Witnesses...)...)
 	combined := make([]cpNoteRaw, 0, requiredSlots)
 	for _, v := range byBody {
 		raw, err := checkpoints.Combine(v, opts.LogSigV, wSigV)
 		if err != nil {
 			return nil, err
 		}
-		cp, n, err := open(raw, allSigV)
+		cp, _, n, err := log.ParseCheckpoint(raw, opts.LogOrigin, opts.LogSigV, opts.Witnesses...)
 		if err != nil {
 			return nil, err
 		}
@@ -92,18 +91,6 @@ nextCheckpoint:
 		ret[i] = nil
 	}
 	return ret, nil
-}
-
-func open(cpRaw []byte, sigV note.Verifiers) (*log.Checkpoint, *note.Note, error) {
-	n, err := note.Open(cpRaw, sigV)
-	if err != nil {
-		return nil, nil, fmt.Errorf("checkpoint not signed by any known key: %v", err)
-	}
-	cp := &log.Checkpoint{}
-	if _, err := cp.Unmarshal([]byte(n.Text)); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal: %v", err)
-	}
-	return cp, n, nil
 }
 
 type cpNoteRaw struct {

@@ -21,6 +21,10 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
+const (
+	testOrigin = "test log"
+)
+
 func TestUpdate(t *testing.T) {
 	logS, logV := genKeyPair(t, "log")
 	wit1S, wit1V := genKeyPair(t, "w1")
@@ -39,6 +43,7 @@ func TestUpdate(t *testing.T) {
 			desc: "No update",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 3,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -58,6 +63,7 @@ func TestUpdate(t *testing.T) {
 			desc: "update - no change",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 3,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -81,6 +87,7 @@ func TestUpdate(t *testing.T) {
 			desc: "update - new signature, but no change in state ordering",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 3,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -103,6 +110,7 @@ func TestUpdate(t *testing.T) {
 			desc: "update - new signature makes 10 viable for next slot up",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 3,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -125,6 +133,7 @@ func TestUpdate(t *testing.T) {
 			desc: "update - new checkpoint displaces zero slot",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 3,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -147,6 +156,7 @@ func TestUpdate(t *testing.T) {
 			desc: "update - new checkpoint with witness sigs displaces several slots",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 3,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -169,6 +179,7 @@ func TestUpdate(t *testing.T) {
 			desc: "increase number of desired witness sigs",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 6,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -192,6 +203,7 @@ func TestUpdate(t *testing.T) {
 			desc: "decrease number of desired witness sigs",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 1,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -210,6 +222,7 @@ func TestUpdate(t *testing.T) {
 			desc: "decrease number of desired witness sigs and displace",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 1,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -230,6 +243,7 @@ func TestUpdate(t *testing.T) {
 			desc: "decrease number of desired witness sigs and displace with more than reqd sigs",
 			opts: UpdateOpts{
 				MaxWitnessSignatures: 1,
+				LogOrigin:            testOrigin,
 				LogSigV:              logV,
 				Witnesses:            []note.Verifier{wit1V, wit2V, wit3V},
 			},
@@ -288,7 +302,7 @@ func TestUpdate(t *testing.T) {
 func newCP(t *testing.T, size int, sigs ...note.Signer) []byte {
 	t.Helper()
 	cp := log.Checkpoint{
-		Origin: "testing log",
+		Origin: testOrigin,
 		Size:   uint64(size),
 		Hash:   []byte("banana"),
 	}

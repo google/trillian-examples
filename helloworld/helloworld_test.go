@@ -61,11 +61,11 @@ func mustGetVerifier(t *testing.T) note.Verifier {
 
 func mustOpenCheckpoint(t *testing.T, cRaw []byte) *log.Checkpoint {
 	t.Helper()
-	cp, _, err := log.ParseCheckpoint(cRaw, "Hello World Log", mustGetVerifier(t))
+	cn, err := log.ParseCheckpoint(cRaw, "Hello World Log", mustGetVerifier(t))
 	if err != nil {
 		t.Fatalf("Failed to open checkpoint: %q", err)
 	}
-	return cp
+	return cn.Checkpoint
 }
 
 // TestAppend appends a random entry to the log and ensures that the

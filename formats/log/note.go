@@ -20,29 +20,31 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-// CheckpointNote is a Note that also exposes additional data that was included
-// in the signed note, but not part of the base checkpoint.
+// CheckpointNote is a parsed Checkpoint Note. This embeds the Note object to
+// allow clients to find any signatures, and also provides access to the
+// parsed Checkpoint and unparsed OtherData.
 type CheckpointNote struct {
 	*note.Note
-	OtherData []byte
+	Checkpoint *Checkpoint
+	OtherData  []byte
 }
 
 // ParseCheckpoint takes a raw checkpoint as bytes and returns a parsed checkpoint
-// providing that:
+// note providing that:
 // * a valid log signature is found; and
 // * the checkpoint unmarshals correctly; and
 // * the log origin is that expected.
-// In all other cases, an empty
-// checkpoint is returned. The underlying note is always returned where possible.
+// In all other cases, an empty checkpoint is returned. The underlying note is always
+// returned where possible.
 // The signatures on the note will include the log signature if no error is returned,
 // plus any signatures from otherVerifiers that were found.
-func ParseCheckpoint(chkpt []byte, origin string, logVerifier note.Verifier, otherVerifiers ...note.Verifier) (*Checkpoint, *CheckpointNote, error) {
+func ParseCheckpoint(chkpt []byte, origin string, logVerifier note.Verifier, otherVerifiers ...note.Verifier) (*CheckpointNote, error) {
 	vs := append(append(make([]note.Verifier, 0, len(otherVerifiers)+1), logVerifier), otherVerifiers...)
 	verifiers := note.VerifierList(vs...)
 
 	n, err := note.Open(chkpt, verifiers)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to verify signatures on checkpoint: %v", err)
+		return nil, fmt.Errorf("failed to verify signatures on checkpoint: %v", err)
 	}
 	cn := &CheckpointNote{
 		Note: n,
@@ -53,13 +55,14 @@ func ParseCheckpoint(chkpt []byte, origin string, logVerifier note.Verifier, oth
 			// The log has signed this checkpoint. It is now safe to parse.
 			cp := &Checkpoint{}
 			if cn.OtherData, err = cp.Unmarshal([]byte(n.Text)); err != nil {
-				return nil, cn, fmt.Errorf("failed to unmarshal checkpoint: %v", err)
+				return cn, fmt.Errorf("failed to unmarshal checkpoint: %v", err)
 			}
 			if cp.Origin != origin {
-				return nil, cn, fmt.Errorf("got Origin %q but expected %q", cp.Origin, origin)
+				return cn, fmt.Errorf("got Origin %q but expected %q", cp.Origin, origin)
 			}
-			return cp, cn, nil
+			cn.Checkpoint = cp
+			return cn, nil
 		}
 	}
-	return nil, cn, fmt.Errorf("no log signature found on note")
+	return cn, fmt.Errorf("no log signature found on note")
 }

@@ -80,10 +80,11 @@ func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 // case it would be important for the client to check the signature contained
 // in the checkpoint before verifying consistency.
 func (c *Client) UpdateChkpt(chkptNewRaw personality.SignedCheckpoint, pf *trillian.Proof) error {
-	chkptNew, _, err := log.ParseCheckpoint(chkptNewRaw, "Hello World Log", c.sigVerifier)
+	cn, err := log.ParseCheckpoint(chkptNewRaw, "Hello World Log", c.sigVerifier)
 	if err != nil {
 		return fmt.Errorf("failed to verify checkpoint: %w", err)
 	}
+	chkptNew := cn.Checkpoint
 	// If there is no checkpoint then just use this one no matter what.
 	if c.chkpt.Size != 0 {
 		// Else make sure this new checkpoint is consistent with the current one.

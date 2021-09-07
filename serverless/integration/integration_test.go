@@ -38,8 +38,9 @@ import (
 )
 
 const (
-	pubKey  = "astra+cad5a3d2+AZJqeuyE/GnknsCNh1eCtDtwdAwKBddOlS8M2eI1Jt4b"
-	privKey = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
+	pubKey            = "astra+cad5a3d2+AZJqeuyE/GnknsCNh1eCtDtwdAwKBddOlS8M2eI1Jt4b"
+	privKey           = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
+	integrationOrigin = "Serverless Integration Test Log"
 )
 
 func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.Hasher, signer note.Signer) {
@@ -58,7 +59,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		glog.Exitf("Unable to create new verifier: %q", err)
 	}
 
-	lst, err := client.NewLogStateTracker(ctx, f, lh, nil, v)
+	lst, err := client.NewLogStateTracker(ctx, f, lh, nil, v, integrationOrigin)
 	if err != nil {
 		t.Fatalf("Failed to create new log state tracker: %q", err)
 	}
@@ -76,7 +77,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			if err != nil {
 				t.Fatalf("Integrate = %v", err)
 			}
-			update.Origin = "Serverless Integration Test Log"
+			update.Origin = integrationOrigin
 			cpNote := note.Note{Text: string(update.Marshal())}
 			cpNoteSigned, err := note.Sign(&cpNote, signer)
 			if err != nil {
@@ -237,7 +238,7 @@ func mustCreateAndInitialiseStorage(t *testing.T, root string, s note.Signer) *f
 		t.Fatalf("Create = %v", err)
 	}
 	cp := fmtlog.Checkpoint{}
-	cp.Origin = "Serverless Integration Test Log"
+	cp.Origin = integrationOrigin
 	cpNote := note.Note{Text: string(cp.Marshal())}
 	cpNoteSigned, err := note.Sign(&cpNote, s)
 	if err != nil {

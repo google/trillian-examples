@@ -83,10 +83,11 @@ func TestFeed(t *testing.T) {
 			},
 		},
 	} {
-		sCP := mustOpenCheckpoint(t, test.submitCP, testdata.LogSigVerifier(t))
+		sCP := mustOpenCheckpoint(t, test.submitCP, testdata.TestLogOrigin, testdata.LogSigVerifier(t))
 		f := testdata.HistoryFetcher(sCP.Size)
 		opts := FeedOpts{
 			LogFetcher:     f.Fetcher(),
+			LogOrigin:      testdata.TestLogOrigin,
 			LogSigVerifier: testdata.LogSigVerifier(t),
 			Witness:        test.witness,
 		}
@@ -133,16 +134,11 @@ func (fw *fakeWitness) Update(_ context.Context, logID string, newCP []byte, pro
 	return fw.latestCP, nil
 }
 
-func mustOpenCheckpoint(t *testing.T, cp []byte, v note.Verifier) log.Checkpoint {
+func mustOpenCheckpoint(t *testing.T, cp []byte, origin string, v note.Verifier) log.Checkpoint {
 	t.Helper()
-	n, err := note.Open(cp, note.VerifierList(v))
+	c, _, _, err := log.ParseCheckpoint(cp, origin, v)
 	if err != nil {
 		t.Fatalf("Failed to open checkpoint: %v", err)
-	}
-	c := &log.Checkpoint{}
-	_, err = c.Unmarshal([]byte(n.Text))
-	if err != nil {
-		t.Fatalf("Failed to unmarshall checkpoint: %v", err)
 	}
 	return *c
 }

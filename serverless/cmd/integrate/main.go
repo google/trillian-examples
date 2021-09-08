@@ -108,13 +108,9 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to instantiate Verifier: %q", err)
 	}
-	vCp, err := note.Open(cpRaw, note.VerifierList(v))
+	cp, _, _, err := fmtlog.ParseCheckpoint(cpRaw, *origin, v)
 	if err != nil {
 		glog.Exitf("Failed to open Checkpoint: %q", err)
-	}
-	var cp fmtlog.Checkpoint
-	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
-		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
 	}
 	st, err := fs.Load(*storageDir, cp.Size)
 	if err != nil {
@@ -122,7 +118,7 @@ func main() {
 	}
 
 	// Integrate new entries
-	newCp, err := log.Integrate(ctx, cp, st, h)
+	newCp, err := log.Integrate(ctx, *cp, st, h)
 	if err != nil {
 		glog.Exitf("Failed to integrate: %q", err)
 	}

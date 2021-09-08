@@ -37,6 +37,7 @@ var (
 	storageDir = flag.String("storage_dir", "", "Root directory to store log data.")
 	entries    = flag.String("entries", "", "File path glob of entries to add to the log.")
 	pubKeyFile = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
+	origin     = flag.String("origin", "", "Log origin string to check for in checkpoint.")
 )
 
 func main() {
@@ -78,15 +79,11 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to instantiate Verifier: %q", err)
 	}
-	vCp, err := note.Open(cpRaw, note.VerifierList(v))
+	cp, _, _, err := log.ParseCheckpoint(cpRaw, *origin, v)
 	if err != nil {
-		glog.Exitf("Failed to open Checkpoint: %q", err)
+		glog.Exitf("Failed to parse Checkpoint: %q", err)
 	}
 
-	var cp log.Checkpoint
-	if _, err := cp.Unmarshal([]byte(vCp.Text)); err != nil {
-		glog.Exitf("Failed to unmarshal checkpoint: %q", err)
-	}
 	st, err := fs.Load(*storageDir, cp.Size)
 	if err != nil {
 		glog.Exitf("Failed to load storage: %q", err)

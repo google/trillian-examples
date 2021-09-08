@@ -163,14 +163,12 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	}
 	glog.V(1).Infof("Witnessed CP:\n%s", string(wRaw))
 
-	// Check the witness signed a log statement.
-	_, err = note.Open(wRaw, note.VerifierList(opts.feederOpts.LogSigVerifier))
+	wCp, _, witnessNote, err := log.ParseCheckpoint(wRaw, opts.feederOpts.LogOrigin, opts.feederOpts.LogSigVerifier, opts.witSigV)
 	if err != nil {
-		return fmt.Errorf("couldn't open witnessed checkpoint with log verifier: %v", err)
+		return fmt.Errorf("couldn't parse witnessed checkpoint: %v", err)
 	}
-	witnessNote, err := note.Open(wRaw, note.VerifierList(opts.witSigV))
-	if err != nil {
-		return fmt.Errorf("couldn't open witnessed checkpoint with witness verifier(s): %v", err)
+	if nWitSigs, want := len(witnessNote.Sigs)-1, 1; nWitSigs != want {
+		return fmt.Errorf("checkpoint has %d witness sigs, want %d", nWitSigs, want)
 	}
 
 	// Now form a PR with the cosigned CP.
@@ -181,11 +179,6 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 		return fmt.Errorf("failed to create git branch for PR: %v", err)
 	}
 	defer deleteBranch()
-
-	wCp := &log.Checkpoint{}
-	if _, err := wCp.Unmarshal([]byte(witnessNote.Text)); err != nil {
-		return fmt.Errorf("failed to parse witnessed checkpoint: %v", err)
-	}
 
 	outputPath := filepath.Join(opts.distributorPath, "logs", opts.feederOpts.LogID, "incoming", fmt.Sprintf("checkpoint_%s", id))
 	msg := fmt.Sprintf("Witness checkpoint@%v", wCp.Size)
@@ -482,6 +475,8 @@ type feederConfig struct {
 	LogPublicKey string `json:"log_public_key"`
 	// LogURL is the URL of the root of the log.
 	LogURL string `json:"log_url"`
+	// LogOrigin is the expected first line of checkpoints from the source log.
+	LogOrigin string `json:"log_origin"`
 	// Witness defines the target witness
 	Witness struct {
 		URL       string `json:"url"`
@@ -514,6 +509,7 @@ func readFeederConfig(f string) (*impl.FeedOpts, error) {
 		LogID:          cfg.LogID,
 		LogFetcher:     newFetcher(lURL),
 		LogSigVerifier: logSigV,
+		LogOrigin:      cfg.LogOrigin,
 		WitnessTimeout: 5 * time.Second,
 	}
 

@@ -31,6 +31,8 @@ import (
 const (
 	TestLogSecretKey = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 	TestLogPublicKey = "astra+cad5a3d2+AZJqeuyE/GnknsCNh1eCtDtwdAwKBddOlS8M2eI1Jt4b"
+
+	TestLogOrigin = "Log Checkpoint v0"
 )
 
 var (

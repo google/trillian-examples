@@ -47,6 +47,7 @@ var (
 	logURL     = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
 	cacheDir   = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
 	pubKeyFile = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
+	origin     = flag.String("origin", "", "Expected first line of checkpoints from log.")
 )
 
 func usage() {
@@ -149,7 +150,7 @@ func newLogClientTool(ctx context.Context, logID string, f client.Fetcher, pubKe
 	if err != nil {
 		glog.Exitf("Failed to instantiate Verifier: %q", err)
 	}
-	tracker, err := client.NewLogStateTracker(ctx, f, hasher, cpRaw, v)
+	tracker, err := client.NewLogStateTracker(ctx, f, hasher, cpRaw, v, *origin)
 	if err != nil {
 		glog.Exitf("Failed to create LogStateTracker: %q", err)
 	}

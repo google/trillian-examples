@@ -42,7 +42,9 @@ type Opts struct {
 // LogInfo contains the information needed to verify log checkpoints.
 type LogInfo struct {
 	// The verifier for signatures from the log.
-	SigVs []note.Verifier
+	SigV note.Verifier
+	// The expected Origin string in the checkpoints.
+	Origin string
 	// The hash strategy that should be used in verifying consistency.
 	Hasher hashers.LogHasher
 	// An indicator of whether the log should be verified using consistency
@@ -86,15 +88,8 @@ func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, *note.N
 	if !ok {
 		return nil, nil, fmt.Errorf("log %q not found", logID)
 	}
-	n, err := note.Open(chkptRaw, note.VerifierList(logInfo.SigVs...))
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to verify checkpoint: %v", err)
-	}
-	c := &log.Checkpoint{}
-	if _, err := c.Unmarshal([]byte(n.Text)); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal new checkpoint: %v", err)
-	}
-	return c, n, nil
+	cp, _, n, err := log.ParseCheckpoint(chkptRaw, logInfo.Origin, logInfo.SigV)
+	return cp, n, err
 }
 
 // GetLogs returns a list of all logs the witness is aware of.
@@ -174,9 +169,6 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	prev, _, err := w.parse(prevRaw, logID)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse stored checkpoint: %v", err)
-	}
-	if next.Origin != prev.Origin {
-		return nil, fmt.Errorf("line 0 (origin log identifier) changed. Was %q, but attempting to set to %q", prev.Origin, next.Origin)
 	}
 	// Parse the compact range if we're using one.
 	var prevRange log.Proof

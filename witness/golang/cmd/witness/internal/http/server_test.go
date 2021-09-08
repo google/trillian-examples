@@ -62,8 +62,11 @@ var (
 	}
 )
 
+const logOrigin = "Log Checkpoint v0"
+
 type logOpts struct {
 	ID         string
+	origin     string
 	PK         string
 	useCompact bool
 }
@@ -81,9 +84,9 @@ func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *witness.Witness {
 		if err != nil {
 			t.Fatalf("couldn't create a log verifier: %v", err)
 		}
-		sigV := []note.Verifier{logV}
 		logInfo := witness.LogInfo{
-			SigVs:      sigV,
+			Origin:     log.origin,
+			SigV:       logV,
 			Hasher:     h,
 			UseCompact: log.useCompact,
 		}
@@ -168,7 +171,9 @@ func TestGetLogs(t *testing.T) {
 			// Set up witness and give it some checkpoints.
 			logs := make([]logOpts, len(test.logIDs))
 			for i, logID := range test.logIDs {
-				logs[i] = logOpts{ID: logID,
+				logs[i] = logOpts{
+					ID:         logID,
+					origin:     logOrigin,
 					PK:         test.logPKs[i],
 					useCompact: false,
 				}
@@ -253,7 +258,9 @@ func TestGetChkpt(t *testing.T) {
 			defer closeFn()
 			ctx := context.Background()
 			// Set up witness.
-			w := newWitness(t, d, []logOpts{{ID: test.setID,
+			w := newWitness(t, d, []logOpts{{
+				ID:         test.setID,
+				origin:     logOrigin,
 				PK:         test.setPK,
 				useCompact: false}})
 			// Set a checkpoint for the log if we want to for this test.
@@ -349,7 +356,9 @@ func TestUpdate(t *testing.T) {
 			ctx := context.Background()
 			logID := "monkeys"
 			// Set up witness.
-			w := newWitness(t, d, []logOpts{{ID: logID,
+			w := newWitness(t, d, []logOpts{{
+				ID:         logID,
+				origin:     logOrigin,
 				PK:         mPK,
 				useCompact: test.useCR}})
 			// Set an initial checkpoint for the log.

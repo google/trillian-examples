@@ -28,6 +28,7 @@ can be found in the `cmd/witness` directory), with the following flags:
   sample configuration file is at `cmd/witness/example.conf`, and in general it
   is necessary to specify the following fields for each log:
     - `logID`, which is the identifier for the log.
+    - `origin`, which is the expected first line of the checkpoint from this log.
     - `pubKey`, which is the public key of the log.  Given the current reliance on the Go [note format](https://pkg.go.dev/golang.org/x/exp/sumdb@v0.0.2/internal/note), the witness supports only Ed25519 signatures.
     - `hashStrategy`, which is the way in which recursive hashes are formed in the verifiable log.  The witness currently supports only `default` for this field.
     - `useCompact`, which is a boolean indicating if the log proves consistency via "regular" consistency proofs, in which case the witness stores only the latest checkpoint in its database, or via compact ranges, in which case the witness stores the latest checkpoint and compact range.

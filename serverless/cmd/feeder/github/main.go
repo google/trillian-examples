@@ -225,7 +225,7 @@ func selectCPToFeed(ctx context.Context, workTree *git.Worktree, opts *options) 
 	}
 	if logCP.Size < cpZero.Size {
 		// Could be a caching thing, warn but we'll continue...
-		glog.Warning("Whoa, the distributor has a larger checkpoint (%d) than the log (%d):\n%s\n%s", cpZero.Size, logCP.Size, string(cpZeroRaw), string(logCPRaw))
+		glog.Warningf("Whoa, the distributor has a larger checkpoint (%d) than the log (%d):\n%s\n%s", cpZero.Size, logCP.Size, string(cpZeroRaw), string(logCPRaw))
 	}
 
 	if len(n.Sigs) > 1 {

@@ -26,25 +26,20 @@ For more details on witnessing strategies as well as witness implementation(s), 
 
 ## Operation
 
-A JSON formatted config file must be created and checked-in to the repo.
+A `YAML` formatted config file must be created and checked-in to the repo.
 An example config file is shown below:
 
-```json
-{
-        "MaxWitnessSignatures": 5,
+```yaml
+MaxWitnessSignatures: 5
 
-        "Witnesses": [
-                "can-I-get-a-witness+b97a1e56+AZkpOlwZwR+wwasAENZwIa98ufmWmzlq0Tx0XN7voU6X",
-                "witness-over-here+29c4e8f4+AUbwUCBUM2sDdHeiKUrp6LnMErE7GEz0iH+0WbgbJZxx",
-                "wolsey-bank-alfred+0336ecb0+AVcofP6JyFkxhQ+/FK7omBtGLVS22tGC6fH+zvK5WrIx"
-        ],
+Witnesses:
+  - can-I-get-a-witness+b97a1e56+AZkpOlwZwR+wwasAENZwIa98ufmWmzlq0Tx0XN7voU6X
+  - witness-over-here+29c4e8f4+AUbwUCBUM2sDdHeiKUrp6LnMErE7GEz0iH+0WbgbJZxx
+  - wolsey-bank-alfred+0336ecb0+AVcofP6JyFkxhQ+/FK7omBtGLVS22tGC6fH+zvK5WrIx
 
-        "Logs": [
-                {
-                        "ID": "test",
-                        "PublicKey": "github.com/AlCutter/serverless-test/log+28035191+AVtQ/9lW+g90rQY3+pODJvMQ8X/tTvh/EuvCDLSmUk4S"
-                }
-        ]
+Logs:
+  - ID: test
+    PublicKey: github.com/AlCutter/serverless-test/log+28035191+AVtQ/9lW+g90rQY3+pODJvMQ8X/tTvh/EuvCDLSmUk4S
 }
 ```
 

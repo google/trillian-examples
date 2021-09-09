@@ -7,7 +7,7 @@ inputs:
     required: true
     default: 'distributor'
   config:
-    description: 'Path to the config file in JSON format'
+    description: 'Path to the config file in YAML format'
     required: true
   dry_run:
     description: 'Do not write or modify any files'

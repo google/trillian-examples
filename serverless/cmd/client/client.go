@@ -331,13 +331,12 @@ func storeLocalCheckpoint(logID string, cpRaw []byte) error {
 func logSigVerifier(f string) (note.Verifier, error) {
 	if len(f) > 0 {
 		return sigVerifierFromFile(f)
-	} else {
-		pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
-		if len(pubKey) == 0 {
-			return nil, fmt.Errorf("supply public key file path using --log_public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
-		}
-		return note.NewVerifier(pubKey)
 	}
+	pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+	if len(pubKey) == 0 {
+		return nil, fmt.Errorf("supply public key file path using --log_public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+	}
+	return note.NewVerifier(pubKey)
 }
 
 func witnessSigVerifiers(fs []string) ([]note.Verifier, error) {

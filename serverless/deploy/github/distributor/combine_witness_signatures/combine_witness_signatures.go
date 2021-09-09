@@ -16,7 +16,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -27,6 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures/internal/distributor"
 	"golang.org/x/mod/sumdb/note"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -157,17 +157,17 @@ func storeState(root string, state [][]byte) error {
 func loadConfig(f string) (map[string]distributor.UpdateOpts, error) {
 	cfg := &struct {
 		Logs []struct {
-			ID        string
-			PublicKey string
-		}
-		Witnesses            []string
-		MaxWitnessSignatures uint
+			ID        string `yaml:"ID"`
+			PublicKey string `yaml:"PublicKey"`
+		} `yaml:"Logs"`
+		Witnesses            []string `yaml:"Witnesses"`
+		MaxWitnessSignatures uint     `yaml:"MaxWitnessSignatures"`
 	}{}
 	raw, err := ioutil.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file %q: %v", f, err)
 	}
-	if err := json.Unmarshal(raw, cfg); err != nil {
+	if err := yaml.Unmarshal(raw, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %v", err)
 	}
 

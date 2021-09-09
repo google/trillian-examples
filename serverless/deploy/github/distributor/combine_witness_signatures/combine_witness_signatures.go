@@ -159,6 +159,7 @@ func loadConfig(f string) (map[string]distributor.UpdateOpts, error) {
 		Logs []struct {
 			ID        string `yaml:"ID"`
 			PublicKey string `yaml:"PublicKey"`
+			Origin    string `yaml:"Origin"`
 		} `yaml:"Logs"`
 		Witnesses            []string `yaml:"Witnesses"`
 		MaxWitnessSignatures uint     `yaml:"MaxWitnessSignatures"`
@@ -190,6 +191,7 @@ func loadConfig(f string) (map[string]distributor.UpdateOpts, error) {
 		ret[l.ID] = distributor.UpdateOpts{
 			MaxWitnessSignatures: cfg.MaxWitnessSignatures,
 			LogSigV:              sv,
+			LogOrigin:            l.Origin,
 			Witnesses:            witnesses,
 		}
 	}

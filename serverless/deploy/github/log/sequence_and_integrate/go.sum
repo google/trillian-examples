@@ -96,6 +96,8 @@ github.com/apache/beam v2.28.0+incompatible/go.mod h1:/8NX3Qi8vGstDLLaeaU7+lzVEu
 github.com/apache/beam v2.30.0+incompatible/go.mod h1:/8NX3Qi8vGstDLLaeaU7+lzVEu/ACaQhYjeefzQ0y1o=
 github.com/apache/beam v2.31.0-RC1+incompatible/go.mod h1:/8NX3Qi8vGstDLLaeaU7+lzVEu/ACaQhYjeefzQ0y1o=
 github.com/apache/beam v2.31.0+incompatible/go.mod h1:/8NX3Qi8vGstDLLaeaU7+lzVEu/ACaQhYjeefzQ0y1o=
+github.com/apache/beam v2.32.0+incompatible h1:8MOeoZwBgORfaJjrZxpkqJWEIzwupRGLqUqG0/mvEtQ=
+github.com/apache/beam v2.32.0+incompatible/go.mod h1:/8NX3Qi8vGstDLLaeaU7+lzVEu/ACaQhYjeefzQ0y1o=
 github.com/apache/thrift v0.12.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apache/thrift v0.13.0/go.mod h1:cp2SuWMxlEZw2r+iP2GNCdIi4C1qmUzdZFSVb+bacwQ=
 github.com/apex/log v1.1.4/go.mod h1:AlpoD9aScyQfJDVHmLMEcx4oU6LqzkWp4Mg9GdAcEvQ=
@@ -344,6 +346,8 @@ github.com/google/trillian-examples v0.0.0-20210714124424-8a5ab29cb0e2 h1:BF8zRJ
 github.com/google/trillian-examples v0.0.0-20210714124424-8a5ab29cb0e2/go.mod h1:8nRaJtrZPsCGLHxeu/MYqHZJCcsNSOmsfH7xUCQPuOg=
 github.com/google/trillian-examples v0.0.0-20210902101938-bc25207c90b4 h1:hHZCBPSErI/rYjZmWYO0PvZaSa1FpPm4Kuq6XTQ472c=
 github.com/google/trillian-examples v0.0.0-20210902101938-bc25207c90b4/go.mod h1:o7tIgvumTHyI4c+uFO0DL7+R9BcYlSfqBmsPFSyW4sE=
+github.com/google/trillian-examples v0.0.0-20210909141854-eee796a138d5 h1:aCxAm1DqynFpDkYnfI4aP+cGS3shW4YWIKu+0nq/4dY=
+github.com/google/trillian-examples v0.0.0-20210909141854-eee796a138d5/go.mod h1:edUK1YmYDRV7m6BqN6DCGY4Nl+1lwVwtbCz2JEO/MbQ=
 github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.0.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=

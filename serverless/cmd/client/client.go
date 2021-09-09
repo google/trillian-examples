@@ -65,7 +65,7 @@ func flagStringList(name, usage string) *aString {
 
 var (
 	cacheDir            = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
-	distributorURLs     = flagStringList("distributor_url", "URL identifying the root of a distrbutor (can specify this flag repeatedly)")
+	distributorURLs     = flagStringList("distributor_url", "URL identifying the root of a distributor (can specify this flag repeatedly)")
 	logURL              = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
 	logPubKeyFile       = flag.String("log_public_key", "", "Location of log public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
 	logID               = flag.String("log_id", "", "LogID used by distributors.")

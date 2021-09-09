@@ -32,7 +32,7 @@ import (
 func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses []note.Verifier, N int) (client.ConsensusCheckpointFunc, error) {
 
 	if nw := len(witnesses); N > nw {
-		return nil, fmt.Errorf("requeste consensus across %d witnesses, but only %d witnesses configured - consensus would always fail!", N, nw)
+		return nil, fmt.Errorf("requested consensus across %d witnesses, but only %d witnesses configured - consensus would always fail", N, nw)
 	}
 
 	// TODO(al): This implementation is pretty basic, and could be made better.

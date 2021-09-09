@@ -59,7 +59,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		glog.Exitf("Unable to create new verifier: %q", err)
 	}
 
-	lst, err := client.NewLogStateTracker(ctx, f, lh, nil, v, integrationOrigin, client.YOLOConsensus(f))
+	lst, err := client.NewLogStateTracker(ctx, f, lh, nil, v, integrationOrigin, client.UnilateralConsensus(f))
 	if err != nil {
 		t.Fatalf("Failed to create new log state tracker: %q", err)
 	}

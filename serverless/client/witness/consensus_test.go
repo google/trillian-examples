@@ -115,10 +115,10 @@ func TestCheckpointNConsensus(t *testing.T) {
 		{
 			desc:  "err: unsatisfiable - not enough sigs",
 			logID: logID,
-			N:     20,
+			N:     3,
 			distributors: []client.Fetcher{
 				fetcher(map[string][]byte{
-					checkpointPath(20): newCP(t, 11, logS, wit1S, wit2S, wit3S),
+					checkpointPath(20): newCP(t, 11, logS, wit1S),
 				}),
 			},
 			witnesses: []note.Verifier{wit1V, wit2V, wit3V},
@@ -130,15 +130,18 @@ func TestCheckpointNConsensus(t *testing.T) {
 			N:     2,
 			distributors: []client.Fetcher{
 				fetcher(map[string][]byte{
-					checkpointPath(2): newCP(t, 11, logS, wit1S, wit2S, wit3S),
+					checkpointPath(2): newCP(t, 11, logS, wit1S, wit2S),
 				}),
 			},
-			witnesses: []note.Verifier{wit1V},
+			witnesses: []note.Verifier{wit1V, wit3V},
 			wantErr:   true,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			f := CheckpointNConsensus(test.logID, test.distributors, test.witnesses, test.N)
+			f, err := CheckpointNConsensus(test.logID, test.distributors, test.witnesses, test.N)
+			if err != nil {
+				t.Fatalf("CheckpointNConsensus() = %v", err)
+			}
 			_, raw, err := f(context.Background(), logV, testOrigin)
 			gotErr := err != nil
 			if gotErr != test.wantErr {

@@ -65,12 +65,12 @@ func flagStringList(name, usage string) *aString {
 
 var (
 	cacheDir            = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
-	distributorURLs     = flagStringList("distributor_url", "URL identifying the root of a distrbutor (can specify this flag repeatedly")
+	distributorURLs     = flagStringList("distributor_url", "URL identifying the root of a distrbutor (can specify this flag repeatedly)")
 	logURL              = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
 	logPubKeyFile       = flag.String("log_public_key", "", "Location of log public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
 	logID               = flag.String("log_id", "", "LogID used by distributors.")
 	origin              = flag.String("origin", "", "Expected first line of checkpoints from log.")
-	witnessPubKeyFiles  = flagStringList("witness_public_key", "File containing witness public key (can specify this flag repeatedly")
+	witnessPubKeyFiles  = flagStringList("witness_public_key", "File containing witness public key (can specify this flag repeatedly)")
 	witnessSigsRequired = flag.Int("witness_sigs_required", 0, "Minimum number of witness signatures required for consensus")
 )
 
@@ -154,35 +154,38 @@ type logClientTool struct {
 	Tracker  client.LogStateTracker
 }
 
-func newLogClientTool(ctx context.Context, logID string, logFetcher client.Fetcher, logSigV note.Verifier, witnesses []note.Verifier, distributors []client.Fetcher) (logClientTool, error) {
+func newLogClientTool(ctx context.Context, logID string, logFetcher client.Fetcher, logSigV note.Verifier, witnesses []note.Verifier, distributors []client.Fetcher) (*logClientTool, error) {
 	var cpRaw []byte
 	var err error
 	if len(*cacheDir) > 0 {
 		cpRaw, err = loadLocalCheckpoint(logID)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			glog.Exitf("Failed to load cached checkpoint: %q", err)
+			return nil, fmt.Errorf("failed to load cached checkpoint: %q", err)
 		}
 	} else {
 		glog.Info("Local log state cache disabled")
 	}
 
 	hasher := rfc6962.DefaultHasher
-	var cons client.ConsensusCheckpoint
+	var cons client.ConsensusCheckpointFunc
 	if *witnessSigsRequired == 0 {
-		glog.V(1).Infof("witness_sigs_required is 0, using YOLO consensus")
-		cons = client.YOLOConsensus(logFetcher)
+		glog.V(1).Infof("witness_sigs_required is 0, using unilateral consensus")
+		cons = client.UnilateralConsensus(logFetcher)
 	} else {
 		glog.V(1).Infof("witness_sigs_required > 0, using checkpoint.N consensus")
-		cons = witness.CheckpointNConsensus(logID, distributors, witnesses, *witnessSigsRequired)
+		cons, err = witness.CheckpointNConsensus(logID, distributors, witnesses, *witnessSigsRequired)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create consensus func: %v", err)
+		}
 	}
 	tracker, err := client.NewLogStateTracker(ctx, logFetcher, hasher, cpRaw, logSigV, *origin, cons)
 
 	if err != nil {
 		glog.Warningf("%s", string(cpRaw))
-		glog.Exitf("Failed to create LogStateTracker: %q", err)
+		return nil, fmt.Errorf("failed to create LogStateTracker: %q", err)
 	}
 
-	return logClientTool{
+	return &logClientTool{
 		Fetcher:  logFetcher,
 		Hasher:   hasher,
 		Verifier: logverifier.New(hasher),

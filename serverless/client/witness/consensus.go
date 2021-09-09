@@ -29,11 +29,16 @@ import (
 
 // CheckpointNConsensus returns a ConsensusCheckpoint function which selects the newest checkpoint available from
 // the available distributors which has signatures from at least N of the provided witnesses.
-func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses []note.Verifier, N int) client.ConsensusCheckpoint {
+func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses []note.Verifier, N int) (client.ConsensusCheckpointFunc, error) {
+
+	if nw := len(witnesses); N > nw {
+		return nil, fmt.Errorf("requeste consensus across %d witnesses, but only %d witnesses configured - consensus would always fail!", N, nw)
+	}
+
 	// TODO(al): This implementation is pretty basic, and could be made better.
 	// In particular, there are cases where it will fail to build consensus
 	// where a more thorough algorithm would succeed.
-	// e.g. currently, it will simply fetch  checkpoint.N from each of the
+	// e.g. currently, it will simply fetch checkpoint.N from each of the
 	// distributors and fail if either:
 	//  - no distributor has a checkpoint.N file
 	//  - no distributor has a checkpoint.N file signed by N of the known witnesses.
@@ -71,13 +76,13 @@ func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses
 		glog.Infof("considering %d cps", len(cpc))
 
 		var bestCP cp
-		for cp := range cpc {
-			if numWitSigs := len(cp.n.Sigs) - 1; numWitSigs < N {
+		for c := range cpc {
+			if numWitSigs := len(c.n.Sigs) - 1; numWitSigs < N {
 				glog.V(1).Infof("Discarding CP with %d witness sigs, want at least %d", numWitSigs, N)
 				continue
 			}
-			if bestCP.cp == nil || bestCP.cp.Size < cp.cp.Size {
-				bestCP = cp
+			if bestCP.cp == nil || bestCP.cp.Size < c.cp.Size {
+				bestCP = c
 				continue
 			}
 		}
@@ -85,8 +90,7 @@ func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses
 			return nil, nil, fmt.Errorf("unable to identify suitable checkpoint")
 		}
 		return bestCP.cp, bestCP.raw, nil
-
-	}
+	}, nil
 }
 
 func getCheckpointN(ctx context.Context, f client.Fetcher, logID string, N int, logSigV note.Verifier, origin string, witSigVs []note.Verifier) (*log.Checkpoint, *note.Note, []byte, error) {

@@ -48,14 +48,14 @@ import (
 // based implementation MUST return this error when it receives a 404 StatusCode.
 type Fetcher func(ctx context.Context, path string) ([]byte, error)
 
-// ConsensusCheckpoint is a function which returns the largest checkpoint known which is
+// ConsensusCheckpointFunc is a function which returns the largest checkpoint known which is
 // signed by logSigV and satisfies some consensus algorithm.
 //
 // This is intended to provide a hook for adding a consensus view of a log, e.g. via witnessing.
-type ConsensusCheckpoint func(ctx context.Context, logSigV note.Verifier, origin string) (*log.Checkpoint, []byte, error)
+type ConsensusCheckpointFunc func(ctx context.Context, logSigV note.Verifier, origin string) (*log.Checkpoint, []byte, error)
 
-// YOLOConsensus blindly trusts the source log, returning the checkpoint it provided.
-func YOLOConsensus(f Fetcher) ConsensusCheckpoint {
+// UnilateralConsensus blindly trusts the source log, returning the checkpoint it provided.
+func UnilateralConsensus(f Fetcher) ConsensusCheckpointFunc {
 	return func(ctx context.Context, logSigV note.Verifier, origin string) (*log.Checkpoint, []byte, error) {
 		return FetchCheckpoint(ctx, f, logSigV, origin)
 	}
@@ -320,7 +320,7 @@ type LogStateTracker struct {
 	Fetcher  Fetcher
 	// Origin is the expected first line of checkpoints from the log.
 	Origin              string
-	ConsensusCheckpoint ConsensusCheckpoint
+	ConsensusCheckpoint ConsensusCheckpointFunc
 
 	// LatestConsistentRaw holds the raw bytes of the latest proven-consistent
 	// LogState seen by this tracker.
@@ -334,7 +334,7 @@ type LogStateTracker struct {
 // NewLogStateTracker creates a newly initialised tracker.
 // If a serialised LogState representation is provided then this is used as the
 // initial tracked state, otherwise a log state is fetched from the target log.
-func NewLogStateTracker(ctx context.Context, f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier, origin string, cc ConsensusCheckpoint) (LogStateTracker, error) {
+func NewLogStateTracker(ctx context.Context, f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier, origin string, cc ConsensusCheckpointFunc) (LogStateTracker, error) {
 	ret := LogStateTracker{
 		ConsensusCheckpoint: cc,
 		Fetcher:             f,

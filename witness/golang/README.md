@@ -25,7 +25,7 @@ can be found in the `cmd/witness` directory), with the following flags:
   this is a local file), so if that is required a different database backend
   would be needed.
 - `config_file`, which specifies configuration information for the logs.  An
-  sample configuration file is at `cmd/witness/example.conf`, and in general it
+  sample configuration file is at `cmd/witness/example_config.yaml`, and in general it
   is necessary to specify the following fields for each log:
     - `logID`, which is the identifier for the log.
     - `origin`, which is the expected first line of the checkpoint from this log.

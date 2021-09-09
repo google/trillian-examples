@@ -19,19 +19,19 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"io/ioutil"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/impl"
 	"golang.org/x/mod/sumdb/note"
+	"gopkg.in/yaml.v2"
 )
 
 var (
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
 	dbFile     = flag.String("db_file", ":memory:", "path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
-	configFile = flag.String("config_file", "example.conf", "path to a JSON config file that specifies the logs followed by this witness")
+	configFile = flag.String("config_file", "example.conf", "path to a YAML config file that specifies the logs followed by this witness")
 	witnessSK  = flag.String("private_key", "", "private signing key for the witness")
 )
 
@@ -54,7 +54,7 @@ func main() {
 		glog.Exitf("Failed to read from config file: %v", err)
 	}
 	var js impl.LogConfig
-	if err := json.Unmarshal(fileData, &js); err != nil {
+	if err := yaml.Unmarshal(fileData, &js); err != nil {
 		glog.Exitf("Failed to parse config file as proper JSON: %v", err)
 	}
 

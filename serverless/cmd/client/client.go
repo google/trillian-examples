@@ -29,6 +29,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/client"
+	"github.com/google/trillian-examples/serverless/client/witness"
 	"github.com/google/trillian/merkle/logverifier"
 	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
@@ -43,11 +44,34 @@ func defaultCacheLocation() string {
 	return fmt.Sprintf("%s/serverless", hd)
 }
 
+// aString is a flag Value which holds multiple strings, allowing the flag to
+// be specified multiple times on the command line.
+type aString []string
+
+func (a *aString) String() string {
+	return fmt.Sprintf("%v", *a)
+}
+
+func (a *aString) Set(v string) error {
+	*a = append(*a, v)
+	return nil
+}
+
+func flagStringList(name, usage string) *aString {
+	r := make(aString, 0)
+	flag.Var(&r, name, usage)
+	return &r
+}
+
 var (
-	logURL     = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
-	cacheDir   = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
-	pubKeyFile = flag.String("public_key", "", "Location of public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
-	origin     = flag.String("origin", "", "Expected first line of checkpoints from log.")
+	cacheDir            = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
+	distributorURLs     = flagStringList("distributor_url", "URL identifying the root of a distributor (can specify this flag repeatedly)")
+	logURL              = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
+	logPubKeyFile       = flag.String("log_public_key", "", "Location of log public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
+	logID               = flag.String("log_id", "", "LogID used by distributors.")
+	origin              = flag.String("origin", "", "Expected first line of checkpoints from log.")
+	witnessPubKeyFiles  = flagStringList("witness_public_key", "File containing witness public key (can specify this flag repeatedly)")
+	witnessSigsRequired = flag.Int("witness_sigs_required", 0, "Minimum number of witness signatures required for consensus")
 )
 
 func usage() {
@@ -61,19 +85,9 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	// Read log public key from file or environment variable
-	var pubKey string
-	if len(*pubKeyFile) > 0 {
-		k, err := ioutil.ReadFile(*pubKeyFile)
-		if err != nil {
-			glog.Exitf("failed to read public_key file: %q", err)
-		}
-		pubKey = string(k)
-	} else {
-		pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
-		if len(pubKey) == 0 {
-			glog.Exit("supply public key file path using --public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
-		}
+	logSigV, err := logSigVerifier(*logPubKeyFile)
+	if err != nil {
+		glog.Exitf("failed to read log public key: %v", err)
 	}
 
 	if len(*logURL) == 0 {
@@ -82,20 +96,28 @@ func main() {
 
 	rootURL, err := url.Parse(*logURL)
 	if err != nil {
-		glog.Exitf("Invalid log URL: %q", err)
+		glog.Exitf("Invalid log URL: %v", err)
 	}
 
-	// Derive logID from log public key
-	v, err := note.NewVerifier(pubKey)
+	logID := *logID
+	witnesses, err := witnessSigVerifiers(*witnessPubKeyFiles)
 	if err != nil {
-		glog.Exitf("Failed to instantiate Verifier : %q", err)
+		glog.Exitf("Failed to read witness pub keys: %v", err)
 	}
-	logID := fmt.Sprintf("%d", v.KeyHash())
+
+	if want, got := *witnessSigsRequired, len(witnesses); want > got {
+		glog.Exitf("--witness_sigs_required=%d but only %d witnesses configured", want, got)
+	}
+
+	distribs, err := distributors()
+	if err != nil {
+		glog.Exitf("Failed to create distributors list: %v", err)
+	}
 
 	f := newFetcher(rootURL)
-	lc, err := newLogClientTool(ctx, logID, f, pubKey)
+	lc, err := newLogClientTool(ctx, logID, f, logSigV, witnesses, distribs)
 	if err != nil {
-		glog.Exitf("Failed to create new client: %q", err)
+		glog.Exitf("Failed to create new client: %v", err)
 	}
 
 	args := flag.Args()
@@ -132,33 +154,41 @@ type logClientTool struct {
 	Tracker  client.LogStateTracker
 }
 
-func newLogClientTool(ctx context.Context, logID string, f client.Fetcher, pubKey string) (logClientTool, error) {
+func newLogClientTool(ctx context.Context, logID string, logFetcher client.Fetcher, logSigV note.Verifier, witnesses []note.Verifier, distributors []client.Fetcher) (*logClientTool, error) {
 	var cpRaw []byte
 	var err error
 	if len(*cacheDir) > 0 {
 		cpRaw, err = loadLocalCheckpoint(logID)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			glog.Exitf("Failed to load cached checkpoint: %q", err)
+			return nil, fmt.Errorf("failed to load cached checkpoint: %q", err)
 		}
 	} else {
 		glog.Info("Local log state cache disabled")
 	}
 
 	hasher := rfc6962.DefaultHasher
-	lv := logverifier.New(hasher)
-	v, err := note.NewVerifier(pubKey)
-	if err != nil {
-		glog.Exitf("Failed to instantiate Verifier: %q", err)
+	var cons client.ConsensusCheckpointFunc
+	if *witnessSigsRequired == 0 {
+		glog.V(1).Infof("witness_sigs_required is 0, using unilateral consensus")
+		cons = client.UnilateralConsensus(logFetcher)
+	} else {
+		glog.V(1).Infof("witness_sigs_required > 0, using checkpoint.N consensus")
+		cons, err = witness.CheckpointNConsensus(logID, distributors, witnesses, *witnessSigsRequired)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create consensus func: %v", err)
+		}
 	}
-	tracker, err := client.NewLogStateTracker(ctx, f, hasher, cpRaw, v, *origin)
+	tracker, err := client.NewLogStateTracker(ctx, logFetcher, hasher, cpRaw, logSigV, *origin, cons)
+
 	if err != nil {
-		glog.Exitf("Failed to create LogStateTracker: %q", err)
+		glog.Warningf("%s", string(cpRaw))
+		return nil, fmt.Errorf("failed to create LogStateTracker: %q", err)
 	}
 
-	return logClientTool{
-		Fetcher:  f,
+	return &logClientTool{
+		Fetcher:  logFetcher,
 		Hasher:   hasher,
-		Verifier: lv,
+		Verifier: logverifier.New(hasher),
 		Tracker:  tracker,
 	}, nil
 }
@@ -265,6 +295,15 @@ func readHTTP(ctx context.Context, u *url.URL) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	switch resp.StatusCode {
+	case 404:
+		glog.Infof("Not found: %q", u.String())
+		return nil, os.ErrNotExist
+	case 200:
+		break
+	default:
+		return nil, fmt.Errorf("unexpected http status %q", resp.Status)
+	}
 	defer resp.Body.Close()
 	return ioutil.ReadAll(resp.Body)
 }
@@ -289,4 +328,50 @@ func storeLocalCheckpoint(logID string, cpRaw []byte) error {
 		return err
 	}
 	return os.Rename(cpPathTmp, cpPath)
+}
+
+// Read log public key from file or environment variable
+func logSigVerifier(f string) (note.Verifier, error) {
+	if len(f) > 0 {
+		return sigVerifierFromFile(f)
+	}
+	pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+	if len(pubKey) == 0 {
+		return nil, fmt.Errorf("supply public key file path using --log_public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+	}
+	return note.NewVerifier(pubKey)
+}
+
+func witnessSigVerifiers(fs []string) ([]note.Verifier, error) {
+	vs := make([]note.Verifier, 0, len(fs))
+	for _, f := range fs {
+		v, err := sigVerifierFromFile(f)
+		if err != nil {
+			return nil, err
+		}
+		glog.V(1).Infof("Found witness %q", v.Name())
+		vs = append(vs, v)
+	}
+	glog.V(1).Infof("Found %d witnesses", len(vs))
+	return vs, nil
+}
+
+func sigVerifierFromFile(f string) (note.Verifier, error) {
+	k, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read public key from file %q: %v", f, err)
+	}
+	return note.NewVerifier(string(k))
+}
+
+func distributors() ([]client.Fetcher, error) {
+	distribs := make([]client.Fetcher, 0)
+	for _, d := range *distributorURLs {
+		u, err := url.Parse(d)
+		if err != nil {
+			return nil, fmt.Errorf("invalid distributor URL %q: %v", d, err)
+		}
+		distribs = append(distribs, newFetcher(u))
+	}
+	return distribs, nil
 }

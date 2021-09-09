@@ -148,9 +148,9 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 		return err
 	}
 
-	cpRaw, err := opts.feederOpts.LogFetcher(ctx, "checkpoint")
+	cpRaw, err := selectCPToFeed(ctx, workTree, opts)
 	if err != nil {
-		return fmt.Errorf("failed to fetch input checkpoint: %v", err)
+		return err
 	}
 
 	glog.V(1).Infof("Feeding CP:\n%s", string(cpRaw))
@@ -196,6 +196,43 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 
 	glog.V(1).Info("Creating PR")
 	return createPR(ctx, opts, ghCli, fmt.Sprintf("Witness @ %d", wCp.Size), opts.feederRepo.owner+":"+branchName, "master")
+}
+
+// selectCPToFeed decides which checkpoint, if any, to attempt to feed to the witness.
+func selectCPToFeed(ctx context.Context, workTree *git.Worktree, opts *options) ([]byte, error) {
+	logCPRaw, err := opts.feederOpts.LogFetcher(ctx, "checkpoint")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch log checkpoint: %v", err)
+	}
+	logCP, _, _, err := log.ParseCheckpoint(logCPRaw, opts.feederOpts.LogOrigin, opts.feederOpts.LogSigVerifier)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse log checkpoint: %v", err)
+	}
+	cpZeroPath := filepath.Join(opts.distributorPath, "logs", opts.feederOpts.LogID, "checkpoint.0")
+	cpZeroRaw, err := util.ReadFile(workTree.Filesystem, cpZeroPath)
+	if err != nil {
+		glog.Warningf("Failed to read %q: %v. Assuming new distributor and continuing...", cpZeroPath, err)
+		return logCPRaw, nil
+	}
+	cpZero, _, n, err := log.ParseCheckpoint(cpZeroRaw, opts.feederOpts.LogOrigin, opts.feederOpts.LogSigVerifier, opts.feederOpts.Witness.SigVerifier())
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse checkpoint.0: %v", err)
+	}
+
+	if logCP.Size > cpZero.Size {
+		// Log checkpoint is newer, witness that.
+		return logCPRaw, nil
+	}
+	if logCP.Size < cpZero.Size {
+		// Could be a caching thing, warn but we'll continue...
+		glog.Warning("Whoa, the distributor has a larger checkpoint (%d) than the log (%d):\n%s\n%s", cpZero.Size, logCP.Size, string(cpZeroRaw), string(logCPRaw))
+	}
+
+	if len(n.Sigs) > 1 {
+		// We're done - we've already signed this CP.
+		return nil, fmt.Errorf("nothing to do - largest CP is already witnessed by %s", opts.feederOpts.Witness.SigVerifier().Name())
+	}
+	return cpZeroRaw, nil
 }
 
 // cpID returns a stable identifier for a given checkpoint and list of known signatures.

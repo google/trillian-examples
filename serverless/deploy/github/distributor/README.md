@@ -26,7 +26,7 @@ Create a `.github/workflows/serverless_pr.yaml` file with the following config:
 ```yaml
 name: Serverless PR
 on:
-  pull_request_target:
+  pull_request:
     branches:
       - master
 

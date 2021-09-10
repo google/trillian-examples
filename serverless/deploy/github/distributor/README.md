@@ -60,9 +60,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Handle witness PR
     steps:
-      - uses: actions-ecosystem/action-add-labels@v1
-        with:
-          labels: Witness
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0

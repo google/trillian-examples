@@ -26,7 +26,7 @@ Create a `.github/workflows/serverless_pr.yaml` file with the following config:
 ```yaml
 name: Serverless PR
 on:
-  pull_request_target:
+  pull_request:
     branches:
       - master
 
@@ -60,9 +60,6 @@ jobs:
     runs-on: ubuntu-latest
     name: Handle witness PR
     steps:
-      - uses: actions-ecosystem/action-add-labels@v1
-        with:
-          labels: Witness
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0

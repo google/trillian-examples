@@ -33,7 +33,7 @@ function main {
     fi
 
     echo "::debug:Sequencing..."
-    /bin/sequence --storage_dir="${INPUT_LOG_DIR}" --logtostderr --entries "${PENDING}/*"
+    /bin/sequence --storage_dir="${INPUT_LOG_DIR}" --origin="${INPUT_ORIGIN}" --logtostderr --entries "${PENDING}/*"
     rm ${PENDING}/*
 
     echo "::debug:Integrating..."

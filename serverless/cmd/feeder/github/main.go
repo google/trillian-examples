@@ -182,6 +182,13 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	defer deleteBranch()
 
 	outputPath := filepath.Join(opts.distributorPath, "logs", opts.feederOpts.LogID, "incoming", fmt.Sprintf("checkpoint_%s", id))
+	// First, check whether we've already managed to submit this CP into the incoming directory
+	if _, err := util.ReadFile(workTree.Filesystem, outputPath); err == nil {
+		return fmt.Errorf("witnessed checkpoint already pending: %v", impl.ErrNoSignaturesAdded)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to check for existing pending checkpoint: %v", err)
+	}
+
 	msg := fmt.Sprintf("Witness checkpoint@%v", wCp.Size)
 	if err := gitCommitFile(workTree, outputPath, wRaw, msg, opts.gitUsername, opts.gitEmail); err != nil {
 		return fmt.Errorf("failed to commit updated checkpoint.witnessed file: %v", err)

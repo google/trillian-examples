@@ -346,9 +346,11 @@ func NewLogStateTracker(ctx context.Context, f Fetcher, h hashers.LogHasher, che
 	}
 	if len(checkpointRaw) > 0 {
 		ret.LatestConsistentRaw = checkpointRaw
-		if _, err := ret.LatestConsistent.Unmarshal(checkpointRaw); err != nil {
+		cp, _, _, err := log.ParseCheckpoint(checkpointRaw, origin, nV)
+		if err != nil {
 			return ret, err
 		}
+		ret.LatestConsistent = *cp
 		return ret, nil
 	}
 	return ret, ret.Update(ctx)

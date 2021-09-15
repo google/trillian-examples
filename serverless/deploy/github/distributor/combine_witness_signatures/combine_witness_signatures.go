@@ -56,34 +56,29 @@ func main() {
 		m := matcher.FindStringSubmatch(i)
 		// First entry in m is the whole matched string, the second is the log ID
 		if got, want := len(m), 2; got != want {
-			glog.Warningf("Unexpected match on %q, got %d parts but want %d", i, got, want)
+			glog.Exitf("Unexpected match on %q, got %d parts but want %d", i, got, want)
 		}
 		logID := m[1]
 
 		o, ok := opts[logID]
 		if !ok {
-			glog.Warningf("Found incoming directory for unknown log %q", logID)
-			continue
+			glog.Exitf("Found incoming directory for unknown log %q", logID)
 		}
 
 		// Read state
 		state, incoming, err := readState(m[0])
 		if err != nil {
-			glog.Warningf("Error reading distributor state for log %q: %v", logID, err)
-			continue
+			glog.Exitf("Error reading distributor state for log %q: %v", logID, err)
 		}
 		newState, err := distributor.UpdateState(state, incoming, o)
 		if err != nil {
-			glog.Warningf("Error updating distributor state: %v", err)
-			continue
+			glog.Exitf("Error updating distributor state: %v", err)
 		}
 		if *dryRun {
-			glog.Warning("Not writing new state to disk because --dry_run is set")
-			continue
+			glog.Exitf("Not writing new state to disk because --dry_run is set")
 		}
 		if err := storeState(m[0], newState); err != nil {
-			glog.Warningf("Error storing distributor state for log %q: %v", logID, err)
-			continue
+			glog.Exitf("Error storing distributor state for log %q: %v", logID, err)
 		}
 	}
 }

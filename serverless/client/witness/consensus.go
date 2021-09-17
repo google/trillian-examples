@@ -18,12 +18,11 @@ package witness
 import (
 	"context"
 	"fmt"
-	"log"
 	"path"
-	"sync"
 
 	"github.com/google/trillian-examples/serverless/client"
 	"golang.org/x/mod/sumdb/note"
+	"golang.org/x/sync/errgroup"
 
 	fmt_log "github.com/google/trillian-examples/formats/log"
 )
@@ -52,26 +51,26 @@ func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses
 			raw []byte
 		}
 		cpc := make(chan cp, len(distributors))
-		wg := &sync.WaitGroup{}
+		eg, ctx := errgroup.WithContext(ctx)
 		for _, f := range distributors {
-			wg.Add(1)
-			go func(ctx context.Context, f client.Fetcher, logID string, N int, cpc chan<- cp) {
-				defer wg.Done()
-				c, n, cpRaw, err := getCheckpointN(ctx, f, logID, N, logSigV, origin, witnesses)
-				if err != nil {
-					log.Printf("Error talking to distributor: %v", err)
-					return
+			fn := func(ctx context.Context, f client.Fetcher, logID string, N int, logSigV note.Verifier, origin string, witnesses []note.Verifier, cpc chan<- cp) func() error {
+				return func() error {
+					c, n, cpRaw, err := getCheckpointN(ctx, f, logID, N, logSigV, origin, witnesses)
+					if err != nil {
+						return fmt.Errorf("error talking to distributor: %v", err)
+					}
+					cpc <- cp{
+						cp:  c,
+						n:   n,
+						raw: cpRaw,
+					}
+					return nil
 				}
-				cpc <- cp{
-					cp:  c,
-					n:   n,
-					raw: cpRaw,
-				}
-
-			}(ctx, f, logID, N, cpc)
+			}
+			eg.Go(fn(ctx, f, logID, N, logSigV, origin, witnesses, cpc))
 		}
 
-		wg.Wait()
+		fetchErrs := eg.Wait()
 		close(cpc)
 
 		var bestCP cp
@@ -85,7 +84,7 @@ func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses
 			}
 		}
 		if bestCP.cp == nil {
-			return nil, nil, fmt.Errorf("unable to identify suitable checkpoint")
+			return nil, nil, fmt.Errorf("unable to identify suitable checkpoint (fetch errs: %v)", fetchErrs)
 		}
 		return bestCP.cp, bestCP.raw, nil
 	}, nil

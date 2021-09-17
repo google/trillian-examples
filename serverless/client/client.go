@@ -28,7 +28,6 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
@@ -396,7 +395,6 @@ func (lst *LogStateTracker) Update(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			glog.V(1).Infof("Built consistency proof %x", p)
 			if err := lst.Verifier.VerifyConsistencyProof(int64(lst.LatestConsistent.Size), int64(c.Size), lst.LatestConsistent.Hash, c.Hash, p); err != nil {
 				return ErrInconsistency{
 					SmallerRaw: lst.LatestConsistentRaw,

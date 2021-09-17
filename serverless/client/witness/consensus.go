@@ -19,12 +19,12 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"sync"
 
-	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"golang.org/x/mod/sumdb/note"
+	"golang.org/x/sync/errgroup"
+
+	fmt_log "github.com/google/trillian-examples/formats/log"
 )
 
 // CheckpointNConsensus returns a ConsensusCheckpoint function which selects the newest checkpoint available from
@@ -44,41 +44,38 @@ func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses
 	//  - no distributor has a checkpoint.N file signed by N of the known witnesses.
 	//
 	// It's good enough for now, though.
-	return func(ctx context.Context, logSigV note.Verifier, origin string) (*log.Checkpoint, []byte, error) {
+	return func(ctx context.Context, logSigV note.Verifier, origin string) (*fmt_log.Checkpoint, []byte, error) {
 		type cp struct {
-			cp  *log.Checkpoint
+			cp  *fmt_log.Checkpoint
 			n   *note.Note
 			raw []byte
 		}
 		cpc := make(chan cp, len(distributors))
-		wg := &sync.WaitGroup{}
+		eg, ctx := errgroup.WithContext(ctx)
 		for _, f := range distributors {
-			wg.Add(1)
-			go func(ctx context.Context, f client.Fetcher, logID string, N int, cpc chan<- cp) {
-				defer wg.Done()
-				c, n, cpRaw, err := getCheckpointN(ctx, f, logID, N, logSigV, origin, witnesses)
-				if err != nil {
-					glog.Infof("Error talking to distributor: %v", err)
-					return
+			fn := func(ctx context.Context, f client.Fetcher, logID string, N int, logSigV note.Verifier, origin string, witnesses []note.Verifier, cpc chan<- cp) func() error {
+				return func() error {
+					c, n, cpRaw, err := getCheckpointN(ctx, f, logID, N, logSigV, origin, witnesses)
+					if err != nil {
+						return fmt.Errorf("error talking to distributor: %v", err)
+					}
+					cpc <- cp{
+						cp:  c,
+						n:   n,
+						raw: cpRaw,
+					}
+					return nil
 				}
-				cpc <- cp{
-					cp:  c,
-					n:   n,
-					raw: cpRaw,
-				}
-
-			}(ctx, f, logID, N, cpc)
+			}
+			eg.Go(fn(ctx, f, logID, N, logSigV, origin, witnesses, cpc))
 		}
 
-		wg.Wait()
+		fetchErrs := eg.Wait()
 		close(cpc)
-
-		glog.Infof("considering %d cps", len(cpc))
 
 		var bestCP cp
 		for c := range cpc {
 			if numWitSigs := len(c.n.Sigs) - 1; numWitSigs < N {
-				glog.V(1).Infof("Discarding CP with %d witness sigs, want at least %d", numWitSigs, N)
 				continue
 			}
 			if bestCP.cp == nil || bestCP.cp.Size < c.cp.Size {
@@ -87,19 +84,19 @@ func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses
 			}
 		}
 		if bestCP.cp == nil {
-			return nil, nil, fmt.Errorf("unable to identify suitable checkpoint")
+			return nil, nil, fmt.Errorf("unable to identify suitable checkpoint (fetch errs: %v)", fetchErrs)
 		}
 		return bestCP.cp, bestCP.raw, nil
 	}, nil
 }
 
-func getCheckpointN(ctx context.Context, f client.Fetcher, logID string, N int, logSigV note.Verifier, origin string, witSigVs []note.Verifier) (*log.Checkpoint, *note.Note, []byte, error) {
+func getCheckpointN(ctx context.Context, f client.Fetcher, logID string, N int, logSigV note.Verifier, origin string, witSigVs []note.Verifier) (*fmt_log.Checkpoint, *note.Note, []byte, error) {
 	p := path.Join("logs", logID, fmt.Sprintf("checkpoint.%d", N))
 	cpRaw, err := f(ctx, p)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to fetch from distributor: %v", err)
 	}
-	cp, _, n, err := log.ParseCheckpoint(cpRaw, origin, logSigV, witSigVs...)
+	cp, _, n, err := fmt_log.ParseCheckpoint(cpRaw, origin, logSigV, witSigVs...)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("error parsing Checkpoint from %q: %v", p, err)
 	}

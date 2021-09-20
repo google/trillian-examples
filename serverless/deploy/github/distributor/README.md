@@ -68,7 +68,7 @@ jobs:
         uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@master
         with:
           distributor_dir: '${{ env.DISTRIBUTOR_ROOT }}'
-          config: '${{ env.DISTRIBUTOR_ROOT }}/config.json'
+          config: '${{ env.DISTRIBUTOR_ROOT }}/config.yaml'
           dry_run: true
 ```
 
@@ -101,7 +101,7 @@ jobs:
       uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@master
       with:
           distributor_dir: '${{ env.DISTRIBUTOR_ROOT }}'
-          config: '${{ env.DISTRIBUTOR_ROOT }}/config.json'
+          config: '${{ env.DISTRIBUTOR_ROOT }}/config.yaml'
     - uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_user_name: Serverless Bot
@@ -118,7 +118,7 @@ To try it out:
 2. Initialise the distributor state:
     1. we'll use a directory called `distributor` in our repo to
        store the state files
-    2. create a `config.json` file ([example](combine_witness_signatures/examples_config.json))
+    2. create a `config.yaml` file ([example](combine_witness_signatures/example_config.yaml))
     3. add and commit the config file to your new repo:
 
        ```bash

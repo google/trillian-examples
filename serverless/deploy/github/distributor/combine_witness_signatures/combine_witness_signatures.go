@@ -75,7 +75,8 @@ func main() {
 			glog.Exitf("Error updating distributor state: %v", err)
 		}
 		if *dryRun {
-			glog.Exitf("Not writing new state to disk because --dry_run is set")
+			glog.Infof("Not writing new state to disk because --dry_run is set")
+			return
 		}
 		if err := storeState(m[0], newState); err != nil {
 			glog.Exitf("Error storing distributor state for log %q: %v", logID, err)

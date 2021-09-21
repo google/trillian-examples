@@ -49,7 +49,6 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
-	sconfig "github.com/google/trillian-examples/serverless/config"
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/oauth2"
 
@@ -515,10 +514,22 @@ func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, c
 
 // feederConfig is the format of the feeder config file.
 type feederConfig struct {
-	Log sconfig.Log `yaml:"Log"`
+	Log struct {
+		// The LogID used by the witnesses to identify this log.
+		ID string `yaml:"ID"`
+		// PublicKey associated with LogID.
+		PublicKey string `yaml:"PublicKey"`
+		// LogURL is the URL of the root of the log.
+		URL string `yaml:"URL"`
+		// Origin is the expected first line of checkpoints from the source log.
+		Origin string `yaml:"Origin"`
+	} `yaml:"Log"`
 
 	// Witness defines the target witness
-	Witness sconfig.Witness `yaml:"Witness"`
+	Witness struct {
+		URL       string `yaml:"URL"`
+		PublicKey string `yaml:"PublicKey"`
+	} `yaml:"Witness"`
 }
 
 // readFeederConfig parses the named file into a FeedOpts structure.

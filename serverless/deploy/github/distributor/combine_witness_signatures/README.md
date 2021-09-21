@@ -74,6 +74,7 @@ following contents:
 on:
   push:
     branches:
+      # This is the name of the primary branch, which may be `main` for newer repos.
       - master
 
 jobs:

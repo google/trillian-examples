@@ -24,6 +24,7 @@ import (
 	"regexp"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/serverless/config"
 	"github.com/google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures/internal/distributor"
 	"golang.org/x/mod/sumdb/note"
 	"gopkg.in/yaml.v2"
@@ -152,13 +153,9 @@ func storeState(root string, state [][]byte) error {
 
 func loadConfig(f string) (map[string]distributor.UpdateOpts, error) {
 	cfg := &struct {
-		Logs []struct {
-			ID        string `yaml:"ID"`
-			PublicKey string `yaml:"PublicKey"`
-			Origin    string `yaml:"Origin"`
-		} `yaml:"Logs"`
-		Witnesses            []string `yaml:"Witnesses"`
-		MaxWitnessSignatures uint     `yaml:"MaxWitnessSignatures"`
+		Logs                 []config.Log `yaml:"Logs"`
+		Witnesses            []string     `yaml:"Witnesses"`
+		MaxWitnessSignatures uint         `yaml:"MaxWitnessSignatures"`
 	}{}
 	raw, err := ioutil.ReadFile(f)
 	if err != nil {

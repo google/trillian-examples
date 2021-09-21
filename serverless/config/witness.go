@@ -20,6 +20,7 @@ import (
 	"net/url"
 )
 
+// Log describes a witness in a config file.
 type Witness struct {
 	// PublicKey used to verify checkpoints are signed by this witness.
 	PublicKey string `yaml:"PublicKey"`
@@ -28,6 +29,7 @@ type Witness struct {
 	URL string `yaml:"URL"`
 }
 
+// Validate checks that the witness configuration is valid.
 func (w Witness) Validate() error {
 	if w.PublicKey == "" {
 		return errors.New("missing field: PublicKey")

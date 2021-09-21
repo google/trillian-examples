@@ -23,6 +23,7 @@ import (
 	"net/url"
 )
 
+// Log describes a verifiable log in a config file.
 type Log struct {
 	// ID is the user-chosen string used to refer to the log.
 	// This may be different across witnesses, distributors, etc.
@@ -37,6 +38,7 @@ type Log struct {
 	URL string `yaml:"URL"`
 }
 
+// Validate checks that the log configuration is valid.
 func (l Log) Validate() error {
 	if l.ID == "" {
 		return errors.New("missing field: ID")

@@ -28,6 +28,7 @@ name: Serverless PR
 on:
   pull_request:
     branches:
+      # This is the name of the primary branch, which may be `main` for newer repos.
       - master
 
 env:
@@ -83,6 +84,7 @@ Add the following config to the `.github/workflows/serverless_merge_master.yaml`
 on:
   push:
     branches:
+      # This is the name of the primary branch, which may be `main` for newer repos.
       - master
 
 env:

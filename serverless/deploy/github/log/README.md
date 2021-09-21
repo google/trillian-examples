@@ -31,6 +31,7 @@ name: Serverless PR
 on:
   pull_request:
     branches:
+      # This is the name of the primary branch, which may be `main` for newer repos.
       - master
 
 env:

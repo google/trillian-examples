@@ -23,7 +23,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -35,23 +34,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-billy/v5/util"
 	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/golang/glog"
-	"github.com/google/go-github/v37/github"
 	"gopkg.in/yaml.v2"
 
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	sconfig "github.com/google/trillian-examples/serverless/config"
+	sgit "github.com/google/trillian-examples/serverless/internal/git"
 	"golang.org/x/mod/sumdb/note"
-	"golang.org/x/oauth2"
 
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
@@ -99,17 +92,10 @@ func main() {
 		}()
 	}
 
-	feederRepo, err := setupFeederRepo(ctx, opts)
+	repo, err := sgit.NewServerlessRepo(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
 	if err != nil {
-		glog.Exitf("Error during set-up of feeder repo: %v", err)
+		glog.Exitf("Failed to set up repository: %v", err)
 	}
-
-	// Authenticate to Github.
-	ghClient, err := authWithGithub(ctx, opts.githubAuthToken)
-	if err != nil {
-		glog.Exitf("Error authenticating to Github: %v", err)
-	}
-	glog.V(1).Info("Created Github client")
 
 	// Overview of the main feeder loop:
 	//   1. run feeder to check if there are new signatures
@@ -131,7 +117,7 @@ mainLoop:
 			break mainLoop
 		}
 
-		if err := feedOnce(ctx, opts, feederRepo, ghClient); err != nil {
+		if err := feedOnce(ctx, opts, repo); err != nil {
 			glog.Warningf("feedOnce: %v", err)
 			continue
 		}
@@ -142,9 +128,9 @@ mainLoop:
 }
 
 // feedOnce performs a one-shot "feed to witness and create PR" operation.
-func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCli *github.Client) error {
+func feedOnce(ctx context.Context, opts *options, repo sgit.ForkedRepo) error {
 	// Pull forkRepo and get the ref for origin/master branch HEAD.
-	headRef, workTree, err := pullAndGetRepoHead(forkRepo)
+	headRef, workTree, err := repo.PullAndGetHead()
 	if err != nil {
 		return err
 	}
@@ -176,7 +162,7 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	// Now form a PR with the cosigned CP.
 	id := wcpID(*witnessNote)
 	branchName := fmt.Sprintf("refs/heads/witness_%s", id)
-	deleteBranch, err := gitCreateLocalBranch(forkRepo, headRef, branchName)
+	deleteBranch, err := repo.CreateLocalBranch(headRef, branchName)
 	if err != nil {
 		return fmt.Errorf("failed to create git branch for PR: %v", err)
 	}
@@ -191,19 +177,16 @@ func feedOnce(ctx context.Context, opts *options, forkRepo *git.Repository, ghCl
 	}
 
 	msg := fmt.Sprintf("Witness checkpoint@%v", wCp.Size)
-	if err := gitCommitFile(workTree, outputPath, wRaw, msg, opts.gitUsername, opts.gitEmail); err != nil {
+	if err := repo.CommitFile(outputPath, wRaw, msg); err != nil {
 		return fmt.Errorf("failed to commit updated checkpoint.witnessed file: %v", err)
 	}
 
-	glog.V(1).Infof("git push -f origin/%s", branchName)
-	if err := forkRepo.Push(&git.PushOptions{
-		Force: true,
-	}); err != nil {
-		return fmt.Errorf("git push -f: %v", err)
+	if err := repo.Push(); err != nil {
+		return fmt.Errorf("failed to push: %v", err)
 	}
 
 	glog.V(1).Info("Creating PR")
-	return createPR(ctx, opts, ghCli, fmt.Sprintf("Witness @ %d", wCp.Size), opts.feederRepo.owner+":"+branchName, "master")
+	return repo.CreatePR(ctx, fmt.Sprintf("Witness @ %d", wCp.Size), branchName, "master")
 }
 
 // selectCPToFeed decides which checkpoint, if any, to attempt to feed to the witness.
@@ -256,37 +239,13 @@ func wcpID(n note.Note) string {
 
 }
 
-// repo represents an owner/repo fragment.
-// Used in the options struct below.
-type repo struct {
-	owner    string
-	repoName string
-}
-
-// String returns "<owner>/<repo>".
-func (r repo) String() string {
-	return fmt.Sprintf("%s/%s", r.owner, r.repoName)
-}
-
-// newRepo creates a new repo struct from an owner/repo fragment.
-func newRepo(or string) (*repo, error) {
-	s := strings.Split(or, "/")
-	if l, want := len(s), 2; l != want {
-		return nil, fmt.Errorf("can't split owner/repo %q, found %d parts want %d", or, l, want)
-	}
-	return &repo{
-		owner:    s[0],
-		repoName: s[1],
-	}, nil
-}
-
 // options contains the various configuration and state required to perform a feedOnce call.
 type options struct {
 	gitUsername, gitEmail string
 	githubAuthToken       string
 
-	distributorRepo *repo
-	feederRepo      *repo
+	forkRepo        sgit.RepoID
+	distributorRepo sgit.RepoID
 	distributorPath string
 	feederClonePath string
 
@@ -324,11 +283,11 @@ func mustConfigure() *options {
 	checkNotEmpty("Environment variable GIT_USERNAME is required to make commits", gitUsername)
 	checkNotEmpty("Environment variable GIT_EMAIL is required to make commits", gitEmail)
 
-	dr, err := newRepo(*distributorOwnerRepo)
+	dr, err := sgit.NewRepoID(*distributorOwnerRepo)
 	if err != nil {
 		usageExit(fmt.Sprintf("--distributor_owner_repo invalid: %v", err))
 	}
-	fr, err := newRepo(*feederOwnerRepo)
+	fr, err := sgit.NewRepoID(*feederOwnerRepo)
 	if err != nil {
 		usageExit(fmt.Sprintf("--feeder_owner_repo invalid: %v", err))
 	}
@@ -340,7 +299,7 @@ func mustConfigure() *options {
 
 	return &options{
 		distributorRepo: dr,
-		feederRepo:      fr,
+		forkRepo:        fr,
 		distributorPath: *distributorRepoPath,
 		githubAuthToken: githubAuthToken,
 		gitUsername:     gitUsername,
@@ -349,168 +308,6 @@ func mustConfigure() *options {
 		feederOpts:      *fOpts,
 		feedInterval:    *interval,
 	}
-}
-
-// setupFeederRepo clones a fork of the log repo, ready to be used to raise a PR against the log.
-func setupFeederRepo(ctx context.Context, opts *options) (*git.Repository, error) {
-	// Clone the fork of the log, so we can go on to make a PR against it.
-	//   git clone -o origin "https://${GIT_USERNAME}:${FEEDER_GITHUB_TOKEN}@github.com/${fork_repo}.git" "${temp}"
-	cloneOpts := &git.CloneOptions{
-		URL: fmt.Sprintf("https://%v:%v@github.com/%s.git", opts.gitUsername, opts.githubAuthToken, opts.feederRepo),
-	}
-
-	var forkRepo *git.Repository
-	var err error
-	dest := opts.feederClonePath
-	if opts.feederClonePath == "" {
-		forkRepo, err = git.Clone(memory.NewStorage(), memfs.New(), cloneOpts)
-		dest = "memory"
-	} else {
-		forkRepo, err = git.PlainClone(opts.feederClonePath, false, cloneOpts)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to clone fork repo %q: %v", cloneOpts.URL, err)
-	}
-	glog.V(1).Infof("Cloned %q into %q", cloneOpts.URL, dest)
-
-	// Create a remote -> distributorOwnerRepo
-	//  git remote add upstream "https://github.com/${distributor_repo}.git"
-	distributorURL := fmt.Sprintf("https://github.com/%v.git", opts.distributorRepo)
-	distributorRemote, err := forkRepo.CreateRemote(&config.RemoteConfig{
-		Name: "upstream",
-		URLs: []string{distributorURL},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to add remote %q to fork repo: %v", distributorURL, err)
-	}
-	glog.V(1).Infof("Added remote upstream->%q for %q:\n%v", distributorURL, opts.feederRepo, distributorRemote)
-
-	if err = forkRepo.FetchContext(ctx, &git.FetchOptions{}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, fmt.Errorf("failed to fetch repo %q: %v", *opts.feederRepo, err)
-	}
-
-	return forkRepo, nil
-}
-
-// authWithGithub returns a github client struct which uses the provided OAuth token.
-// These tokens can be created using the github -> Settings -> Developers -> Personal Authentication Tokens page.
-func authWithGithub(ctx context.Context, ghToken string) (*github.Client, error) {
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: ghToken})
-	tc := oauth2.NewClient(ctx, ts)
-	return github.NewClient(tc), nil
-}
-
-// pullAndGetRepoHead ensures our local repo is up to date with the origin.
-func pullAndGetRepoHead(r *git.Repository) (*plumbing.Reference, *git.Worktree, error) {
-	wt, err := r.Worktree()
-	if err != nil {
-		return nil, nil, fmt.Errorf("workTree(%v) err: %v", r, err)
-	}
-	// Pull the latest commits from remote 'upstream'.
-	if err := wt.Pull(&git.PullOptions{RemoteName: "upstream"}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, nil, fmt.Errorf("git pull %v upstream err: %v", r, err)
-	}
-	// Get the master HEAD - we'll need this to branch from later on.
-	headRef, err := r.Head()
-	if err != nil {
-		return nil, nil, fmt.Errorf("reading %v HEAD ref err: %v", r, err)
-	}
-	return headRef, wt, nil
-}
-
-// gitCreateLocalBranch creates a local branch on the given repo.
-//
-// Returns a function which will delete the local branch when called.
-func gitCreateLocalBranch(repo *git.Repository, headRef *plumbing.Reference, branchName string) (func(), error) {
-	// Create a git branch for the witnessed checkpoint to be added, named
-	// using hex(checkpoint hash).  Construct a fully-specified
-	// reference name for the new branch.
-	branchRefName := plumbing.ReferenceName(branchName)
-	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
-
-	workTree, err := repo.Worktree()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get work tree: %v", err)
-	}
-
-	glog.V(1).Infof("git checkout -b %q", branchHashRef.Name())
-	if err := workTree.Checkout(&git.CheckoutOptions{
-		Branch: branchRefName,
-		Create: true,
-	}); err != nil {
-		return nil, fmt.Errorf("git checkout %v: %v", branchRefName, err)
-	}
-	d := func() {
-		if err := repo.Storer.RemoveReference(branchHashRef.Name()); err != nil {
-			glog.Errorf("failed to delete branch hashref for %q: %v", branchHashRef.Name(), err)
-		}
-		glog.V(1).Infof("git branch -D %v", branchHashRef.Name())
-		if err := workTree.Checkout(&git.CheckoutOptions{
-			Branch: "refs/heads/master",
-		}); err != nil {
-			glog.Errorf("failed to git checkout master: %v", err)
-			return
-		}
-		glog.V(1).Info("git checkout master")
-	}
-
-	return d, nil
-}
-
-// gitCommitFile creates a commit on a repo's worktree which overwrites the specified file path
-// with the provided bytes.
-func gitCommitFile(workTree *git.Worktree, path string, raw []byte, commitMsg string, username, email string) error {
-	glog.Infof("Writing checkpoint (%d bytes) to %q", len(raw), path)
-	if err := util.WriteFile(workTree.Filesystem, path, raw, 0644); err != nil {
-		return fmt.Errorf("failed to write to %q: %v", path, err)
-	}
-
-	glog.V(1).Infof("git add %s", path)
-	if _, err := workTree.Add(path); err != nil {
-		return fmt.Errorf("failed to git add %q: %v", path, err)
-	}
-
-	glog.V(1).Info("git commit")
-	_, err := workTree.Commit(commitMsg, &git.CommitOptions{
-		Author: &object.Signature{
-			// Name, Email required despite what we set up in git config earlier.
-			Name:  username,
-			Email: email,
-			When:  time.Now(),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("git commit: %v", err)
-	}
-	return nil
-}
-
-// createPR creates a pull request. Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create
-func createPR(ctx context.Context, opts *options, ghCli *github.Client, title, commitBranch, prBranch string) error {
-	if title == "" {
-		return errors.New("missing `title`, won't create PR")
-	}
-
-	newPR := &github.NewPullRequest{
-		Title:               github.String(title),
-		Head:                github.String(commitBranch),
-		Base:                github.String(prBranch),
-		MaintainerCanModify: github.Bool(true),
-	}
-
-	prJSON, err := json.Marshal(newPR)
-	if err != nil {
-		return fmt.Errorf("failed to marshal JSON for new PR request: %v", err)
-	}
-	glog.V(1).Infof("Creating PR:\n%s", prJSON)
-
-	pr, _, err := ghCli.PullRequests.Create(ctx, opts.distributorRepo.owner, opts.distributorRepo.repoName, newPR)
-	if err != nil {
-		return err
-	}
-
-	glog.Infof("PR created: %s", pr.GetHTMLURL())
-	return nil
 }
 
 // feederConfig is the format of the feeder config file.

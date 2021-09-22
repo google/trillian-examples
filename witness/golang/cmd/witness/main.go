@@ -55,7 +55,7 @@ func main() {
 	}
 	var js impl.LogConfig
 	if err := yaml.Unmarshal(fileData, &js); err != nil {
-		glog.Exitf("Failed to parse config file as proper JSON: %v", err)
+		glog.Exitf("Failed to parse config file as proper YAML: %v", err)
 	}
 
 	ctx := context.Background()

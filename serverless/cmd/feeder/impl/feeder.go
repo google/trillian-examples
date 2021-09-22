@@ -24,14 +24,13 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/checkpoints"
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 
-// ErrNoSignaturesAdded is returned when all known witnesses have already signed the presented checkpoint.
+// ErrNoSignaturesAdded is returned when the witness has already signed the presented checkpoint.
 var ErrNoSignaturesAdded = errors.New("no additional signatures added")
 
 // Witness describes the operations the feeder needs to interact with a witness.
@@ -68,44 +67,27 @@ type FeedOpts struct {
 	WitnessTimeout time.Duration
 }
 
-// Feed sends the provided checkpoint to the configured set of witnesses.
-// This method will block until either opts.NumRequired witness signatures are obtained,
+// Feed sends the provided checkpoint to the configured witness.
+// This method will block until a witness signature is obtained,
 // or the context becomes done.
-// Returns the provided checkpoint plus at least cfg.NumRequired signatures.
 func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
-	have := make(map[uint32]bool)
-
 	cpSubmit, _, n, err := log.ParseCheckpoint(cp, opts.LogOrigin, opts.LogSigVerifier, opts.Witness.SigVerifier())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse checkpoint: %v", err)
 	}
-	for _, s := range n.Sigs {
-		have[s.Hash] = true
+	if len(n.Sigs) == 2 {
+		return cp, ErrNoSignaturesAdded
 	}
-	if !have[opts.LogSigVerifier.KeyHash()] {
-		return nil, errors.New("cp not signed by log")
-	}
-
 	if opts.WitnessTimeout > 0 {
 		var c func()
 		ctx, c = context.WithTimeout(ctx, opts.WitnessTimeout)
 		defer c()
 	}
-	if have[opts.Witness.SigVerifier().KeyHash()] {
-		return nil, ErrNoSignaturesAdded
-	}
 	wCP, err := submitToWitness(ctx, cp, *cpSubmit, opts)
 	if err != nil {
 		return nil, fmt.Errorf("witness submission failed: %v", err)
 	}
-
-	// ...and combine signatures.
-	r, err := checkpoints.Combine(append([][]byte{cp}, wCP), opts.LogSigVerifier, note.VerifierList(opts.Witness.SigVerifier()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to combine checkpoints: %v", err)
-	}
-
-	return r, nil
+	return wCP, nil
 }
 
 // submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.
@@ -162,11 +144,11 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 			}
 		}
 
-		// TODO(mhutchinson): This returns the checkpoint, which can be used instead of getting
-		// the latest each time around the loop.
-		if _, err := opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
+		if cp, err := opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
 			glog.Warningf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
 			continue
+		} else {
+			return cp, nil
 		}
 	}
 }

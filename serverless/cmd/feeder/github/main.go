@@ -261,7 +261,7 @@ func usageExit(m string) {
 // mustConfigure creates an options struct from flags and env vars.
 // It will terminate execution on any error.
 func mustConfigure() *options {
-	checkNotEmpty := func(v string, m string) {
+	checkNotEmpty := func(m, v string) {
 		if v == "" {
 			usageExit(m)
 		}

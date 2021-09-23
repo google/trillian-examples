@@ -22,7 +22,7 @@ A _distributor_ makes these cosigned checkpoints available to log clients.
 
 This GitHub Action implements a serverless distributor.
 For more details on witnessing strategies as well as witness implementation(s), see the
-[witness](github.com/google/trillian-examples/witness) package.
+[witness](/witness) package.
 
 ## Operation
 

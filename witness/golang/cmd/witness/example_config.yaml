@@ -1,6 +1,6 @@
-Logs: 
-  - HashStrategy: default
+Logs:
   - LogID: testlog
-  - Origin: origin string (first line of checkpoint)
-  - PubKey: testlog+b69ecd61+AXCbEtyrQUhoUcMV/fZz905iDDoe7UAq3X0oD5ZUVyMS
-  - UseCompact: false
+    HashStrategy: default
+    Origin: origin string (first line of checkpoint)
+    PubKey: testlog+b69ecd61+AXCbEtyrQUhoUcMV/fZz905iDDoe7UAq3X0oD5ZUVyMS
+    UseCompact: false

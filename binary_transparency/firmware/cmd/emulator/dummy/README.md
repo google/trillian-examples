@@ -16,7 +16,9 @@ validation is successful.
 For fun, the second-stage bootloader is implemented as a WASM VM (using the
 [Life VM from the Perlin folks](https://github.com/perlin-network/life)), and the firmware.bin
 is expected to be a compiled WASM binary.  There is an example of such a binary contained
-in the [/testdata/firmware/dummy_device](/testdata/firmware/dummy_device) directory.
+in the
+[.../testdata/firmware/dummy_device](/binary_transparency/firmware/testdata/firmware/dummy_device)
+directory.
 
 The WASM VM currently only provides a simple `print(const char*)` function (although this
 could be extended if required).

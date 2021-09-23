@@ -40,8 +40,8 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
-	sconfig "github.com/google/trillian-examples/serverless/config"
-	"github.com/google/trillian-examples/serverless/internal/git"
+	"github.com/google/trillian-examples/serverless/config"
+	"github.com/google/trillian-examples/serverless/internal/github"
 	"golang.org/x/mod/sumdb/note"
 
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
@@ -90,7 +90,7 @@ func main() {
 		}()
 	}
 
-	repo, err := git.NewForkedRepo(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
+	repo, err := github.NewForkedRepo(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
 	if err != nil {
 		glog.Exitf("Failed to set up repository: %v", err)
 	}
@@ -126,7 +126,7 @@ mainLoop:
 }
 
 // feedOnce performs a one-shot "feed to witness and create PR" operation.
-func feedOnce(ctx context.Context, opts *options, repo git.ForkedRepo) error {
+func feedOnce(ctx context.Context, opts *options, repo github.ForkedRepo) error {
 	// Pull forkRepo and get the ref for origin/master branch HEAD.
 	headRef, err := repo.PullAndGetHead()
 	if err != nil {
@@ -188,7 +188,7 @@ func feedOnce(ctx context.Context, opts *options, repo git.ForkedRepo) error {
 }
 
 // selectCPToFeed decides which checkpoint, if any, to attempt to feed to the witness.
-func selectCPToFeed(ctx context.Context, repo git.ForkedRepo, opts *options) ([]byte, error) {
+func selectCPToFeed(ctx context.Context, repo github.ForkedRepo, opts *options) ([]byte, error) {
 	logCPRaw, err := opts.feederOpts.LogFetcher(ctx, "checkpoint")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch log checkpoint: %v", err)
@@ -242,8 +242,8 @@ type options struct {
 	gitUsername, gitEmail string
 	githubAuthToken       string
 
-	forkRepo        git.RepoID
-	distributorRepo git.RepoID
+	forkRepo        github.RepoID
+	distributorRepo github.RepoID
 	distributorPath string
 	feederClonePath string
 
@@ -281,11 +281,11 @@ func mustConfigure() *options {
 	checkNotEmpty("Environment variable GIT_USERNAME is required to make commits", gitUsername)
 	checkNotEmpty("Environment variable GIT_EMAIL is required to make commits", gitEmail)
 
-	dr, err := git.NewRepoID(*distributorOwnerRepo)
+	dr, err := github.NewRepoID(*distributorOwnerRepo)
 	if err != nil {
 		usageExit(fmt.Sprintf("--distributor_owner_repo invalid: %v", err))
 	}
-	fr, err := git.NewRepoID(*feederOwnerRepo)
+	fr, err := github.NewRepoID(*feederOwnerRepo)
 	if err != nil {
 		usageExit(fmt.Sprintf("--feeder_owner_repo invalid: %v", err))
 	}
@@ -310,10 +310,10 @@ func mustConfigure() *options {
 
 // feederConfig is the format of the feeder config file.
 type feederConfig struct {
-	Log sconfig.Log `yaml:"Log"`
+	Log config.Log `yaml:"Log"`
 
 	// Witness defines the target witness
-	Witness sconfig.Witness `yaml:"Witness"`
+	Witness config.Witness `yaml:"Witness"`
 }
 
 // readFeederConfig parses the named file into a FeedOpts structure.

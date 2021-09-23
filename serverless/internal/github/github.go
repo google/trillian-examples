@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// git contains libraries for using github repositories that make serverless
+// github contains libraries for using github repositories that make serverless
 // operations easy to follow.
-package git
+package github
 
 import (
 	"context"
@@ -32,11 +32,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/golang/glog"
-	"github.com/google/go-github/v37/github"
+	gh_api "github.com/google/go-github/v37/github"
 	"golang.org/x/oauth2"
 )
 
-// RepoID identifies a github project, including owner &repo.
+// RepoID identifies a github project, including owner & repo.
 type RepoID struct {
 	Owner    string
 	RepoName string
@@ -79,9 +79,9 @@ func NewForkedRepo(ctx context.Context, upstream, fork RepoID, ghUser, ghEmail, 
 		URL: fmt.Sprintf("https://%v:%v@github.com/%s.git", ghUser, ghToken, repo.fork),
 	}
 	if clonePath == "" {
-		repo.git, err = git.Clone(memory.NewStorage(), memfs.New(), cloneOpts)
+		repo.git, err = git.CloneContext(ctx, memory.NewStorage(), memfs.New(), cloneOpts)
 	} else {
-		repo.git, err = git.PlainClone(clonePath, false, cloneOpts)
+		repo.git, err = git.PlainCloneContext(ctx, clonePath, false, cloneOpts)
 	}
 	if err != nil {
 		return repo, fmt.Errorf("failed to clone fork repo %q: %v", cloneOpts.URL, err)
@@ -102,15 +102,15 @@ func NewForkedRepo(ctx context.Context, upstream, fork RepoID, ghUser, ghEmail, 
 	if err = repo.git.FetchContext(ctx, &git.FetchOptions{}); err != nil && err != git.NoErrAlreadyUpToDate {
 		return repo, fmt.Errorf("failed to fetch repo %q: %v", repo.fork, err)
 	}
-	return repo, err
+	return repo, nil
 }
 
 // authWithGithub returns a github client struct which uses the provided OAuth token.
 // These tokens can be created using the github -> Settings -> Developers -> Personal Authentication Tokens page.
-func authWithGithub(ctx context.Context, ghToken string) (*github.Client, error) {
+func authWithGithub(ctx context.Context, ghToken string) (*gh_api.Client, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: ghToken})
 	tc := oauth2.NewClient(ctx, ts)
-	return github.NewClient(tc), nil
+	return gh_api.NewClient(tc), nil
 }
 
 // ForkedRepo represents a github repository that has been forked.
@@ -122,7 +122,7 @@ type ForkedRepo struct {
 	upstream, fork RepoID
 	user, email    string
 	git            *git.Repository
-	ghCli          *github.Client
+	ghCli          *gh_api.Client
 }
 
 // PullAndGetHead ensures that the local files match those in the upstream repository,
@@ -241,11 +241,11 @@ func (r *ForkedRepo) CreatePR(ctx context.Context, title, commitBranch, prBranch
 		return errors.New("missing `title`, won't create PR")
 	}
 
-	newPR := &github.NewPullRequest{
-		Title:               github.String(title),
-		Head:                github.String(r.fork.Owner + ":" + commitBranch),
-		Base:                github.String(prBranch),
-		MaintainerCanModify: github.Bool(true),
+	newPR := &gh_api.NewPullRequest{
+		Title:               gh_api.String(title),
+		Head:                gh_api.String(r.fork.Owner + ":" + commitBranch),
+		Base:                gh_api.String(prBranch),
+		MaintainerCanModify: gh_api.Bool(true),
 	}
 
 	prJSON, err := json.Marshal(newPR)

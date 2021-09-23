@@ -90,7 +90,7 @@ func main() {
 		}()
 	}
 
-	repo, err := github.NewForkedRepo(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
+	repo, err := github.NewRepository(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
 	if err != nil {
 		glog.Exitf("Failed to set up repository: %v", err)
 	}
@@ -126,7 +126,7 @@ mainLoop:
 }
 
 // feedOnce performs a one-shot "feed to witness and create PR" operation.
-func feedOnce(ctx context.Context, opts *options, repo github.ForkedRepo) error {
+func feedOnce(ctx context.Context, opts *options, repo github.Repository) error {
 	// Pull forkRepo and get the ref for origin/master branch HEAD.
 	headRef, err := repo.PullAndGetHead()
 	if err != nil {
@@ -188,7 +188,7 @@ func feedOnce(ctx context.Context, opts *options, repo github.ForkedRepo) error 
 }
 
 // selectCPToFeed decides which checkpoint, if any, to attempt to feed to the witness.
-func selectCPToFeed(ctx context.Context, repo github.ForkedRepo, opts *options) ([]byte, error) {
+func selectCPToFeed(ctx context.Context, repo github.Repository, opts *options) ([]byte, error) {
 	logCPRaw, err := opts.feederOpts.LogFetcher(ctx, "checkpoint")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch log checkpoint: %v", err)

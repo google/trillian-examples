@@ -59,10 +59,10 @@ func NewRepoID(or string) (RepoID, error) {
 	}, nil
 }
 
-// NewForkedRepo creates a wrapper around a git repository which has a fork owned by
+// NewRepository creates a wrapper around a git repository which has a fork owned by
 // the user, and an upstream repository configured that PRs can be proposed against.
-func NewForkedRepo(ctx context.Context, upstream, fork RepoID, ghUser, ghEmail, ghToken, clonePath string) (ForkedRepo, error) {
-	repo := ForkedRepo{
+func NewRepository(ctx context.Context, upstream, fork RepoID, ghUser, ghEmail, ghToken, clonePath string) (Repository, error) {
+	repo := Repository{
 		upstream: upstream,
 		fork:     fork,
 		user:     ghUser,
@@ -113,10 +113,10 @@ func authWithGithub(ctx context.Context, ghToken string) (*gh_api.Client, error)
 	return gh_api.NewClient(tc), nil
 }
 
-// ForkedRepo represents a github repository that has been forked.
-// The original repo allows PRs, and the fork is owned by the user and commits
-// are pushed to branches here and proposed against the upstream repository.
-type ForkedRepo struct {
+// Repository represents a github repository with a working area and an upstream.
+// The upstream repo must allow PRs. The working fork is usually owned by the user;
+// commits are pushed to branches here and proposed against the upstream repository.
+type Repository struct {
 	// upstream is the original repository, and fork is the user's clone of it.
 	// Changes will be made and pushed to fork, and PRs proposed to upstream.
 	upstream, fork RepoID
@@ -127,7 +127,7 @@ type ForkedRepo struct {
 
 // PullAndGetHead ensures that the local files match those in the upstream repository,
 // and returns a reference to the latest commit.
-func (r *ForkedRepo) PullAndGetHead() (*plumbing.Reference, error) {
+func (r *Repository) PullAndGetHead() (*plumbing.Reference, error) {
 	wt, err := r.git.Worktree()
 	if err != nil {
 		return nil, fmt.Errorf("workTree(%v) err: %v", r, err)
@@ -145,7 +145,7 @@ func (r *ForkedRepo) PullAndGetHead() (*plumbing.Reference, error) {
 }
 
 // Returns a function which will delete the local branch when called.
-func (r *ForkedRepo) CreateLocalBranch(headRef *plumbing.Reference, branchName string) (func(), error) {
+func (r *Repository) CreateLocalBranch(headRef *plumbing.Reference, branchName string) (func(), error) {
 	// Create a git branch for the witnessed checkpoint to be added, named
 	// using hex(checkpoint hash).  Construct a fully-specified
 	// reference name for the new branch.
@@ -184,7 +184,7 @@ func (r *ForkedRepo) CreateLocalBranch(headRef *plumbing.Reference, branchName s
 // ReadFile behaves as `util.ReadFile` on the active branch.
 // Encapsulating this inside the repo avoids clients needing to depend on
 // git filesystems directly.
-func (r *ForkedRepo) ReadFile(path string) ([]byte, error) {
+func (r *Repository) ReadFile(path string) ([]byte, error) {
 	workTree, err := r.git.Worktree()
 	if err != nil {
 		return nil, fmt.Errorf("workTree(%v) err: %v", r, err)
@@ -194,7 +194,7 @@ func (r *ForkedRepo) ReadFile(path string) ([]byte, error) {
 
 // CommitFile creates a commit on a repo's worktree which overwrites the specified file path
 // with the provided bytes.
-func (r *ForkedRepo) CommitFile(path string, raw []byte, commitMsg string) error {
+func (r *Repository) CommitFile(path string, raw []byte, commitMsg string) error {
 	workTree, err := r.git.Worktree()
 	if err != nil {
 		return fmt.Errorf("workTree(%v) err: %v", r, err)
@@ -224,7 +224,7 @@ func (r *ForkedRepo) CommitFile(path string, raw []byte, commitMsg string) error
 }
 
 // Push forces any local commits on the active branch to the user's fork.
-func (r *ForkedRepo) Push() error {
+func (r *Repository) Push() error {
 	glog.V(1).Infof("git push -f")
 	if err := r.git.Push(&git.PushOptions{
 		Force: true,
@@ -236,7 +236,7 @@ func (r *ForkedRepo) Push() error {
 
 // CreatePR creates a pull request.
 // Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create
-func (r *ForkedRepo) CreatePR(ctx context.Context, title, commitBranch, prBranch string) error {
+func (r *Repository) CreatePR(ctx context.Context, title, commitBranch, prBranch string) error {
 	if title == "" {
 		return errors.New("missing `title`, won't create PR")
 	}

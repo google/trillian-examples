@@ -98,14 +98,14 @@ func main() {
 	}
 	if *interval > 0 {
 		for {
-			if err := distributeOnce(ctx, opts, repo); err != nil {
-				glog.Warningf("distributeOnce: %v", err)
-			}
 			select {
 			case <-time.After(*interval):
 				glog.Infof("Wait time is up, going around again (%s)", *interval)
 			case <-ctx.Done():
 				return
+			}
+			if err := distributeOnce(ctx, opts, repo); err != nil {
+				glog.Warningf("distributeOnce: %v", err)
 			}
 		}
 	}

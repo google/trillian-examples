@@ -59,9 +59,9 @@ func NewRepoID(or string) (RepoID, error) {
 	}, nil
 }
 
-// NewServerlessRepo creates a wrapper around a git repository which has a fork owned by
+// NewForkedRepo creates a wrapper around a git repository which has a fork owned by
 // the user, and an upstream repository configured that PRs can be proposed against.
-func NewServerlessRepo(ctx context.Context, upstream, fork RepoID, ghUser, ghEmail, ghToken, clonePath string) (ForkedRepo, error) {
+func NewForkedRepo(ctx context.Context, upstream, fork RepoID, ghUser, ghEmail, ghToken, clonePath string) (ForkedRepo, error) {
 	repo := ForkedRepo{
 		upstream: upstream,
 		fork:     fork,

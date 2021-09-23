@@ -90,7 +90,7 @@ func main() {
 		}()
 	}
 
-	repo, err := git.NewServerlessRepo(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
+	repo, err := git.NewForkedRepo(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
 	if err != nil {
 		glog.Exitf("Failed to set up repository: %v", err)
 	}

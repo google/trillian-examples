@@ -34,8 +34,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-git/go-billy/v5/util"
-	"github.com/go-git/go-git/v5"
 	"github.com/golang/glog"
 	"gopkg.in/yaml.v2"
 
@@ -43,7 +41,7 @@ import (
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	sconfig "github.com/google/trillian-examples/serverless/config"
-	sgit "github.com/google/trillian-examples/serverless/internal/git"
+	"github.com/google/trillian-examples/serverless/internal/git"
 	"golang.org/x/mod/sumdb/note"
 
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
@@ -92,7 +90,7 @@ func main() {
 		}()
 	}
 
-	repo, err := sgit.NewServerlessRepo(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
+	repo, err := git.NewServerlessRepo(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
 	if err != nil {
 		glog.Exitf("Failed to set up repository: %v", err)
 	}
@@ -128,14 +126,14 @@ mainLoop:
 }
 
 // feedOnce performs a one-shot "feed to witness and create PR" operation.
-func feedOnce(ctx context.Context, opts *options, repo sgit.ForkedRepo) error {
+func feedOnce(ctx context.Context, opts *options, repo git.ForkedRepo) error {
 	// Pull forkRepo and get the ref for origin/master branch HEAD.
-	headRef, workTree, err := repo.PullAndGetHead()
+	headRef, err := repo.PullAndGetHead()
 	if err != nil {
 		return err
 	}
 
-	cpRaw, err := selectCPToFeed(ctx, workTree, opts)
+	cpRaw, err := selectCPToFeed(ctx, repo, opts)
 	if err != nil {
 		return err
 	}
@@ -170,7 +168,7 @@ func feedOnce(ctx context.Context, opts *options, repo sgit.ForkedRepo) error {
 
 	outputPath := filepath.Join(opts.distributorPath, "logs", opts.feederOpts.LogID, "incoming", fmt.Sprintf("checkpoint_%s", id))
 	// First, check whether we've already managed to submit this CP into the incoming directory
-	if _, err := util.ReadFile(workTree.Filesystem, outputPath); err == nil {
+	if _, err := repo.ReadFile(outputPath); err == nil {
 		return fmt.Errorf("witnessed checkpoint already pending: %v", impl.ErrNoSignaturesAdded)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to check for existing pending checkpoint: %v", err)
@@ -190,7 +188,7 @@ func feedOnce(ctx context.Context, opts *options, repo sgit.ForkedRepo) error {
 }
 
 // selectCPToFeed decides which checkpoint, if any, to attempt to feed to the witness.
-func selectCPToFeed(ctx context.Context, workTree *git.Worktree, opts *options) ([]byte, error) {
+func selectCPToFeed(ctx context.Context, repo git.ForkedRepo, opts *options) ([]byte, error) {
 	logCPRaw, err := opts.feederOpts.LogFetcher(ctx, "checkpoint")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch log checkpoint: %v", err)
@@ -200,7 +198,7 @@ func selectCPToFeed(ctx context.Context, workTree *git.Worktree, opts *options) 
 		return nil, fmt.Errorf("failed to parse log checkpoint: %v", err)
 	}
 	cpZeroPath := filepath.Join(opts.distributorPath, "logs", opts.feederOpts.LogID, "checkpoint.0")
-	cpZeroRaw, err := util.ReadFile(workTree.Filesystem, cpZeroPath)
+	cpZeroRaw, err := repo.ReadFile(cpZeroPath)
 	if err != nil {
 		glog.Warningf("Failed to read %q: %v. Assuming new distributor and continuing...", cpZeroPath, err)
 		return logCPRaw, nil
@@ -244,8 +242,8 @@ type options struct {
 	gitUsername, gitEmail string
 	githubAuthToken       string
 
-	forkRepo        sgit.RepoID
-	distributorRepo sgit.RepoID
+	forkRepo        git.RepoID
+	distributorRepo git.RepoID
 	distributorPath string
 	feederClonePath string
 
@@ -283,11 +281,11 @@ func mustConfigure() *options {
 	checkNotEmpty("Environment variable GIT_USERNAME is required to make commits", gitUsername)
 	checkNotEmpty("Environment variable GIT_EMAIL is required to make commits", gitEmail)
 
-	dr, err := sgit.NewRepoID(*distributorOwnerRepo)
+	dr, err := git.NewRepoID(*distributorOwnerRepo)
 	if err != nil {
 		usageExit(fmt.Sprintf("--distributor_owner_repo invalid: %v", err))
 	}
-	fr, err := sgit.NewRepoID(*feederOwnerRepo)
+	fr, err := git.NewRepoID(*feederOwnerRepo)
 	if err != nil {
 		usageExit(fmt.Sprintf("--feeder_owner_repo invalid: %v", err))
 	}

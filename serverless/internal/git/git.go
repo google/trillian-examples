@@ -127,21 +127,21 @@ type ForkedRepo struct {
 
 // PullAndGetHead ensures that the local files match those in the upstream repository,
 // and returns a reference to the latest commit.
-func (r *ForkedRepo) PullAndGetHead() (*plumbing.Reference, *git.Worktree, error) {
+func (r *ForkedRepo) PullAndGetHead() (*plumbing.Reference, error) {
 	wt, err := r.git.Worktree()
 	if err != nil {
-		return nil, nil, fmt.Errorf("workTree(%v) err: %v", r, err)
+		return nil, fmt.Errorf("workTree(%v) err: %v", r, err)
 	}
 	// Pull the latest commits from remote 'upstream'.
 	if err := wt.Pull(&git.PullOptions{RemoteName: "upstream"}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, nil, fmt.Errorf("git pull %v upstream err: %v", r, err)
+		return nil, fmt.Errorf("git pull %v upstream err: %v", r, err)
 	}
 	// Get the master HEAD - we'll need this to branch from later on.
 	headRef, err := r.git.Head()
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading %v HEAD ref err: %v", r, err)
+		return nil, fmt.Errorf("reading %v HEAD ref err: %v", r, err)
 	}
-	return headRef, wt, nil
+	return headRef, nil
 }
 
 // Returns a function which will delete the local branch when called.
@@ -179,6 +179,17 @@ func (r *ForkedRepo) CreateLocalBranch(headRef *plumbing.Reference, branchName s
 	}
 
 	return d, nil
+}
+
+// ReadFile behaves as `util.ReadFile` on the active branch.
+// Encapsulating this inside the repo avoids clients needing to depend on
+// git filesystems directly.
+func (r *ForkedRepo) ReadFile(path string) ([]byte, error) {
+	workTree, err := r.git.Worktree()
+	if err != nil {
+		return nil, fmt.Errorf("workTree(%v) err: %v", r, err)
+	}
+	return util.ReadFile(workTree.Filesystem, path)
 }
 
 // CommitFile creates a commit on a repo's worktree which overwrites the specified file path

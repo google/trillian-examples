@@ -12,11 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// feeder/github is a feeder implementation for GitHub Action based serverless distributors.
-//
-// This tool feeds checkpoints from a log into one or more witnesses, and then
-// raises a PR against the distributor repo to add any resulting additional
-// witness signatures.
+// feeder/github redistributes checkpoints from a witness into a serverless
+// distributor by raising a PR containing the co-signed checkpoint.
 package main
 
 import (
@@ -65,7 +62,7 @@ var (
 	forkRepo          = flag.String("fork_repo", "", "The repo owner/fragment from the feeder (forked distributor) repo URL.")
 	distributorPath   = flag.String("distributor_path", "", "Path from the root of the repo where the distributor files can be found.")
 	configPath        = flag.String("config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
-	interval          = flag.Duration("interval", time.Duration(0), "Interval between checkpoints.")
+	interval          = flag.Duration("interval", time.Duration(0), "Interval between checkpoints. Default of 0 causes the tool to be a one-shot.")
 	cloneToDisk       = flag.Bool("clone_to_disk", false, "Whether to clone the distributor repo to memory or disk.")
 )
 
@@ -164,7 +161,7 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 	}
 
 	glog.V(1).Info("Creating PR")
-	return repo.CreatePR(ctx, fmt.Sprintf("Witness @ %d", wCp.Size), branchName)
+	return repo.CreatePR(ctx, fmt.Sprintf("Witness %s@%d", opts.witSigV.Name(), wCp.Size), branchName)
 }
 
 // cpID returns a stable identifier for a given checkpoint and list of known signatures.

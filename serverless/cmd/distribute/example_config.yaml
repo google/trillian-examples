@@ -1,0 +1,9 @@
+Log:
+  ID: sumdb
+  PublicKey: sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8
+  URL: https://sum.golang.org
+  Origin: go.sum database tree
+
+Witness:
+  URL: http://localhost:8100
+  PublicKey: mhutchinson.witness+384b3dbc+AfWg+7+qmcFoMuIM0ZGe4ZsIuc6gEg3EL0cKkNVolCA+

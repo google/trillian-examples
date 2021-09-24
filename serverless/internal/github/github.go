@@ -61,12 +61,13 @@ func NewRepoID(or string) (RepoID, error) {
 
 // NewRepository creates a wrapper around a git repository which has a fork owned by
 // the user, and an upstream repository configured that PRs can be proposed against.
-func NewRepository(ctx context.Context, upstream, fork RepoID, ghUser, ghEmail, ghToken, clonePath string) (Repository, error) {
+func NewRepository(ctx context.Context, upstream RepoID, upstreamBranch string, fork RepoID, ghUser, ghEmail, ghToken, clonePath string) (Repository, error) {
 	repo := Repository{
-		upstream: upstream,
-		fork:     fork,
-		user:     ghUser,
-		email:    ghEmail,
+		upstream:       upstream,
+		upstreamBranch: upstreamBranch,
+		fork:           fork,
+		user:           ghUser,
+		email:          ghEmail,
 	}
 	var err error
 	repo.ghCli, err = authWithGithub(ctx, ghToken)
@@ -120,6 +121,8 @@ type Repository struct {
 	// upstream is the original repository, and fork is the user's clone of it.
 	// Changes will be made and pushed to fork, and PRs proposed to upstream.
 	upstream, fork RepoID
+	// upstreamBranch is the name of the upstreamBranch/main branch that PRs will be proposed against.
+	upstreamBranch string
 	user, email    string
 	git            *git.Repository
 	ghCli          *gh_api.Client
@@ -170,12 +173,12 @@ func (r *Repository) CreateLocalBranch(headRef *plumbing.Reference, branchName s
 		}
 		glog.V(1).Infof("git branch -D %v", branchHashRef.Name())
 		if err := workTree.Checkout(&git.CheckoutOptions{
-			Branch: "refs/heads/master",
+			Branch: plumbing.NewBranchReferenceName(r.upstreamBranch),
 		}); err != nil {
-			glog.Errorf("failed to git checkout master: %v", err)
+			glog.Errorf("failed to git checkout %s: %v", r.upstreamBranch, err)
 			return
 		}
-		glog.V(1).Info("git checkout master")
+		glog.V(1).Infof("git checkout %s", r.upstreamBranch)
 	}
 
 	return d, nil
@@ -236,7 +239,7 @@ func (r *Repository) Push() error {
 
 // CreatePR creates a pull request.
 // Based on: https://godoc.org/github.com/google/go-github/github#example-PullRequestsService-Create
-func (r *Repository) CreatePR(ctx context.Context, title, commitBranch, prBranch string) error {
+func (r *Repository) CreatePR(ctx context.Context, title, commitBranch string) error {
 	if title == "" {
 		return errors.New("missing `title`, won't create PR")
 	}
@@ -244,7 +247,7 @@ func (r *Repository) CreatePR(ctx context.Context, title, commitBranch, prBranch
 	newPR := &gh_api.NewPullRequest{
 		Title:               gh_api.String(title),
 		Head:                gh_api.String(r.fork.Owner + ":" + commitBranch),
-		Base:                gh_api.String(prBranch),
+		Base:                gh_api.String(r.upstreamBranch),
 		MaintainerCanModify: gh_api.Bool(true),
 	}
 

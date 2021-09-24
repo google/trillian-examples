@@ -64,6 +64,7 @@ Where:
 
 var (
 	distributorOwnerRepo = flag.String("distributor_owner_repo", "", "The repo owner/fragment from the distributor repo URL.")
+	distributorBranch    = flag.String("distributor_branch", "master", "The branch that PRs will be proposed against on the distributor_repo.")
 	feederOwnerRepo      = flag.String("feeder_owner_repo", "", "The repo owner/fragment from the feeder (forked distributor) repo URL.")
 	distributorRepoPath  = flag.String("distributor_repo_path", "", "Path from the root of the repo where the distributor files can be found.")
 	feederConfigPath     = flag.String("feeder_config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
@@ -90,7 +91,7 @@ func main() {
 		}()
 	}
 
-	repo, err := github.NewRepository(ctx, opts.distributorRepo, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
+	repo, err := github.NewRepository(ctx, opts.distributorRepo, *distributorBranch, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.feederClonePath)
 	if err != nil {
 		glog.Exitf("Failed to set up repository: %v", err)
 	}
@@ -184,7 +185,7 @@ func feedOnce(ctx context.Context, opts *options, repo github.Repository) error 
 	}
 
 	glog.V(1).Info("Creating PR")
-	return repo.CreatePR(ctx, fmt.Sprintf("Witness @ %d", wCp.Size), branchName, "master")
+	return repo.CreatePR(ctx, fmt.Sprintf("Witness @ %d", wCp.Size), branchName)
 }
 
 // selectCPToFeed decides which checkpoint, if any, to attempt to feed to the witness.

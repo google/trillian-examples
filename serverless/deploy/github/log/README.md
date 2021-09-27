@@ -44,27 +44,24 @@ jobs:
     name: Serverless PR handler
     outputs:
       # Add extra outputs to correspond to any additions to the matched patterns in the filter step below.
-      log: ${{ steps.filter.outputs.log }}
-      pending: ${{ steps.filter.outputs.pending }}
+      log_pending: ${{ steps.filter.outputs.log_pending }}
     steps:
       - name: Check for log structure PRs
         id: filter
         uses: dorny/paths-filter@v2
         with:
           list-files: shell
-          # Can add more patterns here if necessary, don't forget to update the outputs above if you do so!
           filters: |
-            log:
-              - '${{ env.LOG_ROOT }}/**'
-            pending:
+            log_pending:
               - added: '${{ env.LOG_ROOT }}/leaves/pending/*'
+            log_private:
+              - '${{ env.LOG_ROOT }}/!(leaves/pending/*)'
 
-      # Checks that no unexpected modifications are made within the log directory.
       - name: Detect log structure changes
-        if: steps.filter.outputs.log == 'true' && steps.filter.outputs.pending == 'false'
+        if: steps.filter.outputs.log_private == 'true'
         run: |
-          for i in ${{ steps.filter.outputs.log_files }}; do
-            echo "::error file=${i}::Modified protected log structure - ensure additions are placed in the ${{ env.LOG_ROOT }}/leaves/pending directory"
+          for i in ${{ steps.filter.outputs.log_private_files }}; do
+            echo "::error file=${i}::Modified protected log structure"
           done
           exit 1
 
@@ -72,7 +69,7 @@ jobs:
 # We only run this if we've detected that this PR is an "add leaf" PR.
   leaf_validator_job:
     needs: changes
-    if: ${{ needs.changes.outputs.pending == 'true' }}
+    if: ${{ needs.changes.outputs.log_pending == 'true' }}
     runs-on: ubuntu-latest
     name: Validate pending leaves
     steps:

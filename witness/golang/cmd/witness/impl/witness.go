@@ -23,6 +23,7 @@ import (
 	"net/http"
 
 	"github.com/golang/glog"
+	logfmt "github.com/google/trillian-examples/formats/log"
 	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
 	"github.com/google/trillian/merkle/rfc6962"
@@ -39,6 +40,7 @@ type LogConfig struct {
 // LogInfo contains the configuration options for a log: its identifier, hashing
 // strategy, and public key.
 type LogInfo struct {
+	// LogID is optional and will be defaulted to logfmt.ID() if not present.
 	LogID        string `yaml:"LogID"`
 	Origin       string `yaml:"Origin"`
 	HashStrategy string `yaml:"HashStrategy"`
@@ -77,7 +79,11 @@ func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 			Hasher:     h,
 			UseCompact: log.UseCompact,
 		}
-		logMap[log.LogID] = logInfo
+		logID := log.LogID
+		if len(logID) == 0 {
+			logID = logfmt.ID(log.Origin, []byte(log.PubKey))
+		}
+		logMap[logID] = logInfo
 	}
 	return logMap, nil
 }

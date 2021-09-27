@@ -21,13 +21,14 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+
+	"github.com/google/trillian-examples/formats/log"
 )
 
 // Log describes a verifiable log in a config file.
 type Log struct {
-	// ID is the user-chosen string used to refer to the log.
-	// This may be different across witnesses, distributors, etc.
-	// TODO(mhutchinson): This should be removed and ID should be hash of PK/Origin.
+	// ID is used to refer to the log in directory paths.
+	// ID is optional and will be defaulted to logfmt.ID() if not present.
 	ID string `yaml:"ID"`
 	// PublicKey used to verify checkpoints from this log.
 	PublicKey string `yaml:"PublicKey"`
@@ -54,5 +55,19 @@ func (l Log) Validate() error {
 			return fmt.Errorf("unparseable URL: %v", err)
 		}
 	}
+	return nil
+}
+
+func (l *Log) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type rawLog Log
+	raw := rawLog{}
+	if err := unmarshal(&raw); err != nil {
+		return err
+	}
+
+	if len(raw.ID) == 0 {
+		raw.ID = log.ID(raw.Origin, []byte(raw.PublicKey))
+	}
+	*l = Log(raw)
 	return nil
 }

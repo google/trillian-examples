@@ -33,6 +33,12 @@ func TestID(t *testing.T) {
 			pk:     []byte("sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8"),
 			want:   "3e9617dce5730053cb82f0481b9d289cd3c384a9219ef5509c91aa60d214794e",
 		},
+		{
+			desc:   "usbarmory",
+			origin: "Armory Drive Prod 2",
+			pk:     []byte("armory-drive-log+16541b8f+AYDPmG5pQp4Bgu0a1mr5uDZ196+t8lIVIfWQSPWmP+Jv"),
+			want:   "50dfc1866b26a18b65834743645f90737c331bc5e99b44100e5ca555c17821e3",
+		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			if got, want := log.ID(test.origin, test.pk), test.want; got != want {

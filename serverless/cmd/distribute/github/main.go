@@ -134,6 +134,15 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 		return fmt.Errorf("checkpoint has %d witness sigs, want %d", nWitSigs, want)
 	}
 
+	logDir := filepath.Join(opts.distributorPath, "logs", logID)
+	found, err := alreadyPresent(witnessNote.Text, logDir, repo, opts.witSigV)
+	if err != nil {
+		return fmt.Errorf("couldn't determind whether to distribute: %v", err)
+	}
+	if found {
+		return nil
+	}
+
 	// Now form a PR with the cosigned CP.
 	id := wcpID(*witnessNote)
 	branchName := fmt.Sprintf("refs/heads/witness_%s", id)
@@ -142,8 +151,7 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 		return fmt.Errorf("failed to create git branch for PR: %v", err)
 	}
 	defer deleteBranch()
-
-	outputPath := filepath.Join(opts.distributorPath, "logs", logID, "incoming", fmt.Sprintf("checkpoint_%s", id))
+	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", id))
 	// First, check whether we've already managed to submit this CP into the incoming directory
 	if _, err := repo.ReadFile(outputPath); err == nil {
 		return fmt.Errorf("witnessed checkpoint already pending: %v", impl.ErrNoSignaturesAdded)
@@ -162,6 +170,33 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 
 	glog.V(1).Info("Creating PR")
 	return repo.CreatePR(ctx, fmt.Sprintf("Witness %s@%d", opts.witSigV.Name(), wCp.Size), branchName)
+}
+
+func alreadyPresent(cpBody string, logDir string, repo github.Repository, wSigV note.Verifier) (bool, error) {
+	for i := 0; ; i++ {
+		cpPath := filepath.Join(logDir, fmt.Sprintf("checkpoint.%d", i))
+		cpRaw, err := repo.ReadFile(cpPath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				// We've reached the end of the list of checkpoints without
+				// encountering our checkpoint, so send it!
+				return false, nil
+			}
+			return false, fmt.Errorf("failed to read %q: %v", cpPath, err)
+		}
+		n, err := note.Open(cpRaw, note.VerifierList(wSigV))
+		if err != nil {
+			if _, ok := err.(*note.UnverifiedNoteError); ok {
+				// Not signed by us, ignore it.
+				continue
+			}
+			return false, fmt.Errorf("failed to open %q: %v", cpPath, err)
+		}
+		if n.Text == cpBody {
+			// We've found our candidate CP and it's already signed by us, no need to send.
+			return true, nil
+		}
+	}
 }
 
 // cpID returns a stable identifier for a given checkpoint and list of known signatures.

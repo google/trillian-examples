@@ -28,6 +28,7 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/client/witness"
 	"github.com/google/trillian/merkle/logverifier"
@@ -64,12 +65,12 @@ func flagStringList(name, usage string) *aString {
 }
 
 var (
-	cacheDir            = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally.")
+	cacheDir            = flag.String("cache_dir", defaultCacheLocation(), "Where to cache client state for logs, if empty don't store anything locally")
 	distributorURLs     = flagStringList("distributor_url", "URL identifying the root of a distributor (can specify this flag repeatedly)")
 	logURL              = flag.String("log_url", "", "Log storage root URL, e.g. file:///path/to/log or https://log.server/and/path")
-	logPubKeyFile       = flag.String("log_public_key", "", "Location of log public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable.")
-	logID               = flag.String("log_id", "", "LogID used by distributors.")
-	origin              = flag.String("origin", "", "Expected first line of checkpoints from log.")
+	logPubKeyFile       = flag.String("log_public_key", "", "Location of log public key file. If unset, uses the contents of the SERVERLESS_LOG_PUBLIC_KEY environment variable")
+	logID               = flag.String("log_id", "", "LogID used by distributors. Will be derived from log public key if unset")
+	origin              = flag.String("origin", "", "Expected first line of checkpoints from log")
 	witnessPubKeyFiles  = flagStringList("witness_public_key", "File containing witness public key (can specify this flag repeatedly)")
 	witnessSigsRequired = flag.Int("witness_sigs_required", 0, "Minimum number of witness signatures required for consensus")
 )
@@ -85,9 +86,13 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	logSigV, err := logSigVerifier(*logPubKeyFile)
+	logSigV, pubK, err := logSigVerifier(*logPubKeyFile)
 	if err != nil {
 		glog.Exitf("failed to read log public key: %v", err)
+	}
+	logID := *logID
+	if logID == "" {
+		logID = log.ID(*origin, pubK)
 	}
 
 	if len(*logURL) == 0 {
@@ -99,7 +104,6 @@ func main() {
 		glog.Exitf("Invalid log URL: %v", err)
 	}
 
-	logID := *logID
 	witnesses, err := witnessSigVerifiers(*witnessPubKeyFiles)
 	if err != nil {
 		glog.Exitf("Failed to read witness pub keys: %v", err)
@@ -330,16 +334,30 @@ func storeLocalCheckpoint(logID string, cpRaw []byte) error {
 	return os.Rename(cpPathTmp, cpPath)
 }
 
-// Read log public key from file or environment variable
-func logSigVerifier(f string) (note.Verifier, error) {
+// Returns a log signature verifier and the public key bytes it uses.
+// Attemps to read key material from f, or uses the SERVERLESS_LOG_PUBLIC_KEY
+// env var if f is unset.
+func logSigVerifier(f string) (note.Verifier, []byte, error) {
+	var pubKey []byte
+	var err error
 	if len(f) > 0 {
-		return sigVerifierFromFile(f)
+		pubKey, err = ioutil.ReadFile(f)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to read public key from file %q: %v", f, err)
+		}
+	} else {
+		pubKey = []byte(os.Getenv("SERVERLESS_LOG_PUBLIC_KEY"))
+		if len(pubKey) == 0 {
+			return nil, nil, fmt.Errorf("supply public key file path using --log_public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+		}
 	}
-	pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
-	if len(pubKey) == 0 {
-		return nil, fmt.Errorf("supply public key file path using --log_public_key or set SERVERLESS_LOG_PUBLIC_KEY environment variable")
+
+	v, err := note.NewVerifier(string(pubKey))
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create verifier: %v", err)
 	}
-	return note.NewVerifier(pubKey)
+
+	return v, pubKey, nil
 }
 
 func witnessSigVerifiers(fs []string) ([]note.Verifier, error) {

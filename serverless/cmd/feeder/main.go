@@ -29,6 +29,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
+	"github.com/google/trillian-examples/serverless/config"
 	"golang.org/x/mod/sumdb/note"
 	"gopkg.in/yaml.v2"
 
@@ -46,20 +47,10 @@ var (
 // Config encapsulates the feeder config.
 type Config struct {
 	// Log defines the source log to feed from.
-	Log struct {
-		// The ID used by the witnesses to identify this log.
-		ID string `yaml:"ID"`
-		// PublicKey associated with LogID.
-		PublicKey string `yaml:"PublicKey"`
-		// URL is the URL of the root of the log.
-		URL string `yaml:"URL"`
-	} `yaml:"Log"`
+	Log config.Log `yaml:"Log"`
 
 	// Witness is the configured witness.
-	Witness struct {
-		PublicKey string `yaml:"PublicKey"`
-		URL       string `yaml:"URL"`
-	} `yaml:"Witness"`
+	Witness config.Witness `yaml:"Witness"`
 }
 
 func main() {

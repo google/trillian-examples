@@ -30,7 +30,12 @@ services:
       context: ../../../..
       dockerfile: ./serverless/cmd/feeder/Dockerfile
     command:
+      - "--config_file=/feeder-config/${FEEDER_DISTRIBUTOR_CONFIG_FILE:-feeder.config}"
       - "--interval=${INTERVAL_SECONDS:-300}"
+    volumes:
+      - type: bind
+        source: ${FEEDER_DISTRIBUTOR_CONFIG_DIR:-/etc/feeder/config}
+        target: /feeder-config
   distributor:
     depends_on:
       - witness
@@ -38,7 +43,7 @@ services:
       context: ../../../..
       dockerfile: ./serverless/cmd/distribute/github/Dockerfile
     command:
-      - "--config_file=/distributor-config/${DISTRIBUTOR_CONFIG_FILE:-distributor.config}"
+      - "--config_file=/distributor-config/${FEEDER_DISTRIBUTOR_CONFIG_FILE:-feeder.config}"
       - "--distributor_repo=${SERVERLESS_DISTRIBUTOR_REPO}"
       - "--fork_repo=${SERVERLESS_DISTRIBUTOR_FORK}"
       - "--distributor_path=${SERVERLESS_DISTRIBUTOR_DIR:-.}"
@@ -51,7 +56,7 @@ services:
       - GIT_EMAIL=${GIT_EMAIL}
     volumes:
       - type: bind
-        source: ${DISTRIBUTOR_CONFIG_DIR:-/etc/distributor/config}
+        source: ${FEEDER_DISTRIBUTOR_CONFIG_DIR:-/etc/feeder/config}
         target: /distributor-config
       - type: tmpfs
         target: /tmp

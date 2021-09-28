@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build -o /build/bin/feeder ./serverless/cmd/feeder/github
+RUN go build -o /build/bin/feeder ./serverless/cmd/feeder/
 
 # Build release image
 FROM golang

@@ -40,6 +40,7 @@ var (
 	input      = flag.String("input", "", "Path/HTTP URL to input checkpoint file, leave empty for stdin")
 	output     = flag.String("output", "", "Path to write cosigned checkpoint to, leave empty for stdout")
 	timeout    = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for witnesses to respond.")
+	interval   = flag.Duration("interval", time.Duration(0), "Interval between attempts to feed checkpoints. Default of 0 causes the tool to be a one-shot.")
 )
 
 // Config encapsulates the feeder config.
@@ -91,20 +92,34 @@ func main() {
 		Verifier: mustCreateVerifier(cfg.Witness.PublicKey),
 	}
 
-	cp, err := readCP(ctx, *input)
-	if err != nil {
-		glog.Exitf("Failed to read input checkpoint: %v", err)
-	}
+	sleepDur := time.Duration(0)
+	for first := true; first || *interval > 0; first = false {
 
-	glog.Infof("CP to feed:\n%s", string(cp))
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(sleepDur):
+			sleepDur = *interval
+		}
 
-	wCP, err := impl.Feed(ctx, cp, opts)
-	if err != nil {
-		glog.Exitf("Feeding failed: %v", err)
-	}
+		cp, err := readCP(ctx, *input)
+		if err != nil {
+			glog.Errorf("Failed to read input checkpoint: %v", err)
+			continue
+		}
 
-	if err := writeCP(wCP, *output); err != nil {
-		glog.Exitf("Failed to write witnessed checkpoint: %v", err)
+		glog.Infof("CP to feed:\n%s", string(cp))
+
+		wCP, err := impl.Feed(ctx, cp, opts)
+		if err != nil {
+			glog.Errorf("Feeding failed: %v", err)
+			continue
+		}
+
+		if err := writeCP(wCP, *output); err != nil {
+			glog.Errorf("Failed to write witnessed checkpoint: %v", err)
+			continue
+		}
 	}
 }
 

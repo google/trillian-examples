@@ -335,7 +335,7 @@ func storeLocalCheckpoint(logID string, cpRaw []byte) error {
 }
 
 // Returns a log signature verifier and the public key bytes it uses.
-// Attemps to read key material from f, or uses the SERVERLESS_LOG_PUBLIC_KEY
+// Attempts to read key material from f, or uses the SERVERLESS_LOG_PUBLIC_KEY
 // env var if f is unset.
 func logSigVerifier(f string) (note.Verifier, []byte, error) {
 	var pubKey []byte

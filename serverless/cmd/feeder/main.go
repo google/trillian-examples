@@ -22,11 +22,10 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"github.com/google/trillian-examples/serverless/config"
@@ -38,8 +37,6 @@ import (
 
 var (
 	configFile = flag.String("config_file", "", "Path to feeder config file.")
-	input      = flag.String("input", "", "Path/HTTP URL to input checkpoint file, leave empty for stdin")
-	output     = flag.String("output", "", "Path to write cosigned checkpoint to, leave empty for stdout")
 	timeout    = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for witnesses to respond.")
 	interval   = flag.Duration("interval", time.Duration(0), "Interval between attempts to feed checkpoints. Default of 0 causes the tool to be a one-shot.")
 )
@@ -55,8 +52,6 @@ type Config struct {
 
 func main() {
 	flag.Parse()
-	ctx, c := context.WithTimeout(context.Background(), *timeout)
-	defer c()
 
 	cfg, err := readConfig(*configFile)
 	if err != nil {
@@ -71,6 +66,7 @@ func main() {
 
 	opts := impl.FeedOpts{
 		LogID:          cfg.Log.ID,
+		LogOrigin:      cfg.Log.Origin,
 		LogFetcher:     f,
 		LogSigVerifier: mustCreateVerifier(cfg.Log.PublicKey),
 	}
@@ -83,35 +79,32 @@ func main() {
 		Verifier: mustCreateVerifier(cfg.Witness.PublicKey),
 	}
 
-	sleepDur := time.Duration(0)
 	for first := true; first || *interval > 0; first = false {
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(sleepDur):
-			sleepDur = *interval
+		if !first {
+			<-time.After(*interval)
 		}
 
-		cp, err := readCP(ctx, *input)
-		if err != nil {
-			glog.Errorf("Failed to read input checkpoint: %v", err)
-			continue
-		}
-
-		glog.Infof("CP to feed:\n%s", string(cp))
-
-		wCP, err := impl.Feed(ctx, cp, opts)
-		if err != nil {
+		if err := feedOnce(*timeout, opts); err != nil {
 			glog.Errorf("Feeding failed: %v", err)
-			continue
-		}
-
-		if err := writeCP(wCP, *output); err != nil {
-			glog.Errorf("Failed to write witnessed checkpoint: %v", err)
-			continue
 		}
 	}
+}
+
+func feedOnce(timeout time.Duration, opts impl.FeedOpts) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cp, err := opts.LogFetcher(ctx, "checkpoint")
+	if err != nil {
+		return fmt.Errorf("failed to read input checkpoint: %v", err)
+	}
+
+	glog.Infof("CP to feed:\n%s", string(cp))
+
+	if _, err = impl.Feed(ctx, cp, opts); err != nil {
+		return fmt.Errorf("Feed(): %v", err)
+	}
+	return nil
 }
 
 func mustCreateVerifier(pub string) note.Verifier {
@@ -131,36 +124,10 @@ func readConfig(f string) (*Config, error) {
 	if err := yaml.Unmarshal(c, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
+	if cfg.Log.ID == "" {
+		cfg.Log.ID = log.ID(cfg.Log.Origin, []byte(cfg.Log.PublicKey))
+	}
 	return &cfg, nil
-}
-
-func readCP(ctx context.Context, f string) ([]byte, error) {
-	if strings.HasPrefix(f, "http://") || strings.HasPrefix(f, "https://") {
-		u, err := url.Parse(f)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse checkpoint URL %q: %v", f, err)
-		}
-		return readHTTP(ctx, u)
-	}
-	var from *os.File
-	if f == "" {
-		from = os.Stdin
-	} else {
-		from, err := os.Open(f)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open input file %q: %v", f, err)
-		}
-		defer from.Close()
-	}
-	return ioutil.ReadAll(from)
-}
-
-func writeCP(cp []byte, f string) error {
-	if f == "" {
-		fmt.Println(string(cp))
-		return nil
-	}
-	return ioutil.WriteFile(f, cp, 0644)
 }
 
 // TODO(al): factor this stuff out and share between tools:

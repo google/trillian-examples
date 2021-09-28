@@ -32,6 +32,8 @@ services:
     command:
       - "--config_file=/feeder-config/${FEEDER_DISTRIBUTOR_CONFIG_FILE:-feeder.config}"
       - "--interval=${INTERVAL_SECONDS:-300}"
+      - "--logtostderr"
+    restart: always
     volumes:
       - type: bind
         source: ${FEEDER_DISTRIBUTOR_CONFIG_DIR:-/etc/feeder/config}
@@ -54,6 +56,7 @@ services:
       - GITHUB_AUTH_TOKEN=${DISTRIBUTOR_GITHUB_TOKEN}
       - GIT_USERNAME=${GIT_USERNAME}
       - GIT_EMAIL=${GIT_EMAIL}
+    restart: always
     volumes:
       - type: bind
         source: ${FEEDER_DISTRIBUTOR_CONFIG_DIR:-/etc/feeder/config}

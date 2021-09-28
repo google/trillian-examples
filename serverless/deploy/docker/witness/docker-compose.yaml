@@ -28,23 +28,31 @@ services:
       - witness
     build:
       context: ../../../..
-      dockerfile: ./serverless/cmd/feeder/github/Dockerfile
+      dockerfile: ./serverless/cmd/feeder/Dockerfile
     command:
-      - "--distributor_owner_repo=${SERVERLESS_DISTRIBUTOR_REPO}"
-      - "--feeder_owner_repo=${SERVERLESS_DISTRIBUTOR_FORK}"
-      - "--distributor_repo_path=${SERVERLESS_DISTRIBUTOR_DIR:-.}"
-      - "--feeder_config_file=/feeder-config/${FEEDER_CONFIG_FILE:-feeder.config}"
-      - "--interval=${FEEDER_INTERVAL_SECONDS:-300}"
+      - "--interval=${INTERVAL_SECONDS:-300}"
+  distributor:
+    depends_on:
+      - witness
+    build:
+      context: ../../../..
+      dockerfile: ./serverless/cmd/distribute/github/Dockerfile
+    command:
+      - "--config_file=/distributor-config/${DISTRIBUTOR_CONFIG_FILE:-distributor.config}"
+      - "--distributor_repo=${SERVERLESS_DISTRIBUTOR_REPO}"
+      - "--fork_repo=${SERVERLESS_DISTRIBUTOR_FORK}"
+      - "--distributor_path=${SERVERLESS_DISTRIBUTOR_DIR:-.}"
+      - "--interval=${INTERVAL_SECONDS:-300}"
       - "--clone_to_disk=${CLONE_TO_DISK:-false}"
       - "--logtostderr"
     environment:
-      - GITHUB_AUTH_TOKEN=${FEEDER_GITHUB_TOKEN}
+      - GITHUB_AUTH_TOKEN=${DISTRIBUTOR_GITHUB_TOKEN}
       - GIT_USERNAME=${GIT_USERNAME}
       - GIT_EMAIL=${GIT_EMAIL}
     volumes:
       - type: bind
-        source: ${FEEDER_CONFIG_DIR:-/etc/feeder/config}
-        target: /feeder-config
+        source: ${DISTRIBUTOR_CONFIG_DIR:-/etc/distributor/config}
+        target: /distributor-config
       - type: tmpfs
         target: /tmp
 volumes:

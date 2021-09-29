@@ -21,8 +21,8 @@ services:
       - "--config_file=/witness-config/${WITNESS_CONFIG_FILE:-witness.config}"
       - "--logtostderr"
     restart: always
-    ports:
-      - "8100:8100"
+    expose:
+      - "8100"
   feeder:
     depends_on:
       - witness

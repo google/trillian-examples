@@ -30,7 +30,7 @@ Variable Name                   | Required | Description
 `WITNESS_PRIVATE_KEY`           | yes      | The witness private key in note format (*not* the path to the key)
 `WITNESS_CONFIG_DIR`            | no       | Absolute path to a directory containing a witness config file (default: `/etc/witness/config`)
 `WITNESS_CONFIG_FILE`           | no       | The name of the witness config file within `${WITNESS_CONFIG_DIR}` (default: `witness.config`)
-`INTERVAL_SECONDS`              | no   | The number of seconds between feed/witness/distribute attempts, set to empty string for one-shot (default: 300s)
+`INTERVAL_SECONDS`              | no       | The number of seconds between feed/witness/distribute attempts, set to empty string for one-shot (default: 300s)
 
 With the env variables configured, the witness can be started with the following command:
 
@@ -54,8 +54,8 @@ witness_1  | I0714 18:20:19.301276       1 witness.go:108] Starting witness serv
 > $ cd ${HOME}/data
 > $ find .
 > ./.env
-> ./distributor
-> ./distributor/distributor.config
+> ./feeder
+> ./feeder/feeder.yaml
 > ./witness
 > ./witness/witness.config
 > ```
@@ -65,8 +65,8 @@ witness_1  | I0714 18:20:19.301276       1 witness.go:108] Starting witness serv
 > SERVERLESS_DISTRIBUTOR_REPO=AlCutter/serverless-test
 > SERVERLESS_DISTRIBUTOR_FORK=<YourGitHubUserName>/serverless-test
 > SERVERLESS_DISTRIBUTOR_DIR=distributor
-> DISTRIBUTOR_CONFIG_DIR=/home/<your username>/data/feeder
-> DISTRIBUTOR_CONFIG_FILE=feeder.yaml
+> FEEDER_DISTRIBUTOR_CONFIG_DIR=/home/<your username>/data/feeder
+> FEEDER_DISTRIBUTOR_CONFIG_FILE=feeder.yaml
 > DISTRIBUTOR_GITHUB_TOKEN=<YourGitHubPersonalAccessToken>
 > GIT_USERNAME=<YourGitHubUserName>
 > GIT_EMAIL=<your@email>

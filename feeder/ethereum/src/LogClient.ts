@@ -1,13 +1,6 @@
 import got from "got";
 import { b64ToHex } from "./utils";
 
-type GetSthResult = {
-  hash: string;
-  signature: string;
-  timestamp: number;
-  treeSize: number;
-};
-
 // Encapsulates functionality related to interfacing with public log APIs.
 // Performs operations like getting current STHs or calculating consistency proofs.
 export default class LogClient {
@@ -42,3 +35,10 @@ export default class LogClient {
     return proof.map((el: string) => b64ToHex(el));
   }
 }
+
+type GetSthResult = {
+  hash: string;
+  signature: string;
+  timestamp: number;
+  treeSize: number;
+};

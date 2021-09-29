@@ -27,16 +27,18 @@ export function hashString(str: string) {
   return solidityKeccak256(["string"], [str]);
 }
 
-type Env = {
-  contractAddress: string;
-  nodeUrl: string;
-  privateKeyHex: string;
-};
-
+// Update data for a single log; formatted to be consumable by RootWitness.
 export type UpdateData = [string, string[], number, number, string];
 
+// A single log's configuration.
 export type Log = {
   name: string;
   id: string;
   url: string;
+};
+
+type Env = {
+  contractAddress: string;
+  nodeUrl: string;
+  privateKeyHex: string;
 };

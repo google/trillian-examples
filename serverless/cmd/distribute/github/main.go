@@ -140,6 +140,7 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 		return fmt.Errorf("couldn't determind whether to distribute: %v", err)
 	}
 	if found {
+		glog.Infof("CP already present in distributor, not raising PR.")
 		return nil
 	}
 

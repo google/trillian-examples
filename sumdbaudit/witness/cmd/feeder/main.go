@@ -66,8 +66,13 @@ func main() {
 		}
 	}
 
+	lid := *logID
+	if len(lid) == 0 {
+		lid = log.ID(*origin, []byte(*vkey))
+	}
+
 	wcp := &log.Checkpoint{}
-	if wcpRaw, err := w.GetLatestCheckpoint(ctx, *logID); err != nil {
+	if wcpRaw, err := w.GetLatestCheckpoint(ctx, lid); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			glog.Exitf("Failed to get witness checkpoint: %v", err)
 		}
@@ -79,9 +84,10 @@ func main() {
 	}
 
 	feeder := feeder{
-		wcp: wcp,
-		sdb: sdb,
-		w:   w,
+		logID: lid,
+		wcp:   wcp,
+		sdb:   sdb,
+		w:     w,
 	}
 
 	tik := time.NewTicker(*pollInterval)
@@ -110,9 +116,10 @@ func main() {
 // if this is the only feeder then it avoids making requests to get the latest
 // checkpoint from the witness when it isn't changing.
 type feeder struct {
-	wcp *log.Checkpoint
-	sdb *client.SumDBClient
-	w   http.Witness
+	logID string
+	wcp   *log.Checkpoint
+	sdb   *client.SumDBClient
+	w     http.Witness
 }
 
 // feedOnce gets the latest checkpoint from the SumDB server, and if this is more
@@ -145,7 +152,7 @@ func (f *feeder) feedOnce(ctx context.Context) error {
 		proof = append(proof, h)
 	}
 
-	wcpRaw, err := f.w.Update(ctx, *logID, sdbcp.Raw, proof)
+	wcpRaw, err := f.w.Update(ctx, f.logID, sdbcp.Raw, proof)
 
 	if err != nil && !errors.Is(err, http.ErrCheckpointTooOld) {
 		return fmt.Errorf("failed to update checkpoint: %v", err)

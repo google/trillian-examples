@@ -2,11 +2,11 @@
   "name": "ethwit-feeder",
   "version": "0.1.0",
   "description": "Feeder for https://github.com/sinasabet81/trillian-examples/tree/master/witness/ethereum",
-  "main": "src/feeder.ts",
+  "main": "src/index.ts",
   "scripts": {
     "format": "prettier -w src",
     "dev": "nodemon --watch src -e ts --exec yarn run start",
-    "start": "ts-node src/feeder",
+    "start": "ts-node src",
     "license-report": "legally --plain > LICENSE_REPORT.txt"
   },
   "author": "sinasabet@google.com",

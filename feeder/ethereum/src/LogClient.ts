@@ -8,16 +8,19 @@ type GetSthResult = {
   treeSize: number;
 };
 
+// Encapsulates functionality related to interfacing with public log APIs.
+// Performs operations like getting current STHs or calculating consistency proofs.
 export default class LogClient {
-  constructor() {}
+  constructor(private readonly url: string) {}
 
-  static async getSth(logUrl: string): Promise<GetSthResult> {
+  // Fetch the current STH for this log.
+  async getSth(): Promise<GetSthResult> {
     const {
       tree_size: treeSize,
       timestamp,
       sha256_root_hash: hash,
       tree_head_signature: signature,
-    } = await got.get(logUrl + "get-sth").json();
+    } = await got.get(this.url + "get-sth").json();
     return {
       signature,
       treeSize,
@@ -26,13 +29,13 @@ export default class LogClient {
     };
   }
 
-  static async getConsistencyProof(
-    logUrl: string,
+  // Given an old and new size, fetch a consistency proof for this log.
+  async getConsistencyProof(
     oldSize: number,
     newSize: number
   ): Promise<string[]> {
     const { consistency: proof } = await got
-      .get(logUrl + "get-sth-consistency", {
+      .get(this.url + "get-sth-consistency", {
         searchParams: { first: oldSize, second: newSize },
       })
       .json();

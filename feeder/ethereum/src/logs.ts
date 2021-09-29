@@ -1,9 +1,10 @@
 import { hashString, Log } from "./utils";
 
-export const logs: Set<Log> = new Set([
-  createDefaultLog("pilot", "https://ct.googleapis.com/pilot/ct/v1/"),
-]);
+export const logs: Log[] = [
+  createSimpleLog("pilot", "https://ct.googleapis.com/pilot/ct/v1/"),
+];
 
-function createDefaultLog(name: string, url: string) {
+// Create a log with its ID generated via hashing its name.
+function createSimpleLog(name: string, url: string) {
   return { name, url, id: hashString(name) };
 }

@@ -1,11 +1,10 @@
 import assert from "assert";
-import fs from "fs-extra";
 import { ethers } from "ethers";
 import { isAddress } from "ethers/lib/utils";
 import { UpdateData } from "./utils";
+import { abi } from "./abis/RootWitness";
 
-const abiPromise = fs.readJson("artifacts/RootWitness.json");
-
+// Encapsulates interactions with an Ethereum-based RootWitness contract.
 export default class RootWitnessClient {
   static readonly MAX_GAS_LIMIT: number = 6_000_000;
   static readonly MAX_MAX_PRIORITY_FEE_PER_GAS = Number(
@@ -14,9 +13,14 @@ export default class RootWitnessClient {
   static readonly MAX_MAX_FEE_PER_GAS = Number(
     ethers.utils.parseUnits("100", "gwei")
   );
-  readonly provider: ethers.providers.JsonRpcProvider;
+
+  public readonly provider: ethers.providers.JsonRpcProvider;
+  // Note: wallet is kept private so other classes can't access signer information.
   private readonly wallet: ethers.Wallet;
 
+  // This constructor is made private so the class is only created
+  // its static `from` method below, which does additional validation
+  // of inputs that are only possible to do async.
   private constructor(
     private readonly contractAddress: string,
     nodeUrl: string,
@@ -33,11 +37,11 @@ export default class RootWitnessClient {
     }
   }
 
-  // Public method for accessing wallet address.
   async getWalletAddress() {
     return this.wallet.getAddress();
   }
 
+  // Estimate current maxFeePerGas and maxPriorityFeePerGas conditions.
   async estimateFees() {
     const { maxFeePerGas, maxPriorityFeePerGas } =
       await this.provider.getFeeData();
@@ -54,11 +58,7 @@ export default class RootWitnessClient {
   }
 
   private async getContractObject() {
-    return new ethers.Contract(
-      this.contractAddress,
-      await abiPromise,
-      this.wallet
-    );
+    return new ethers.Contract(this.contractAddress, abi, this.wallet);
   }
 
   // Read from the contract the current state of a given treeId.
@@ -103,6 +103,7 @@ export default class RootWitnessClient {
     return await tx.wait();
   }
 
+  // Helper to create instance of RootWitnessClient, with some validation of inputs.
   static async create(
     contractAddress: string,
     nodeUrl: string,
@@ -114,8 +115,6 @@ export default class RootWitnessClient {
       privateKeyHex
     );
 
-    // Validate params and environment are set up properly.
-    assert(Array.isArray(await abiPromise));
     try {
       console.log("Connected to EthClient with config", {
         contractAddress,

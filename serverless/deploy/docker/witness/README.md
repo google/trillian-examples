@@ -17,21 +17,20 @@ any extra priviledges beyond this basic level of authorization.
 
 You should set the following environmemt variables (either `export` or with a `.env` file):
 
-Variable Name        | Required | Description
----------------------|:--------:|-------------------------------------------------
-`SERVERLESS_DISTRIBUTOR_REPO` | yes      | The GitHub "<owner/repo>" fragment of the serverless distributor
-`SERVERLESS_DISTRIBUTOR_FORK` | yes      | The GitHub "<owner/repo>" fragment of the witness' fork of the serverless distributor
-`SERVERLESS_DISTRIBUTOR_DIR`  | yes      | The path to the root of the serverless distributor in its repo
-`FEEDER_CONFIG_DIR`   | yes      | The path to the directory containing the `serverless/cmd/feeder` command's config file
-`FEEDER_CONFIG_FILE`  | yes      | The name of the `serverless/cmd/feeder` command's config file in `${FEEDER_CONFIG_DIR}`
-`FEEDER_GITHUB_TOKEN` | yes      | A GitHub [Personal Access Token](https://docs.github.com/en/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token) for the feeder to use to create a PR on the log repo with the witnessed checkpoint
-`GIT_USERNAME`        | yes      | The GitHub username associated with the Personal Access Token
-`GIT_EMAIL`           | yes      | An email address to associate with the feeder commits
-`WITNESS_PRIVATE_KEY` | yes      | The witness private key in note format (*not* the path to the key)
-`WITNESS_CONFIG_DIR`  | no       | Absolute path to a directory containing a witness config file (default: `/etc/witness/config`)
-`WITNESS_CONFIG_FILE` | no       | The name of the witness config file within `${WITNESS_CONFIG_DIR}` (default: `witness.config`)
-`FEEDER_INTERVAL_SECONDS` | no   | The number of seconds between feed/witness attempts, set to empty string for one-shot (default: 300s)
-
+Variable Name                   | Required | Description
+--------------------------------|:--------:|-------------------------------------------------
+`SERVERLESS_DISTRIBUTOR_REPO`   | yes      | The GitHub "<owner/repo>" fragment of the serverless distributor
+`SERVERLESS_DISTRIBUTOR_FORK`   | yes      | The GitHub "<owner/repo>" fragment of the witness' fork of the serverless distributor
+`SERVERLESS_DISTRIBUTOR_DIR`    | yes      | The path to the root of the serverless distributor in its repo
+`FEEDER_DISTRIBUTOR_CONFIG_DIR` | yes      | The path to the directory containing the shared `feeder` and `distribute` commands' config file
+`FEEDER_DISTRIBUTOR_CONFIG_FILE`| yes      | The name of the shared `feeder` and `distrubute` commands' config file in `${FEEDER_DISTRIBUTOR_CONFIG_DIR}`
+`DISTRIBUTOR_GITHUB_TOKEN`      | yes      | A GitHub [Personal Access Token](https://docs.github.com/en/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token) for the `distribute` command to use to create a PR on the distributor repo with the witnessed checkpoint
+`GIT_USERNAME`                  | yes      | The GitHub username associated with the Personal Access Token
+`GIT_EMAIL`                     | yes      | An email address to associate with the feeder commits
+`WITNESS_PRIVATE_KEY`           | yes      | The witness private key in note format (*not* the path to the key)
+`WITNESS_CONFIG_DIR`            | no       | Absolute path to a directory containing a witness config file (default: `/etc/witness/config`)
+`WITNESS_CONFIG_FILE`           | no       | The name of the witness config file within `${WITNESS_CONFIG_DIR}` (default: `witness.config`)
+`INTERVAL_SECONDS`              | no       | The number of seconds between feed/witness/distribute attempts, set to empty string for one-shot (default: 300s)
 
 With the env variables configured, the witness can be started with the following command:
 
@@ -56,7 +55,7 @@ witness_1  | I0714 18:20:19.301276       1 witness.go:108] Starting witness serv
 > $ find .
 > ./.env
 > ./feeder
-> ./feeder/feeder.config
+> ./feeder/feeder.yaml
 > ./witness
 > ./witness/witness.config
 > ```
@@ -66,15 +65,15 @@ witness_1  | I0714 18:20:19.301276       1 witness.go:108] Starting witness serv
 > SERVERLESS_DISTRIBUTOR_REPO=AlCutter/serverless-test
 > SERVERLESS_DISTRIBUTOR_FORK=<YourGitHubUserName>/serverless-test
 > SERVERLESS_DISTRIBUTOR_DIR=distributor
-> FEEDER_CONFIG_DIR=/home/<your username>/data/feeder
-> FEEDER_CONFIG_FILE=feeder.config
-> FEEDER_GITHUB_TOKEN=<YourGitHubPersonalAccessToken>
+> FEEDER_DISTRIBUTOR_CONFIG_DIR=/home/<your username>/data/feeder
+> FEEDER_DISTRIBUTOR_CONFIG_FILE=feeder.yaml
+> DISTRIBUTOR_GITHUB_TOKEN=<YourGitHubPersonalAccessToken>
 > GIT_USERNAME=<YourGitHubUserName>
 > GIT_EMAIL=<your@email>
 > WITNESS_PRIVATE_KEY=<your witness private key>
 > WITNESS_CONFIG_DIR=/home/<your username>/data/witness
 > WITNESS_CONFIG_FILE=witness.config
-> FEEDER_INTERVAL_SECONDS=300s
+> INTERVAL_SECONDS=300s
 > ```
 >
 > Start the feeder from within your `${HOME}/data` directory like so:

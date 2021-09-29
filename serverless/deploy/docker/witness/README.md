@@ -81,3 +81,13 @@ witness_1  | I0714 18:20:19.301276       1 witness.go:108] Starting witness serv
 > $ cd ${HOME}/data
 > $ docker-compose -f ../trillian/trillian-examples/serverless/deploy/docker/witness/docker-compose.yaml --env-file=./.env up
 > ```
+
+## Pushing to multiple distributors
+
+You'll likely want to make your witnessed checkpoints available via multiple
+distributors for redundancy/resiliance.
+
+You can achieve this by modifying the `docker-compose.yaml` file to have multiple
+`distributor` containers (one per distributor), and adding/renaming the
+`SERVERLESS_DISTRIBUTOR_*` environment variables in both the `docker-compose.yaml`
+and `.env` files so that each distributor container is properly configured.

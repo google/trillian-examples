@@ -18,8 +18,6 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -145,7 +143,7 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 	}
 
 	// Now form a PR with the cosigned CP.
-	id := wcpID(*witnessNote)
+	id := strings.Map(safeBranchChars, fmt.Sprintf("%s_%s", opts.witSigV.Name(), opts.logSigV.Name()))
 	branchName := fmt.Sprintf("refs/heads/witness_%s", id)
 	deleteBranch, err := repo.CreateLocalBranch(headRef, branchName)
 	if err != nil {
@@ -173,6 +171,16 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 	return repo.CreatePR(ctx, fmt.Sprintf("Witness %s@%d", opts.witSigV.Name(), wCp.Size), branchName)
 }
 
+func safeBranchChars(i rune) rune {
+	if (i >= '0' && i <= '9') ||
+		(i >= 'a' && i <= 'z') ||
+		(i >= 'A' && i <= 'Z') ||
+		i == '-' {
+		return i
+	}
+	return '_'
+}
+
 func alreadyPresent(cpBody string, logDir string, repo github.Repository, wSigV note.Verifier) (bool, error) {
 	for i := 0; ; i++ {
 		cpPath := filepath.Join(logDir, fmt.Sprintf("checkpoint.%d", i))
@@ -198,19 +206,6 @@ func alreadyPresent(cpBody string, logDir string, repo github.Repository, wSigV 
 			return true, nil
 		}
 	}
-}
-
-// cpID returns a stable identifier for a given checkpoint and list of known signatures.
-// This is used as a branch name, and for generating a file name for the witness PR.
-func wcpID(n note.Note) string {
-	parts := []string{n.Text}
-	// Note that n.Sigs is sorted by checkpoints.Combine, called by feeder.Feed
-	for _, s := range n.Sigs {
-		parts = append(parts, fmt.Sprintf("%x", s.Hash))
-	}
-	h := sha256.Sum256([]byte(strings.Join(parts, "-")))
-	return hex.EncodeToString(h[:])
-
 }
 
 // options contains the various configuration and state required to perform a feedOnce call.

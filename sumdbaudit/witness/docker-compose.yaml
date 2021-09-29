@@ -18,7 +18,7 @@ services:
       - "--listen=:8100"
       - "--db_file=/data/witness.sqlite"
       - "--private_key=${WITNESS_PRIVATE_KEY}"
-      - "--config_file=/witness-config/${WITNESS_CONFIG_FILE:-witness.config}"
+      - "--config_file=/witness-config/${WITNESS_CONFIG_FILE:-witness.yaml}"
       - "--logtostderr"
     restart: always
     ports:
@@ -32,7 +32,6 @@ services:
     command:
       - "--w=http://witness:8100"
       - "--wk=${WITNESS_PUBLIC_KEY}"
-      - "--lid=sumdb"
       - "--alsologtostderr"
       - "--v=1"
 volumes:

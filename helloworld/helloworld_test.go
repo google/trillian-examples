@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	// testPrivateKey is the personalities key for signing its checkpoints.
+	// testPrivateKey is the personality's key for signing its checkpoints.
 	testPrivateKey = "PRIVATE+KEY+helloworld+b51acf1b+ASW28PXJDCV8klh7JeacIgfJR3/Q60dklasmgnv4c9I7"
 	// testPublicKey is used for verifying the signatures on the checkpoints from
 	// the personality.

@@ -165,7 +165,7 @@ your github repo's page).
 ## Going further: automated PR merges
 
 Automating the merging incoming witness PRs can help to take some friction
-out of the process and help to get cosigned checpoints out to clients quicker
+out of the process and help to get cosigned checkpoints out to clients quicker
 than with manual review.
 
 An example config to do this is given below:
@@ -224,7 +224,7 @@ jobs:
       - uses: actions-ecosystem/action-add-labels@v1
         with:
           labels: Automerge
-          number: ${{ steps.pr_metadata.outputs.pr }}
+          number: ${{ steps.find_pr_number.outputs.pr }}
 
       - name: automerge
         uses: "pascalgn/automerge-action@v0.14.3"

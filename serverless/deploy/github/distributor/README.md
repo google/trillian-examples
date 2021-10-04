@@ -216,7 +216,7 @@ jobs:
             var fs = require('fs');
             fs.writeFileSync('${{github.workspace}}/pr_metadata.zip', Buffer.from(download.data));
       - name: 'Grab PR number'
-        id: find_pr_number
+        id: pr_metadata
         run: |
           unzip pr_metadata.zip
           echo "::set-output name=pr::$(cat NR)"
@@ -224,7 +224,7 @@ jobs:
       - uses: actions-ecosystem/action-add-labels@v1
         with:
           labels: Automerge
-          number: ${{ steps.find_pr_number.outputs.pr }}
+          number: ${{ steps.pr_metadata.outputs.pr }}
 
       - name: automerge
         uses: "pascalgn/automerge-action@v0.14.3"

@@ -165,7 +165,7 @@ your github repo's page).
 ## Going further: automated PR merges
 
 Automating the merging incoming witness PRs can help to take some friction
-out of the process and help to get cosigned checpoints out to clients quicker
+out of the process and help to get cosigned checkpoints out to clients quicker
 than with manual review.
 
 An example config to do this is given below:
@@ -216,7 +216,7 @@ jobs:
             var fs = require('fs');
             fs.writeFileSync('${{github.workspace}}/pr_metadata.zip', Buffer.from(download.data));
       - name: 'Grab PR number'
-        id: find_pr_number
+        id: pr_metadata
         run: |
           unzip pr_metadata.zip
           echo "::set-output name=pr::$(cat NR)"

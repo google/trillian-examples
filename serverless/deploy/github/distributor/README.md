@@ -30,11 +30,6 @@ on:
     branches:
       # This is the name of the primary branch, which may be `main` for newer repos.
       - master
-  # Enable this if you set up automerge as below
-  #workflow_run:
-  #  workflows: ["Automerge PR"]
-  #  types:
-  #    - completed
 
 env:
   # Update this to the location of your distributor root directory if different:
@@ -114,6 +109,11 @@ on:
     branches:
       # This is the name of the primary branch, which may be `main` for newer repos.
       - master
+  # Enable this if you set up automerge as below
+  #workflow_run:
+  #  workflows: ["Automerge PR"]
+  #  types:
+  #    - completed
 
 env:
   # Update this to the location of your distributor root directory if different:

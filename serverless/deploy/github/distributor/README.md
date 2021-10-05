@@ -104,11 +104,13 @@ distributor state.
 Add the following config to the `.github/workflows/serverless_merge_master.yaml` file:
 
 ```yaml
+name: Integrate Incoming Checkpoints
 on:
   push:
     branches:
       # This is the name of the primary branch, which may be `main` for newer repos.
       - master
+  workflow_dispatch:
   # Enable this if you set up automerge as below
   #workflow_run:
   #  workflows: ["Automerge PR"]

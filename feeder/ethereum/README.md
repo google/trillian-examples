@@ -2,7 +2,7 @@
 
 ## Explanation
 
-The Ethereum Witness Feeder is a script used to periodically "feed" Trillian log data provided by public APIs to an Ethereum smart contract.
+The Ethereum Witness Feeder is a script used to periodically "feed" CT log data provided by public APIs to an Ethereum smart contract.
 
 See the [Ethereum Witness README](https://github.com/google/trillian-examples/blob/master/witness/ethereum/README.md) for additional context.
 

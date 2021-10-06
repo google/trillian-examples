@@ -2,7 +2,7 @@
 
 ## Explanation
 
-The Ethereum Witness Feeder is a script used to periodically "feed" CT log data provided by public APIs to an Ethereum smart contract.
+The Ethereum Witness Feeder is a script used to periodically "feed" CT log state provided by public APIs to an Ethereum smart contract.
 
 See the [Ethereum Witness README](https://github.com/google/trillian-examples/blob/master/witness/ethereum/README.md) for additional context.
 
@@ -10,6 +10,7 @@ See the [Ethereum Witness README](https://github.com/google/trillian-examples/bl
 
 - cd into this directory (i.e. `feeder/ethereum`)
 - make sure your local environment matches the `.env.example` file in this directory, either via setting a local `.env` file in this directory, or manually passing in the env vars
+  - Note: this project uses [dotenv](https://github.com/motdotla/dotenv) to read environment variables from a local `.env` file if it's there
 
 ### Continue with Docker
 

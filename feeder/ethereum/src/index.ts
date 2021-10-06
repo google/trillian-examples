@@ -1,4 +1,4 @@
-import { Feeder } from "./Feeder";
+import { CTFeeder } from "./CTFeeder";
 import { logs } from "./logs";
 import RootWitnessClient from "./RootWitnessClient";
 import { getEnv } from "./utils";
@@ -12,7 +12,7 @@ async function main() {
     nodeUrl,
     privateKeyHex
   );
-  const feeder = new Feeder(rootWitnessClient, logs);
+  const feeder = new CTFeeder(rootWitnessClient, logs);
   await feeder.feedOnce();
 }
 

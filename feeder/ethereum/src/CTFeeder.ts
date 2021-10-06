@@ -1,11 +1,11 @@
 import RootWitnessClient from "./RootWitnessClient";
 import { hashString, Log, UpdateData } from "./utils";
 import { BigNumber, ethers } from "ethers";
-import LogClient from "./LogClient";
+import CTLogClient from "./CTLogClient";
 
 // Feeder encapsulates functionality related to feeding
 // Ethereum-based RootWitness logs updates.
-export class Feeder {
+export class CTFeeder {
   constructor(
     private readonly rootWitnessClient: RootWitnessClient,
     private readonly logs: Log[]
@@ -41,7 +41,7 @@ export class Feeder {
   async getUpdateDataForLog(log: Log): Promise<UpdateData | undefined> {
     console.log("Processing log\n", log);
     const { id, url } = log;
-    const logClient = new LogClient(url);
+    const logClient = new CTLogClient(url);
     const [
       { size: witnessedSize, timestamp: witnessedTimestamp },
       { hash, signature, treeSize: currentSize, timestamp },

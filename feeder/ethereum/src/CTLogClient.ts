@@ -3,7 +3,7 @@ import { b64ToHex } from "./utils";
 
 // Encapsulates functionality related to interfacing with public log APIs.
 // Performs operations like getting current STHs or calculating consistency proofs.
-export default class LogClient {
+export default class CTLogClient {
   constructor(private readonly url: string) {}
 
   // Fetch the current STH for this log.

@@ -140,11 +140,6 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse input checkpoint: %v", err)
 	}
-	// Optimistically sign the new checkpoint now.
-	signed, err := w.signChkpt(nextNote)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't sign input checkpoint: %v", err)
-	}
 	// Get the latest one for the log because we don't want consistency proofs
 	// with respect to older checkpoints.  Bind this all in a transaction to
 	// avoid race conditions when updating the database.
@@ -158,6 +153,11 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		// If there was nothing stored already then treat this new
 		// checkpoint as trust-on-first-use (TOFU).
 		if status.Code(err) == codes.NotFound {
+			// Store a witness cosigned version of the checkpoint.
+			signed, err := w.signChkpt(nextNote)
+			if err != nil {
+				return nil, fmt.Errorf("couldn't sign input checkpoint: %v", err)
+			}
 			if err := w.setInitChkptData(tx, logID, next, signed, proof); err != nil {
 				return nil, fmt.Errorf("couldn't set TOFU checkpoint: %v", err)
 			}
@@ -198,6 +198,10 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		}
 		// If the proof is good store nextRaw and the new range.
 		r := []byte(log.Proof(nextRange).Marshal())
+		signed, err := w.signChkpt(nextNote)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't sign input checkpoint: %v", err)
+		}
 		if err := w.setChkptData(tx, logID, signed, r); err != nil {
 			return nil, fmt.Errorf("failed to store new checkpoint: %v", err)
 		}
@@ -209,7 +213,11 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		// Complain if the checkpoints aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
 	}
-	// If the consistency proof is good we store nextRaw.
+	// If the consistency proof is good we store the witness cosigned nextRaw.
+	signed, err := w.signChkpt(nextNote)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't sign input checkpoint: %v", err)
+	}
 	if err := w.setChkptData(tx, logID, signed, nil); err != nil {
 		return nil, fmt.Errorf("failed to store new checkpoint: %v", err)
 	}

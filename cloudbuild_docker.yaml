@@ -1,0 +1,46 @@
+# This cloudbuild script builds docker images we expect users to
+# commonly deploy, and stores these in cloud registry.
+timeout: 1200s
+options:
+  machineType: N1_HIGHCPU_8
+  volumes:
+  - name: go-modules
+    path: /go
+  env:
+  - GO111MODULE=on
+  - GOPROXY=https://proxy.golang.org
+  - PROJECT_ROOT=github.com/google/trillian-examples
+  - GOPATH=/go
+  - GOLANG_PROTOBUF_REGISTRATION_CONFLICT=ignore # Temporary work-around v1.proto already registered error.
+
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', 'gcr.io/$PROJECT_ID/witness:latest',
+    '--cache-from', 'gcr.io/$PROJECT_ID/witness:latest',
+    '-f', './witness/golang/cmd/witness/Dockerfile',
+    '.'
+  ]
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
+    '--cache-from', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
+    '-f', './sumdbaudit/witness/cmd/feeder/Dockerfile',
+    '.'
+  ]
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', 'gcr.io/$PROJECT_ID/distribute-to-github:latest',
+    '--cache-from', 'gcr.io/$PROJECT_ID/distribute-to-github:latest',
+    '-f', './serverless/cmd/distribute/github/Dockerfile',
+    '.'
+  ]
+
+images:
+  - 'gcr.io/$PROJECT_ID/witness:latest'
+  - 'gcr.io/$PROJECT_ID/sumdb-feeder:latest'
+  - 'gcr.io/$PROJECT_ID/distribute-to-github:latest'

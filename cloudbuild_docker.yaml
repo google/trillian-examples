@@ -22,7 +22,6 @@ steps:
     '-f', './witness/golang/cmd/witness/Dockerfile',
     '.'
   ]
-steps:
 - name: 'gcr.io/cloud-builders/docker'
   args: [
     'build',

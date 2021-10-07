@@ -39,6 +39,8 @@ steps:
       '--push',
       '.'
     ]
+    waitFor:
+      - show-target-build-platforms
     id: 'build-witness-image'
   - name: 'gcr.io/cloud-builders/docker'
     args: [
@@ -51,6 +53,8 @@ steps:
       '--push',
       '.'
     ]
+    waitFor:
+      - show-target-build-platforms
     id: 'build-sumdb-feeder-image'
   - name: 'gcr.io/cloud-builders/docker'
     args: [
@@ -63,6 +67,8 @@ steps:
       '--push',
       '.'
     ]
+    waitFor:
+      - show-target-build-platforms
     id: 'build-distribute-to-github-image'
 
 substitutions:

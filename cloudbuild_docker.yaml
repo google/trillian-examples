@@ -13,6 +13,7 @@ options:
   - PROJECT_ROOT=github.com/google/trillian-examples
   - GOPATH=/go
   - GOLANG_PROTOBUF_REGISTRATION_CONFLICT=ignore # Temporary work-around v1.proto already registered error.
+  - 'DOCKER_CLI_EXPERIMENTAL=enabled'
 
 steps:
   - name: 'gcr.io/cloud-builders/docker'
@@ -27,41 +28,39 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['buildx', 'inspect', '--bootstrap']
     id: 'show-target-build-platforms'
-- name: 'gcr.io/cloud-builders/docker'
-  args: [
-    'buildx',
-    'build',
-    '--platform', '$_DOCKER_BUILDX_PLATFORMS',
-    '-t', 'gcr.io/$PROJECT_ID/witness:latest',
-    '--cache-from', 'gcr.io/$PROJECT_ID/witness:latest',
-    '-f', './witness/golang/cmd/witness/Dockerfile',
-    '--push',
-    '.'
-  ]
-- name: 'gcr.io/cloud-builders/docker'
-  args: [
-    'buildx',
-    'build',
-    '--platform', '$_DOCKER_BUILDX_PLATFORMS',
-    '-t', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
-    '--cache-from', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
-    '-f', './sumdbaudit/witness/cmd/feeder/Dockerfile',
-    '--push',
-    '.'
-  ]
-- name: 'gcr.io/cloud-builders/docker'
-  args: [
-    'buildx',
-    'build',
-    '--platform', '$_DOCKER_BUILDX_PLATFORMS',
-    '-t', 'gcr.io/$PROJECT_ID/distribute-to-github:latest',
-    '--cache-from', 'gcr.io/$PROJECT_ID/distribute-to-github:latest',
-    '-f', './serverless/cmd/distribute/github/Dockerfile',
-    '--push',
-    '.'
-  ]
-options:
-  env:
-      - 'DOCKER_CLI_EXPERIMENTAL=enabled'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'build',
+      '--platform', '$_DOCKER_BUILDX_PLATFORMS',
+      '-t', 'gcr.io/$PROJECT_ID/witness:latest',
+      '--cache-from', 'gcr.io/$PROJECT_ID/witness:latest',
+      '-f', './witness/golang/cmd/witness/Dockerfile',
+      '--push',
+      '.'
+    ]
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'build',
+      '--platform', '$_DOCKER_BUILDX_PLATFORMS',
+      '-t', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
+      '--cache-from', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
+      '-f', './sumdbaudit/witness/cmd/feeder/Dockerfile',
+      '--push',
+      '.'
+    ]
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'build',
+      '--platform', '$_DOCKER_BUILDX_PLATFORMS',
+      '-t', 'gcr.io/$PROJECT_ID/distribute-to-github:latest',
+      '--cache-from', 'gcr.io/$PROJECT_ID/distribute-to-github:latest',
+      '-f', './serverless/cmd/distribute/github/Dockerfile',
+      '--push',
+      '.'
+    ]
+
 substitutions:
   _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v6'

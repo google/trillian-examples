@@ -1,9 +1,7 @@
 version: '3.2'
 services:
   witness:
-    build:
-      context: ../..
-      dockerfile: ./witness/golang/cmd/witness/Dockerfile
+    image: gcr.io/trillian-opensource-ci/witness:latest
     volumes:
         - type: volume
           source: data
@@ -26,9 +24,7 @@ services:
   feeder:
     depends_on:
       - witness
-    build:
-      context: ../..
-      dockerfile: ./sumdbaudit/witness/cmd/feeder/Dockerfile
+    image: gcr.io/trillian-opensource-ci/sumdb-feeder:latest
     command:
       - "--w=http://witness:8100"
       - "--wk=${WITNESS_PUBLIC_KEY}"

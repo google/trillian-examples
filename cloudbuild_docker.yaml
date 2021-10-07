@@ -1,5 +1,6 @@
 # This cloudbuild script builds docker images we expect users to
 # commonly deploy, and stores these in cloud registry.
+# This builds the images multi-arch so they run on x64 and Raspberry Pi.
 timeout: 1200s
 options:
   machineType: N1_HIGHCPU_8
@@ -14,32 +15,53 @@ options:
   - GOLANG_PROTOBUF_REGISTRATION_CONFLICT=ignore # Temporary work-around v1.proto already registered error.
 
 steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['run', '--privileged', 'linuxkit/binfmt:v0.7']
+    id: 'initialize-qemu'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['buildx', 'create', '--name', 'mybuilder']
+    id: 'create-builder'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['buildx', 'use', 'mybuilder']
+    id: 'select-builder'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['buildx', 'inspect', '--bootstrap']
+    id: 'show-target-build-platforms'
 - name: 'gcr.io/cloud-builders/docker'
   args: [
+    'buildx',
     'build',
+    '--platform', '$_DOCKER_BUILDX_PLATFORMS',
     '-t', 'gcr.io/$PROJECT_ID/witness:latest',
     '--cache-from', 'gcr.io/$PROJECT_ID/witness:latest',
     '-f', './witness/golang/cmd/witness/Dockerfile',
+    '--push',
     '.'
   ]
 - name: 'gcr.io/cloud-builders/docker'
   args: [
+    'buildx',
     'build',
+    '--platform', '$_DOCKER_BUILDX_PLATFORMS',
     '-t', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
     '--cache-from', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
     '-f', './sumdbaudit/witness/cmd/feeder/Dockerfile',
+    '--push',
     '.'
   ]
 - name: 'gcr.io/cloud-builders/docker'
   args: [
+    'buildx',
     'build',
+    '--platform', '$_DOCKER_BUILDX_PLATFORMS',
     '-t', 'gcr.io/$PROJECT_ID/distribute-to-github:latest',
     '--cache-from', 'gcr.io/$PROJECT_ID/distribute-to-github:latest',
     '-f', './serverless/cmd/distribute/github/Dockerfile',
+    '--push',
     '.'
   ]
-
-images:
-  - 'gcr.io/$PROJECT_ID/witness:latest'
-  - 'gcr.io/$PROJECT_ID/sumdb-feeder:latest'
-  - 'gcr.io/$PROJECT_ID/distribute-to-github:latest'
+options:
+  env:
+      - 'DOCKER_CLI_EXPERIMENTAL=enabled'
+substitutions:
+  _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v6'

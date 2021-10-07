@@ -21,18 +21,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
-	"time"
 
-	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-billy/v5/util"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/golang/glog"
-	gh_api "github.com/google/go-github/v37/github"
+	gh_api "github.com/google/go-github/v39/github"
 	"golang.org/x/oauth2"
 )
 
@@ -61,7 +54,7 @@ func NewRepoID(or string) (RepoID, error) {
 
 // NewRepository creates a wrapper around a git repository which has a fork owned by
 // the user, and an upstream repository configured that PRs can be proposed against.
-func NewRepository(ctx context.Context, upstream RepoID, upstreamBranch string, fork RepoID, ghUser, ghEmail, ghToken, clonePath string) (Repository, error) {
+func NewRepository(ctx context.Context, upstream RepoID, upstreamBranch string, fork RepoID, ghUser, ghEmail, ghToken string) (Repository, error) {
 	repo := Repository{
 		upstream:       upstream,
 		upstreamBranch: upstreamBranch,
@@ -73,35 +66,6 @@ func NewRepository(ctx context.Context, upstream RepoID, upstreamBranch string, 
 	repo.ghCli, err = authWithGithub(ctx, ghToken)
 	if err != nil {
 		return repo, err
-	}
-
-	// git clone -o origin "https://${GIT_USERNAME}:${FEEDER_GITHUB_TOKEN}@github.com/${fork_repo}.git" "${temp}"
-	cloneOpts := &git.CloneOptions{
-		URL: fmt.Sprintf("https://%v:%v@github.com/%s.git", ghUser, ghToken, repo.fork),
-	}
-	if clonePath == "" {
-		repo.git, err = git.CloneContext(ctx, memory.NewStorage(), memfs.New(), cloneOpts)
-	} else {
-		repo.git, err = git.PlainCloneContext(ctx, clonePath, false, cloneOpts)
-	}
-	if err != nil {
-		return repo, fmt.Errorf("failed to clone fork repo %q: %v", cloneOpts.URL, err)
-	}
-
-	// Create a remote -> upstreamRepo
-	//  git remote add upstream "https://github.com/${upstream_repo}.git"
-	upstreamURL := fmt.Sprintf("https://github.com/%v.git", upstream)
-	upstreamRemote, err := repo.git.CreateRemote(&config.RemoteConfig{
-		Name: "upstream",
-		URLs: []string{upstreamURL},
-	})
-	if err != nil {
-		return repo, fmt.Errorf("failed to add remote %q to fork repo: %v", upstreamURL, err)
-	}
-	glog.V(1).Infof("Added remote upstream->%q for %q:\n%v", upstreamURL, repo.fork, upstreamRemote)
-
-	if err = repo.git.FetchContext(ctx, &git.FetchOptions{}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return repo, fmt.Errorf("failed to fetch repo %q: %v", repo.fork, err)
 	}
 	return repo, nil
 }
@@ -124,116 +88,56 @@ type Repository struct {
 	// upstreamBranch is the name of the upstreamBranch/main branch that PRs will be proposed against.
 	upstreamBranch string
 	user, email    string
-	git            *git.Repository
 	ghCli          *gh_api.Client
 }
 
-// PullAndGetHead ensures that the local files match those in the upstream repository,
-// and returns a reference to the latest commit.
-func (r *Repository) PullAndGetHead() (*plumbing.Reference, error) {
-	wt, err := r.git.Worktree()
+// CreateBranchIfNotExists attempts to create a new branch on the fork repo if it doesn't already exist.
+func (r *Repository) CreateBranchIfNotExists(ctx context.Context, branchName string) error {
+	baseRef, _, err := r.ghCli.Git.GetRef(ctx, r.upstream.Owner, r.upstream.RepoName, "refs/heads/"+r.upstreamBranch)
 	if err != nil {
-		return nil, fmt.Errorf("workTree(%v) err: %v", r, err)
+		return fmt.Errorf("failed to get %s ref: %v", r.upstreamBranch, err)
 	}
-	// Pull the latest commits from remote 'upstream'.
-	if err := wt.Pull(&git.PullOptions{RemoteName: "upstream"}); err != nil && err != git.NoErrAlreadyUpToDate {
-		return nil, fmt.Errorf("git pull %v upstream err: %v", r, err)
+	branch := "refs/heads/" + branchName
+	if _, rsp, err := r.ghCli.Git.GetRef(ctx, r.fork.Owner, r.fork.RepoName, branch); err != nil {
+		if rsp == nil || rsp.StatusCode != 404 {
+			return fmt.Errorf("failed to check for existing branch %q: %v", branchName, err)
+		}
+		// The branch just doesn't exist, so we'll carry on and create it below.
+	} else {
+		// The branch already exists, so we're done.
+		return nil
 	}
-	// Get the master HEAD - we'll need this to branch from later on.
-	headRef, err := r.git.Head()
-	if err != nil {
-		return nil, fmt.Errorf("reading %v HEAD ref err: %v", r, err)
-	}
-	return headRef, nil
+	newRef := &gh_api.Reference{Ref: gh_api.String(branch), Object: baseRef.Object}
+	_, _, err = r.ghCli.Git.CreateRef(ctx, r.fork.Owner, r.fork.RepoName, newRef)
+	return err
 }
 
-// Returns a function which will delete the local branch when called.
-func (r *Repository) CreateLocalBranch(headRef *plumbing.Reference, branchName string) (func(), error) {
-	// Create a git branch for the witnessed checkpoint to be added, named
-	// using hex(checkpoint hash).  Construct a fully-specified
-	// reference name for the new branch.
-	branchRefName := plumbing.ReferenceName(branchName)
-	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
-
-	workTree, err := r.git.Worktree()
+// ReadFile returns the contents of the specified path from the configured upstream repo.
+func (r *Repository) ReadFile(ctx context.Context, path string) ([]byte, error) {
+	f, _, resp, err := r.ghCli.Repositories.GetContents(ctx, r.upstream.Owner, r.upstream.RepoName, path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get work tree: %v", err)
-	}
-
-	glog.V(1).Infof("git checkout -b %q", branchHashRef.Name())
-	if err := workTree.Checkout(&git.CheckoutOptions{
-		Branch: branchRefName,
-		Create: true,
-	}); err != nil {
-		return nil, fmt.Errorf("git checkout %v: %v", branchRefName, err)
-	}
-	d := func() {
-		if err := r.git.Storer.RemoveReference(branchHashRef.Name()); err != nil {
-			glog.Errorf("failed to delete branch hashref for %q: %v", branchHashRef.Name(), err)
+		if resp != nil && resp.StatusCode == 404 {
+			return nil, os.ErrNotExist
 		}
-		glog.V(1).Infof("git branch -D %v", branchHashRef.Name())
-		if err := workTree.Checkout(&git.CheckoutOptions{
-			Branch: plumbing.NewBranchReferenceName(r.upstreamBranch),
-		}); err != nil {
-			glog.Errorf("failed to git checkout %s: %v", r.upstreamBranch, err)
-			return
-		}
-		glog.V(1).Infof("git checkout %s", r.upstreamBranch)
+		return nil, fmt.Errorf("failed to GetContents(%q): %v", path, err)
 	}
-
-	return d, nil
-}
-
-// ReadFile behaves as `util.ReadFile` on the active branch.
-// Encapsulating this inside the repo avoids clients needing to depend on
-// git filesystems directly.
-func (r *Repository) ReadFile(path string) ([]byte, error) {
-	workTree, err := r.git.Worktree()
-	if err != nil {
-		return nil, fmt.Errorf("workTree(%v) err: %v", r, err)
-	}
-	return util.ReadFile(workTree.Filesystem, path)
+	s, err := f.GetContent()
+	return []byte(s), err
 }
 
 // CommitFile creates a commit on a repo's worktree which overwrites the specified file path
 // with the provided bytes.
-func (r *Repository) CommitFile(path string, raw []byte, commitMsg string) error {
-	workTree, err := r.git.Worktree()
+func (r *Repository) CommitFile(ctx context.Context, path string, raw []byte, branch, commitMsg string) error {
+	opts := &gh_api.RepositoryContentFileOptions{
+		Message: gh_api.String(commitMsg),
+		Content: raw,
+		Branch:  gh_api.String(branch),
+	}
+	cRsp, _, err := r.ghCli.Repositories.CreateFile(ctx, r.fork.Owner, r.fork.RepoName, path, opts)
 	if err != nil {
-		return fmt.Errorf("workTree(%v) err: %v", r, err)
+		return fmt.Errorf("failed to CreateFile(%q): %v", path, err)
 	}
-	glog.Infof("Writing checkpoint (%d bytes) to %q", len(raw), path)
-	if err := util.WriteFile(workTree.Filesystem, path, raw, 0644); err != nil {
-		return fmt.Errorf("failed to write to %q: %v", path, err)
-	}
-
-	glog.V(1).Infof("git add %s", path)
-	if _, err := workTree.Add(path); err != nil {
-		return fmt.Errorf("failed to git add %q: %v", path, err)
-	}
-
-	glog.V(1).Info("git commit")
-	if _, err := workTree.Commit(commitMsg, &git.CommitOptions{
-		Author: &object.Signature{
-			// Name, Email required despite what we set up in git config earlier.
-			Name:  r.user,
-			Email: r.email,
-			When:  time.Now(),
-		},
-	}); err != nil {
-		return fmt.Errorf("git commit: %v", err)
-	}
-	return nil
-}
-
-// Push forces any local commits on the active branch to the user's fork.
-func (r *Repository) Push() error {
-	glog.V(1).Infof("git push -f")
-	if err := r.git.Push(&git.PushOptions{
-		Force: true,
-	}); err != nil {
-		return fmt.Errorf("git push -f: %v", err)
-	}
+	glog.V(1).Infof("Commit %s updated %q on %s", cRsp.Commit, path, branch)
 	return nil
 }
 

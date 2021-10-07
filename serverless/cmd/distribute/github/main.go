@@ -197,7 +197,6 @@ type options struct {
 	forkRepo        github.RepoID
 	distributorRepo github.RepoID
 	distributorPath string
-	clonePath       string
 
 	distConfig distributeConfig
 	logSigV    note.Verifier

@@ -1,7 +1,7 @@
 # This cloudbuild script builds docker images we expect users to
 # commonly deploy, and stores these in cloud registry.
 # This builds the images multi-arch so they run on x64 and Raspberry Pi.
-timeout: 1200s
+timeout: 3600s
 options:
   machineType: N1_HIGHCPU_8
   volumes:
@@ -39,6 +39,7 @@ steps:
       '--push',
       '.'
     ]
+    id: 'build-witness-image'
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'buildx',
@@ -50,6 +51,7 @@ steps:
       '--push',
       '.'
     ]
+    id: 'build-sumdb-feeder-image'
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'buildx',
@@ -61,6 +63,7 @@ steps:
       '--push',
       '.'
     ]
+    id: 'build-distribute-to-github-image'
 
 substitutions:
-  _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v6'
+  _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v7'

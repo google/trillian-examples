@@ -1,4 +1,4 @@
-FROM golang:buster AS builder
+FROM golang:1.17-alpine AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -19,7 +19,7 @@ COPY . .
 RUN go build -o /build/bin/feeder ./sumdbaudit/witness/cmd/feeder
 
 # Build release image
-FROM golang:buster
+FROM alpine
 
 COPY --from=builder /build/bin/feeder /bin/feeder
 ENTRYPOINT ["/bin/feeder"]

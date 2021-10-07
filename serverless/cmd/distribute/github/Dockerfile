@@ -1,4 +1,4 @@
-FROM golang AS builder
+FROM golang:1.17-alpine AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -19,8 +19,7 @@ COPY . .
 RUN go build -o /build/bin/distribute ./serverless/cmd/distribute/github
 
 # Build release image
-FROM golang
+FROM alpine
 
 COPY --from=builder /build/bin/distribute /bin/distribute
-
 ENTRYPOINT ["/bin/distribute"]

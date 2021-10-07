@@ -1,4 +1,5 @@
 FROM golang:1.17-alpine AS builder
+RUN apk add --no-cache gcc musl-dev
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -6,7 +7,6 @@ ENV GO111MODULE=on
 
 # Move to working directory /build
 WORKDIR /build
-
 # Copy and download dependency using go mod
 COPY go.mod .
 COPY go.sum .

@@ -50,7 +50,6 @@ services:
       - "--fork_repo=${SERVERLESS_DISTRIBUTOR_FORK}"
       - "--distributor_path=${SERVERLESS_DISTRIBUTOR_DIR:-.}"
       - "--interval=${INTERVAL_SECONDS:-300}"
-      - "--clone_to_disk=${CLONE_TO_DISK:-false}"
       - "--logtostderr"
     environment:
       - GITHUB_AUTH_TOKEN=${DISTRIBUTOR_GITHUB_TOKEN}

@@ -18,6 +18,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"flag"
 	"fmt"
@@ -61,7 +63,6 @@ var (
 	distributorPath   = flag.String("distributor_path", "", "Path from the root of the repo where the distributor files can be found.")
 	configPath        = flag.String("config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
 	interval          = flag.Duration("interval", time.Duration(0), "Interval between checkpoints. Default of 0 causes the tool to be a one-shot.")
-	cloneToDisk       = flag.Bool("clone_to_disk", false, "Whether to clone the distributor repo to memory or disk.")
 )
 
 func main() {
@@ -69,21 +70,7 @@ func main() {
 	opts := mustConfigure()
 	ctx := context.Background()
 
-	if *cloneToDisk {
-		// Make a tempdir to clone the witness (forked) distributor into.
-		tmpDir, err := os.MkdirTemp(os.TempDir(), "distribute-github")
-		if err != nil {
-			glog.Exitf("Error creating temp dir: %v", err)
-		}
-		opts.clonePath = tmpDir
-		defer func() {
-			if err := os.RemoveAll(tmpDir); err != nil {
-				glog.Warningf("RemoveAll err: %v", err)
-			}
-		}()
-	}
-
-	repo, err := github.NewRepository(ctx, opts.distributorRepo, *distributorBranch, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken, opts.clonePath)
+	repo, err := github.NewRepository(ctx, opts.distributorRepo, *distributorBranch, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken)
 	if err != nil {
 		glog.Exitf("Failed to set up repository: %v", err)
 	}
@@ -108,12 +95,6 @@ func main() {
 
 // distributeOnce a) polls the witness b) updates the fork c) proposes a PR if needed.
 func distributeOnce(ctx context.Context, opts *options, repo github.Repository) error {
-	// Pull forkRepo and get the ref for origin/master branch HEAD.
-	headRef, err := repo.PullAndGetHead()
-	if err != nil {
-		return err
-	}
-
 	// This will be used on both the witness and the distributor.
 	// At the moment the ID is arbitrary and is up to the discretion of the operators
 	// of these parties. We should address this. If we don't manage to do so in time,
@@ -124,7 +105,7 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 	if err != nil {
 		return err
 	}
-	wCp, _, witnessNote, err := log.ParseCheckpoint(wRaw, opts.distConfig.Log.Origin, opts.logSigV, opts.witSigV)
+	wCp, wcpRaw, witnessNote, err := log.ParseCheckpoint(wRaw, opts.distConfig.Log.Origin, opts.logSigV, opts.witSigV)
 	if err != nil {
 		return fmt.Errorf("couldn't parse witnessed checkpoint: %v", err)
 	}
@@ -133,9 +114,9 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 	}
 
 	logDir := filepath.Join(opts.distributorPath, "logs", logID)
-	found, err := alreadyPresent(witnessNote.Text, logDir, repo, opts.witSigV)
+	found, err := alreadyPresent(ctx, witnessNote.Text, logDir, repo, opts.witSigV)
 	if err != nil {
-		return fmt.Errorf("couldn't determind whether to distribute: %v", err)
+		return fmt.Errorf("couldn't determine whether to distribute: %v", err)
 	}
 	if found {
 		glog.Infof("CP already present in distributor, not raising PR.")
@@ -143,32 +124,32 @@ func distributeOnce(ctx context.Context, opts *options, repo github.Repository) 
 	}
 
 	// Now form a PR with the cosigned CP.
-	id := strings.Map(safeBranchChars, fmt.Sprintf("%s_%s", opts.witSigV.Name(), opts.logSigV.Name()))
-	branchName := fmt.Sprintf("refs/heads/witness_%s", id)
-	deleteBranch, err := repo.CreateLocalBranch(headRef, branchName)
-	if err != nil {
-		return fmt.Errorf("failed to create git branch for PR: %v", err)
+	wl := strings.Map(safeBranchChars, fmt.Sprintf("%s_%s", opts.witSigV.Name(), opts.logSigV.Name()))
+	witnessBranch := fmt.Sprintf("witness_%s", wl)
+	if err := repo.CreateBranchIfNotExists(ctx, witnessBranch); err != nil {
+		glog.Exitf("Failed to create witness branch %q: %v", witnessBranch, err)
 	}
-	defer deleteBranch()
-	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", id))
+
+	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", wcpID(wcpRaw)))
 	// First, check whether we've already managed to submit this CP into the incoming directory
-	if _, err := repo.ReadFile(outputPath); err == nil {
+	if _, err := repo.ReadFile(ctx, outputPath); err == nil {
 		return fmt.Errorf("witnessed checkpoint already pending: %v", impl.ErrNoSignaturesAdded)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to check for existing pending checkpoint: %v", err)
 	}
 
 	msg := fmt.Sprintf("Witness checkpoint@%v", wCp.Size)
-	if err := repo.CommitFile(outputPath, wRaw, msg); err != nil {
+	if err := repo.CommitFile(ctx, outputPath, wRaw, witnessBranch, msg); err != nil {
 		return fmt.Errorf("failed to commit updated checkpoint.witnessed file: %v", err)
 	}
 
-	if err := repo.Push(); err != nil {
-		return fmt.Errorf("failed to push: %v", err)
-	}
-
 	glog.V(1).Info("Creating PR")
-	return repo.CreatePR(ctx, fmt.Sprintf("Witness %s@%d", opts.witSigV.Name(), wCp.Size), branchName)
+	return repo.CreatePR(ctx, fmt.Sprintf("Witness %s@%d", opts.witSigV.Name(), wCp.Size), witnessBranch)
+}
+
+func wcpID(r []byte) string {
+	h := sha256.Sum256(r)
+	return hex.EncodeToString(h[:])
 }
 
 func safeBranchChars(i rune) rune {
@@ -181,10 +162,10 @@ func safeBranchChars(i rune) rune {
 	return '_'
 }
 
-func alreadyPresent(cpBody string, logDir string, repo github.Repository, wSigV note.Verifier) (bool, error) {
+func alreadyPresent(ctx context.Context, cpBody string, logDir string, repo github.Repository, wSigV note.Verifier) (bool, error) {
 	for i := 0; ; i++ {
 		cpPath := filepath.Join(logDir, fmt.Sprintf("checkpoint.%d", i))
-		cpRaw, err := repo.ReadFile(cpPath)
+		cpRaw, err := repo.ReadFile(ctx, cpPath)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				// We've reached the end of the list of checkpoints without
@@ -216,7 +197,6 @@ type options struct {
 	forkRepo        github.RepoID
 	distributorRepo github.RepoID
 	distributorPath string
-	clonePath       string
 
 	distConfig distributeConfig
 	logSigV    note.Verifier

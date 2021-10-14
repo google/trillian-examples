@@ -125,7 +125,7 @@ func safeBranchChars(i rune) rune {
 	return '_'
 }
 
-// alreadyPreset determines if a given checkpoint is already known to the distributor.
+// alreadyPresent determines if a given checkpoint is already known to the distributor.
 func alreadyPresent(ctx context.Context, cpBody string, logDir string, repo github.Repository, wSigV note.Verifier) (bool, error) {
 	for i := 0; ; i++ {
 		cpPath := filepath.Join(logDir, fmt.Sprintf("checkpoint.%d", i))

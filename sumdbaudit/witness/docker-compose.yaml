@@ -28,7 +28,9 @@ services:
     command:
       - "--w=http://witness:8100"
       - "--wk=${WITNESS_PUBLIC_KEY}"
+      - "--poll=1m"
       - "--alsologtostderr"
       - "--v=1"
+    restart: always
 volumes:
   data:

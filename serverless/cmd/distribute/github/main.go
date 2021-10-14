@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// feeder/github redistributes checkpoints from a witness into a serverless
-// distributor by raising a PR containing the co-signed checkpoint.
+// distribute/github redistributes witnessed checkpoints from one or more logs,
+// fetched from a single witness, to a single serverless distributor.
 package main
 
 import (
@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"gopkg.in/yaml.v2"
 
 	"github.com/google/trillian-examples/serverless/config"
 	"github.com/google/trillian-examples/serverless/internal/github"
@@ -34,6 +33,7 @@ import (
 
 	dist_gh "github.com/google/trillian-examples/serverless/internal/distribute/github"
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const usage = `Usage:
@@ -135,9 +135,18 @@ func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 		glog.Exitf("Invalid witness public key for url %q: %v", cfg.Witness.URL, err)
 	}
 
-	lSigV, err := note.NewVerifier(cfg.Log.PublicKey)
-	if err != nil {
-		glog.Exitf("Invalid log public key: %v", err)
+	logs := make([]dist_gh.Log, 0)
+
+	for _, l := range cfg.Logs {
+		log := dist_gh.Log{
+			Config: l,
+		}
+		lSigV, err := note.NewVerifier(l.PublicKey)
+		if err != nil {
+			glog.Exitf("Invalid log public key: %v", err)
+		}
+		log.SigV = lSigV
+		logs = append(logs, log)
 	}
 
 	repo, err := github.NewRepository(ctx, dr, *distributorBranch, fr, gitUsername, gitEmail, githubAuthToken)
@@ -148,8 +157,7 @@ func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 	return &dist_gh.DistributeOptions{
 		Repo:            repo,
 		DistributorPath: *distributorPath,
-		Log:             cfg.Log,
-		LogSigV:         lSigV,
+		Logs:            logs,
 		WitSigV:         wSigV,
 		Witness: wit_http.Witness{
 			URL:      u,
@@ -161,7 +169,7 @@ func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 // distributeConfig is the format of this tool's config file.
 type distributeConfig struct {
 	// Log defines the log checkpoints are being distributed for.
-	Log config.Log `yaml:"Log"`
+	Logs []config.Log `yaml:"Logs"`
 
 	// Witness defines the witness to read from.
 	Witness config.Witness `yaml:"Witness"`
@@ -169,8 +177,10 @@ type distributeConfig struct {
 
 // Validate checks that the config is populated correctly.
 func (c distributeConfig) Validate() error {
-	if err := c.Log.Validate(); err != nil {
-		return err
+	for _, l := range c.Logs {
+		if err := l.Validate(); err != nil {
+			return err
+		}
 	}
 	return c.Witness.Validate()
 }

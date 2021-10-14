@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// feeder is a one-shot witness feeder implementation for the serverless log.
+// feeder is an implementation of a witness feeder for serverless logs.
+// It can be configured to feed from one or more serverless logs to a single witness.
+//
+// TODO(al): Consider whether to add support for multiple witnesses.
 package main
 
 import (
@@ -22,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -30,9 +34,9 @@ import (
 	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"github.com/google/trillian-examples/serverless/config"
 	"golang.org/x/mod/sumdb/note"
-	"gopkg.in/yaml.v2"
 
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var (
@@ -43,8 +47,8 @@ var (
 
 // Config encapsulates the feeder config.
 type Config struct {
-	// Log defines the source log to feed from.
-	Log config.Log `yaml:"Log"`
+	// Logs defines the source logs to feed from.
+	Logs []config.Log `yaml:"Logs"`
 
 	// Witness is the configured witness.
 	Witness config.Witness `yaml:"Witness"`
@@ -58,36 +62,53 @@ func main() {
 		glog.Exitf("Failed to read config: %v", err)
 	}
 
-	lURL, err := url.Parse(cfg.Log.URL)
-	if err != nil {
-		glog.Exitf("Invalid LogURL %q: %v", cfg.Log.URL, err)
-	}
-	f := newFetcher(lURL)
-
-	opts := impl.FeedOpts{
-		LogID:          cfg.Log.ID,
-		LogOrigin:      cfg.Log.Origin,
-		LogFetcher:     f,
-		LogSigVerifier: mustCreateVerifier(cfg.Log.PublicKey),
-	}
 	u, err := url.Parse(cfg.Witness.URL)
 	if err != nil {
 		glog.Exitf("Failed to parse witness URL %q: %v", cfg.Witness.URL, err)
 	}
-	opts.Witness = wit_http.Witness{
+	witness := wit_http.Witness{
 		URL:      u,
 		Verifier: mustCreateVerifier(cfg.Witness.PublicKey),
 	}
 
-	for first := true; first || *interval > 0; first = false {
+	wg := &sync.WaitGroup{}
+	for _, l := range cfg.Logs {
+		wg.Add(1)
+		go func(l config.Log, w wit_http.Witness) {
+			defer wg.Done()
+			if err := feedLog(l, witness, *timeout, *interval); err != nil {
+				glog.Errorf("feedLog: %v", err)
+			}
+		}(l, witness)
+	}
+	wg.Wait()
+}
+
+func feedLog(l config.Log, w wit_http.Witness, timeout time.Duration, interval time.Duration) error {
+	lURL, err := url.Parse(l.URL)
+	if err != nil {
+		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
+	}
+	f := newFetcher(lURL)
+
+	opts := impl.FeedOpts{
+		LogID:          l.ID,
+		LogOrigin:      l.Origin,
+		LogFetcher:     f,
+		LogSigVerifier: mustCreateVerifier(l.PublicKey),
+		Witness:        w,
+	}
+
+	for first := true; first || interval > 0; first = false {
 		if !first {
-			<-time.After(*interval)
+			<-time.After(interval)
 		}
 
-		if err := feedOnce(*timeout, opts); err != nil {
-			glog.Errorf("Feeding failed: %v", err)
+		if err := feedOnce(timeout, opts); err != nil {
+			glog.Errorf("Feeding log %q failed: %v", opts.LogSigVerifier.Name(), err)
 		}
 	}
+	return nil
 }
 
 func feedOnce(timeout time.Duration, opts impl.FeedOpts) error {
@@ -124,8 +145,10 @@ func readConfig(f string) (*Config, error) {
 	if err := yaml.Unmarshal(c, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %v", err)
 	}
-	if cfg.Log.ID == "" {
-		cfg.Log.ID = log.ID(cfg.Log.Origin, []byte(cfg.Log.PublicKey))
+	for i := range cfg.Logs {
+		if cfg.Logs[i].ID == "" {
+			cfg.Logs[i].ID = log.ID(cfg.Logs[i].Origin, []byte(cfg.Logs[i].PublicKey))
+		}
 	}
 	return &cfg, nil
 }

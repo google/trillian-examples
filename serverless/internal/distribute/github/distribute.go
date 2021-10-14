@@ -37,6 +37,13 @@ import (
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
+// Log represents a log known to the distributor.
+type Log struct {
+	Config config.Log
+	// SigV can verify the source log signatures.
+	SigV note.Verifier
+}
+
 // DistributeOptions contains the various configuration and state required to perform a distribute action.
 type DistributeOptions struct {
 	// Repo is the repository containing the distributor.
@@ -44,10 +51,9 @@ type DistributeOptions struct {
 	// DistributorPath specifies the path to the root directory of the distributor data in the repo.
 	DistributorPath string
 
-	// Log identifies the source log whose checkpoints are being distributed.
-	Log config.Log
-	// LogSigV can verify the source log signatures.
-	LogSigV note.Verifier
+	// Logs identifies the list of source logs whose checkpoints are being distributed.
+	Logs []Log
+
 	// WitSigV can verify the cosignatures from the witness we're distributing from.
 	WitSigV note.Verifier
 	// Witness is a client for talking to the witness we're distributing from.
@@ -56,17 +62,37 @@ type DistributeOptions struct {
 
 // DistributeOnce a) polls the witness b) updates the fork c) proposes a PR if needed.
 func DistributeOnce(ctx context.Context, opts *DistributeOptions) error {
+	numErrs := 0
+	for _, log := range opts.Logs {
+		if err := distributeForLog(ctx, log, opts); err != nil {
+			glog.Warningf("Failed to distribute for log %q: %v", log.SigV.Name(), err)
+			numErrs++
+		}
+	}
+	if numErrs > 0 {
+		return fmt.Errorf("failed to distribute %d out of %d logs", numErrs, len(opts.Logs))
+	}
+	return nil
+}
+
+func distributeForLog(ctx context.Context, l Log, opts *DistributeOptions) error {
+	// Ensure the branch exists for us to use to raise a PR
+	wl := strings.Map(safeBranchChars, fmt.Sprintf("%s_%s", opts.WitSigV.Name(), l.SigV.Name()))
+	witnessBranch := fmt.Sprintf("witness_%s", wl)
+	if err := opts.Repo.CreateBranchIfNotExists(ctx, witnessBranch); err != nil {
+		return fmt.Errorf("failed to create witness branch %q: %v", witnessBranch, err)
+	}
 	// This will be used on both the witness and the distributor.
 	// At the moment the ID is arbitrary and is up to the discretion of the operators
 	// of these parties. We should address this. If we don't manage to do so in time,
 	// we'll need to allow this ID to be configured separately for each entity.
-	logID := opts.Log.ID
+	logID := l.Config.ID
 
 	wRaw, err := opts.Witness.GetLatestCheckpoint(ctx, logID)
 	if err != nil {
 		return err
 	}
-	wCp, wcpRaw, witnessNote, err := log.ParseCheckpoint(wRaw, opts.Log.Origin, opts.LogSigV, opts.WitSigV)
+	wCp, wcpRaw, witnessNote, err := log.ParseCheckpoint(wRaw, l.Config.Origin, l.SigV, opts.WitSigV)
 	if err != nil {
 		return fmt.Errorf("couldn't parse witnessed checkpoint: %v", err)
 	}
@@ -82,13 +108,6 @@ func DistributeOnce(ctx context.Context, opts *DistributeOptions) error {
 	if found {
 		glog.Infof("CP already present in distributor, not raising PR.")
 		return nil
-	}
-
-	// Now form a PR with the cosigned CP.
-	wl := strings.Map(safeBranchChars, fmt.Sprintf("%s_%s", opts.WitSigV.Name(), opts.LogSigV.Name()))
-	witnessBranch := fmt.Sprintf("witness_%s", wl)
-	if err := opts.Repo.CreateBranchIfNotExists(ctx, witnessBranch); err != nil {
-		glog.Exitf("Failed to create witness branch %q: %v", witnessBranch, err)
 	}
 
 	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", wcpID(wcpRaw)))

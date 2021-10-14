@@ -18,27 +18,21 @@ package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/golang/glog"
 	"gopkg.in/yaml.v2"
 
-	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"github.com/google/trillian-examples/serverless/config"
 	"github.com/google/trillian-examples/serverless/internal/github"
 	"golang.org/x/mod/sumdb/note"
 
+	dist_gh "github.com/google/trillian-examples/serverless/internal/distribute/github"
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
@@ -48,6 +42,7 @@ const usage = `Usage:
 Where:
  --distributor_repo is the repo owner/fragment from the distributor github repo URL.
      e.g. github.com/AlCutter/serverless-test -> AlCutter/serverless-test
+ --distributor_branch is the name of the primary branch on the distributor repo (e.g. main).
  --fork_repo is the repo owner/fragment of the forked distributor to use for the PR branch.
  --distributor_path is the path from the root of the repo where the distributor files can be found,
  --config_file is the path to the config file for the serverless/cmd/feeder command.
@@ -67,142 +62,26 @@ var (
 
 func main() {
 	flag.Parse()
-	opts := mustConfigure()
 	ctx := context.Background()
 
-	repo, err := github.NewRepository(ctx, opts.distributorRepo, *distributorBranch, opts.forkRepo, opts.gitUsername, opts.gitEmail, opts.githubAuthToken)
-	if err != nil {
-		glog.Exitf("Failed to set up repository: %v", err)
-	}
+	opts := mustConfigure(ctx)
 
-	if err := distributeOnce(ctx, opts, repo); err != nil {
-		glog.Warningf("distributeOnce: %v", err)
+	if err := dist_gh.DistributeOnce(ctx, opts); err != nil {
+		glog.Warningf("DistributeOnce: %v", err)
 	}
 	if *interval > 0 {
 		for {
 			select {
 			case <-time.After(*interval):
-				glog.Infof("Wait time is up, going around again (%s)", *interval)
+				glog.V(1).Infof("Wait time is up, going around again (%s)", *interval)
 			case <-ctx.Done():
 				return
 			}
-			if err := distributeOnce(ctx, opts, repo); err != nil {
-				glog.Warningf("distributeOnce: %v", err)
+			if err := dist_gh.DistributeOnce(ctx, opts); err != nil {
+				glog.Warningf("DistributeOnce: %v", err)
 			}
 		}
 	}
-}
-
-// distributeOnce a) polls the witness b) updates the fork c) proposes a PR if needed.
-func distributeOnce(ctx context.Context, opts *options, repo github.Repository) error {
-	// This will be used on both the witness and the distributor.
-	// At the moment the ID is arbitrary and is up to the discretion of the operators
-	// of these parties. We should address this. If we don't manage to do so in time,
-	// we'll need to allow this ID to be configured separately for each entity.
-	logID := opts.distConfig.Log.ID
-
-	wRaw, err := opts.witness.GetLatestCheckpoint(ctx, logID)
-	if err != nil {
-		return err
-	}
-	wCp, wcpRaw, witnessNote, err := log.ParseCheckpoint(wRaw, opts.distConfig.Log.Origin, opts.logSigV, opts.witSigV)
-	if err != nil {
-		return fmt.Errorf("couldn't parse witnessed checkpoint: %v", err)
-	}
-	if nWitSigs, want := len(witnessNote.Sigs)-1, 1; nWitSigs != want {
-		return fmt.Errorf("checkpoint has %d witness sigs, want %d", nWitSigs, want)
-	}
-
-	logDir := filepath.Join(opts.distributorPath, "logs", logID)
-	found, err := alreadyPresent(ctx, witnessNote.Text, logDir, repo, opts.witSigV)
-	if err != nil {
-		return fmt.Errorf("couldn't determine whether to distribute: %v", err)
-	}
-	if found {
-		glog.Infof("CP already present in distributor, not raising PR.")
-		return nil
-	}
-
-	// Now form a PR with the cosigned CP.
-	wl := strings.Map(safeBranchChars, fmt.Sprintf("%s_%s", opts.witSigV.Name(), opts.logSigV.Name()))
-	witnessBranch := fmt.Sprintf("witness_%s", wl)
-	if err := repo.CreateBranchIfNotExists(ctx, witnessBranch); err != nil {
-		glog.Exitf("Failed to create witness branch %q: %v", witnessBranch, err)
-	}
-
-	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", wcpID(wcpRaw)))
-	// First, check whether we've already managed to submit this CP into the incoming directory
-	if _, err := repo.ReadFile(ctx, outputPath); err == nil {
-		return fmt.Errorf("witnessed checkpoint already pending: %v", impl.ErrNoSignaturesAdded)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("failed to check for existing pending checkpoint: %v", err)
-	}
-
-	msg := fmt.Sprintf("Witness checkpoint@%v", wCp.Size)
-	if err := repo.CommitFile(ctx, outputPath, wRaw, witnessBranch, msg); err != nil {
-		return fmt.Errorf("failed to commit updated checkpoint.witnessed file: %v", err)
-	}
-
-	glog.V(1).Info("Creating PR")
-	return repo.CreatePR(ctx, fmt.Sprintf("Witness %s@%d", opts.witSigV.Name(), wCp.Size), witnessBranch)
-}
-
-func wcpID(r []byte) string {
-	h := sha256.Sum256(r)
-	return hex.EncodeToString(h[:])
-}
-
-func safeBranchChars(i rune) rune {
-	if (i >= '0' && i <= '9') ||
-		(i >= 'a' && i <= 'z') ||
-		(i >= 'A' && i <= 'Z') ||
-		i == '-' {
-		return i
-	}
-	return '_'
-}
-
-func alreadyPresent(ctx context.Context, cpBody string, logDir string, repo github.Repository, wSigV note.Verifier) (bool, error) {
-	for i := 0; ; i++ {
-		cpPath := filepath.Join(logDir, fmt.Sprintf("checkpoint.%d", i))
-		cpRaw, err := repo.ReadFile(ctx, cpPath)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				// We've reached the end of the list of checkpoints without
-				// encountering our checkpoint, so send it!
-				return false, nil
-			}
-			return false, fmt.Errorf("failed to read %q: %v", cpPath, err)
-		}
-		n, err := note.Open(cpRaw, note.VerifierList(wSigV))
-		if err != nil {
-			if _, ok := err.(*note.UnverifiedNoteError); ok {
-				// Not signed by us, ignore it.
-				continue
-			}
-			return false, fmt.Errorf("failed to open %q: %v", cpPath, err)
-		}
-		if n.Text == cpBody {
-			// We've found our candidate CP and it's already signed by us, no need to send.
-			return true, nil
-		}
-	}
-}
-
-// options contains the various configuration and state required to perform a feedOnce call.
-type options struct {
-	gitUsername, gitEmail string
-	githubAuthToken       string
-
-	forkRepo        github.RepoID
-	distributorRepo github.RepoID
-	distributorPath string
-
-	distConfig distributeConfig
-	logSigV    note.Verifier
-	witSigV    note.Verifier
-	witness    wit_http.Witness
-	interval   time.Duration
 }
 
 // usageExit prints out a message followed by the usage string, and then terminates execution.
@@ -212,7 +91,7 @@ func usageExit(m string) {
 
 // mustConfigure creates an options struct from flags and env vars.
 // It will terminate execution on any error.
-func mustConfigure() *options {
+func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 	checkNotEmpty := func(m, v string) {
 		if v == "" {
 			usageExit(m)
@@ -249,33 +128,33 @@ func mustConfigure() *options {
 
 	u, err := url.Parse(cfg.Witness.URL)
 	if err != nil {
-		glog.Exitf("failed to parse witness URL %q: %v", cfg.Witness.URL, err)
+		glog.Exitf("Failed to parse witness URL %q: %v", cfg.Witness.URL, err)
 	}
 	wSigV, err := note.NewVerifier(cfg.Witness.PublicKey)
 	if err != nil {
-		glog.Exitf("invalid witness public key for url %q: %v", cfg.Witness.URL, err)
+		glog.Exitf("Invalid witness public key for url %q: %v", cfg.Witness.URL, err)
 	}
 
 	lSigV, err := note.NewVerifier(cfg.Log.PublicKey)
 	if err != nil {
-		glog.Exitf("invalid log public key: %v", err)
+		glog.Exitf("Invalid log public key: %v", err)
 	}
 
-	return &options{
-		distributorRepo: dr,
-		forkRepo:        fr,
-		distributorPath: *distributorPath,
-		githubAuthToken: githubAuthToken,
-		gitUsername:     gitUsername,
-		gitEmail:        gitEmail,
-		logSigV:         lSigV,
-		witSigV:         wSigV,
-		witness: wit_http.Witness{
+	repo, err := github.NewRepository(ctx, dr, *distributorBranch, fr, gitUsername, gitEmail, githubAuthToken)
+	if err != nil {
+		glog.Exitf("Failed to set up repository: %v", err)
+	}
+
+	return &dist_gh.DistributeOptions{
+		Repo:            repo,
+		DistributorPath: *distributorPath,
+		Log:             cfg.Log,
+		LogSigV:         lSigV,
+		WitSigV:         wSigV,
+		Witness: wit_http.Witness{
 			URL:      u,
 			Verifier: wSigV,
 		},
-		interval:   *interval,
-		distConfig: cfg,
 	}
 }
 

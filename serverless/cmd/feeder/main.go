@@ -73,16 +73,18 @@ func main() {
 		wg.Add(1)
 		go func(l config.Log, w wit_http.Witness) {
 			defer wg.Done()
-			feedLog(l, witness)
+			if err := feedLog(l, witness); err != nil {
+				glog.Errorf("feedLog: %v", err)
+			}
 		}(l, witness)
 	}
 	wg.Wait()
 }
 
-func feedLog(l config.Log, w wit_http.Witness) {
+func feedLog(l config.Log, w wit_http.Witness) error {
 	lURL, err := url.Parse(l.URL)
 	if err != nil {
-		glog.Exitf("Invalid LogURL %q: %v", l.URL, err)
+		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
 	}
 	f := newFetcher(lURL)
 
@@ -103,6 +105,7 @@ func feedLog(l config.Log, w wit_http.Witness) {
 			glog.Errorf("Feeding log %q failed: %v", opts.LogSigVerifier.Name(), err)
 		}
 	}
+	return nil
 }
 
 func feedOnce(timeout time.Duration, opts impl.FeedOpts) error {

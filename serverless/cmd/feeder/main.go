@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// feeder is a one-shot witness feeder implementation for the serverless log.
+// feeder is an implementation of a witness feeder for serverless logs.
+// It can be configured to feed from one or more serverless logs to a single witness.
+//
+// TODO(al): Consider whether to add support for multiple witnesses.
 package main
 
 import (

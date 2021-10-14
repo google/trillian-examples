@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// feeder/github redistributes checkpoints from a witness into a serverless
-// distributor by raising a PR containing the co-signed checkpoint.
+// distribute/github redistributes witnessed checkpoints from one or more logs,
+// fetched from a single witness, to a single serverless distributor.
 package main
 
 import (

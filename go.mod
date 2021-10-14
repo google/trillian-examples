@@ -3,7 +3,7 @@ module github.com/google/trillian-examples
 go 1.16
 
 require (
-	github.com/apache/beam/sdks/v2 v2.0.0-20211013024802-71d7213d9867 // indirect
+	github.com/apache/beam/sdks/v2 v2.0.0-20211013024802-71d7213d9867
 	github.com/cenkalti/backoff/v4 v4.1.1
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
@@ -13,7 +13,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/certificate-transparency-go v1.1.2-0.20210512142713-bed466244fa6
 	github.com/google/go-cmp v0.5.6
-	github.com/google/go-github/v39 v39.1.0
+	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.4.1-0.20211013081307-5af22d0b4a1d
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.8

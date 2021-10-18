@@ -91,24 +91,26 @@ type Repository struct {
 	ghCli          *gh_api.Client
 }
 
-// CreateBranchIfNotExists attempts to create a new branch on the fork repo if it doesn't already exist.
-func (r *Repository) CreateBranchIfNotExists(ctx context.Context, branchName string) error {
+// CreateOrUpdateBranch attempts to create a new branch on the fork repo if it doesn't already exist, or
+// rebase it onto HEAD if it does.
+func (r *Repository) CreateOrUpdateBranch(ctx context.Context, branchName string) error {
 	baseRef, _, err := r.ghCli.Git.GetRef(ctx, r.upstream.Owner, r.upstream.RepoName, "refs/heads/"+r.upstreamBranch)
 	if err != nil {
 		return fmt.Errorf("failed to get %s ref: %v", r.upstreamBranch, err)
 	}
 	branch := "refs/heads/" + branchName
+	newRef := &gh_api.Reference{Ref: gh_api.String(branch), Object: baseRef.Object}
+
 	if _, rsp, err := r.ghCli.Git.GetRef(ctx, r.fork.Owner, r.fork.RepoName, branch); err != nil {
 		if rsp == nil || rsp.StatusCode != 404 {
 			return fmt.Errorf("failed to check for existing branch %q: %v", branchName, err)
 		}
-		// The branch just doesn't exist, so we'll carry on and create it below.
-	} else {
-		// The branch already exists, so we're done.
-		return nil
+		// Branch doesn't exist, so we'll create it:
+		_, _, err = r.ghCli.Git.CreateRef(ctx, r.fork.Owner, r.fork.RepoName, newRef)
+		return err
 	}
-	newRef := &gh_api.Reference{Ref: gh_api.String(branch), Object: baseRef.Object}
-	_, _, err = r.ghCli.Git.CreateRef(ctx, r.fork.Owner, r.fork.RepoName, newRef)
+	// The branch already exists, so we'll update it:
+	_, _, err = r.ghCli.Git.UpdateRef(ctx, r.fork.Owner, r.fork.RepoName, newRef, true)
 	return err
 }
 

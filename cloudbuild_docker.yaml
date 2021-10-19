@@ -83,7 +83,7 @@ steps:
     ]
     waitFor:
       - show-target-build-platforms
-    id: 'build-distribute-to-github-image'
+    id: 'build-serverless-feeder-image'
 
 substitutions:
   _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v7'

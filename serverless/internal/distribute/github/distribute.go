@@ -29,7 +29,6 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"github.com/google/trillian-examples/serverless/config"
 	"github.com/google/trillian-examples/serverless/internal/github"
 	"golang.org/x/mod/sumdb/note"
@@ -106,14 +105,14 @@ func distributeForLog(ctx context.Context, l Log, opts *DistributeOptions) error
 		return fmt.Errorf("couldn't determine whether to distribute: %v", err)
 	}
 	if found {
-		glog.Infof("CP already present in distributor, not raising PR.")
+		glog.Infof("%q: CP already present in distributor, not raising PR.", l.SigV.Name())
 		return nil
 	}
 
 	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", wcpID(wcpRaw)))
 	// First, check whether we've already managed to submit this CP into the incoming directory
 	if _, err := opts.Repo.ReadFile(ctx, outputPath); err == nil {
-		return fmt.Errorf("witnessed checkpoint already pending: %v", impl.ErrNoSignaturesAdded)
+		return fmt.Errorf("witnessed checkpoint already pending: %v", outputPath)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to check for existing pending checkpoint: %v", err)
 	}

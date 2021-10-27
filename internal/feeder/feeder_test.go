@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package impl
+package feeder
 
 import (
 	"context"
@@ -22,7 +22,9 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/formats/log"
+	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/testdata"
+	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -50,6 +52,14 @@ func TestFeed(t *testing.T) {
 				witSig:   witSig,
 				witSigV:  witSigV,
 				latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
+			},
+		}, {
+			desc:     "works - TOFU feed",
+			submitCP: testdata.Checkpoint(t, 2),
+			witness: &fakeWitness{
+				logSigV:  logSigV,
+				witSig:   witSig,
+				witSigV:  witSigV,
 			},
 		}, {
 			desc:     "works - submitCP == latest",
@@ -85,8 +95,24 @@ func TestFeed(t *testing.T) {
 	} {
 		sCP := mustOpenCheckpoint(t, test.submitCP, testdata.TestLogOrigin, testdata.LogSigVerifier(t))
 		f := testdata.HistoryFetcher(sCP.Size)
+		fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
+			if from.Size == 0 {
+				return [][]byte{}, nil
+			}
+			pb, err := client.NewProofBuilder(ctx, to, rfc6962.DefaultHasher.HashChildren, f.Fetcher())
+			if err != nil {
+				return nil, fmt.Errorf("failed to create proof builder: %v", err)
+			}
+
+			conP, err := pb.ConsistencyProof(ctx, from.Size, to.Size)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create proof for (%d -> %d): %v", from.Size, to.Size, err)
+			}
+			return conP, nil
+		}
+
 		opts := FeedOpts{
-			LogFetcher:     f.Fetcher(),
+			FetchProof:     fetchProof,
 			LogOrigin:      testdata.TestLogOrigin,
 			LogSigVerifier: testdata.LogSigVerifier(t),
 			Witness:        test.witness,

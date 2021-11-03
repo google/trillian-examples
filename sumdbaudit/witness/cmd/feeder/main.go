@@ -70,6 +70,14 @@ func main() {
 		lid = log.ID(*origin, []byte(*vkey))
 	}
 
+	fetchCheckpoint := func(_ context.Context) ([]byte, error) {
+		sdbcp, err := sdb.LatestCheckpoint()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest checkpoint: %v", err)
+		}
+		return sdbcp.Raw, nil
+
+	}
 	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
 		broker := newTileBroker(to.Size, sdb.TileHashes)
 
@@ -88,45 +96,17 @@ func main() {
 	}
 
 	opts := feeder.FeedOpts{
-		LogID:          lid,
-		LogOrigin:      *origin,
-		FetchProof:     fetchProof,
-		LogSigVerifier: mustCreateVerifier(*vkey),
-		Witness:        w,
+		LogID:           lid,
+		LogOrigin:       *origin,
+		FetchCheckpoint: fetchCheckpoint,
+		FetchProof:      fetchProof,
+		LogSigVerifier:  mustCreateVerifier(*vkey),
+		Witness:         w,
 	}
 
-	tik := time.NewTicker(*pollInterval)
-	for {
-		glog.V(2).Info("Tick: start feedOnce")
-		if err := feedOnce(ctx, sdb, opts); err != nil {
-			glog.Warningf("Failed to feed: %v", err)
-		}
-		glog.V(2).Info("Tick: feedOnce complete")
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-tik.C:
-		}
+	if err := feeder.Run(ctx, *pollInterval, opts); err != nil {
+		glog.Exitf("Feeder: %v", err)
 	}
-}
-
-// feedOnce gets the latest checkpoint from the SumDB server, and if this is more
-// recent than the witness state then it will construct a compact range proof by
-// requesting the minimal set of tiles, and then update the witness with the new
-// checkpoint. Finally, it will update the feeder's view of the witness state.
-func feedOnce(ctx context.Context, sdb *client.SumDBClient, opts feeder.FeedOpts) error {
-	sdbcp, err := sdb.LatestCheckpoint()
-	if err != nil {
-		return fmt.Errorf("failed to get latest checkpoint: %v", err)
-	}
-	cp := sdbcp.Raw
-	glog.Infof("CP to feed:\n%s", string(cp))
-
-	if _, err = feeder.Feed(ctx, cp, opts); err != nil {
-		return fmt.Errorf("Feed(): %v", err)
-	}
-	return nil
 }
 
 // convertToSumDBTiles takes a NodeID pointing to a node within the overall log,

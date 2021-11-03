@@ -52,6 +52,9 @@ type FeedOpts struct {
 	// rather than present here just to be passed back in to Witness calls?
 	LogID string
 
+	// FetchCheckpoint should return a recent checkpoint from the source log.
+	FetchCheckpoint func(ctx context.Context) ([]byte, error)
+
 	// FetchProof should return a consistency proof from the source log.
 	//
 	// Note that if the witness knows the log but has no previous checkpoint stored, this
@@ -66,16 +69,19 @@ type FeedOpts struct {
 	LogOrigin string
 
 	Witness Witness
-
-	// WitnessTimeout defines the maximum duration for each attempt to update a witness.
-	// No timeout if unset.
-	WitnessTimeout time.Duration
 }
 
-// Feed sends the provided checkpoint to the configured witness.
+// FeedOnce sends the provided checkpoint to the configured witness.
 // This method will block until a witness signature is obtained,
 // or the context becomes done.
-func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
+func FeedOnce(ctx context.Context, opts FeedOpts) ([]byte, error) {
+	cp, err := opts.FetchCheckpoint(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read input checkpoint: %v", err)
+	}
+
+	glog.Infof("CP to feed:\n%s", string(cp))
+
 	cpSubmit, _, n, err := log.ParseCheckpoint(cp, opts.LogOrigin, opts.LogSigVerifier, opts.Witness.SigVerifier())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse checkpoint: %v", err)
@@ -83,16 +89,35 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 	if len(n.Sigs) == 2 {
 		return cp, ErrNoSignaturesAdded
 	}
-	if opts.WitnessTimeout > 0 {
-		var c func()
-		ctx, c = context.WithTimeout(ctx, opts.WitnessTimeout)
-		defer c()
-	}
+
 	wCP, err := submitToWitness(ctx, cp, *cpSubmit, opts)
 	if err != nil {
 		return nil, fmt.Errorf("witness submission failed: %v", err)
 	}
 	return wCP, nil
+}
+
+// Run periodically initiates a feed cycle, fetching a checkpoint from the source log and
+// submitting it to the witness.
+// Calling this function will block until the context is done.
+func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(interval):
+		}
+
+		// Create a scope with a bounded context so we don't get wedged if something goes wrong.
+		func() {
+			ctx, cancel := context.WithTimeout(ctx, interval)
+			defer cancel()
+
+			if _, err := FeedOnce(ctx, opts); err != nil {
+				glog.Errorf("Feeding log %q failed: %v", opts.LogSigVerifier.Name(), err)
+			}
+		}()
+	}
 }
 
 // submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.

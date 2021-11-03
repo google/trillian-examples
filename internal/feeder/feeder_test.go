@@ -33,7 +33,7 @@ const (
 	testWitnessPublicKey = "test-witness+d28ecb0d+AV2DM8GnnoXPS77FKY/KwsZdfien9eSmb35f6qUv2TrH"
 )
 
-func TestFeed(t *testing.T) {
+func TestFeedOnce(t *testing.T) {
 	ctx := context.Background()
 	logSigV := testdata.LogSigVerifier(t)
 	witSig := mustCreateSigner(t, testWitnessSecretKey)
@@ -57,9 +57,9 @@ func TestFeed(t *testing.T) {
 			desc:     "works - TOFU feed",
 			submitCP: testdata.Checkpoint(t, 2),
 			witness: &fakeWitness{
-				logSigV:  logSigV,
-				witSig:   witSig,
-				witSigV:  witSigV,
+				logSigV: logSigV,
+				witSig:  witSig,
+				witSigV: witSigV,
 			},
 		}, {
 			desc:     "works - submitCP == latest",
@@ -95,6 +95,9 @@ func TestFeed(t *testing.T) {
 	} {
 		sCP := mustOpenCheckpoint(t, test.submitCP, testdata.TestLogOrigin, testdata.LogSigVerifier(t))
 		f := testdata.HistoryFetcher(sCP.Size)
+		fetchCheckpoint := func(_ context.Context) ([]byte, error) {
+			return test.submitCP, nil
+		}
 		fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
 			if from.Size == 0 {
 				return [][]byte{}, nil
@@ -112,13 +115,14 @@ func TestFeed(t *testing.T) {
 		}
 
 		opts := FeedOpts{
-			FetchProof:     fetchProof,
-			LogOrigin:      testdata.TestLogOrigin,
-			LogSigVerifier: testdata.LogSigVerifier(t),
-			Witness:        test.witness,
+			FetchCheckpoint: fetchCheckpoint,
+			FetchProof:      fetchProof,
+			LogOrigin:       testdata.TestLogOrigin,
+			LogSigVerifier:  testdata.LogSigVerifier(t),
+			Witness:         test.witness,
 		}
 		t.Run(test.desc, func(t *testing.T) {
-			_, err := Feed(ctx, test.submitCP, opts)
+			_, err := FeedOnce(ctx, opts)
 			gotErr := err != nil
 			if test.wantErr != gotErr {
 				t.Fatalf("Got err %v, want err %t", err, test.wantErr)

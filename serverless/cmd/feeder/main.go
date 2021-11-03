@@ -94,6 +94,9 @@ func feedLog(l config.Log, w wit_http.Witness, timeout time.Duration, interval t
 	// TODO(al): make this configurable
 	h := rfc6962.DefaultHasher
 
+	fetchCP := func(ctx context.Context) ([]byte, error) {
+		return f(ctx, "checkpoint")
+	}
 	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
 		if from.Size == 0 {
 			return [][]byte{}, nil
@@ -111,40 +114,18 @@ func feedLog(l config.Log, w wit_http.Witness, timeout time.Duration, interval t
 	}
 
 	opts := feeder.FeedOpts{
-		LogID:          l.ID,
-		LogOrigin:      l.Origin,
-		FetchProof:     fetchProof,
-		LogSigVerifier: mustCreateVerifier(l.PublicKey),
-		Witness:        w,
+		LogID:           l.ID,
+		LogOrigin:       l.Origin,
+		FetchCheckpoint: fetchCP,
+		FetchProof:      fetchProof,
+		LogSigVerifier:  mustCreateVerifier(l.PublicKey),
+		Witness:         w,
 	}
-
-	for first := true; first || interval > 0; first = false {
-		if !first {
-			<-time.After(interval)
-		}
-
-		if err := feedOnce(timeout, f, opts); err != nil {
-			glog.Errorf("Feeding log %q failed: %v", opts.LogSigVerifier.Name(), err)
-		}
+	if interval > 0 {
+		return feeder.Run(context.Background(), interval, opts)
 	}
-	return nil
-}
-
-func feedOnce(timeout time.Duration, fetcher client.Fetcher, opts feeder.FeedOpts) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	cp, err := fetcher(ctx, "checkpoint")
-	if err != nil {
-		return fmt.Errorf("failed to read input checkpoint: %v", err)
-	}
-
-	glog.Infof("CP to feed:\n%s", string(cp))
-
-	if _, err = feeder.Feed(ctx, cp, opts); err != nil {
-		return fmt.Errorf("Feed(): %v", err)
-	}
-	return nil
+	_, err = feeder.FeedOnce(context.Background(), opts)
+	return err
 }
 
 func mustCreateVerifier(pub string) note.Verifier {

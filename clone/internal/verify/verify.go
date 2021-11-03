@@ -19,7 +19,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/google/trillian/merkle/compact"
+	"github.com/transparency-dev/merkle/compact"
 )
 
 // LeafHashFn returns the leaf hash (commitment) to the given preimage at the given log index.

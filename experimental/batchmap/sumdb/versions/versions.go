@@ -26,7 +26,7 @@ import (
 
 	"github.com/google/trillian-examples/experimental/batchmap/sumdb/mapdb"
 	"github.com/google/trillian-examples/experimental/batchmap/sumdb/verification"
-	"github.com/google/trillian/merkle/compact"
+	"github.com/transparency-dev/merkle/compact"
 
 	_ "github.com/mattn/go-sqlite3"
 )

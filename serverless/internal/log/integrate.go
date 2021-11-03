@@ -26,8 +26,8 @@ import (
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/google/trillian-examples/serverless/client"
-	"github.com/google/trillian/merkle/compact"
-	"github.com/google/trillian/merkle/hashers"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/compact"
 )
 
 // Storage represents the set of functions needed by the log tooling.
@@ -56,7 +56,7 @@ type Storage interface {
 
 // Integrate adds all sequenced entries greater than checkpoint.Size into the tree.
 // Returns an updated Checkpoint, or an error.
-func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h hashers.LogHasher) (*log.Checkpoint, error) {
+func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h merkle.LogHasher) (*log.Checkpoint, error) {
 	getTile := func(l, i uint64) (*api.Tile, error) {
 		return st.GetTile(l, i, checkpoint.Size)
 	}

@@ -29,9 +29,8 @@ import (
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
-	"github.com/google/trillian/merkle/hashers"
-	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"
@@ -45,7 +44,7 @@ const (
 
 func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.Hasher, signer note.Signer) {
 	ctx := context.Background()
-	lv := logverifier.New(lh)
+	lv := merkle.NewLogVerifier(lh)
 
 	// Do a few interations around the sequence/integrate loop;
 	const (
@@ -185,7 +184,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 	RunIntegration(t, st, f, h, s)
 }
 
-func sequenceNLeaves(t *testing.T, s log.Storage, lh hashers.LogHasher, start, n int) [][]byte {
+func sequenceNLeaves(t *testing.T, s log.Storage, lh merkle.LogHasher, start, n int) [][]byte {
 	r := make([][]byte, 0, n)
 	for i := 0; i < n; i++ {
 		c := []byte(fmt.Sprintf("Leaf %d", start+i))

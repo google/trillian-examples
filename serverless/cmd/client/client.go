@@ -31,8 +31,8 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/client/witness"
-	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -154,7 +154,7 @@ func main() {
 type logClientTool struct {
 	Fetcher  client.Fetcher
 	Hasher   *rfc6962.Hasher
-	Verifier logverifier.LogVerifier
+	Verifier merkle.LogVerifier
 	Tracker  client.LogStateTracker
 }
 
@@ -192,7 +192,7 @@ func newLogClientTool(ctx context.Context, logID string, logFetcher client.Fetch
 	return &logClientTool{
 		Fetcher:  logFetcher,
 		Hasher:   hasher,
-		Verifier: logverifier.New(hasher),
+		Verifier: merkle.NewLogVerifier(hasher),
 		Tracker:  tracker,
 	}, nil
 }

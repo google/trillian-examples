@@ -25,7 +25,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
-	"github.com/google/trillian/merkle/logverifier"
+	"github.com/transparency-dev/merkle"
 )
 
 // ErrConsistency is returned if two logs roots are found which are inconsistent.
@@ -60,7 +60,7 @@ type LogEntry struct {
 // LogFollower follows a log for new data becoming available.
 type LogFollower struct {
 	c  ReadonlyClient
-	lv logverifier.LogVerifier
+	lv merkle.LogVerifier
 }
 
 // NewLogFollower creates a LogFollower that uses the given client.

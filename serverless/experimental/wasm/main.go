@@ -42,8 +42,8 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/webstorage"
-	"github.com/google/trillian/merkle/compact"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/transparency-dev/merkle/compact"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
 	logfmt "github.com/google/trillian-examples/formats/log"

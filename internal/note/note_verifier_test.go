@@ -1,45 +1,79 @@
 package note
 
 import (
-	"crypto/ecdsa"
-	"crypto/x509"
-	"encoding/base64"
 	"testing"
 
 	"golang.org/x/mod/sumdb/note"
 )
 
-// SigStoreKeyB64 is the current rékor dev log public key.
-const sigStoreKeyB64 = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwrkBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw=="
+// These come from the the current SigStore Rekór key:
+const (
+	sigStoreKeyMaterial = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwrkBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw=="
+	sigStoreKey         = "rekor.sigstore.dev " + sigStoreKeyMaterial
+)
+
+func TestNewVerifier(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		kType   string
+		k       string
+		wantErr bool
+	}{
+		{
+			name: "note works",
+			k:    "PeterNeumann+c74f20a3+ARpc2QcUPDhMQegwxbzhKqiBfsVkmqq/LDE4izWy10TW",
+		}, {
+			name:    "note mismatch",
+			k:       sigStoreKey,
+			wantErr: true,
+		}, {
+			name:  "sigstore ECDSA works",
+			kType: SigstoreECDSA,
+			k:     sigStoreKey,
+		}, {
+			name:    "sigstore ECDSA mismatch",
+			kType:   SigstoreECDSA,
+			k:       "PeterNeumann+c74f20a3+ARpc2QcUPDhMQegwxbzhKqiBfsVkmqq/LDE4izWy10TW",
+			wantErr: true,
+		}, {
+			name:    "unknown type fails",
+			kType:   "bananas",
+			wantErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewVerifier(test.kType, test.k)
+			if gotErr := err != nil; gotErr != test.wantErr {
+				t.Fatalf("NewVerifier: %v, wantErr %t", err, test.wantErr)
+			}
+		})
+	}
+}
 
 func TestSigstoreVerifier(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		pubKName string
-		pubK     *ecdsa.PublicKey
-		note     []byte
-		wantErr  bool
+		name    string
+		pubK    string
+		note    []byte
+		wantErr bool
 	}{
 		{
-			name:     "works",
-			pubKName: "rekor.sigstore.dev",
-			pubK:     mustCreateKey(t, sigStoreKeyB64),
-			note:     []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev wNI9ajBEAiARInWIWyCdyG27CO6LPnPekyw20qO0YJfoaPaowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
+			name: "works",
+			pubK: sigStoreKey,
+			note: []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev wNI9ajBEAiARInWIWyCdyG27CO6LPnPekyw20qO0YJfoaPaowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
 		}, {
-			name:     "invalid name",
-			pubKName: "bananas.sigstore.dev",
-			pubK:     mustCreateKey(t, sigStoreKeyB64),
-			note:     []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev wNI9ajBEAiARInWIWyCdyG27CO6LPnPekyw20qO0YJfoaPaowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
-			wantErr:  true,
+			name:    "invalid name",
+			pubK:    "bananas.sigstore.dev " + sigStoreKeyMaterial,
+			note:    []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev wNI9ajBEAiARInWIWyCdyG27CO6LPnPekyw20qO0YJfoaPaowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
+			wantErr: true,
 		}, {
-			name:     "invalid signature",
-			pubKName: "rekor.sigstore.dev",
-			pubK:     mustCreateKey(t, sigStoreKeyB64),
-			note:     []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev THIS/IS/PROBABLY/NOT/A/VALID/SIGNATURE/ANy/MOREowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
-			wantErr:  true,
+			name:    "invalid signature",
+			pubK:    sigStoreKey,
+			note:    []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev THIS/IS/PROBABLY/NOT/A/VALID/SIGNATURE/ANy/MOREowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
+			wantErr: true,
 		},
 	} {
-		v, err := NewSigstoreVerifier(test.pubKName, test.pubK)
+		v, err := NewSigstoreECDSAVerifier(test.pubK)
 		if err != nil {
 			t.Fatalf("Failed to create new ECDSA verifier: %v", err)
 		}
@@ -48,20 +82,4 @@ func TestSigstoreVerifier(t *testing.T) {
 			t.Fatalf("Got err %v, but want error %v", err, test.wantErr)
 		}
 	}
-}
-
-func mustCreateKey(t *testing.T, b64 string) *ecdsa.PublicKey {
-	der, err := base64.StdEncoding.DecodeString(b64)
-	if err != nil {
-		t.Fatalf("Failed to base64 decode key: %v", err)
-	}
-	k, err := x509.ParsePKIXPublicKey(der)
-	if err != nil {
-		t.Fatalf("Failed to parse public key: %v", err)
-	}
-	e, ok := k.(*ecdsa.PublicKey)
-	if !ok {
-		t.Fatalf("Expected ecdsa.PublicKey, but got %T", k)
-	}
-	return e
 }

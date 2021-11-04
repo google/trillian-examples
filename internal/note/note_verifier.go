@@ -19,51 +19,93 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/binary"
+	"fmt"
+	"strings"
 
-	"golang.org/x/mod/sumdb/note"
+	sdb_note "golang.org/x/mod/sumdb/note"
 )
 
-// ecdsaVerifier is a note-compatible verifier for ECDSA signatures.
-type ecdsaVerifier struct {
+const (
+	// Note represents a key type that the Go SumDB note will
+	// know about.
+	Note = ""
+
+	// SigstoreECDSA is an ECDSA signature over SHA256.
+	// The current implementation of this has a different KeyHash input
+	// to the SumDB Note's Ed25519 verifier.
+	SigstoreECDSA = "sigstore_ecdsa"
+)
+
+func NewVerifier(keyType, key string) (sdb_note.Verifier, error) {
+	switch keyType {
+	case SigstoreECDSA:
+		return NewSigstoreECDSAVerifier(key)
+	case Note:
+		return sdb_note.NewVerifier(key)
+	default:
+		return nil, fmt.Errorf("unknown key type %q", keyType)
+	}
+}
+
+// verifier is a note-compatible verifier.
+type verifier struct {
 	name    string
 	keyHash uint32
 	v       func(msg, sig []byte) bool
 }
 
 // Name returns the name associated with the key this verifier is based on.
-func (e *ecdsaVerifier) Name() string {
-	return e.name
+func (v *verifier) Name() string {
+	return v.name
 }
 
 // KeyHash returns a truncated hash of the key this verifier is based on.
-func (e *ecdsaVerifier) KeyHash() uint32 {
-	return e.keyHash
+func (v *verifier) KeyHash() uint32 {
+	return v.keyHash
 }
 
 // Verify checks that the provided sig is valid over msg for the key this verifier is based on.
-func (e *ecdsaVerifier) Verify(msg, sig []byte) bool {
-	return e.v(msg, sig)
+func (v *verifier) Verify(msg, sig []byte) bool {
+	return v.v(msg, sig)
 }
 
-// NewSigstoreVerifier creates a new note verifier for checking ECDSA signatures over SHA256 digests.
+// NewSigstoreECDSAVerifier creates a new note verifier for checking ECDSA signatures over SHA256 digests.
 // This implementation is compatible with the signature scheme used by the Sigstore Rékor Log.
+//
+// The key is expected to be provided as a string in the following form:
+//   <key name> " " <Base64 encoded SubjectPublicKeyInfo DER>
+// e.g.:
+//   "rekor.sigstore.dev MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwrkBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw=="
 //
 // Note that in contrast with the note Ed25519 signer, the Sigstore log produces signatures whose
 // keyhash hints do not include the key name in the preimage.
-func NewSigstoreVerifier(name string, pubK *ecdsa.PublicKey) (note.Verifier, error) {
-	// We need the public key in SubjectPublicKeyInfo format for creating the keyhash below.
-	spki, err := x509.MarshalPKIXPublicKey(pubK)
-	if err != nil {
-		return nil, err
+func NewSigstoreECDSAVerifier(key string) (sdb_note.Verifier, error) {
+	parts := strings.SplitN(key, " ", 2)
+	if got, want := len(parts), 2; got != want {
+		return nil, fmt.Errorf("key has %d parts, expected %d: %q", got, want, key)
 	}
-	kh := sha256.Sum256(spki)
+	der, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("key has invalid base64 %q: %v", parts[1], err)
+	}
+	k, err := x509.ParsePKIXPublicKey(der)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse public key: %v", err)
+	}
+	ecdsaKey, ok := k.(*ecdsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("key is a %T, expected an ECDSA key", k)
+	}
 
-	return &ecdsaVerifier{
-		name: name,
+	kh := sha256.Sum256(der)
+
+	return &verifier{
+		name: parts[0],
 		v: func(msg, sig []byte) bool {
 			dgst := sha256.Sum256(msg)
-			return ecdsa.VerifyASN1(pubK, dgst[:], sig)
+			return ecdsa.VerifyASN1(ecdsaKey, dgst[:], sig)
 		},
 		keyHash: binary.BigEndian.Uint32(kh[:]),
 	}, nil

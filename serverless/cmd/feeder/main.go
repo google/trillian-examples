@@ -30,9 +30,10 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
+	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/serverless/client"
-	"github.com/google/trillian-examples/serverless/cmd/feeder/impl"
 	"github.com/google/trillian-examples/serverless/config"
+	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
@@ -90,42 +91,40 @@ func feedLog(l config.Log, w wit_http.Witness, timeout time.Duration, interval t
 		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
 	}
 	f := newFetcher(lURL)
+	h := rfc6962.DefaultHasher
 
-	opts := impl.FeedOpts{
-		LogID:          l.ID,
-		LogOrigin:      l.Origin,
-		LogFetcher:     f,
-		LogSigVerifier: mustCreateVerifier(l.PublicKey),
-		Witness:        w,
+	fetchCP := func(ctx context.Context) ([]byte, error) {
+		return f(ctx, "checkpoint")
 	}
-
-	for first := true; first || interval > 0; first = false {
-		if !first {
-			<-time.After(interval)
+	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
+		if from.Size == 0 {
+			return [][]byte{}, nil
+		}
+		pb, err := client.NewProofBuilder(ctx, to, h.HashChildren, f)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create proof builder for %q: %v", l.Origin, err)
 		}
 
-		if err := feedOnce(timeout, opts); err != nil {
-			glog.Errorf("Feeding log %q failed: %v", opts.LogSigVerifier.Name(), err)
+		conP, err := pb.ConsistencyProof(ctx, from.Size, to.Size)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create proof for %q(%d -> %d): %v", l.Origin, from.Size, to.Size, err)
 		}
-	}
-	return nil
-}
-
-func feedOnce(timeout time.Duration, opts impl.FeedOpts) error {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	cp, err := opts.LogFetcher(ctx, "checkpoint")
-	if err != nil {
-		return fmt.Errorf("failed to read input checkpoint: %v", err)
+		return conP, nil
 	}
 
-	glog.Infof("CP to feed:\n%s", string(cp))
-
-	if _, err = impl.Feed(ctx, cp, opts); err != nil {
-		return fmt.Errorf("Feed(): %v", err)
+	opts := feeder.FeedOpts{
+		LogID:           l.ID,
+		LogOrigin:       l.Origin,
+		FetchCheckpoint: fetchCP,
+		FetchProof:      fetchProof,
+		LogSigVerifier:  mustCreateVerifier(l.PublicKey),
+		Witness:         w,
 	}
-	return nil
+	if interval > 0 {
+		return feeder.Run(context.Background(), interval, opts)
+	}
+	_, err = feeder.FeedOnce(context.Background(), opts)
+	return err
 }
 
 func mustCreateVerifier(pub string) note.Verifier {

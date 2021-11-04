@@ -91,7 +91,7 @@ func TestConvertToSumDBTiles(t *testing.T) {
 func TestTileBroker(t *testing.T) {
 	for _, test := range []struct {
 		desc       string
-		size       int64
+		size       uint64
 		i          tileIndex
 		wantLeaves int
 	}{

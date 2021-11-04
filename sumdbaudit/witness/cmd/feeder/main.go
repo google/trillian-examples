@@ -17,15 +17,14 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
+	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/sumdbaudit/client"
 	"github.com/google/trillian-examples/witness/golang/client/http"
 	"github.com/google/trillian/merkle/compact"
@@ -71,101 +70,43 @@ func main() {
 		lid = log.ID(*origin, []byte(*vkey))
 	}
 
-	wcp := &log.Checkpoint{}
-	if wcpRaw, err := w.GetLatestCheckpoint(ctx, lid); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			glog.Exitf("Failed to get witness checkpoint: %v", err)
-		}
-	} else {
-		wcp, _, _, err = log.ParseCheckpoint(wcpRaw, *origin, w.Verifier)
+	fetchCheckpoint := func(_ context.Context) ([]byte, error) {
+		sdbcp, err := sdb.LatestCheckpoint()
 		if err != nil {
-			glog.Exitf("Failed to open CP: %v", err)
+			return nil, fmt.Errorf("failed to get latest checkpoint: %v", err)
 		}
-	}
+		return sdbcp.Raw, nil
 
-	feeder := feeder{
-		logID: lid,
-		wcp:   wcp,
-		sdb:   sdb,
-		w:     w,
 	}
+	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
+		broker := newTileBroker(to.Size, sdb.TileHashes)
 
-	tik := time.NewTicker(*pollInterval)
-	for {
-		glog.V(2).Infof("Tick: start feedOnce (witness size %d)", feeder.wcp.Size)
-		if err := feeder.feedOnce(ctx); err != nil {
-			glog.Warningf("Failed to feed: %v", err)
+		required := compact.RangeNodes(from.Size, to.Size)
+		proof := make([][]byte, 0, len(required))
+		for _, n := range required {
+			i, r := convertToSumDBTiles(n)
+			t, err := broker.tile(i)
+			if err != nil {
+				return nil, fmt.Errorf("failed to lookup %s: %v", i, err)
+			}
+			h := t.hash(r)
+			proof = append(proof, h)
 		}
-		glog.V(2).Infof("Tick: feedOnce complete (witness size %d)", feeder.wcp.Size)
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-tik.C:
-		}
-	}
-}
-
-// feeder encapsulates the main logic and state of the feeder.
-// The residual logic outside of this should simply be initialization and
-// orchestration with a timer.
-// Note that feeder maintains its own state that represents the witness state.
-// This is optimized for the case where this is the only feeder for this log to
-// the witness. If the witness state is updated by another entity, then the
-// number of successful updates from this feeder will drop. On the other hand,
-// if this is the only feeder then it avoids making requests to get the latest
-// checkpoint from the witness when it isn't changing.
-type feeder struct {
-	logID string
-	wcp   *log.Checkpoint
-	sdb   *client.SumDBClient
-	w     http.Witness
-}
-
-// feedOnce gets the latest checkpoint from the SumDB server, and if this is more
-// recent than the witness state then it will construct a compact range proof by
-// requesting the minimal set of tiles, and then update the witness with the new
-// checkpoint. Finally, it will update the feeder's view of the witness state.
-func (f *feeder) feedOnce(ctx context.Context) error {
-	sdbcp, err := f.sdb.LatestCheckpoint()
-	if err != nil {
-		return fmt.Errorf("failed to get latest checkpoint: %v", err)
-	}
-	if int64(f.wcp.Size) >= sdbcp.N {
-		glog.V(1).Infof("Witness size %d >= SumDB size %d - nothing to do", f.wcp.Size, sdbcp.N)
-		return nil
+		return proof, nil
 	}
 
-	glog.Infof("Updating witness from size %d to %d", f.wcp.Size, sdbcp.N)
-
-	broker := newTileBroker(sdbcp.N, f.sdb.TileHashes)
-
-	required := compact.RangeNodes(f.wcp.Size, uint64(sdbcp.N))
-	proof := make([][]byte, 0, len(required))
-	for _, n := range required {
-		i, r := convertToSumDBTiles(n)
-		t, err := broker.tile(i)
-		if err != nil {
-			return fmt.Errorf("failed to lookup %s: %v", i, err)
-		}
-		h := t.hash(r)
-		proof = append(proof, h)
+	opts := feeder.FeedOpts{
+		LogID:           lid,
+		LogOrigin:       *origin,
+		FetchCheckpoint: fetchCheckpoint,
+		FetchProof:      fetchProof,
+		LogSigVerifier:  mustCreateVerifier(*vkey),
+		Witness:         w,
 	}
 
-	wcpRaw, err := f.w.Update(ctx, f.logID, sdbcp.Raw, proof)
-
-	if err != nil && !errors.Is(err, http.ErrCheckpointTooOld) {
-		return fmt.Errorf("failed to update checkpoint: %v", err)
+	if err := feeder.Run(ctx, *pollInterval, opts); err != nil {
+		glog.Exitf("Feeder: %v", err)
 	}
-
-	// An optimization would be to immediately retry the Update if we get
-	// http.ErrCheckpointTooOld. For now, we'll update the local state and
-	// retry only the next time this method is called.
-	f.wcp, _, _, err = log.ParseCheckpoint(wcpRaw, *origin, f.w.Verifier)
-	if err != nil {
-		return fmt.Errorf("failed to parse checkpoint: %v", err)
-	}
-	return nil
 }
 
 // convertToSumDBTiles takes a NodeID pointing to a node within the overall log,
@@ -247,7 +188,7 @@ type tileBroker struct {
 	lookup func(level, offset, partial int) ([]tlog.Hash, error)
 }
 
-func newTileBroker(size int64, lookup func(level, offset, partial int) ([]tlog.Hash, error)) tileBroker {
+func newTileBroker(size uint64, lookup func(level, offset, partial int) ([]tlog.Hash, error)) tileBroker {
 	pts := make(map[tileIndex]int)
 	l := 0
 	t := size / leavesPerTile

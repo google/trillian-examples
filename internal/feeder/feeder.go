@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// impl is a witness feeder implementation for the serverless log.
-package impl
+// feeder provides support for building witness feeder implementations.
+package feeder
 
 import (
 	"bytes"
@@ -25,8 +25,6 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian-examples/serverless/client"
-	"github.com/google/trillian/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -53,24 +51,37 @@ type FeedOpts struct {
 	// TODO(al/mhutchinson): should this be an impl detail of Witness
 	// rather than present here just to be passed back in to Witness calls?
 	LogID string
-	// LogFetcher for the source log (used to build proofs).
-	LogFetcher client.Fetcher
+
+	// FetchCheckpoint should return a recent checkpoint from the source log.
+	FetchCheckpoint func(ctx context.Context) ([]byte, error)
+
+	// FetchProof should return a consistency proof from the source log.
+	//
+	// Note that if the witness knows the log but has no previous checkpoint stored, this
+	// function will be called with a default `from` value - this allows compact-range
+	// type proofs to be supported.  Implementations for non-compact-range type proofs
+	// should return an empty proof and no error.
+	FetchProof func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error)
+
 	// LogSigVerifier a verifier for log checkpoint signatures.
 	LogSigVerifier note.Verifier
 	// LogOrigin is the expected first line of checkpoints from the source log.
 	LogOrigin string
 
 	Witness Witness
-
-	// WitnessTimeout defines the maximum duration for each attempt to update a witness.
-	// No timeout if unset.
-	WitnessTimeout time.Duration
 }
 
-// Feed sends the provided checkpoint to the configured witness.
+// FeedOnce sends the provided checkpoint to the configured witness.
 // This method will block until a witness signature is obtained,
 // or the context becomes done.
-func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
+func FeedOnce(ctx context.Context, opts FeedOpts) ([]byte, error) {
+	cp, err := opts.FetchCheckpoint(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read input checkpoint: %v", err)
+	}
+
+	glog.Infof("CP to feed:\n%s", string(cp))
+
 	cpSubmit, _, n, err := log.ParseCheckpoint(cp, opts.LogOrigin, opts.LogSigVerifier, opts.Witness.SigVerifier())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse checkpoint: %v", err)
@@ -78,11 +89,7 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 	if len(n.Sigs) == 2 {
 		return cp, ErrNoSignaturesAdded
 	}
-	if opts.WitnessTimeout > 0 {
-		var c func()
-		ctx, c = context.WithTimeout(ctx, opts.WitnessTimeout)
-		defer c()
-	}
+
 	wCP, err := submitToWitness(ctx, cp, *cpSubmit, opts)
 	if err != nil {
 		return nil, fmt.Errorf("witness submission failed: %v", err)
@@ -90,10 +97,31 @@ func Feed(ctx context.Context, cp []byte, opts FeedOpts) ([]byte, error) {
 	return wCP, nil
 }
 
+// Run periodically initiates a feed cycle, fetching a checkpoint from the source log and
+// submitting it to the witness.
+// Calling this function will block until the context is done.
+func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(interval):
+		}
+
+		// Create a scope with a bounded context so we don't get wedged if something goes wrong.
+		func() {
+			ctx, cancel := context.WithTimeout(ctx, interval)
+			defer cancel()
+
+			if _, err := FeedOnce(ctx, opts); err != nil {
+				glog.Errorf("Feeding log %q failed: %v", opts.LogSigVerifier.Name(), err)
+			}
+		}()
+	}
+}
+
 // submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.
 func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, opts FeedOpts) ([]byte, error) {
-	// TODO(al): make this configurable
-	h := rfc6962.DefaultHasher
 	wSigV := opts.Witness.SigVerifier()
 
 	// Keep submitting until success or context timeout...
@@ -113,12 +141,15 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 		}
 
 		var conP [][]byte
+		var latestCP log.Checkpoint
 		if len(latestCPRaw) > 0 {
-			latestCP, _, n, err := log.ParseCheckpoint(latestCPRaw, opts.LogOrigin, opts.LogSigVerifier, wSigV)
+			cp, _, n, err := log.ParseCheckpoint(latestCPRaw, opts.LogOrigin, opts.LogSigVerifier, wSigV)
 			if err != nil {
 				glog.Warningf("%s: failed to parse CP: %v", wSigV.Name(), err)
 				continue
 			}
+			latestCP = *cp
+
 			if numSigs := len(n.Sigs); numSigs != 2 {
 				return nil, errors.New("checkpoint from witness was not signed by at least log + witness")
 			}
@@ -130,18 +161,14 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 				glog.V(1).Infof("got sig from witness: %v", wSigV.Name())
 				return latestCPRaw, nil
 			}
+		}
 
-			pb, err := client.NewProofBuilder(ctx, cpSubmit, h.HashChildren, opts.LogFetcher)
-			if err != nil {
-				glog.Warningf("%s: failed to create proof builder: %v", wSigV.Name(), err)
-				continue
-			}
-
-			conP, err = pb.ConsistencyProof(ctx, latestCP.Size, cpSubmit.Size)
-			if err != nil {
-				glog.Warningf("%s: failed to build consistency proof: %v", wSigV.Name(), err)
-				continue
-			}
+		// The witness may be configured to expect a compact-range type proof, so we need to always
+		// try to build one, even if the witness doesn't have a "latest" checkpoint for this log.
+		conP, err = opts.FetchProof(ctx, latestCP, cpSubmit)
+		if err != nil {
+			glog.Warningf("%s: failed to fetch consistency proof: %v", wSigV.Name(), err)
+			continue
 		}
 
 		if cp, err := opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {

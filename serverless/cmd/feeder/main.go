@@ -91,7 +91,6 @@ func feedLog(l config.Log, w wit_http.Witness, timeout time.Duration, interval t
 		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
 	}
 	f := newFetcher(lURL)
-	// TODO(al): make this configurable
 	h := rfc6962.DefaultHasher
 
 	fetchCP := func(ctx context.Context) ([]byte, error) {

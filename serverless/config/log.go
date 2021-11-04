@@ -32,6 +32,10 @@ type Log struct {
 	ID string `yaml:"ID"`
 	// PublicKey used to verify checkpoints from this log.
 	PublicKey string `yaml:"PublicKey"`
+	// PublicKeyType identifies the format of the key present in the PublicKey field.
+	// If unset, the key should be assumed to be in a format which `note.NewVerifier`
+	// understands.
+	PublicKeyType string `yaml:"PublicKeyType"`
 	// Origin is the expected first line of checkpoints from the log.
 	Origin string `yaml:"Origin"`
 	// URL is the URL of the root of the log.

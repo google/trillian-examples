@@ -1,0 +1,9 @@
+Logs:
+  - Origin: Rekor
+    PublicKeyType: sigstore_ecdsa
+    PublicKey: rekor.sigstore.dev MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwrkBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw==
+    URL: https://rekor.sigstore.dev
+
+Witness:
+  URL: http://localhost:8100
+  PublicKey: can-I-get-a-witness+b97a1e56+AZkpOlwZwR+wwasAENZwIa98ufmWmzlq0Tx0XN7voU6X

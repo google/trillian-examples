@@ -127,8 +127,8 @@ main() {
   fi
 
   if [[ "${build_docker}" -eq 1 ]]; then
-    echo "Building serverless non-action dockerfiles ===================="
-    for i in $(find serverless -name Dockerfile -not -path 'serverless/deploy/github/*' ); do
+    echo "Building non-serverless-action dockerfiles ===================="
+    for i in $(find . -name Dockerfile -not -path './serverless/deploy/github/*' -not -path './witness/ethereum/*' -not -path './feeder/ethereum/*' ); do
       echo "Building ${i} ------------------------------------------------"
       docker build -f "${i}" .
     done

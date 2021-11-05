@@ -23,8 +23,8 @@ import (
 	"net/http"
 
 	"github.com/golang/glog"
-	i_note "github.com/google/trillian-examples/internal/note"
 	logfmt "github.com/google/trillian-examples/formats/log"
+	i_note "github.com/google/trillian-examples/internal/note"
 	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
 	"github.com/google/trillian/merkle/rfc6962"
@@ -46,7 +46,7 @@ type LogInfo struct {
 	Origin       string `yaml:"Origin"`
 	HashStrategy string `yaml:"HashStrategy"`
 	PubKey       string `yaml:"PubKey"`
-	PubKeyType       string `yaml:"PubKeyType"`
+	PubKeyType   string `yaml:"PubKeyType"`
 	UseCompact   bool   `yaml:"UseCompact"`
 }
 

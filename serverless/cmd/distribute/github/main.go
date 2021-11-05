@@ -31,6 +31,7 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/github"
 	"golang.org/x/mod/sumdb/note"
 
+	i_note "github.com/google/trillian-examples/internal/note"
 	dist_gh "github.com/google/trillian-examples/serverless/internal/distribute/github"
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 	yaml "gopkg.in/yaml.v2"
@@ -141,7 +142,7 @@ func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 		log := dist_gh.Log{
 			Config: l,
 		}
-		lSigV, err := note.NewVerifier(l.PublicKey)
+		lSigV, err := i_note.NewVerifier(l.PublicKeyType, l.PublicKey)
 		if err != nil {
 			glog.Exitf("Invalid log public key: %v", err)
 		}

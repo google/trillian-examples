@@ -22,6 +22,7 @@ Variable Name                   | Required | Description
 `SERVERLESS_DISTRIBUTOR_REPO`   | yes      | The GitHub "<owner/repo>" fragment of the serverless distributor
 `SERVERLESS_DISTRIBUTOR_FORK`   | yes      | The GitHub "<owner/repo>" fragment of the witness' fork of the serverless distributor
 `SERVERLESS_DISTRIBUTOR_DIR`    | yes      | The path to the root of the serverless distributor in its repo
+`SERVERLESS_DISTRIBUTOR_BRANCH` | no       | The main branch of the serverless distributor repo
 `FEEDER_DISTRIBUTOR_CONFIG_DIR` | yes      | The path to the directory containing the shared `feeder` and `distribute` commands' config file
 `FEEDER_DISTRIBUTOR_CONFIG_FILE`| yes      | The name of the shared `feeder` and `distrubute` commands' config file in `${FEEDER_DISTRIBUTOR_CONFIG_DIR}`
 `DISTRIBUTOR_GITHUB_TOKEN`      | yes      | A GitHub [Personal Access Token](https://docs.github.com/en/github/authenticating-to-github/keeping-your-account-and-data-secure/creating-a-personal-access-token) for the `distribute` command to use to create a PR on the distributor repo with the witnessed checkpoint

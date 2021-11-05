@@ -47,6 +47,7 @@ services:
     command:
       - "--config_file=/distributor-config/${FEEDER_DISTRIBUTOR_CONFIG_FILE:-feeder.config}"
       - "--distributor_repo=${SERVERLESS_DISTRIBUTOR_REPO}"
+      - "--distributor_branch=${SERVERLESS_DISTRIBUTOR_BRANCH:-main}"
       - "--fork_repo=${SERVERLESS_DISTRIBUTOR_FORK}"
       - "--distributor_path=${SERVERLESS_DISTRIBUTOR_DIR:-.}"
       - "--interval=${INTERVAL_SECONDS:-300}"

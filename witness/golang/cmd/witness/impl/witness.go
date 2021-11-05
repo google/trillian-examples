@@ -24,6 +24,7 @@ import (
 
 	"github.com/golang/glog"
 	logfmt "github.com/google/trillian-examples/formats/log"
+	i_note "github.com/google/trillian-examples/internal/note"
 	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
 	"github.com/google/trillian/merkle/rfc6962"
@@ -45,6 +46,7 @@ type LogInfo struct {
 	Origin       string `yaml:"Origin"`
 	HashStrategy string `yaml:"HashStrategy"`
 	PubKey       string `yaml:"PubKey"`
+	PubKeyType   string `yaml:"PubKeyType"`
 	UseCompact   bool   `yaml:"UseCompact"`
 }
 
@@ -69,7 +71,7 @@ func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 		if log.HashStrategy != "default" {
 			return nil, errors.New("can't handle non-default hashing strategies")
 		}
-		logV, err := note.NewVerifier(log.PubKey)
+		logV, err := i_note.NewVerifier(log.PubKeyType, log.PubKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}

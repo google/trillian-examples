@@ -28,6 +28,8 @@ import (
 	"github.com/google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures/internal/distributor"
 	"golang.org/x/mod/sumdb/note"
 	"gopkg.in/yaml.v2"
+
+	i_note "github.com/google/trillian-examples/internal/note"
 )
 
 var (
@@ -177,7 +179,7 @@ func loadConfig(f string) (map[string]distributor.UpdateOpts, error) {
 
 	ret := make(map[string]distributor.UpdateOpts)
 	for li, l := range cfg.Logs {
-		sv, err := note.NewVerifier(l.PublicKey)
+		sv, err := i_note.NewVerifier(l.PublicKeyType, l.PublicKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to instantiate public key for log at index %d: %v", li, err)
 		}

@@ -1,4 +1,4 @@
-# Sigstore/Rekór feeder
+# Sigstore/Rekór Feeder
 
 This directory provides a `feeder` implementation for the Sigstore Rekór log.
 

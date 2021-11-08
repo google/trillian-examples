@@ -71,11 +71,12 @@ func main() {
 	}
 
 	wg := &sync.WaitGroup{}
+	ctx := context.Background()
 	for _, l := range cfg.Logs {
 		wg.Add(1)
 		go func(l config.Log, w wit_http.Witness) {
 			defer wg.Done()
-			if err := feedLog(l, witness, *timeout, *interval); err != nil {
+			if err := feedLog(ctx, l, witness, *timeout, *interval); err != nil {
 				glog.Errorf("feedLog: %v", err)
 			}
 		}(l, witness)
@@ -96,7 +97,7 @@ type proof struct {
 	Hashes [][]byte `json:"hashes"`
 }
 
-func feedLog(l config.Log, w wit_http.Witness, timeout time.Duration, interval time.Duration) error {
+func feedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time.Duration, interval time.Duration) error {
 	lURL, err := url.Parse(l.URL)
 	if err != nil {
 		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
@@ -129,9 +130,9 @@ func feedLog(l config.Log, w wit_http.Witness, timeout time.Duration, interval t
 		Witness:         w,
 	}
 	if interval > 0 {
-		return feeder.Run(context.Background(), interval, opts)
+		return feeder.Run(ctx, interval, opts)
 	}
-	_, err = feeder.FeedOnce(context.Background(), opts)
+	_, err = feeder.FeedOnce(ctx, opts)
 	return err
 }
 

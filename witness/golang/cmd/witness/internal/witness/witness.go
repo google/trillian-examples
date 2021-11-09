@@ -23,6 +23,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/hashers"
@@ -126,8 +127,16 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 }
 
 // Update updates the latest checkpoint if nextRaw is consistent with the current
-// latest one for this log. It returns the latest cosigned checkpoint held by
-// the witness, which is a signed version of nextRaw if the update was applied.
+// latest one for this log.
+//
+// It returns the latest cosigned checkpoint held by the witness, which is a signed
+// version of nextRaw if the update was applied.
+//
+// If an error occurs, this method will generally return an error with a status code:
+// - codes.NodeFound if the log is unknown
+// - codes.InvalidArgument for general bad requests
+// - codes.AlreadyExists if the checkpoint is smaller than the one the witness knows
+// - codes.FailedPrecondition if the checkpoint is inconsistent with the one the witness knows
 func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proof [][]byte) ([]byte, error) {
 	// If we don't witness this log then no point in going further.
 	logInfo, ok := w.Logs[logID]
@@ -138,7 +147,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	// into the log.Checkpoint format.
 	next, nextNote, err := w.parse(nextRaw, logID)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse input checkpoint: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "couldn't parse input checkpoint: %v", err)
 	}
 	// Get the latest one for the log because we don't want consistency proofs
 	// with respect to older checkpoints.  Bind this all in a transaction to
@@ -156,33 +165,34 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 			// Store a witness cosigned version of the checkpoint.
 			signed, err := w.signChkpt(nextNote)
 			if err != nil {
-				return nil, fmt.Errorf("couldn't sign input checkpoint: %v", err)
+				return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 			}
 			if err := w.setInitChkptData(tx, logID, next, signed, proof); err != nil {
-				return nil, fmt.Errorf("couldn't set TOFU checkpoint: %v", err)
+				return nil, status.Errorf(codes.Internal, "couldn't set TOFU checkpoint: %v", err)
 			}
 			return signed, nil
 		}
-		return nil, fmt.Errorf("couldn't retrieve latest checkpoint: %w", err)
+		return nil, status.Errorf(codes.Internal, "couldn't retrieve latest checkpoint: %v", err)
 	}
 	// Parse the raw retrieved checkpoint into the log.Checkpoint format.
 	prev, _, err := w.parse(prevRaw, logID)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse stored checkpoint: %v", err)
+		return nil, status.Errorf(codes.Internal, "couldn't parse stored checkpoint: %v", err)
 	}
 	// Parse the compact range if we're using one.
 	var prevRange log.Proof
 	if logInfo.UseCompact {
 		if err := prevRange.Unmarshal(rangeRaw); err != nil {
-			return nil, fmt.Errorf("couldn't unmarshal proof: %v", err)
+			return nil, status.Errorf(codes.InvalidArgument, "couldn't unmarshal proof: %v", err)
 		}
 	}
 	if next.Size < prev.Size {
 		// Complain if prev is bigger than next.
-		return prevRaw, status.Errorf(codes.FailedPrecondition, "cannot prove consistency backwards (%d < %d)", next.Size, prev.Size)
+		return prevRaw, status.Errorf(codes.AlreadyExists, "cannot prove consistency backwards (%d < %d)", next.Size, prev.Size)
 	}
 	if next.Size == prev.Size {
 		if !bytes.Equal(next.Hash, prev.Hash) {
+			glog.Errorf("%s: INCONSISTENT CHECKPOINTS!:\n%v\n%v", logID, prev, next)
 			return prevRaw, status.Errorf(codes.FailedPrecondition, "checkpoint for same size log with differing hash (got %x, have %x)", next.Hash, prev.Hash)
 		}
 		// If it's identical to the previous one do nothing.
@@ -200,10 +210,10 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		r := []byte(log.Proof(nextRange).Marshal())
 		signed, err := w.signChkpt(nextNote)
 		if err != nil {
-			return nil, fmt.Errorf("couldn't sign input checkpoint: %v", err)
+			return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 		}
 		if err := w.setChkptData(tx, logID, signed, r); err != nil {
-			return nil, fmt.Errorf("failed to store new checkpoint: %v", err)
+			return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
 		}
 		return signed, nil
 	}
@@ -216,10 +226,10 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	// If the consistency proof is good we store the witness cosigned nextRaw.
 	signed, err := w.signChkpt(nextNote)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't sign input checkpoint: %v", err)
+		return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 	}
 	if err := w.setChkptData(tx, logID, signed, nil); err != nil {
-		return nil, fmt.Errorf("failed to store new checkpoint: %v", err)
+		return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
 	}
 	return signed, nil
 }

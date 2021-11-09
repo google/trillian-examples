@@ -97,7 +97,7 @@ func (w Witness) Update(ctx context.Context, logID string, cp []byte, proof [][]
 	}
 	if resp.StatusCode != 200 {
 		if resp.StatusCode == 409 {
-			return body, ErrCheckpointTooOld
+			return body, fmt.Errorf("%w: %s", ErrCheckpointTooOld, resp.Status)
 		}
 		return nil, fmt.Errorf("bad status response (%s): %q", resp.Status, body)
 	}

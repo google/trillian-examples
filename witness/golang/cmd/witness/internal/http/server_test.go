@@ -15,6 +15,7 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/hex"
@@ -295,21 +296,21 @@ func TestUpdate(t *testing.T) {
 		initCR     [][]byte
 		body       api.UpdateRequest
 		wantStatus int
+		wantCP     []byte
 	}{
 		{
 			desc:       "vanilla consistency happy path",
 			initC:      mInit,
 			initSize:   5,
-			useCR:      false,
 			body:       api.UpdateRequest{Checkpoint: mNext, Proof: consProof},
 			wantStatus: http.StatusOK,
 		}, {
 			desc:       "vanilla consistency smaller checkpoint",
 			initC:      mInit,
 			initSize:   5,
-			useCR:      false,
 			body:       api.UpdateRequest{Checkpoint: []byte("Log Checkpoint v0\n4\nhashhashhash\n\n— monkeys h74qVTDSRnIt40mjmX32f6bSeEFbU67ZpyBltDJuN4KzBlQRe5/jPDCwXRmyWVj72aebO8u42oZVVKy8hjkDg6R0fAs=\n"), Proof: consProof},
 			wantStatus: http.StatusConflict,
+			wantCP:     mInit,
 		}, {
 			desc:     "vanilla consistency garbage proof",
 			initC:    mInit,
@@ -320,13 +321,13 @@ func TestUpdate(t *testing.T) {
 				dh("cccc", 2),
 				dh("dddd", 2),
 			}},
-			wantStatus: http.StatusConflict,
+			wantStatus: http.StatusBadRequest,
 		}, {
 			desc:       "vanilla consistency garbage checkpoint",
 			initC:      mInit,
 			initSize:   5,
 			body:       api.UpdateRequest{Checkpoint: []byte("aaa"), Proof: consProof},
-			wantStatus: http.StatusInternalServerError,
+			wantStatus: http.StatusBadRequest,
 		}, {
 			desc:       "compact range happy path",
 			initC:      crInit,
@@ -347,7 +348,7 @@ func TestUpdate(t *testing.T) {
 			}},
 			useCR:      true,
 			initCR:     crInitRange,
-			wantStatus: http.StatusConflict,
+			wantStatus: http.StatusBadRequest,
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
@@ -384,7 +385,15 @@ func TestUpdate(t *testing.T) {
 				t.Errorf("error response: %v", err)
 			}
 			if got, want := resp.StatusCode, test.wantStatus; got != want {
-				t.Errorf("status code got %d, want %d", got, want)
+				t.Errorf("status code got %s, want %d", resp.Status, want)
+			}
+			defer resp.Body.Close()
+			respBody, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				t.Errorf("failed to read response body: %v", err)
+			}
+			if test.wantCP != nil && !bytes.HasPrefix(respBody, test.wantCP) {
+				t.Errorf("got body:\n%s\nbut want:\n%s", respBody, test.wantCP)
 			}
 		})
 	}

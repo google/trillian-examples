@@ -163,6 +163,8 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 			}
 		}
 
+		glog.V(1).Infof("%s: %q grew - @%d: %x → @%d: %x", wSigV.Name(), opts.LogSigVerifier.Name(), latestCP.Size, latestCP.Hash, cpSubmit.Size, cpSubmit.Hash)
+
 		// The witness may be configured to expect a compact-range type proof, so we need to always
 		// try to build one, even if the witness doesn't have a "latest" checkpoint for this log.
 		conP, err = opts.FetchProof(ctx, latestCP, cpSubmit)
@@ -170,6 +172,7 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 			glog.Warningf("%s: failed to fetch consistency proof: %v", wSigV.Name(), err)
 			continue
 		}
+		glog.V(2).Infof("%s: %s %d -> %d proof: %x", wSigV.Name(), opts.LogSigVerifier.Name(), latestCP.Size, cpSubmit.Size, conP)
 
 		if cp, err := opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
 			glog.Warningf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)

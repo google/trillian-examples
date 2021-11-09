@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -94,7 +95,7 @@ type logInfo struct {
 // proof is a partial representation of the JSON struct returned by the Rekór
 // api/v1/log/proof request.
 type proof struct {
-	Hashes [][]byte `json:"hashes"`
+	Hashes []string `json:"hashes"`
 }
 
 func feedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time.Duration, interval time.Duration) error {
@@ -118,7 +119,15 @@ func feedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 		if err := getJSON(ctx, lURL, fmt.Sprintf("api/v1/log/proof?firstSize=%d&lastSize=%d", from.Size, to.Size), &cp); err != nil {
 			return nil, fmt.Errorf("failed to fetch log info: %v", err)
 		}
-		return cp.Hashes, nil
+		var err error
+		p := make([][]byte, len(cp.Hashes))
+		for i := range cp.Hashes {
+			p[i], err = hex.DecodeString(cp.Hashes[i])
+			if err != nil {
+				return nil, fmt.Errorf("invalid proof element at %d: %v", i, err)
+			}
+		}
+		return p, nil
 	}
 
 	opts := feeder.FeedOpts{

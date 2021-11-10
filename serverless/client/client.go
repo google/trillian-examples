@@ -31,9 +31,9 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
-	"golang.org/x/mod/sumdb/note"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/compact"
+	"golang.org/x/mod/sumdb/note"
 )
 
 // Fetcher is the signature of a function which can retrieve arbitrary files from

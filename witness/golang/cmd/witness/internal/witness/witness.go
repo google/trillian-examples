@@ -25,11 +25,11 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/compact"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"github.com/transparency-dev/merkle"
-	"github.com/transparency-dev/merkle/compact"
 )
 
 // Opts is the options passed to a witness.

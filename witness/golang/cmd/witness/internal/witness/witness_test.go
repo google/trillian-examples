@@ -22,8 +22,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/transparency-dev/merkle/rfc6962"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 

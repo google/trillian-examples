@@ -133,7 +133,7 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 // version of nextRaw if the update was applied.
 //
 // If an error occurs, this method will generally return an error with a status code:
-// - codes.NodeFound if the log is unknown
+// - codes.NotFound if the log is unknown
 // - codes.InvalidArgument for general bad requests
 // - codes.AlreadyExists if the checkpoint is smaller than the one the witness knows
 // - codes.FailedPrecondition if the checkpoint is inconsistent with the one the witness knows

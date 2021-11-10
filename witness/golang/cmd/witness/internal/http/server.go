@@ -59,19 +59,18 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	// Get the output from the witness.
 	chkpt, err := s.w.Update(r.Context(), logID, req.Checkpoint, req.Proof)
 	if err != nil {
-		// If there was a failed precondition it's possible the caller was
+		c := status.Code(err)
+		// If there was an AlreadyExists it's possible the caller was
 		// just out of date.  Give the returned checkpoint to help them
 		// form a new request.
-		if status.Code(err) == codes.FailedPrecondition {
-			// This is the implementation of http.Error except we don't add any trailing newline chars.
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		if c == codes.AlreadyExists {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.WriteHeader(http.StatusConflict)
-			fmt.Fprint(w, err)
+			w.WriteHeader(httpForCode(c))
+			// The checkpoint body will be written below...
+		} else {
+			http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), httpForCode(c))
 			return
 		}
-		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), httpForCode(http.StatusInternalServerError))
-		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write(chkpt)
@@ -117,10 +116,12 @@ func (s *Server) RegisterHandlers(r *mux.Router) {
 
 func httpForCode(c codes.Code) int {
 	switch c {
+	case codes.AlreadyExists:
+		return http.StatusConflict
 	case codes.NotFound:
 		return http.StatusNotFound
-	case codes.FailedPrecondition:
-		return http.StatusConflict
+	case codes.FailedPrecondition, codes.InvalidArgument:
+		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
 	}

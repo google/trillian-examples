@@ -22,9 +22,9 @@ import (
 	"github.com/apache/beam/sdks/v2/go/pkg/beam"
 
 	"github.com/google/trillian/experimental/batchmap"
-	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/coniks"
 	"github.com/google/trillian/merkle/smt/node"
+	"github.com/transparency-dev/merkle/compact"
 
 	"golang.org/x/mod/sumdb/tlog"
 )

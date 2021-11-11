@@ -23,8 +23,8 @@ import (
 
 	"github.com/google/trillian"
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian/merkle/rfc6962"
 	tt "github.com/google/trillian/types"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc"
 )

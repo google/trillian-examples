@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/google/trillian/merkle/rfc6962"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
+	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 func TestRootFromScratch(t *testing.T) {

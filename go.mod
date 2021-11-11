@@ -18,6 +18,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
+	github.com/transparency-dev/merkle v0.0.0-20211104134637-a76aeeada497 // indirect
 	github.com/u-root/u-root v7.0.0+incompatible
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/mod v0.5.1

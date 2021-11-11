@@ -33,7 +33,7 @@ import (
 	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/config"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"

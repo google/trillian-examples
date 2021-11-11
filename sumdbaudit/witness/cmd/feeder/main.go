@@ -27,8 +27,8 @@ import (
 	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/sumdbaudit/client"
 	"github.com/google/trillian-examples/witness/golang/client/http"
-	"github.com/google/trillian/merkle/compact"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/transparency-dev/merkle/compact"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/mod/sumdb/tlog"
 )

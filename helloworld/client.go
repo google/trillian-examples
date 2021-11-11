@@ -21,8 +21,8 @@ import (
 
 	trillian "github.com/google/trillian"
 	"github.com/google/trillian-examples/helloworld/personality"
-	"github.com/google/trillian/merkle/logverifier"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/rfc6962"
 
 	"github.com/google/trillian-examples/formats/log"
 	"golang.org/x/mod/sumdb/note"
@@ -48,7 +48,7 @@ type Personality interface {
 
 // A client is a verifier that maintains a checkpoint as state.
 type Client struct {
-	v           logverifier.LogVerifier
+	v           merkle.LogVerifier
 	chkpt       *log.Checkpoint
 	person      Personality
 	sigVerifier note.Verifier
@@ -58,7 +58,7 @@ type Client struct {
 // personality to talk to.  In real usage, a client should persist this
 // checkpoint across different runs to ensure consistency.
 func NewClient(prsn Personality, nv note.Verifier) Client {
-	v := logverifier.New(rfc6962.DefaultHasher)
+	v := merkle.NewLogVerifier(rfc6962.DefaultHasher)
 	return Client{
 		person:      prsn,
 		v:           v,

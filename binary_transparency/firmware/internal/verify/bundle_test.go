@@ -25,7 +25,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
-	"github.com/google/trillian/merkle/logverifier"
+	"github.com/transparency-dev/merkle"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -85,7 +85,7 @@ func TestBundleForUpdate(t *testing.T) {
 			imgHash := sha512.Sum512(test.img)
 			_, _, err := verify.BundleForUpdate([]byte(goldenProofBundle), imgHash[:], dc, proof, mustGetLogSigVerifier(t))
 			if (err != nil) != test.wantErr {
-				var lve logverifier.RootMismatchError
+				var lve merkle.RootMismatchError
 				if errors.As(err, &lve) {
 					// Printing this out allows `goldenProofBundle` to be updated if needed
 					t.Errorf("calculated root %s", base64.StdEncoding.EncodeToString(lve.CalculatedRoot))

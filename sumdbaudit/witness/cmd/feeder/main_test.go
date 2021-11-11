@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/google/trillian/merkle/compact"
+	"github.com/transparency-dev/merkle/compact"
 	"golang.org/x/mod/sumdb/tlog"
 )
 

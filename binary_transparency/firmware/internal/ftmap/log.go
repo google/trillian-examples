@@ -26,9 +26,9 @@ import (
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian/experimental/batchmap"
-	"github.com/google/trillian/merkle/compact"
 	"github.com/google/trillian/merkle/coniks"
 	"github.com/google/trillian/merkle/smt/node"
+	"github.com/transparency-dev/merkle/compact"
 )
 
 func init() {

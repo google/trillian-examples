@@ -31,10 +31,8 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
-	"github.com/google/trillian/merkle"
-	"github.com/google/trillian/merkle/compact"
-	"github.com/google/trillian/merkle/hashers"
-	"github.com/google/trillian/merkle/logverifier"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/compact"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -314,8 +312,8 @@ func GetLeaf(ctx context.Context, f Fetcher, i uint64) ([]byte, error) {
 // This tracker handles verification that updates to the tracked log state are
 // consistent with previously seen states.
 type LogStateTracker struct {
-	Hasher   hashers.LogHasher
-	Verifier logverifier.LogVerifier
+	Hasher   merkle.LogHasher
+	Verifier merkle.LogVerifier
 	Fetcher  Fetcher
 	// Origin is the expected first line of checkpoints from the log.
 	Origin              string
@@ -333,12 +331,12 @@ type LogStateTracker struct {
 // NewLogStateTracker creates a newly initialised tracker.
 // If a serialised LogState representation is provided then this is used as the
 // initial tracked state, otherwise a log state is fetched from the target log.
-func NewLogStateTracker(ctx context.Context, f Fetcher, h hashers.LogHasher, checkpointRaw []byte, nV note.Verifier, origin string, cc ConsensusCheckpointFunc) (LogStateTracker, error) {
+func NewLogStateTracker(ctx context.Context, f Fetcher, h merkle.LogHasher, checkpointRaw []byte, nV note.Verifier, origin string, cc ConsensusCheckpointFunc) (LogStateTracker, error) {
 	ret := LogStateTracker{
 		ConsensusCheckpoint: cc,
 		Fetcher:             f,
 		Hasher:              h,
-		Verifier:            logverifier.New(h),
+		Verifier:            merkle.NewLogVerifier(h),
 		LatestConsistent:    log.Checkpoint{},
 		CpSigVerifier:       nV,
 		Origin:              origin,
@@ -410,7 +408,7 @@ func (lst *LogStateTracker) Update(ctx context.Context) error {
 }
 
 // CheckConsistency is a wapper function which simplifies verifying consistency between two or more checkpoints.
-func CheckConsistency(ctx context.Context, h hashers.LogHasher, f Fetcher, cp []log.Checkpoint) error {
+func CheckConsistency(ctx context.Context, h merkle.LogHasher, f Fetcher, cp []log.Checkpoint) error {
 	if l := len(cp); l < 2 {
 		return fmt.Errorf("passed %d checkpoints, need at least 2", l)
 	}
@@ -422,7 +420,7 @@ func CheckConsistency(ctx context.Context, h hashers.LogHasher, f Fetcher, cp []
 		return fmt.Errorf("failed to create proofbuilder: %v", err)
 	}
 
-	lv := logverifier.New(h)
+	lv := merkle.NewLogVerifier(h)
 
 	// Go through list of checkpoints pairwise, checking consistency.
 	a, b := cp[0], cp[1]

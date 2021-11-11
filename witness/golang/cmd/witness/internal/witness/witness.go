@@ -25,9 +25,8 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian/merkle/compact"
-	"github.com/google/trillian/merkle/hashers"
-	"github.com/google/trillian/merkle/logverifier"
+	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/compact"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -47,7 +46,7 @@ type LogInfo struct {
 	// The expected Origin string in the checkpoints.
 	Origin string
 	// The hash strategy that should be used in verifying consistency.
-	Hasher hashers.LogHasher
+	Hasher merkle.LogHasher
 	// An indicator of whether the log should be verified using consistency
 	// proofs or compact ranges.
 	UseCompact bool
@@ -218,7 +217,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		return signed, nil
 	}
 	// If we're not using compact ranges then use consistency proofs.
-	logV := logverifier.New(logInfo.Hasher)
+	logV := merkle.NewLogVerifier(logInfo.Hasher)
 	if err := logV.VerifyConsistencyProof(int64(prev.Size), int64(next.Size), prev.Hash, next.Hash, proof); err != nil {
 		// Complain if the checkpoints aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
@@ -263,7 +262,7 @@ func (w *Witness) getLatestChkptData(queryRow func(query string, args ...interfa
 
 // verifyRange verifies the new checkpoint against the stored and given compact
 // range and outputs the updated compact range if verification succeeds.
-func verifyRange(next *log.Checkpoint, prev *log.Checkpoint, h hashers.LogHasher, rngRaw [][]byte, deltaRaw [][]byte) ([][]byte, error) {
+func verifyRange(next *log.Checkpoint, prev *log.Checkpoint, h merkle.LogHasher, rngRaw [][]byte, deltaRaw [][]byte) ([][]byte, error) {
 	rf := compact.RangeFactory{Hash: h.HashChildren}
 	rng, err := rf.NewRange(0, prev.Size, rngRaw)
 	if err != nil {

@@ -26,7 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/internal/log"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
-	"github.com/google/trillian/merkle/rfc6962"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"

@@ -9,8 +9,7 @@
 // Use of this source code is governed by the license that can be found at:
 //   https://github.com/jedisct1/go-minisign/blob/master/LICENSE
 
-//go:build armory
-// +build armory
+//+build armory
 
 package main
 

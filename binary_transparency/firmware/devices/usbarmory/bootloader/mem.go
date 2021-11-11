@@ -6,7 +6,8 @@
 // Use of this source code is governed by the license
 // that can be found in the LICENSE file.
 
-//+build armory
+//go:build armory
+// +build armory
 
 package main
 

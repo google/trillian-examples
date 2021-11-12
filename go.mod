@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/apache/beam/sdks/v2 v2.0.0-20211013024802-71d7213d9867
-	github.com/cenkalti/backoff/v4 v4.1.1
+	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
 	github.com/f-secure-foundry/tamago v0.0.0-20201201222556-c7d3ba598c56
@@ -18,7 +18,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.9
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
-	github.com/transparency-dev/merkle v0.0.0-20211104134637-a76aeeada497 // indirect
+	github.com/transparency-dev/merkle v0.0.0-20211104134637-a76aeeada497
 	github.com/u-root/u-root v7.0.0+incompatible
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/mod v0.5.1

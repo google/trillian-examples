@@ -23,7 +23,7 @@ import (
 // These come from the the current SigStore Rekór key, which is an ECDSA key:
 const (
 	sigStoreKeyMaterial = "AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc="
-	sigStoreKeyHash = "c0d23d6a"
+	sigStoreKeyHash     = "c0d23d6a"
 	sigStoreKey         = "rekor.sigstore.dev" + "+" + sigStoreKeyHash + "+" + sigStoreKeyMaterial
 )
 
@@ -92,7 +92,7 @@ func TestNewECDSAVerifier(t *testing.T) {
 			wantErr: true,
 		}, {
 			name:    "incorrect keyhash",
-			pubK: "rekor.sigstore.dev" + "+" + "00000000" + "+" + sigStoreKeyMaterial,
+			pubK:    "rekor.sigstore.dev" + "+" + "00000000" + "+" + sigStoreKeyMaterial,
 			wantErr: true,
 		},
 	} {

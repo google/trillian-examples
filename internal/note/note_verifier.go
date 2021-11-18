@@ -22,6 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
+	"strconv"
 	"strings"
 
 	sdb_note "golang.org/x/mod/sumdb/note"
@@ -32,16 +33,17 @@ const (
 	// know about.
 	Note = ""
 
-	// SigstoreECDSA is an ECDSA signature over SHA256.
-	// The current implementation of this has a different KeyHash input
-	// to the SumDB Note's Ed25519 verifier.
-	SigstoreECDSA = "sigstore_ecdsa"
+	// ECDSA is an ECDSA signature over SHA256.
+	// This signature type has been agreed to be represented by algo ID 2 by the note authors.
+	ECDSA = "ecdsa"
+
+	algECDSAWithSHA256 = 2
 )
 
 func NewVerifier(keyType, key string) (sdb_note.Verifier, error) {
 	switch keyType {
-	case SigstoreECDSA:
-		return NewSigstoreECDSAVerifier(key)
+	case ECDSA:
+		return NewECDSAVerifier(key)
 	case Note:
 		return sdb_note.NewVerifier(key)
 	default:
@@ -71,25 +73,44 @@ func (v *verifier) Verify(msg, sig []byte) bool {
 	return v.v(msg, sig)
 }
 
-// NewSigstoreECDSAVerifier creates a new note verifier for checking ECDSA signatures over SHA256 digests.
+// NewECDSAVerifier creates a new note verifier for checking ECDSA signatures over SHA256 digests.
 // This implementation is compatible with the signature scheme used by the Sigstore Rékor Log.
 //
 // The key is expected to be provided as a string in the following form:
-//   <key name> " " <Base64 encoded SubjectPublicKeyInfo DER>
+//   <key_name>+<key_hash>+<key_bytes>
+// Where
+//   <key_name> is a human readable identifier for the key, containing no whitespace or "+" symbols
+//   <key_hash> is a 32bit hash of the key bytes
+//   <key_bytes> is base64 encoded blob starting with a 0x02 (algECDSAWithSHA256) byte and followed
+//       by the DER encoded public key in SPKI format.
 // e.g.:
-//   "rekor.sigstore.dev MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwrkBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw=="
-//
-// Note that in contrast with the note Ed25519 signer, the Sigstore log produces signatures whose
-// keyhash hints do not include the key name in the preimage.
-func NewSigstoreECDSAVerifier(key string) (sdb_note.Verifier, error) {
-	parts := strings.SplitN(key, " ", 2)
-	if got, want := len(parts), 2; got != want {
+//   "rekor.sigstore.dev+12345678+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc=
+func NewECDSAVerifier(key string) (sdb_note.Verifier, error) {
+	parts := strings.SplitN(key, "+", 3)
+	if got, want := len(parts), 3; got != want {
 		return nil, fmt.Errorf("key has %d parts, expected %d: %q", got, want, key)
 	}
-	der, err := base64.StdEncoding.DecodeString(parts[1])
+	keyBytes, err := base64.StdEncoding.DecodeString(parts[2])
 	if err != nil {
-		return nil, fmt.Errorf("key has invalid base64 %q: %v", parts[1], err)
+		return nil, fmt.Errorf("key has invalid base64 %q: %v", parts[2], err)
 	}
+	if len(keyBytes) < 2 {
+		return nil, fmt.Errorf("invalid key, key bytes too short")
+	}
+	if keyBytes[0] != algECDSAWithSHA256 {
+		return nil, fmt.Errorf("key has incorrect type %d", keyBytes[0])
+	}
+	der := keyBytes[1:]
+	kh := keyHash(der)
+
+	khProvided, err := strconv.ParseUint(parts[1], 16, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid key, couldn't parse keyhash: %v", err)
+	}
+	if uint32(khProvided) != kh {
+		return nil, fmt.Errorf("invalid keyhash %x, expected %x", khProvided, kh)
+	}
+
 	k, err := x509.ParsePKIXPublicKey(der)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse public key: %v", err)
@@ -99,14 +120,17 @@ func NewSigstoreECDSAVerifier(key string) (sdb_note.Verifier, error) {
 		return nil, fmt.Errorf("key is a %T, expected an ECDSA key", k)
 	}
 
-	kh := sha256.Sum256(der)
-
 	return &verifier{
 		name: parts[0],
 		v: func(msg, sig []byte) bool {
 			dgst := sha256.Sum256(msg)
 			return ecdsa.VerifyASN1(ecdsaKey, dgst[:], sig)
 		},
-		keyHash: binary.BigEndian.Uint32(kh[:]),
+		keyHash: kh,
 	}, nil
+}
+
+func keyHash(i []byte) uint32 {
+	h := sha256.Sum256(i)
+	return binary.BigEndian.Uint32(h[:])
 }

@@ -20,7 +20,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-// These come from the the current SigStore Rekór key:
+// These come from the the current SigStore Rekór key, which is an ECDSA key:
 const (
 	sigStoreKeyMaterial = "AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc="
 	sigStoreKeyHash = "c0d23d6a"
@@ -42,11 +42,11 @@ func TestNewVerifier(t *testing.T) {
 			k:       sigStoreKey,
 			wantErr: true,
 		}, {
-			name:  "sigstore ECDSA works",
+			name:  "ECDSA works",
 			kType: ECDSA,
 			k:     sigStoreKey,
 		}, {
-			name:    "sigstore ECDSA mismatch",
+			name:    "ECDSA mismatch",
 			kType:   ECDSA,
 			k:       "PeterNeumann+c74f20a3+ARpc2QcUPDhMQegwxbzhKqiBfsVkmqq/LDE4izWy10TW",
 			wantErr: true,
@@ -65,7 +65,46 @@ func TestNewVerifier(t *testing.T) {
 	}
 }
 
-func TestSigstoreVerifier(t *testing.T) {
+func TestNewECDSAVerifier(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		pubK    string
+		wantErr bool
+	}{
+		{
+			name: "works",
+			pubK: sigStoreKey,
+		}, {
+			name:    "wrong number of parts",
+			pubK:    "bananas.sigstore.dev+12344556",
+			wantErr: true,
+		}, {
+			name:    "invalid base64",
+			pubK:    "rekor.sigstore.dev+12345678+THIS_IS_NOT_BASE64!",
+			wantErr: true,
+		}, {
+			name:    "invalid algo",
+			pubK:    "rekor.sigstore.dev+12345678+AwEB",
+			wantErr: true,
+		}, {
+			name:    "invalid keyhash",
+			pubK:    "rekor.sigstore.dev+NOT_A_NUMBER+" + sigStoreKeyMaterial,
+			wantErr: true,
+		}, {
+			name:    "incorrect keyhash",
+			pubK: "rekor.sigstore.dev" + "+" + "00000000" + "+" + sigStoreKeyMaterial,
+			wantErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewECDSAVerifier(test.pubK)
+			if gotErr := err != nil; gotErr != test.wantErr {
+				t.Fatalf("Failed to create new ECDSA verifier from %q: %v", test.pubK, err)
+			}
+		})
+	}
+}
+func TestECDSAVerifier(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		pubK    string

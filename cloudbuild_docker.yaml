@@ -98,6 +98,20 @@ steps:
     waitFor:
       - show-target-build-platforms
     id: 'build-rekor-feeder-image'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'build',
+      '--platform', '$_DOCKER_BUILDX_PLATFORMS',
+      '-t', 'gcr.io/$PROJECT_ID/pixel-bt-feeder:latest',
+      '--cache-from', 'gcr.io/$PROJECT_ID/pixel-bt-feeder:latest',
+      '-f', './feeder/cmd/pixel_bt_feeder/Dockerfile',
+      '--push',
+      '.'
+    ]
+    waitFor:
+      - show-target-build-platforms
+    id: 'build-pixel-feeder-image'
 
 substitutions:
   _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v7'

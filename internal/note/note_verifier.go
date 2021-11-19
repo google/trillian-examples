@@ -80,9 +80,9 @@ func (v *verifier) Verify(msg, sig []byte) bool {
 //   <key_name>+<key_hash>+<key_bytes>
 // Where
 //   <key_name> is a human readable identifier for the key, containing no whitespace or "+" symbols
-//   <key_hash> is a 32bit hash of the key bytes
 //   <key_bytes> is base64 encoded blob starting with a 0x02 (algECDSAWithSHA256) byte and followed
 //       by the DER encoded public key in SPKI format.
+//   <key_hash> is a 32bit hash of the key DER
 // e.g.:
 //   "rekor.sigstore.dev+12345678+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc=
 func NewECDSAVerifier(key string) (sdb_note.Verifier, error) {

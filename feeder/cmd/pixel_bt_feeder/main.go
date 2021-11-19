@@ -116,8 +116,9 @@ func feedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 		if err != nil {
 			return nil, fmt.Errorf("ProveTree: %v", err)
 		}
-		r := make([][]byte, 0, len(h))
+		r := make([][]byte, 0, len(proof))
 		for _, h := range proof {
+			h := h
 			r = append(r, h[:])
 		}
 		glog.V(1).Infof("Fetched proof from %d -> %d: %x", from.Size, to.Size, r)

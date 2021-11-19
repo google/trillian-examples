@@ -20,10 +20,11 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-// These come from the the current SigStore Rekór key:
+// These come from the the current SigStore Rekór key, which is an ECDSA key:
 const (
-	sigStoreKeyMaterial = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2G2Y+2tabdTV5BcGiBIx0a9fAFwrkBbmLSGtks4L3qX6yYY0zufBnhC8Ur/iy55GhWP/9A/bY2LhC30M9+RYtw=="
-	sigStoreKey         = "rekor.sigstore.dev " + sigStoreKeyMaterial
+	sigStoreKeyMaterial = "AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc="
+	sigStoreKeyHash     = "c0d23d6a"
+	sigStoreKey         = "rekor.sigstore.dev" + "+" + sigStoreKeyHash + "+" + sigStoreKeyMaterial
 )
 
 func TestNewVerifier(t *testing.T) {
@@ -41,12 +42,12 @@ func TestNewVerifier(t *testing.T) {
 			k:       sigStoreKey,
 			wantErr: true,
 		}, {
-			name:  "sigstore ECDSA works",
-			kType: SigstoreECDSA,
+			name:  "ECDSA works",
+			kType: ECDSA,
 			k:     sigStoreKey,
 		}, {
-			name:    "sigstore ECDSA mismatch",
-			kType:   SigstoreECDSA,
+			name:    "ECDSA mismatch",
+			kType:   ECDSA,
 			k:       "PeterNeumann+c74f20a3+ARpc2QcUPDhMQegwxbzhKqiBfsVkmqq/LDE4izWy10TW",
 			wantErr: true,
 		}, {
@@ -64,7 +65,46 @@ func TestNewVerifier(t *testing.T) {
 	}
 }
 
-func TestSigstoreVerifier(t *testing.T) {
+func TestNewECDSAVerifier(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		pubK    string
+		wantErr bool
+	}{
+		{
+			name: "works",
+			pubK: sigStoreKey,
+		}, {
+			name:    "wrong number of parts",
+			pubK:    "bananas.sigstore.dev+12344556",
+			wantErr: true,
+		}, {
+			name:    "invalid base64",
+			pubK:    "rekor.sigstore.dev+12345678+THIS_IS_NOT_BASE64!",
+			wantErr: true,
+		}, {
+			name:    "invalid algo",
+			pubK:    "rekor.sigstore.dev+12345678+AwEB",
+			wantErr: true,
+		}, {
+			name:    "invalid keyhash",
+			pubK:    "rekor.sigstore.dev+NOT_A_NUMBER+" + sigStoreKeyMaterial,
+			wantErr: true,
+		}, {
+			name:    "incorrect keyhash",
+			pubK:    "rekor.sigstore.dev" + "+" + "00000000" + "+" + sigStoreKeyMaterial,
+			wantErr: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewECDSAVerifier(test.pubK)
+			if gotErr := err != nil; gotErr != test.wantErr {
+				t.Fatalf("Failed to create new ECDSA verifier from %q: %v", test.pubK, err)
+			}
+		})
+	}
+}
+func TestECDSAVerifier(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		pubK    string
@@ -77,7 +117,7 @@ func TestSigstoreVerifier(t *testing.T) {
 			note: []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev wNI9ajBEAiARInWIWyCdyG27CO6LPnPekyw20qO0YJfoaPaowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
 		}, {
 			name:    "invalid name",
-			pubK:    "bananas.sigstore.dev " + sigStoreKeyMaterial,
+			pubK:    "bananas.sigstore.dev" + "+" + sigStoreKeyHash + "+" + sigStoreKeyMaterial,
 			note:    []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev wNI9ajBEAiARInWIWyCdyG27CO6LPnPekyw20qO0YJfoaPaowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
 			wantErr: true,
 		}, {
@@ -87,13 +127,15 @@ func TestSigstoreVerifier(t *testing.T) {
 			wantErr: true,
 		},
 	} {
-		v, err := NewSigstoreECDSAVerifier(test.pubK)
-		if err != nil {
-			t.Fatalf("Failed to create new ECDSA verifier: %v", err)
-		}
-		_, err = note.Open(test.note, note.VerifierList(v))
-		if gotErr := err != nil; gotErr != test.wantErr {
-			t.Fatalf("Got err %v, but want error %v", err, test.wantErr)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			v, err := NewECDSAVerifier(test.pubK)
+			if err != nil {
+				t.Fatalf("Failed to create new ECDSA verifier from %q: %v", test.pubK, err)
+			}
+			_, err = note.Open(test.note, note.VerifierList(v))
+			if gotErr := err != nil; gotErr != test.wantErr {
+				t.Fatalf("Got err %v, but want error %v", err, test.wantErr)
+			}
+		})
 	}
 }

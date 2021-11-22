@@ -123,7 +123,7 @@ func distributeForLog(ctx context.Context, l Log, opts *DistributeOptions) error
 	}
 
 	glog.V(1).Info("Creating PR")
-	return opts.Repo.CreatePR(ctx, fmt.Sprintf("Witness %s@%d", opts.WitSigV.Name(), wCp.Size), witnessBranch)
+	return opts.Repo.CreatePR(ctx, fmt.Sprintf("[Witness] %s: %s@%d", opts.WitSigV.Name(), wCp.Origin, wCp.Size), witnessBranch)
 }
 
 // wcpID returns a stable identifier for a given checkpoint.

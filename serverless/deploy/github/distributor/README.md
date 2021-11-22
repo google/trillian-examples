@@ -110,8 +110,12 @@ on:
     branches:
       # This is the name of the primary branch, which may be `main` for newer repos.
       - master
-  workflow_dispatch:
-  # Enable this if you set up automerge as below
+  # Enable a manual dispatch button for this workflow.
+  workflow_dispatch: 
+  # Trigger on a schedule too - sometimes GitHub Actions fails and this will help to
+  # recover from that:
+  schedule: 20 * * * *
+  # Enable this workflow_run stanza if you set up automerge as below:
   #workflow_run:
   #  workflows: ["Automerge PR"]
   #  types:

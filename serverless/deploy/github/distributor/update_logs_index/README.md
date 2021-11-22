@@ -5,7 +5,8 @@ config file, to serve as a human-readable index into the `logs/` directory.
 
 ## Usage
 
-Add the following config to your distributor's "main" github workflow:
+Add the following step config to your distributor's "main" github workflow (*before* the
+`stefanzweifel/git-auto-commit-action` step):
 
 ```yaml
     - name: Update logs index

@@ -39,12 +39,12 @@ var (
 
 const tmpl = `# {{.Title}}
 
-## Known logs
+## Known Logs
 | Origin | SignedBy |
 |--------|----------|
 {{range .Logs}}| [{{.Origin}}](./{{.ID}}) | {{.SignedBy}} | {{"\n"}}{{end}} 
 
-## Known witnesses
+## Known Witnesses
 
 | SignedBy |
 |----------|

@@ -113,8 +113,10 @@ on:
   # Enable a manual dispatch button for this workflow.
   workflow_dispatch: 
   # Trigger on a schedule too - sometimes GitHub Actions fails and this will help to
-  # recover from that:
-  schedule: 20 * * * *
+  # recover from that.
+  schedule: 
+  # This will cause this action to run once an hour at 20 minutes past the hour:
+    - cron: '20 * * * *'
   # Enable this workflow_run stanza if you set up automerge as below:
   #workflow_run:
   #  workflows: ["Automerge PR"]

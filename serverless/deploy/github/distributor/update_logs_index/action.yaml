@@ -1,0 +1,23 @@
+# action.yml
+name: 'Update logs index'
+description: 'Serverless witness distributor: update logs index markdown'
+inputs:
+  distributor_dir:
+    description: 'Location of the distributor files in the repo'
+    required: true
+    default: 'distributor'
+  config:
+    description: 'Path to the config file in YAML format'
+    required: true
+  output:
+    description: 'Path to the MD file to write'
+    default: 'logs/README.md'
+    required: false
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+
+branding:
+  icon: 'loader'
+  color: 'orange'

@@ -133,7 +133,15 @@ jobs:
       uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@master
       with:
           distributor_dir: '${{ env.DISTRIBUTOR_ROOT }}'
-          config: '${{ env.DISTRIBUTOR_ROOT }}/config.yaml'
+          config: 'config.yaml'
+    # Update the README.md in the `logs/` directory with a human-readable list.
+    - name: Update logs index
+      id: update_logs_index
+      uses: google/trillian-examples/serverless/deploy/github/distributor/update_logs_index@master
+      with:
+          distributor_dir: '${{ env.DISTRIBUTOR_ROOT }}'
+          config: 'config.yaml'
+          output: 'logs/README.md'
     - uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_user_name: Serverless Bot

@@ -129,7 +129,7 @@ func verifyBundle(bundleRaw []byte, logSigVerifier note.Verifier) (api.ProofBund
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("failed to verify signature on SignedStatement: %w", err)
 	}
 	if fwStatement.Type != api.FirmwareMetadataType {
-		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("expected statement type %q, but got %q", api..FirmwareMetadataType, fwStatement.Type)
+		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("expected statement type %q, but got %q", api.FirmwareMetadataType, fwStatement.Type)
 	}
 
 	lh := HashLeaf(pb.ManifestStatement)

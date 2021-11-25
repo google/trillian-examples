@@ -1,0 +1,10 @@
+Log:
+  Origin: DEFAULT
+  PublicKeyType: ecdsa
+  PublicKey: Pixel-Transparency-Log-2021+72c878db+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFPN7lzVIk2BOd3Nk33VpqqVttGwV8uChH+RX/HVfBiypVQFyh8o8Ny6fSdxNMgkSf9/VynrgADBeys0r4Q9uPA=
+
+  URL: https://developers.google.com/android/binary_transparency/
+
+Witness:
+  URL: http://witness:8123
+  PublicKey: ReplaceThisTokenWithYourWitnessPublicKey+db81a74c+Ad+741CbyNmvkmUf19B+tv6VB7yy37NlSxIa9jyqr3tb

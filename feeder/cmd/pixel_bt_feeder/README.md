@@ -33,5 +33,3 @@ http://localhost:8123/witness/v0/logs/d0a1f19e973cd5cc3d4f26446ea418d33faefffb43
 If this doesn't appear, inspect the logs from the containers with:
  * `docker logs pixel_bt_feeder_feeder_1`
  * `docker logs pixel_bt_feeder_witness_1`
-
-can be

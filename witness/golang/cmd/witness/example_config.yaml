@@ -1,5 +1,5 @@
 Logs:
   - Origin: origin string (first line of checkpoint)
-    PubKey: testlog+b69ecd61+AXCbEtyrQUhoUcMV/fZz905iDDoe7UAq3X0oD5ZUVyMS
+    PublicKey: testlog+b69ecd61+AXCbEtyrQUhoUcMV/fZz905iDDoe7UAq3X0oD5ZUVyMS
     HashStrategy: default
     UseCompact: false

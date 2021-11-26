@@ -1,5 +1,5 @@
 # This compose script brings up a standalone Pixel BT witness that
-# polls the log every 5  minutes, and exposes the cosigned checkpoints
+# polls the log every 5 minutes, and exposes the cosigned checkpoints
 # via a REST API on port 8123.
 # When running, the witnessed checkpoint will be at:
 # http://localhost:8123/witness/v0/logs/d0a1f19e973cd5cc3d4f26446ea418d33faefffb43ea1e3eadfe133287f71ff8/checkpoint

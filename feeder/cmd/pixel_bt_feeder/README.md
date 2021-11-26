@@ -19,3 +19,19 @@ to fetch checkpoints and proofs to feed to the [generic witness](/witness/golang
 
 The feeder reads its config from a YAML config file, an [example](./example_config.yaml) is
 provided for reference.
+
+## Standalone
+
+A docker-compose script is provided to easily bring up a witness that witnesses only the
+Pixel BT log. See https://go.dev/play/p/ZKrAbQovsZK for getting started, but the overview is:
+ 1. Generate signing key material.
+ 2. Update the [configuration file](./standalone.conf/feeder.yaml) to add the public key
+ 3. Use `docker-compose` to start the feeder and witness
+
+After 5 minutes or so, the witnessed checkpoint should be visible at
+http://localhost:8123/witness/v0/logs/d0a1f19e973cd5cc3d4f26446ea418d33faefffb43ea1e3eadfe133287f71ff8/checkpoint.
+If this doesn't appear, inspect the logs from the containers with:
+ * `docker logs pixel_bt_feeder_feeder_1`
+ * `docker logs pixel_bt_feeder_witness_1`
+
+can be

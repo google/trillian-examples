@@ -165,12 +165,10 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 		}
 		glog.V(2).Infof("%s: %s %d -> %d proof: %x", wSigV.Name(), opts.LogSigVerifier.Name(), latestCP.Size, cpSubmit.Size, conP)
 
-		if cp, err := opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
+		if returnCp, err = opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
 			return fmt.Errorf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
-		} else {
-			returnCp = cp
-			return nil
 		}
+		return nil
 	}
 
 	err := backoff.Retry(submitOp, backoff.WithContext(backoff.NewExponentialBackOff(), ctx))

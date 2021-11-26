@@ -42,12 +42,12 @@ type LogConfig struct {
 // strategy, and public key.
 type LogInfo struct {
 	// LogID is optional and will be defaulted to logfmt.ID() if not present.
-	LogID        string `yaml:"LogID"`
-	Origin       string `yaml:"Origin"`
-	HashStrategy string `yaml:"HashStrategy"`
-	PublicKey       string `yaml:"PublicKey"`
-	PublicKeyType   string `yaml:"PublicKeyType"`
-	UseCompact   bool   `yaml:"UseCompact"`
+	LogID         string `yaml:"LogID"`
+	Origin        string `yaml:"Origin"`
+	HashStrategy  string `yaml:"HashStrategy"`
+	PublicKey     string `yaml:"PublicKey"`
+	PublicKeyType string `yaml:"PublicKeyType"`
+	UseCompact    bool   `yaml:"UseCompact"`
 }
 
 // The options for a server (specified in main.go).

@@ -45,8 +45,8 @@ type LogInfo struct {
 	LogID        string `yaml:"LogID"`
 	Origin       string `yaml:"Origin"`
 	HashStrategy string `yaml:"HashStrategy"`
-	PubKey       string `yaml:"PubKey"`
-	PubKeyType   string `yaml:"PubKeyType"`
+	PublicKey       string `yaml:"PublicKey"`
+	PublicKeyType   string `yaml:"PublicKeyType"`
 	UseCompact   bool   `yaml:"UseCompact"`
 }
 
@@ -71,7 +71,7 @@ func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 		if log.HashStrategy != "default" {
 			return nil, errors.New("can't handle non-default hashing strategies")
 		}
-		logV, err := i_note.NewVerifier(log.PubKeyType, log.PubKey)
+		logV, err := i_note.NewVerifier(log.PublicKeyType, log.PublicKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create signature verifier: %v", err)
 		}
@@ -83,7 +83,7 @@ func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
 		}
 		logID := log.LogID
 		if len(logID) == 0 {
-			logID = logfmt.ID(log.Origin, []byte(log.PubKey))
+			logID = logfmt.ID(log.Origin, []byte(log.PublicKey))
 		}
 		logMap[logID] = logInfo
 	}

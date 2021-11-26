@@ -102,9 +102,11 @@ func FeedOnce(ctx context.Context, opts FeedOpts) ([]byte, error) {
 // submitting it to the witness.
 // Calling this function will block until the context is done.
 func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
+	t := time.NewTicker(interval)
+	defer t.Stop()
 	for {
 		// Create a scope with a bounded context so we don't get wedged if something goes wrong.
-		go func() {
+		func() {
 			ctx, cancel := context.WithTimeout(ctx, interval)
 			defer cancel()
 
@@ -116,7 +118,7 @@ func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(interval):
+		case <-t.C:
 		}
 	}
 }

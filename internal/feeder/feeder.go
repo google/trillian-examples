@@ -103,14 +103,8 @@ func FeedOnce(ctx context.Context, opts FeedOpts) ([]byte, error) {
 // Calling this function will block until the context is done.
 func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(interval):
-		}
-
 		// Create a scope with a bounded context so we don't get wedged if something goes wrong.
-		func() {
+		go func() {
 			ctx, cancel := context.WithTimeout(ctx, interval)
 			defer cancel()
 
@@ -118,6 +112,12 @@ func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 				glog.Errorf("Feeding log %q failed: %v", opts.LogSigVerifier.Name(), err)
 			}
 		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(interval):
+		}
 	}
 }
 

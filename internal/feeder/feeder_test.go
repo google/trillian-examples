@@ -54,6 +54,18 @@ func TestFeedOnce(t *testing.T) {
 				latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
 			},
 		}, {
+			desc:     "works after a few failures",
+			submitCP: testdata.Checkpoint(t, 2),
+			witness: &slowWitness{
+				fakeWitness: &fakeWitness{
+					logSigV:  logSigV,
+					witSig:   witSig,
+					witSigV:  witSigV,
+					latestCP: mustCosignCP(t, testdata.Checkpoint(t, 1), logSigV, witSig),
+				},
+				times: 3,
+			},
+		}, {
 			desc:     "works - TOFU feed",
 			submitCP: testdata.Checkpoint(t, 2),
 			witness: &fakeWitness{
@@ -129,6 +141,19 @@ func TestFeedOnce(t *testing.T) {
 			}
 		})
 	}
+}
+
+type slowWitness struct {
+	*fakeWitness
+	times int
+}
+
+func (sw *slowWitness) GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error) {
+	if sw.times > 0 {
+		sw.times = sw.times - 1
+		return nil, fmt.Errorf("will fail for %d more calls", sw.times)
+	}
+	return sw.fakeWitness.GetLatestCheckpoint(ctx, logID)
 }
 
 type fakeWitness struct {

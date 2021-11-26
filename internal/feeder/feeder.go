@@ -23,6 +23,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
 	"golang.org/x/mod/sumdb/note"
@@ -101,13 +102,9 @@ func FeedOnce(ctx context.Context, opts FeedOpts) ([]byte, error) {
 // submitting it to the witness.
 // Calling this function will block until the context is done.
 func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
+	t := time.NewTicker(interval)
+	defer t.Stop()
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(interval):
-		}
-
 		// Create a scope with a bounded context so we don't get wedged if something goes wrong.
 		func() {
 			ctx, cancel := context.WithTimeout(ctx, interval)
@@ -117,6 +114,12 @@ func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 				glog.Errorf("Feeding log %q failed: %v", opts.LogSigVerifier.Name(), err)
 			}
 		}()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t.C:
+		}
 	}
 }
 
@@ -124,20 +127,11 @@ func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, opts FeedOpts) ([]byte, error) {
 	wSigV := opts.Witness.SigVerifier()
 
-	// Keep submitting until success or context timeout...
-	t := time.NewTicker(1)
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("giving up on %s", wSigV.Name())
-		case <-t.C:
-			t.Reset(time.Second)
-		}
-
+	var returnCp []byte
+	submitOp := func() error {
 		latestCPRaw, err := opts.Witness.GetLatestCheckpoint(ctx, opts.LogID)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			glog.Warningf("%s: failed to fetch latest CP: %v", wSigV.Name(), err)
-			continue
+			return fmt.Errorf("%s: failed to fetch latest CP: %v", wSigV.Name(), err)
 		}
 
 		var conP [][]byte
@@ -145,21 +139,21 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 		if len(latestCPRaw) > 0 {
 			cp, _, n, err := log.ParseCheckpoint(latestCPRaw, opts.LogOrigin, opts.LogSigVerifier, wSigV)
 			if err != nil {
-				glog.Warningf("%s: failed to parse CP: %v", wSigV.Name(), err)
-				continue
+				return fmt.Errorf("%s: failed to parse CP: %v", wSigV.Name(), err)
 			}
 			latestCP = *cp
 
 			if numSigs := len(n.Sigs); numSigs != 2 {
-				return nil, errors.New("checkpoint from witness was not signed by at least log + witness")
+				return backoff.Permanent(errors.New("checkpoint from witness was not signed by at least log + witness"))
 			}
 
 			if latestCP.Size > cpSubmit.Size {
-				return nil, fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", wSigV.Name(), latestCP.Size, cpSubmit.Size)
+				return backoff.Permanent(fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", wSigV.Name(), latestCP.Size, cpSubmit.Size))
 			}
 			if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
 				glog.V(1).Infof("got sig from witness: %v", wSigV.Name())
-				return latestCPRaw, nil
+				returnCp = latestCPRaw
+				return nil
 			}
 		}
 
@@ -169,16 +163,16 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 		// try to build one, even if the witness doesn't have a "latest" checkpoint for this log.
 		conP, err = opts.FetchProof(ctx, latestCP, cpSubmit)
 		if err != nil {
-			glog.Warningf("%s: failed to fetch consistency proof: %v", wSigV.Name(), err)
-			continue
+			return fmt.Errorf("%s: failed to fetch consistency proof: %v", wSigV.Name(), err)
 		}
 		glog.V(2).Infof("%s: %s %d -> %d proof: %x", wSigV.Name(), opts.LogSigVerifier.Name(), latestCP.Size, cpSubmit.Size, conP)
 
-		if cp, err := opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
-			glog.Warningf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
-			continue
-		} else {
-			return cp, nil
+		if returnCp, err = opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
+			return fmt.Errorf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
 		}
+		return nil
 	}
+
+	err := backoff.Retry(submitOp, backoff.WithContext(backoff.NewExponentialBackOff(), ctx))
+	return returnCp, err
 }

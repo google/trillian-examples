@@ -72,8 +72,7 @@ func main() {
 		glog.Exitf("Failed to parse witness URL %q: %v", cfg.Witness.URL, err)
 	}
 	witness := wit_http.Witness{
-		URL:      u,
-		Verifier: mustCreateVerifier(i_note.Note, cfg.Witness.PublicKey),
+		URL: u,
 	}
 
 	ctx := context.Background()

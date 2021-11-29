@@ -34,8 +34,6 @@ var ErrNoSignaturesAdded = errors.New("no additional signatures added")
 
 // Witness describes the operations the feeder needs to interact with a witness.
 type Witness interface {
-	// SigVerifier returns a verifier which can check signatures from this witness.
-	SigVerifier() note.Verifier
 	// GetLatestCheckpoint returns the latest checkpoint the witness holds for the given logID.
 	// Must return os.ErrNotExists if the logID is known, but it has no checkpoint for that log.
 	GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error)
@@ -83,12 +81,9 @@ func FeedOnce(ctx context.Context, opts FeedOpts) ([]byte, error) {
 
 	glog.Infof("CP to feed:\n%s", string(cp))
 
-	cpSubmit, _, n, err := log.ParseCheckpoint(cp, opts.LogOrigin, opts.LogSigVerifier, opts.Witness.SigVerifier())
+	cpSubmit, _, _, err := log.ParseCheckpoint(cp, opts.LogOrigin, opts.LogSigVerifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse checkpoint: %v", err)
-	}
-	if len(n.Sigs) == 2 {
-		return cp, ErrNoSignaturesAdded
 	}
 
 	wCP, err := submitToWitness(ctx, cp, *cpSubmit, opts)
@@ -125,50 +120,44 @@ func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 
 // submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.
 func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, opts FeedOpts) ([]byte, error) {
-	wSigV := opts.Witness.SigVerifier()
-
 	var returnCp []byte
 	submitOp := func() error {
 		latestCPRaw, err := opts.Witness.GetLatestCheckpoint(ctx, opts.LogID)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("%s: failed to fetch latest CP: %v", wSigV.Name(), err)
+			return fmt.Errorf("failed to fetch latest CP from witness: %v", err)
 		}
 
 		var conP [][]byte
 		var latestCP log.Checkpoint
 		if len(latestCPRaw) > 0 {
-			cp, _, n, err := log.ParseCheckpoint(latestCPRaw, opts.LogOrigin, opts.LogSigVerifier, wSigV)
+			cp, _, _, err := log.ParseCheckpoint(latestCPRaw, opts.LogOrigin, opts.LogSigVerifier)
 			if err != nil {
-				return fmt.Errorf("%s: failed to parse CP: %v", wSigV.Name(), err)
+				return fmt.Errorf("failed to parse CP from witness: %v", err)
 			}
 			latestCP = *cp
 
-			if numSigs := len(n.Sigs); numSigs != 2 {
-				return backoff.Permanent(errors.New("checkpoint from witness was not signed by at least log + witness"))
-			}
-
 			if latestCP.Size > cpSubmit.Size {
-				return backoff.Permanent(fmt.Errorf("%s: witness checkpoint size (%d) > submit checkpoint size (%d)", wSigV.Name(), latestCP.Size, cpSubmit.Size))
+				return backoff.Permanent(fmt.Errorf("witness checkpoint size (%d) > submit checkpoint size (%d)", latestCP.Size, cpSubmit.Size))
 			}
 			if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
-				glog.V(1).Infof("got sig from witness: %v", wSigV.Name())
+				glog.V(1).Info("got sig from witness")
 				returnCp = latestCPRaw
 				return nil
 			}
 		}
 
-		glog.V(1).Infof("%s: %q grew - @%d: %x → @%d: %x", wSigV.Name(), opts.LogSigVerifier.Name(), latestCP.Size, latestCP.Hash, cpSubmit.Size, cpSubmit.Hash)
+		glog.V(1).Infof("%q grew - @%d: %x → @%d: %x", opts.LogSigVerifier.Name(), latestCP.Size, latestCP.Hash, cpSubmit.Size, cpSubmit.Hash)
 
-		// The witness may be configured to expect a compact-range type proof, so we need to always
+		// The witness may be configured to expect a coct-range type proof, so we need to always
 		// try to build one, even if the witness doesn't have a "latest" checkpoint for this log.
 		conP, err = opts.FetchProof(ctx, latestCP, cpSubmit)
 		if err != nil {
-			return fmt.Errorf("%s: failed to fetch consistency proof: %v", wSigV.Name(), err)
+			return fmt.Errorf("failed to fetch consistencyroof: %v", err)
 		}
-		glog.V(2).Infof("%s: %s %d -> %d proof: %x", wSigV.Name(), opts.LogSigVerifier.Name(), latestCP.Size, cpSubmit.Size, conP)
+		glog.V(2).Infof("%s %d -> %d proof: %x", opts.LogSigVerifier.Name(), latestCP.Size, cpSubmit.Size, conP)
 
 		if returnCp, err = opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
-			return fmt.Errorf("%s: failed to submit checkpoint to witness: %v", wSigV.Name(), err)
+			return fmt.Errorf("failed to submit checkpoint to witness: %v", err)
 		}
 		return nil
 	}

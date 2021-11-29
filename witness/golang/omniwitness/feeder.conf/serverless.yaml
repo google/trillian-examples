@@ -1,0 +1,7 @@
+Logs:
+  - Origin: Armory Drive Prod 2
+    PublicKey: armory-drive-log+16541b8f+AYDPmG5pQp4Bgu0a1mr5uDZ196+t8lIVIfWQSPWmP+Jv
+    URL: https://raw.githubusercontent.com/f-secure-foundry/armory-drive-log/master/log/
+
+Witness:
+  URL: http://witness:8100

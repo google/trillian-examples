@@ -1,0 +1,118 @@
+version: '3.2'
+services:
+  witness:
+    image: gcr.io/trillian-opensource-ci/witness:${WITNESS_VERSION}
+    volumes:
+        - type: volume
+          source: data
+          target: /data
+          volume:
+            nocopy: true
+        - type: bind
+          source: ./witness.conf
+          target: /witness-config
+          read_only: true
+    command:
+      - "--listen=:8100"
+      - "--db_file=/data/witness.sqlite"
+      - "--private_key=${WITNESS_PRIVATE_KEY}"
+      - "--config_file=/witness-config/witness.yaml"
+      - "--logtostderr"
+    restart: always
+    ports:
+      - "8100:8100"
+  sumdb.feeder:
+    depends_on:
+      - witness
+    image: gcr.io/trillian-opensource-ci/sumdb-feeder:${WITNESS_VERSION}
+    command:
+      - "--w=http://witness:8100"
+      - "--wk=${WITNESS_PUBLIC_KEY}"
+      - "--poll=5m"
+      - "--alsologtostderr"
+      - "--v=1"
+    restart: always
+  rekor.feeder:
+    depends_on:
+      - witness
+    image: gcr.io/trillian-opensource-ci/rekor-feeder:${WITNESS_VERSION}
+    command:
+      - "--config_file=/feeder-config/rekor.yaml"
+      - "--interval=5m"
+      - "--alsologtostderr"
+      - "--v=1"
+    restart: always
+    volumes:
+      - type: bind
+        source: ./feeder.conf
+        target: /feeder-config
+  pixel.feeder:
+    depends_on:
+      - witness
+    image: gcr.io/trillian-opensource-ci/pixel-bt-feeder:${WITNESS_VERSION}
+    command:
+      - "--config_file=/feeder-config/pixel.yaml"
+      - "--interval=5m"
+      - "--alsologtostderr"
+      - "--v=1"
+    restart: always
+    volumes:
+      - type: bind
+        source: ./feeder.conf
+        target: /feeder-config
+  serverless.feeder:
+    depends_on:
+      - witness
+    image: gcr.io/trillian-opensource-ci/serverless-feeder:${WITNESS_VERSION}
+    command:
+      - "--config_file=/feeder-config/serverless.yaml"
+      - "--interval=5m"
+      - "--alsologtostderr"
+      - "--v=1"
+    restart: always
+    volumes:
+      - type: bind
+        source: ./feeder.conf
+        target: /feeder-config
+  mhutchinson.distributor:
+    depends_on:
+      - witness
+    image: gcr.io/trillian-opensource-ci/distribute-to-github:${WITNESS_VERSION}
+    command:
+      - "--fork_repo=${MHUTCHINSON_DISTRIBUTOR_FORK}"
+      - "--distributor_repo=mhutchinson/mhutchinson-distributor"
+      - "--config_file=/distributor-config/witness.yaml" # todo, can this be the actual witness.config ?
+      - "--distributor_path=distributor"
+      - "--distributor_branch=main"
+      - "--interval=5m"
+      - "--alsologtostderr"
+      - "--v=1"
+    env_file:
+      - .env
+    restart: always
+    volumes:
+      - type: bind
+        source: ./distributor.conf
+        target: /distributor-config
+  wolseybank.distributor:
+    depends_on:
+      - witness
+    image: gcr.io/trillian-opensource-ci/distribute-to-github:${WITNESS_VERSION}
+    command:
+      - "--fork_repo=${WOLSEY_BANK_FORK}"
+      - "--distributor_repo=WolseyBankWitness/rediffusion"
+      - "--config_file=/distributor-config/witness.yaml" # todo, can this be the actual witness.config ?
+      - "--distributor_path=."
+      - "--distributor_branch=main"
+      - "--interval=5m"
+      - "--alsologtostderr"
+      - "--v=1"
+    env_file:
+      - .env
+    restart: always
+    volumes:
+      - type: bind
+        source: ./distributor.conf
+        target: /distributor-config
+volumes:
+  data:

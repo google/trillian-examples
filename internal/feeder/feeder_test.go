@@ -54,8 +54,7 @@ func TestFeedOnce(t *testing.T) {
 		}, {
 			desc:     "works - TOFU feed",
 			submitCP: testdata.Checkpoint(t, 2),
-			witness: &fakeWitness{
-			},
+			witness:  &fakeWitness{},
 		}, {
 			desc:     "works - submitCP == latest",
 			submitCP: testdata.Checkpoint(t, 1),

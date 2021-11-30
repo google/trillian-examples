@@ -57,6 +57,7 @@ var (
 	distributorBranch = flag.String("distributor_branch", "master", "The branch that PRs will be proposed against on the distributor_repo.")
 	forkRepo          = flag.String("fork_repo", "", "The repo owner/fragment from the feeder (forked distributor) repo URL.")
 	distributorPath   = flag.String("distributor_path", "", "Path from the root of the repo where the distributor files can be found.")
+	witSigV           = flag.String("witness_vkey", "", "Witness public key.")
 	configPath        = flag.String("config_file", "", "Path to the config file for the serverless/cmd/feeder command.")
 	interval          = flag.Duration("interval", time.Duration(0), "Interval between checkpoints. Default of 0 causes the tool to be a one-shot.")
 )
@@ -103,6 +104,7 @@ func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 	checkNotEmpty("Missing required --fork_repo flag", *forkRepo)
 	checkNotEmpty("Missing required --distributor_path flag", *distributorPath)
 	checkNotEmpty("Missing required --config_file flag", *configPath)
+	checkNotEmpty("Missing required --witness_vkey flag", *witSigV)
 
 	// Check env vars
 	githubAuthToken := os.Getenv("GITHUB_AUTH_TOKEN")
@@ -131,7 +133,7 @@ func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 	if err != nil {
 		glog.Exitf("Failed to parse witness URL %q: %v", cfg.Witness.URL, err)
 	}
-	wSigV, err := note.NewVerifier(cfg.Witness.PublicKey)
+	wSigV, err := note.NewVerifier(*witSigV)
 	if err != nil {
 		glog.Exitf("Invalid witness public key for url %q: %v", cfg.Witness.URL, err)
 	}

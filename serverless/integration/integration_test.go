@@ -88,7 +88,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		}
 
 		// State tracker will verify consistency of larger tree
-		if err := lst.Update(ctx); err != nil {
+		if _, _, _, err := lst.Update(ctx); err != nil {
 			t.Fatalf("Failed to update tracked log state: %q", err)
 		}
 		newCheckpoint := lst.LatestConsistent

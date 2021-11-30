@@ -350,7 +350,8 @@ func NewLogStateTracker(ctx context.Context, f Fetcher, h merkle.LogHasher, chec
 		ret.LatestConsistent = *cp
 		return ret, nil
 	}
-	return ret, ret.Update(ctx)
+	_, _, _, err := ret.Update(ctx)
+	return ret, err
 }
 
 // ErrInconsistency should be returned when there has been an error proving consistency
@@ -378,23 +379,27 @@ func (e ErrInconsistency) Error() string {
 // If a more recent logstate is found, this method will attempt to prove
 // that it is consistent with the local state before updating the tracker's
 // view.
-func (lst *LogStateTracker) Update(ctx context.Context) error {
+// Returns the old checkpoint, consistency proof, and newer checkpoint used to update.
+// If the LatestConsistent checkpoint is 0 sized, no consistency proof will be returned
+// since it would be meaningless to do so.
+func (lst *LogStateTracker) Update(ctx context.Context) ([]byte, [][]byte, []byte, error) {
 	c, cRaw, err := lst.ConsensusCheckpoint(ctx, lst.CpSigVerifier, lst.Origin)
 	if err != nil {
-		return err
+		return nil, nil, nil, err
 	}
+	var p [][]byte
 	if lst.LatestConsistent.Size > 0 {
 		if c.Size > lst.LatestConsistent.Size {
 			builder, err := NewProofBuilder(ctx, *c, lst.Hasher.HashChildren, lst.Fetcher)
 			if err != nil {
-				return fmt.Errorf("failed to create proof builder: %w", err)
+				return nil, nil, nil, fmt.Errorf("failed to create proof builder: %w", err)
 			}
-			p, err := builder.ConsistencyProof(ctx, lst.LatestConsistent.Size, c.Size)
+			p, err = builder.ConsistencyProof(ctx, lst.LatestConsistent.Size, c.Size)
 			if err != nil {
-				return err
+				return nil, nil, nil, err
 			}
 			if err := lst.Verifier.VerifyConsistencyProof(int64(lst.LatestConsistent.Size), int64(c.Size), lst.LatestConsistent.Hash, c.Hash, p); err != nil {
-				return ErrInconsistency{
+				return nil, nil, nil, ErrInconsistency{
 					SmallerRaw: lst.LatestConsistentRaw,
 					LargerRaw:  cRaw,
 					Proof:      p,
@@ -403,8 +408,9 @@ func (lst *LogStateTracker) Update(ctx context.Context) error {
 			}
 		}
 	}
+	oldRaw := lst.LatestConsistentRaw
 	lst.LatestConsistentRaw, lst.LatestConsistent = cRaw, *c
-	return nil
+	return oldRaw, p, lst.LatestConsistentRaw, nil
 }
 
 // CheckConsistency is a wapper function which simplifies verifying consistency between two or more checkpoints.

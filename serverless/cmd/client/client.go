@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
@@ -73,10 +75,14 @@ var (
 	origin              = flag.String("origin", "", "Expected first line of checkpoints from log")
 	witnessPubKeyFiles  = flagStringList("witness_public_key", "File containing witness public key (can specify this flag repeatedly)")
 	witnessSigsRequired = flag.Int("witness_sigs_required", 0, "Minimum number of witness signatures required for consensus")
+	outputCheckpoint    = flag.String("output_checkpoint", "", "If set, the update command will write the latest verified consistent checkpoint to this file")
+	outputConsistency   = flag.String("output_consistency_proof", "", "If set, the update and consistency commands will write the verified consistency proof used to update the checkpoint to this file")
+	outputInclusion     = flag.String("output_inclusion_proof", "", "If set, the inclusion command will write the verified inclusion proof to this file")
 )
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Please specify one of the commands and its arguments:\n")
+	fmt.Fprintf(os.Stderr, "  consistency <from-size> <to-size>\n - build consistency proof between two log sizes\n")
 	fmt.Fprintf(os.Stderr, "  inclusion <file> [index-in-log]\n - verify inclusion of a file in the log\n")
 	fmt.Fprintf(os.Stderr, "  update - force the client to update its latest checkpoint\n")
 	os.Exit(-1)
@@ -129,6 +135,8 @@ func main() {
 		usage()
 	}
 	switch args[0] {
+	case "consistency":
+		err = lc.consistencyProof(ctx, args[1:])
 	case "inclusion":
 		err = lc.inclusionProof(ctx, args[1:])
 	case "update":
@@ -197,6 +205,43 @@ func newLogClientTool(ctx context.Context, logID string, logFetcher client.Fetch
 	}, nil
 }
 
+func (l *logClientTool) consistencyProof(ctx context.Context, args []string) error {
+	if l := len(args); l != 2 {
+		return fmt.Errorf("usage: consistency <from-size> <to-size>")
+	}
+
+	from, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid from-size %q: %w", args[1], err)
+	}
+	to, err := strconv.ParseUint(args[1], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid to-size %q: %w", args[1], err)
+	}
+	if from >= to {
+		return errors.New("from-size must be less than to-size")
+	}
+
+	builder, err := client.NewProofBuilder(ctx, l.Tracker.LatestConsistent, l.Hasher.HashChildren, l.Fetcher)
+	if err != nil {
+		return fmt.Errorf("failed to create proof builder: %w", err)
+	}
+
+	p, err := builder.ConsistencyProof(ctx, from, to)
+	if err != nil {
+		return fmt.Errorf("failed to build consistency proof: %w", err)
+	}
+
+	glog.V(1).Infof("Built consistency proof: %#x", p)
+
+	if o := *outputConsistency; len(o) > 0 {
+		if err := ioutil.WriteFile(o, []byte(proof(p).Marshal()), 0644); err != nil {
+			return fmt.Errorf("failed to write inclusion proof to %q: %v", o, err)
+		}
+	}
+	return nil
+}
+
 func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error {
 	if l := len(args); l < 1 || l > 2 {
 		return fmt.Errorf("usage: inclusion <file> [index-in-log]")
@@ -229,15 +274,22 @@ func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error
 		return fmt.Errorf("failed to create proof builder: %w", err)
 	}
 
-	proof, err := builder.InclusionProof(ctx, idx)
+	p, err := builder.InclusionProof(ctx, idx)
 	if err != nil {
 		return fmt.Errorf("failed to get inclusion proof: %w", err)
 	}
 
-	glog.V(1).Infof("Built inclusion proof: %#x", proof)
+	glog.V(1).Infof("Built inclusion proof: %#x", p)
 
-	if err := l.Verifier.VerifyInclusionProof(int64(idx), int64(cp.Size), proof, cp.Hash, lh); err != nil {
+	if err := l.Verifier.VerifyInclusionProof(int64(idx), int64(cp.Size), p, cp.Hash, lh); err != nil {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
+	}
+
+	if o := *outputInclusion; len(o) > 0 {
+		ps := []byte(proof(p).Marshal())
+		if err := ioutil.WriteFile(o, ps, 0644); err != nil {
+			glog.Warningf("Failed to write inclusion proof to %q: %v", o, err)
+		}
 	}
 
 	glog.Infof("Inclusion verified under checkpoint:\n%s", cp.Marshal())
@@ -252,13 +304,25 @@ func (l *logClientTool) updateCheckpoint(ctx context.Context, args []string) err
 	glog.V(1).Infof("Original checkpoint:\n%s", l.Tracker.LatestConsistentRaw)
 	cp := l.Tracker.LatestConsistent
 
-	if err := l.Tracker.Update(ctx); err != nil {
+	_, p, newCPRaw, err := l.Tracker.Update(ctx)
+	if err != nil {
 		return fmt.Errorf("failed to update checkpoint: %w", err)
 	}
 
 	if lcp := l.Tracker.LatestConsistent; lcp.Size == cp.Size {
 		glog.Info("Log hasn't grown, nothing to update.")
 		return nil
+	}
+
+	if o := *outputCheckpoint; len(o) > 0 {
+		if err := ioutil.WriteFile(o, newCPRaw, 0644); err != nil {
+			glog.Warningf("Failed to write latest checkpint to %q: %v", o, err)
+		}
+	}
+	if o := *outputConsistency; len(o) > 0 {
+		if err := ioutil.WriteFile(o, []byte(proof(p).Marshal()), 0644); err != nil {
+			glog.Warningf("Failed to write consistency proof to %q: %v", o, err)
+		}
 	}
 
 	glog.Infof("Updated checkpoint:\n%s", l.Tracker.LatestConsistentRaw)
@@ -392,4 +456,17 @@ func distributors() ([]client.Fetcher, error) {
 		distribs = append(distribs, newFetcher(u))
 	}
 	return distribs, nil
+}
+
+// proof represents Merkle proofs.
+type proof [][]byte
+
+// Marshal returns a simple string-based representation of the proof.
+func (p proof) Marshal() string {
+	b := strings.Builder{}
+	for _, l := range p {
+		b.WriteString(base64.StdEncoding.EncodeToString(l))
+		b.WriteRune('\n')
+	}
+	return b.String()
 }

@@ -101,11 +101,16 @@ func main() {
 		logID = log.ID(*origin, pubK)
 	}
 
-	if len(*logURL) == 0 {
+	u := *logURL
+	if len(u) == 0 {
 		glog.Exitf("--log_url must be provided")
 	}
+	// url must reference a directory, by definition
+	if !strings.HasSuffix(u, "/") {
+		u += "/"
+	}
 
-	rootURL, err := url.Parse(*logURL)
+	rootURL, err := url.Parse(u)
 	if err != nil {
 		glog.Exitf("Invalid log URL: %v", err)
 	}

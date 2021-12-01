@@ -21,6 +21,7 @@ services:
     restart: always
     ports:
       - "8100:8100"
+
   sumdb.feeder:
     depends_on:
       - witness
@@ -32,6 +33,7 @@ services:
       - "--alsologtostderr"
       - "--v=1"
     restart: always
+
   rekor.feeder:
     depends_on:
       - witness
@@ -46,6 +48,7 @@ services:
       - type: bind
         source: ./feeder.conf
         target: /feeder-config
+
   pixel.feeder:
     depends_on:
       - witness
@@ -60,6 +63,7 @@ services:
       - type: bind
         source: ./feeder.conf
         target: /feeder-config
+
   serverless.feeder:
     depends_on:
       - witness
@@ -74,14 +78,16 @@ services:
       - type: bind
         source: ./feeder.conf
         target: /feeder-config
+
   mhutchinson.distributor:
     depends_on:
       - witness
     image: gcr.io/trillian-opensource-ci/distribute-to-github:${WITNESS_VERSION}
     command:
       - "--fork_repo=${MHUTCHINSON_DISTRIBUTOR_FORK}"
+      - "--witness_vkey=${WITNESS_PUBLIC_KEY}"
       - "--distributor_repo=mhutchinson/mhutchinson-distributor"
-      - "--config_file=/distributor-config/witness.yaml" # todo, can this be the actual witness.config ?
+      - "--config_file=/distributor-config/witness.yaml"
       - "--distributor_path=distributor"
       - "--distributor_branch=main"
       - "--interval=5m"
@@ -94,14 +100,16 @@ services:
       - type: bind
         source: ./distributor.conf
         target: /distributor-config
+
   wolseybank.distributor:
     depends_on:
       - witness
     image: gcr.io/trillian-opensource-ci/distribute-to-github:${WITNESS_VERSION}
     command:
       - "--fork_repo=${WOLSEY_BANK_FORK}"
+      - "--witness_vkey=${WITNESS_PUBLIC_KEY}"
       - "--distributor_repo=WolseyBankWitness/rediffusion"
-      - "--config_file=/distributor-config/witness.yaml" # todo, can this be the actual witness.config ?
+      - "--config_file=/distributor-config/witness.yaml"
       - "--distributor_path=."
       - "--distributor_branch=main"
       - "--interval=5m"

@@ -1,0 +1,19 @@
+Logs:
+  - Origin: go.sum database tree
+    PublicKey: sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8
+    URL: https://sum.golang.org
+  - Origin: Armory Drive Prod 2
+    PublicKey: armory-drive-log+16541b8f+AYDPmG5pQp4Bgu0a1mr5uDZ196+t8lIVIfWQSPWmP+Jv
+    URL: https://raw.githubusercontent.com/f-secure-foundry/armory-drive-log/master/log/
+  - Origin: Rekor
+    PublicKeyType: ecdsa
+    PublicKey: rekor.sigstore.dev+c0d23d6a+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc=
+    URL: https://rekor.sigstore.dev
+  - Origin: DEFAULT
+    PublicKeyType: ecdsa
+    PublicKey: Pixel-Transparency-Log-2021+72c878db+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFPN7lzVIk2BOd3Nk33VpqqVttGwV8uChH+RX/HVfBiypVQFyh8o8Ny6fSdxNMgkSf9/VynrgADBeys0r4Q9uPA=
+    URL: https://developers.google.com/android/binary_transparency/
+
+Witness:
+  URL: http://witness:8100
+

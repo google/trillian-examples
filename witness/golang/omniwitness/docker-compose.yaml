@@ -84,7 +84,7 @@ services:
       - witness
     image: gcr.io/trillian-opensource-ci/distribute-to-github:${WITNESS_VERSION}
     command:
-      - "--fork_repo=${MHUTCHINSON_DISTRIBUTOR_FORK}"
+      - "--fork_repo=${GIT_USERNAME}/mhutchinson-distributor"
       - "--witness_vkey=${WITNESS_PUBLIC_KEY}"
       - "--distributor_repo=mhutchinson/mhutchinson-distributor"
       - "--config_file=/distributor-config/witness.yaml"
@@ -106,7 +106,7 @@ services:
       - witness
     image: gcr.io/trillian-opensource-ci/distribute-to-github:${WITNESS_VERSION}
     command:
-      - "--fork_repo=${WOLSEY_BANK_FORK}"
+      - "--fork_repo=${GIT_USERNAME}/rediffusion"
       - "--witness_vkey=${WITNESS_PUBLIC_KEY}"
       - "--distributor_repo=WolseyBankWitness/rediffusion"
       - "--config_file=/distributor-config/witness.yaml"

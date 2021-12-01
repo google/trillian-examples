@@ -9,7 +9,7 @@ services:
           volume:
             nocopy: true
         - type: bind
-          source: ./witness.conf
+          source: ./witness_configs
           target: /witness-config
           read_only: true
     command:
@@ -46,7 +46,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: ./feeder.conf
+        source: ./feeder_configs
         target: /feeder-config
 
   pixel.feeder:
@@ -61,7 +61,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: ./feeder.conf
+        source: ./feeder_configs
         target: /feeder-config
 
   serverless.feeder:
@@ -76,7 +76,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: ./feeder.conf
+        source: ./feeder_configs
         target: /feeder-config
 
   mhutchinson.distributor:
@@ -98,7 +98,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: ./distributor.conf
+        source: ./distributor_configs
         target: /distributor-config
 
   wolseybank.distributor:
@@ -120,7 +120,7 @@ services:
     restart: always
     volumes:
       - type: bind
-        source: ./distributor.conf
+        source: ./distributor_configs
         target: /distributor-config
 volumes:
   data:

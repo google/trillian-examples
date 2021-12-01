@@ -15,15 +15,12 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"net/url"
 )
 
 // Log describes a witness in a config file.
 type Witness struct {
-	// PublicKey used to verify checkpoints are signed by this witness.
-	PublicKey string `yaml:"PublicKey"`
 	// URL is the URL of the root of the witness.
 	// This is optional if direct witness communication is not required.
 	URL string `yaml:"URL"`
@@ -31,9 +28,6 @@ type Witness struct {
 
 // Validate checks that the witness configuration is valid.
 func (w Witness) Validate() error {
-	if w.PublicKey == "" {
-		return errors.New("missing field: PublicKey")
-	}
 	if w.URL != "" {
 		if _, err := url.Parse(w.URL); err != nil {
 			return fmt.Errorf("unparseable URL: %v", err)

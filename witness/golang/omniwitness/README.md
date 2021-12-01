@@ -1,6 +1,7 @@
 # The OmniWitness
 
-This is a docker configuration that allows a witness to be deployed that will witness checkpoints from all known logs.
+This is a docker configuration that allows a witness to be deployed that will witness checkpoints from all known logs
+that have a valid note Checkpoint format (logs are explicitly listed in `./witness_configs/witness.yaml`).
 Features:
  * The witness will expose port 8100 outside of the container
    * This can be exposed to other machines if you wish to use the witness as a distributor

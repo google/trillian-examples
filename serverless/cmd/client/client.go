@@ -314,16 +314,17 @@ func (l *logClientTool) updateCheckpoint(ctx context.Context, args []string) err
 		return fmt.Errorf("failed to update checkpoint: %w", err)
 	}
 
-	if lcp := l.Tracker.LatestConsistent; lcp.Size == cp.Size {
-		glog.Info("Log hasn't grown, nothing to update.")
-		return nil
-	}
-
 	if o := *outputCheckpoint; len(o) > 0 {
 		if err := ioutil.WriteFile(o, newCPRaw, 0644); err != nil {
 			glog.Warningf("Failed to write latest checkpint to %q: %v", o, err)
 		}
 	}
+
+	if lcp := l.Tracker.LatestConsistent; lcp.Size == cp.Size {
+		glog.Info("Log hasn't grown, nothing to update.")
+		return nil
+	}
+
 	if o := *outputConsistency; len(o) > 0 {
 		if err := ioutil.WriteFile(o, []byte(proof(p).Marshal()), 0644); err != nil {
 			glog.Warningf("Failed to write consistency proof to %q: %v", o, err)

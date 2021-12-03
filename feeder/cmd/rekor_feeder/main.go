@@ -17,24 +17,18 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"net/url"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian-examples/internal/feeder"
+	"github.com/google/trillian-examples/internal/feeder/rekor"
 	"github.com/google/trillian-examples/serverless/config"
-	"golang.org/x/mod/sumdb/note"
 
-	i_note "github.com/google/trillian-examples/internal/note"
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -76,7 +70,7 @@ func main() {
 		wg.Add(1)
 		go func(l config.Log, w wit_http.Witness) {
 			defer wg.Done()
-			if err := feedLog(ctx, l, witness, *timeout, *interval); err != nil {
+			if err := rekor.FeedLog(ctx, l, witness, *timeout, *interval); err != nil {
 				glog.Errorf("feedLog: %v", err)
 			}
 		}(l, witness)
@@ -84,108 +78,6 @@ func main() {
 	wg.Wait()
 }
 
-// logInfo is a partial representation of the JSON object returned by Rekór's
-// api/v1/log request.
-type logInfo struct {
-	// SignedTreeHead contains a Rekór checkpoint.
-	SignedTreeHead string `json:"signedTreeHead"`
-}
-
-// proof is a partial representation of the JSON struct returned by the Rekór
-// api/v1/log/proof request.
-type proof struct {
-	Hashes []string `json:"hashes"`
-}
-
-func feedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time.Duration, interval time.Duration) error {
-	lURL, err := url.Parse(l.URL)
-	if err != nil {
-		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
-	}
-
-	fetchCP := func(ctx context.Context) ([]byte, error) {
-		li := logInfo{}
-		if err := getJSON(ctx, lURL, "api/v1/log", &li); err != nil {
-			return nil, fmt.Errorf("failed to fetch log info: %v", err)
-		}
-		return []byte(li.SignedTreeHead), nil
-	}
-	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
-		if from.Size == 0 {
-			return [][]byte{}, nil
-		}
-		cp := proof{}
-		if err := getJSON(ctx, lURL, fmt.Sprintf("api/v1/log/proof?firstSize=%d&lastSize=%d", from.Size, to.Size), &cp); err != nil {
-			return nil, fmt.Errorf("failed to fetch log info: %v", err)
-		}
-		var err error
-		p := make([][]byte, len(cp.Hashes))
-		for i := range cp.Hashes {
-			p[i], err = hex.DecodeString(cp.Hashes[i])
-			if err != nil {
-				return nil, fmt.Errorf("invalid proof element at %d: %v", i, err)
-			}
-		}
-		return p, nil
-	}
-
-	opts := feeder.FeedOpts{
-		LogID:           l.ID,
-		LogOrigin:       l.Origin,
-		FetchCheckpoint: fetchCP,
-		FetchProof:      fetchProof,
-		LogSigVerifier:  mustCreateVerifier(l.PublicKeyType, l.PublicKey),
-		Witness:         w,
-	}
-	if interval > 0 {
-		return feeder.Run(ctx, interval, opts)
-	}
-	_, err = feeder.FeedOnce(ctx, opts)
-	return err
-}
-
-func getJSON(ctx context.Context, base *url.URL, path string, s interface{}) error {
-	u, err := base.Parse(path)
-	if err != nil {
-		return fmt.Errorf("failed to parse URL: %v", err)
-	}
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
-	}
-	req = req.WithContext(ctx)
-
-	rsp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to make request to %q: %v", u.String(), err)
-	}
-	defer rsp.Body.Close()
-
-	if rsp.StatusCode == 404 {
-		return os.ErrNotExist
-	}
-	if rsp.StatusCode != 200 {
-		return fmt.Errorf("unexpected status fetching %q: %s", u.String(), rsp.Status)
-	}
-
-	raw, err := ioutil.ReadAll(rsp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read body from %q: %v", u.String(), err)
-	}
-	if err := json.Unmarshal(raw, s); err != nil {
-		glog.Infof("Got body:\n%s", string(raw))
-		return fmt.Errorf("failed to unmarshal JSON: %v", err)
-	}
-	return nil
-}
-
-func mustCreateVerifier(t, pub string) note.Verifier {
-	v, err := i_note.NewVerifier(t, pub)
-	if err != nil {
-		glog.Exitf("Failed to create signature verifier from %q: %v", pub, err)
-	}
-	return v
-}
 func readConfig(f string) (*Config, error) {
 	c, err := ioutil.ReadFile(f)
 	if err != nil {

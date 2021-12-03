@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package internal holds some private helper functions for the Pixel BT feeder.
-package internal
+package pixelbt
 
 import (
 	"bytes"
@@ -26,11 +25,11 @@ import (
 	"unicode/utf8"
 )
 
-// ConvertToNote converts a the PixelBT checkpoint to a valid Note.
+// convertToNote converts a the PixelBT checkpoint to a valid Note.
 //
 // Hopefully we won't need this for too long, and PixelBT will update their checkpoint format to make it
 // fully compatible.
-func ConvertToNote(pixelCP, keyName string, keyHash uint32) ([]byte, error) {
+func convertToNote(pixelCP, keyName string, keyHash uint32) ([]byte, error) {
 	split := strings.LastIndex(pixelCP, "\n\n")
 	if split < 0 {
 		return nil, fmt.Errorf("invalid Pixel CP %q", pixelCP)

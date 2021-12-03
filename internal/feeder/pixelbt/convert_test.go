@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package pixelbt
 
 import (
 	"bytes"
@@ -64,7 +64,7 @@ func TestConvertToNote(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			got, err := ConvertToNote(test.cpTxt, test.keyName, test.keyHash)
+			got, err := convertToNote(test.cpTxt, test.keyName, test.keyHash)
 			if gotErr := err != nil; gotErr != test.wantErr {
 				t.Fatalf("ToNote = %v, want no error", err)
 			}

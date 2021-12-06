@@ -25,7 +25,7 @@ import (
 	"unicode/utf8"
 )
 
-// convertToNote converts a the PixelBT checkpoint to a valid Note.
+// convertToNote converts a PixelBT checkpoint to a valid Note.
 //
 // Hopefully we won't need this for too long, and PixelBT will update their checkpoint format to make it
 // fully compatible.

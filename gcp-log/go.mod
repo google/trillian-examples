@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	cloud.google.com/go/storage v1.18.2
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/google/trillian-examples v0.0.0-20211207131118-581cc02967e1
 	github.com/transparency-dev/merkle v0.0.0-20211104134637-a76aeeada497
 	golang.org/x/mod v0.5.1

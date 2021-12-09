@@ -6,7 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	golog "log"
 	"net/http"
 	"os"
 
@@ -14,6 +14,7 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
+	"github.com/gcp_serverless_module/internal/log"
 	"github.com/gcp_serverless_module/internal/storage"
 )
 
@@ -26,7 +27,7 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
-		log.Printf("json.NewDecoder: %v", err)
+		golog.Printf("json.NewDecoder: %v", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -64,6 +65,8 @@ func Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var cpNote note.Note
+	h := rfc6962.DefaultHasher
 	if d.Initialise {
 		if err := client.Create(ctx, d.StorageDir); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to create bucket for log: %v", err), http.StatusBadRequest)
@@ -71,14 +74,53 @@ func Run(w http.ResponseWriter, r *http.Request) {
 		}
 
 		cp := fmtlog.Checkpoint{
-			Hash: rfc6962.DefaultHasher.EmptyRoot(),
+			Hash: h.EmptyRoot(),
 		}
-		var cpNote note.Note
 		if err := signAndWrite(ctx, &cp, cpNote, s, client, d.Origin); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to sign: %q", err), http.StatusInternalServerError)
 		}
 		fmt.Fprintf(w, fmt.Sprintf("Initialised log at %s.", d.StorageDir))
 		return
+	}
+
+	// init storage
+	cpRaw, err := client.ReadCheckpoint(ctx)
+	if err != nil {
+		http.Error(w,
+			fmt.Sprintf("Failed to read log checkpoint: %q", err),
+			http.StatusInternalServerError)
+	}
+
+	// Check signatures
+	v, err := note.NewVerifier(pubKey)
+	if err != nil {
+		http.Error(w,
+			fmt.Sprintf("Failed to instantiate Verifier: %q", err),
+			http.StatusInternalServerError)
+	}
+	cp, _, _, err := fmtlog.ParseCheckpoint(cpRaw, d.Origin, v)
+	if err != nil {
+		http.Error(w,
+			fmt.Sprintf("Failed to open Checkpoint: %q", err),
+			http.StatusInternalServerError)
+	}
+
+	// Integrate new entries
+	newCp, err := log.Integrate(ctx, *cp, client, h)
+	if err != nil {
+		http.Error(w,
+			fmt.Sprintf("Failed to integrate: %q", err),
+			http.StatusInternalServerError)
+	}
+	if newCp == nil {
+		http.Error(w, "Nothing to integrate", http.StatusInternalServerError)
+	}
+
+	err = signAndWrite(ctx, newCp, cpNote, s, client, d.Origin)
+	if err != nil {
+		http.Error(w,
+			fmt.Sprintf("Failed to sign: %q", err),
+			http.StatusInternalServerError)
 	}
 
 	return

@@ -215,9 +215,9 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 				return fmt.Errorf("failed to get object '%s' from bucket '%s': %v", tPath, c.rootDir, err)
 			}
 
-			o := bkt.Object(attrs.Name)
-			if err := o.Delete(ctx); err != nil {
-				return fmt.Errorf("failed to delete object '%s' from bucket '%s': %v", attrs.Name, c.rootDir, err)
+
+			if _, err := bkt.Object(attrs.Name).NewWriter(ctx).Write(t); err != nil {
+				return fmt.Errorf("failed to copy full tile to partials object '%s' in bucket '%s': %v", attrs.Name, c.rootDir, err)
 			}
 		}
 	}

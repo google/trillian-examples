@@ -23,7 +23,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 	var d struct {
 		Origin     string `json:"origin"`
 		Initialise bool   `json:"initialise"`
-		StorageDir string `json:"storageDir"`
+		Bucket string `json:"bucket"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
@@ -68,7 +68,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 	var cpNote note.Note
 	h := rfc6962.DefaultHasher
 	if d.Initialise {
-		if err := client.Create(ctx, d.StorageDir); err != nil {
+		if err := client.Create(ctx, d.Bucket); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to create bucket for log: %v", err), http.StatusBadRequest)
 			return
 		}
@@ -79,7 +79,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 		if err := signAndWrite(ctx, &cp, cpNote, s, client, d.Origin); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to sign: %q", err), http.StatusInternalServerError)
 		}
-		fmt.Fprintf(w, fmt.Sprintf("Initialised log at %s.", d.StorageDir))
+		fmt.Fprintf(w, fmt.Sprintf("Initialised log at %s.", d.Bucket))
 		return
 	}
 

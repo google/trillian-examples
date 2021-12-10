@@ -17,18 +17,18 @@ import (
 
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
 // The naming of the objects of the GCS object is:
-//  <rootDir>/leaves/aa/bb/cc/ddeeff...
-//  <rootDir>/leaves/pending/aabbccddeeff...
-//  <rootDir>/seq/aa/bb/cc/ddeeff...
-//  <rootDir>/tile/<level>/aa/bb/ccddee...
-//  <rootDir>/checkpoint
+//  leaves/aa/bb/cc/ddeeff...
+//  leaves/pending/aabbccddeeff...
+//  seq/aa/bb/cc/ddeeff...
+//  tile/<level>/aa/bb/ccddee...
+//  checkpoint
 //
 // The functions on this struct are not thread-safe.
 type Client struct {
 	gcsClient *gcs.Client
 	projectID string
-	// rootDir is the root directory where tree data will be stored.
-	rootDir string
+	// bucket is the name of the bucket where tree data will be stored.
+	bucket string
 	// nextSeq is a hint to the Sequence func as to what the next available
 	// sequence number is to help performance.
 	// Note that nextSeq may be <= than the actual next available number, but
@@ -50,29 +50,28 @@ func NewClient(ctx context.Context, projectID string) (*Client, error) {
 }
 
 // Create creates a new GCS bucket and returns an error on failure.
-// TODO(jayhou): is empty string for rootDir acceptable?
-func (c *Client) Create(ctx context.Context, rootDir string) error {
-	bkt := c.gcsClient.Bucket(rootDir)
+func (c *Client) Create(ctx context.Context, bucket string) error {
+	bkt := c.gcsClient.Bucket(bucket)
 
 	// If bucket has not been created, this returns error.
 	if _, err := bkt.Attrs(ctx); !errors.Is(err, gcs.ErrBucketNotExist) {
 		return fmt.Errorf("expected bucket '%s' to not be created yet (bucket attribute retrieval succeeded, expected error)",
-			rootDir)
+			bucket)
 	}
 
 	if err := bkt.Create(ctx, c.projectID, nil); err != nil {
-		return fmt.Errorf("failed to create bucket %q in project %s: %w", rootDir, c.projectID, err)
+		return fmt.Errorf("failed to create bucket %q in project %s: %w", bucket, c.projectID, err)
 	}
 	bkt.ACL().Set(ctx, gcs.AllUsers, gcs.RoleReader)
 
-	c.rootDir = rootDir
+	c.bucket = bucket
 	c.nextSeq = 0
 	return nil
 }
 
 // WriteCheckpoint stores a raw log checkpoint on GCS.
 func (c *Client) WriteCheckpoint(ctx context.Context, newCPRaw []byte) error {
-	bkt := c.gcsClient.Bucket(c.rootDir)
+	bkt := c.gcsClient.Bucket(c.bucket)
 	obj := bkt.Object(layout.CheckpointPath)
 	w := obj.NewWriter(ctx)
 	if _, err := w.Write(newCPRaw); err != nil {
@@ -83,7 +82,7 @@ func (c *Client) WriteCheckpoint(ctx context.Context, newCPRaw []byte) error {
 
 // ReadCheckpoint reads from GCS and returns the contents of the log checkpoint.
 func (c *Client) ReadCheckpoint(ctx context.Context) ([]byte, error) {
-	bkt := c.gcsClient.Bucket(c.rootDir)
+	bkt := c.gcsClient.Bucket(c.bucket)
 	obj := bkt.Object(layout.CheckpointPath)
 
 	r, err := obj.NewReader(ctx)
@@ -104,19 +103,19 @@ func (c *Client) ReadCheckpoint(ctx context.Context) ([]byte, error) {
 // partial tile for the given tree size at that location.
 func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*api.Tile, error) {
 	tileSize := layout.PartialTileSize(level, index, logSize)
-	bkt := c.gcsClient.Bucket(c.rootDir)
+	bkt := c.gcsClient.Bucket(c.bucket)
 
-	// Pass an empty rootDir because rootDir is our bucket name.
+	// Pass an empty rootDir since we don't need this concept in GCS.
 	objName := filepath.Join(layout.TilePath("", level, index, tileSize))
 	r, err := bkt.Object(objName).NewReader(ctx)
 	if err != nil {
-			return nil, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", objName, c.rootDir, err)
+			return nil, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", objName, c.bucket, err)
 	}
 	defer r.Close()
 
 	t, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read tile object '%s' in bucket '%s': %v", objName, c.rootDir, err)
+		return nil, fmt.Errorf("failed to read tile object '%s' in bucket '%s': %v", objName, c.bucket, err)
 	}
 
 	var tile api.Tile
@@ -133,9 +132,9 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
 
-	bkt := c.gcsClient.Bucket(c.rootDir)
+	bkt := c.gcsClient.Bucket(c.bucket)
 	for {
-		// Pass an empty rootDir because rootDir is our bucket name.
+		// Pass an empty rootDir since we don't need this concept in GCS.
 		sp := filepath.Join(layout.SeqPath("", end))
 
 		// Read the object in an anonymous function so that the reader gets closed
@@ -143,7 +142,7 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 		numSequenced, err := func() (uint64, error) {
 			r, err := bkt.Object(sp).NewReader(ctx)
 			if err != nil {
-					return end - begin, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", sp, c.rootDir, err)
+					return end - begin, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", sp, c.bucket, err)
 			}
 			defer r.Close()
 
@@ -184,16 +183,15 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 		return fmt.Errorf("failed to marshal tile: %w", err)
 	}
 
-	// Pass an empty rootDir because rootDir is our bucket name.
-	tDir, tFile := layout.TilePath("", level, index, tileSize%256)
-	tPath := filepath.Join(tDir, tFile)
+	bkt := c.gcsClient.Bucket(c.bucket)
 
-	bkt := c.gcsClient.Bucket(c.rootDir)
-	// Pass an empty rootDir because rootDir is our bucket name.
-	obj := bkt.Object(filepath.Join("", tPath))
+	// Pass an empty rootDir since we don't need this concept in GCS.
+	tPath := filepath.Join(layout.TilePath("", level, index, tileSize%256))
+	obj := bkt.Object(tPath)
+
 	w := obj.NewWriter(ctx)
 	if _, err := w.Write(t); err != nil {
-		return fmt.Errorf("failed to write tile object '%s' to bucket '%s': %w", tPath, c.rootDir, err)
+		return fmt.Errorf("failed to write tile object '%s' to bucket '%s': %w", tPath, c.bucket, err)
 	}
 	return w.Close()
 
@@ -212,12 +210,12 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 				break
 			}
 			if err != nil {
-				return fmt.Errorf("failed to get object '%s' from bucket '%s': %v", tPath, c.rootDir, err)
+				return fmt.Errorf("failed to get object '%s' from bucket '%s': %v", tPath, c.bucket, err)
 			}
 
 
 			if _, err := bkt.Object(attrs.Name).NewWriter(ctx).Write(t); err != nil {
-				return fmt.Errorf("failed to copy full tile to partials object '%s' in bucket '%s': %v", attrs.Name, c.rootDir, err)
+				return fmt.Errorf("failed to copy full tile to partials object '%s' in bucket '%s': %v", attrs.Name, c.bucket, err)
 			}
 		}
 	}

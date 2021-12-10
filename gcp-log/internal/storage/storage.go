@@ -60,10 +60,10 @@ func (c *Client) Create(ctx context.Context, rootDir string) error {
 			rootDir)
 	}
 
-	// TODO(jayhou): specify bktAttrs to allow read access (0755).
 	if err := bkt.Create(ctx, c.projectID, nil); err != nil {
 		return fmt.Errorf("failed to create bucket %q in project %s: %w", rootDir, c.projectID, err)
 	}
+	bkt.ACL().Set(ctx, storage.AllUsers, storage.RoleReader)
 
 	c.rootDir = rootDir
 	c.nextSeq = 0
@@ -179,7 +179,6 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 	tDir, tFile := layout.TilePath("", level, index, tileSize%256)
 	tPath := filepath.Join(tDir, tFile)
 
-	// TODO(jayhou): find analog for filePerm
 	bkt := c.gcsClient.Bucket(c.rootDir)
 	// TODO(jayhou): check the object name here.
 	obj := bkt.Object(filepath.Join(c.rootDir, tPath))

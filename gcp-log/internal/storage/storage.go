@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	gcs "cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
+	"google.golang.org/api/iterator"
 )
 
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
@@ -55,7 +55,7 @@ func (c *Client) Create(ctx context.Context, rootDir string) error {
 	bkt := c.gcsClient.Bucket(rootDir)
 
 	// If bucket has not been created, this returns error.
-	if _, err := bkt.Attrs(ctx); err != nil && errors.Is(err, gcs.ErrBucketNotExist) {
+	if _, err := bkt.Attrs(ctx); !errors.Is(err, gcs.ErrBucketNotExist) {
 		return fmt.Errorf("expected bucket '%s' to not be created yet (bucket attribute retrieval succeeded, expected error)",
 			rootDir)
 	}
@@ -63,7 +63,7 @@ func (c *Client) Create(ctx context.Context, rootDir string) error {
 	if err := bkt.Create(ctx, c.projectID, nil); err != nil {
 		return fmt.Errorf("failed to create bucket %q in project %s: %w", rootDir, c.projectID, err)
 	}
-	bkt.ACL().Set(ctx, storage.AllUsers, storage.RoleReader)
+	bkt.ACL().Set(ctx, gcs.AllUsers, gcs.RoleReader)
 
 	c.rootDir = rootDir
 	c.nextSeq = 0
@@ -140,26 +140,32 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 
 		// Read the object in an anonymous function so that the reader gets closed
 		// in each iteration of the outside for loop.
-		func() {
+		numSequenced, err := func() (uint64, error) {
 			r, err := bkt.Object(sp).NewReader(ctx)
 			if err != nil {
 					return end - begin, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", sp, c.rootDir, err)
 			}
 			defer r.Close()
+
+			entry, err := ioutil.ReadAll(r)
+			if errors.Is(err, gcs.ErrObjectNotExist) {
+				// we're done.
+				return end - begin, nil
+			} else if err != nil {
+				return end - begin, fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
+			}
+
+			if err := f(end, entry); err != nil {
+				return end - begin, err
+			}
+			end++
+
+			return end - begin, nil
 		}()
 
-		entry, err := ioutil.ReadAll(r)
-		if errors.Is(err, gcs.ErrObjectNotExist) {
-			// we're done.
-			return end - begin, nil
-		} else if err != nil {
-			return end - begin, fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
+		if err != nil {
+			return numSequenced, err
 		}
-
-		if err := f(end, entry); err != nil {
-			return end - begin, err
-		}
-		end++
 	}
 }
 
@@ -193,12 +199,12 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 
 	if tileSize == 256 {
 		// Get partial files.
-		it := client.bkt.Objects(ctx, &storage.Query{
+		it := bkt.Objects(ctx, &gcs.Query{
 			Prefix: tPath,
 			// Without specifying a delimiter, the objects returned may be
 			// recursively under "directories". Specifying a delimiter only returns
 			// objects under the given prefix path "directory".
-			Deliminter: "/",
+			Delimiter: "/",
 		})
 		for {
 			attrs, err := it.Next()
@@ -209,7 +215,7 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 				return fmt.Errorf("failed to get object '%s' from bucket '%s': %v", tPath, c.rootDir, err)
 			}
 
-			o := client.Bucket(bkt).Object(attrs.Name)
+			o := bkt.Object(attrs.Name)
 			if err := o.Delete(ctx); err != nil {
 				return fmt.Errorf("failed to delete object '%s' from bucket '%s': %v", attrs.Name, c.rootDir, err)
 			}

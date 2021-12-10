@@ -73,7 +73,7 @@ func (c *Client) Create(ctx context.Context, rootDir string) error {
 // WriteCheckpoint stores a raw log checkpoint on GCS.
 func (c *Client) WriteCheckpoint(ctx context.Context, newCPRaw []byte) error {
 	bkt := c.gcsClient.Bucket(c.rootDir)
-	obj := bkt.Object(filepath.Join(c.rootDir, layout.CheckpointPath))
+	obj := bkt.Object(layout.CheckpointPath)
 	w := obj.NewWriter(ctx)
 	if _, err := w.Write(newCPRaw); err != nil {
 		return err
@@ -84,7 +84,7 @@ func (c *Client) WriteCheckpoint(ctx context.Context, newCPRaw []byte) error {
 // ReadCheckpoint reads from GCS and returns the contents of the log checkpoint.
 func (c *Client) ReadCheckpoint(ctx context.Context) ([]byte, error) {
 	bkt := c.gcsClient.Bucket(c.rootDir)
-	obj := bkt.Object(filepath.Join(c.rootDir, layout.CheckpointPath))
+	obj := bkt.Object(layout.CheckpointPath)
 
 	r, err := obj.NewReader(ctx)
 	if err != nil {
@@ -189,8 +189,8 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 	tPath := filepath.Join(tDir, tFile)
 
 	bkt := c.gcsClient.Bucket(c.rootDir)
-	// TODO(jayhou): check the object name here.
-	obj := bkt.Object(filepath.Join(c.rootDir, tPath))
+	// Pass an empty rootDir because rootDir is our bucket name.
+	obj := bkt.Object(filepath.Join("", tPath))
 	w := obj.NewWriter(ctx)
 	if _, err := w.Write(t); err != nil {
 		return fmt.Errorf("failed to write tile object '%s' to bucket '%s': %w", tPath, c.rootDir, err)

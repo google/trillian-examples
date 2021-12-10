@@ -1,4 +1,4 @@
-// Package p provides a Google Cloud Function for sequencing entries in a
+// Package p provides Google Cloud Function for sequencing entries in a
 // serverless log.
 package p
 
@@ -18,8 +18,8 @@ import (
 	"github.com/gcp_serverless_module/internal/storage"
 )
 
-// Run is the entrypoint of this GCF function.
-func Run(w http.ResponseWriter, r *http.Request) {
+// Integrate is the entrypoint of the `integrate` GCF function.
+func Integrate(w http.ResponseWriter, r *http.Request) {
 	var d struct {
 		Origin     string `json:"origin"`
 		Initialise bool   `json:"initialise"`

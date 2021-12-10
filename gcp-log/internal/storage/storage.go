@@ -188,7 +188,6 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 	}
 	return w.Close()
 
-	// TODO(jayhou): does this assume a tile height?
 	if tileSize == 256 {
 		// Get partial files.
 		it := client.bkt.Objects(ctx, &storage.Query{

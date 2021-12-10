@@ -1,5 +1,5 @@
-// Package p provides a command line tool for sequencing entries in
-// a serverless log.
+// Package p provides a Google Cloud Function for sequencing entries in a
+// serverless log.
 package p
 
 import (

@@ -138,12 +138,15 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 		// Pass an empty rootDir because rootDir is our bucket name.
 		sp := filepath.Join(layout.SeqPath("", end))
 
-		r, err := bkt.Object(sp).NewReader(ctx)
-		if err != nil {
-				return end - begin, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", sp, c.rootDir, err)
-		}
-		// TODO(jayhou): keep the `defer` or close at the bottom of the loop?
-		defer r.Close()
+		// Read the object in an anonymous function so that the reader gets closed
+		// in each iteration of the outside for loop.
+		func() {
+			r, err := bkt.Object(sp).NewReader(ctx)
+			if err != nil {
+					return end - begin, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", sp, c.rootDir, err)
+			}
+			defer r.Close()
+		}()
 
 		entry, err := ioutil.ReadAll(r)
 		if errors.Is(err, gcs.ErrObjectNotExist) {

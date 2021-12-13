@@ -33,32 +33,21 @@ import (
 // Storage represents the set of functions needed by the log tooling.
 type Storage interface {
 	// GetTile returns the tile at the given level & index.
-	GetTile(level, index, logSize uint64) (*api.Tile, error)
+	GetTile(ctx context.Context, level, index, logSize uint64) (*api.Tile, error)
 
 	// StoreTile stores the tile at the given level & index.
-	StoreTile(level, index uint64, tile *api.Tile) error
-
-	// WriteCheckpoint stores a newly updated log checkpoint.
-	WriteCheckpoint(newCPRaw []byte) error
+	StoreTile(ctx context.Context, level, index uint64, tile *api.Tile) error
 
 	// ScanSequenced calls f for each contiguous sequenced log entry >= begin.
 	// It should stop scanning if the call to f returns an error.
-	ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error)
-
-	// Sequence assigns sequence numbers to the passed in entry.
-	// Returns the assigned sequence number for the leafhash.
-	//
-	// If a duplicate leaf is sequenced the storage implementation may return
-	// the sequence number associated with an earlier instance, along with a
-	// os.ErrDupeLeaf error.
-	Sequence(leafhash []byte, leaf []byte) (uint64, error)
+	ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error)
 }
 
 // Integrate adds all sequenced entries greater than checkpoint.Size into the tree.
 // Returns an updated Checkpoint, or an error.
 func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h merkle.LogHasher) (*log.Checkpoint, error) {
 	getTile := func(l, i uint64) (*api.Tile, error) {
-		return st.GetTile(l, i, checkpoint.Size)
+		return st.GetTile(ctx, l, i, checkpoint.Size)
 	}
 
 	hashes, err := client.FetchRangeNodes(ctx, checkpoint.Size, func(_ context.Context, l, i uint64) (*api.Tile, error) {
@@ -85,7 +74,8 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 	// Create a new compact range which represents the update to the tree
 	newRange := rf.NewEmptyRange(checkpoint.Size)
 	tc := tileCache{m: make(map[tileKey]*api.Tile), getTile: getTile}
-	n, err := st.ScanSequenced(checkpoint.Size,
+	n, err := st.ScanSequenced(ctx,
+		checkpoint.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
 			// Set leafhash on zeroth level
@@ -120,7 +110,7 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 	glog.Infof("New log state: size 0x%x hash: %x", baseRange.End(), newRoot)
 
 	for k, t := range tc.m {
-		if err := st.StoreTile(k.level, k.index, t); err != nil {
+		if err := st.StoreTile(ctx, k.level, k.index, t); err != nil {
 			return nil, fmt.Errorf("failed to store tile at level %d index %d: %w", k.level, k.index, err)
 		}
 	}

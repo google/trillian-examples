@@ -16,6 +16,7 @@
 package fs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -207,7 +208,7 @@ func createExclusive(f string, d []byte) error {
 // in storage starting at begin.
 // The scan will abort if the function returns an error, otherwise it will
 // return the number of sequenced entries.
-func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
+func (fs *Storage) ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
 	for {
 		sp := filepath.Join(layout.SeqPath(fs.rootDir, end))
@@ -228,7 +229,7 @@ func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) 
 // GetTile returns the tile at the given tile-level and tile-index.
 // If no complete tile exists at that location, it will attempt to find a
 // partial tile for the given tree size at that location.
-func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
+func (fs *Storage) GetTile(ctx context.Context, level, index, logSize uint64) (*api.Tile, error) {
 	tileSize := layout.PartialTileSize(level, index, logSize)
 	p := filepath.Join(layout.TilePath(fs.rootDir, level, index, tileSize))
 	t, err := ioutil.ReadFile(p)
@@ -250,7 +251,7 @@ func (fs *Storage) GetTile(level, index, logSize uint64) (*api.Tile, error) {
 // Fully populated tiles are stored at the path corresponding to the level &
 // index parameters, partially populated (i.e. right-hand edge) tiles are
 // stored with a .xx suffix where xx is the number of "tile leaves" in hex.
-func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
+func (fs *Storage) StoreTile(ctx context.Context, level, index uint64, tile *api.Tile) error {
 	tileSize := uint64(tile.NumLeaves)
 	glog.V(2).Infof("StoreTile: level %d index %x ts: %x", level, index, tileSize)
 	if tileSize == 0 || tileSize > 256 {

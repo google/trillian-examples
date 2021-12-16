@@ -63,8 +63,8 @@ type ServerOpts struct {
 	Config LogConfig
 }
 
-// buildLogMap loads the log configuration information into a map.
-func buildLogMap(config LogConfig) (map[string]witness.LogInfo, error) {
+// AsLogMap loads the log configuration information into a map, keyed by log ID.
+func (config LogConfig) AsLogMap() (map[string]witness.LogInfo, error) {
 	logMap := make(map[string]witness.LogInfo)
 	h := rfc6962.DefaultHasher
 	for _, log := range config.Logs {
@@ -105,7 +105,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	db.SetMaxOpenConns(1)
 
 	// Load log configuration into the map.
-	logMap, err := buildLogMap(opts.Config)
+	logMap, err := opts.Config.AsLogMap()
 	if err != nil {
 		return fmt.Errorf("failed to load configurations: %v", err)
 	}

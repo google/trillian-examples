@@ -7,6 +7,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
+	github.com/f-secure-foundry/imx-usbnet v0.0.0-20211005152612-ec70eaf9b56c
 	github.com/f-secure-foundry/tamago v0.0.0-20220307101044-d73fcdd7f11b
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
@@ -17,6 +18,7 @@ require (
 	github.com/google/trillian v1.4.1-0.20211013081307-5af22d0b4a1d
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
+	github.com/miekg/dns v1.1.46
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/transparency-dev/merkle v0.0.0-20220104141048-2fe6541b4c0d
 	github.com/u-root/u-root v7.0.0+incompatible

@@ -7,7 +7,7 @@ set -eu
 check_license() {
   local path="$1"
 
-  if [[ "$path" =~ "usbarmory/bootloader" ]]; then
+  if [[ "$path" =~ "usbarmory/bootloader" || "$path" =~ "omniwitness/usbarmory" ]]; then
     # This code forked from the USB Armory repo, and has
     # a LICENCE file in the directory.
     return 0

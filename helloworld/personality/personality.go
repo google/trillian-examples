@@ -27,6 +27,7 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -50,7 +51,7 @@ func NewPersonality(logAddr string, treeID int64, s note.Signer) (*TrillianP, er
 
 	ctx, cancel := context.WithTimeout(context.Background(), *connectTimeout)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, logAddr, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, logAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		return nil, fmt.Errorf("did not connect to trillian on %v: %v", logAddr, err)
 	}

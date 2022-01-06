@@ -121,7 +121,7 @@ func NewProofBuilder(ctx context.Context, cp log.Checkpoint, h compact.HashFn, f
 // This function uses the passed-in function to retrieve tiles containing any log tree
 // nodes necessary to build the proof.
 func (pb *ProofBuilder) InclusionProof(ctx context.Context, index uint64) ([][]byte, error) {
-	nodes, err := merkle.CalcInclusionProofNodeAddresses(int64(pb.cp.Size), int64(index))
+	nodes, err := merkle.CalcInclusionProofNodeAddresses(pb.cp.Size, index)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate inclusion proof node list: %w", err)
 	}
@@ -145,7 +145,7 @@ func (pb *ProofBuilder) InclusionProof(ctx context.Context, index uint64) ([][]b
 // This function uses the passed-in function to retrieve tiles containing any log tree
 // nodes necessary to build the proof.
 func (pb *ProofBuilder) ConsistencyProof(ctx context.Context, smaller, larger uint64) ([][]byte, error) {
-	nodes, err := merkle.CalcConsistencyProofNodeAddresses(int64(smaller), int64(larger))
+	nodes, err := merkle.CalcConsistencyProofNodeAddresses(smaller, larger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate consistency proof node list: %w", err)
 	}

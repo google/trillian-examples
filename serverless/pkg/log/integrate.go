@@ -39,7 +39,7 @@ type Storage interface {
 	StoreTile(ctx context.Context, level, index uint64, tile *api.Tile) error
 
 	// WriteCheckpoint stores a newly updated log checkpoint.
-	WriteCheckpoint(newCPRaw []byte) error
+	WriteCheckpoint(ctx context.Context, newCPRaw []byte) error
 
 	// Sequence assigns sequence numbers to the passed in entry.
 	// Returns the assigned sequence number for the leafhash.

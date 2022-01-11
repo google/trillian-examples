@@ -217,7 +217,7 @@ func (fs *Storage) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (
 // in storage starting at begin.
 // The scan will abort if the function returns an error, otherwise it will
 // return the number of sequenced entries.
-func (fs *Storage) ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
+func (fs *Storage) ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
 	for {
 		sp := filepath.Join(layout.SeqPath(fs.root, end))

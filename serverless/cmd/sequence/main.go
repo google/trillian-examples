@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -115,7 +116,7 @@ func main() {
 		// ask storage to sequence
 		lh := h.HashLeaf(entry.b)
 		dupe := false
-		seq, err := st.Sequence(lh, entry.b)
+		seq, err := st.Sequence(context.Background(), lh, entry.b)
 		if err != nil {
 			if errors.Is(err, storage.ErrDupeLeaf) {
 				dupe = true

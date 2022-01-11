@@ -68,7 +68,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		checkpoint := lst.LatestConsistent
 
 		// Sequence some leaves:
-		leaves := sequenceNLeaves(t, ctx, s, lh, i*leavesPerLoop, leavesPerLoop)
+		leaves := sequenceNLeaves(ctx, t, s, lh, i*leavesPerLoop, leavesPerLoop)
 
 		// Integrate those leaves
 		{
@@ -130,7 +130,7 @@ func TestServerlessViaFile(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, context.Background(), root, s)
+	st := mustCreateAndInitialiseStorage(context.Background(), t, root, s)
 
 	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
@@ -161,7 +161,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, context.Background(), root, s)
+	st := mustCreateAndInitialiseStorage(context.Background(), t, root, s)
 
 	// Arrange for its files to be served via HTTP
 	listener, err := net.Listen("tcp", ":0")
@@ -184,7 +184,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 	RunIntegration(t, st, f, h, s)
 }
 
-func sequenceNLeaves(t *testing.T, ctx context.Context, s log.Storage, lh merkle.LogHasher, start, n int) [][]byte {
+func sequenceNLeaves(ctx context.Context, t *testing.T, s log.Storage, lh merkle.LogHasher, start, n int) [][]byte {
 	r := make([][]byte, 0, n)
 	for i := 0; i < n; i++ {
 		c := []byte(fmt.Sprintf("Leaf %d", start+i))
@@ -230,7 +230,7 @@ func mustGetSigner(t *testing.T, privKey string) note.Signer {
 	return s
 }
 
-func mustCreateAndInitialiseStorage(t *testing.T, ctx context.Context, root string, s note.Signer) *fs.Storage {
+func mustCreateAndInitialiseStorage(ctx context.Context, t *testing.T, root string, s note.Signer) *fs.Storage {
 	t.Helper()
 	st, err := fs.Create(root)
 	if err != nil {

@@ -91,7 +91,7 @@ func main() {
 		cp := fmtlog.Checkpoint{
 			Hash: h.EmptyRoot(),
 		}
-		if err := signAndWrite(&cp, cpNote, s, st); err != nil {
+		if err := signAndWrite(ctx, &cp, cpNote, s, st); err != nil {
 			glog.Exitf("Failed to sign: %q", err)
 		}
 		os.Exit(0)
@@ -126,7 +126,7 @@ func main() {
 		glog.Exit("Nothing to integrate")
 	}
 
-	err = signAndWrite(newCp, cpNote, s, st)
+	err = signAndWrite(ctx, newCp, cpNote, s, st)
 	if err != nil {
 		glog.Exitf("Failed to sign: %q", err)
 	}
@@ -140,14 +140,14 @@ func getKeyFile(path string) (string, error) {
 	return string(k), nil
 }
 
-func signAndWrite(cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs.Storage) error {
+func signAndWrite(ctx context.Context, cp *fmtlog.Checkpoint, cpNote note.Note, s note.Signer, st *fs.Storage) error {
 	cp.Origin = *origin
 	cpNote.Text = string(cp.Marshal())
 	cpNoteSigned, err := note.Sign(&cpNote, s)
 	if err != nil {
 		return fmt.Errorf("failed to sign Checkpoint: %w", err)
 	}
-	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
+	if err := st.WriteCheckpoint(ctx, cpNoteSigned); err != nil {
 		return fmt.Errorf("failed to store new log checkpoint: %w", err)
 	}
 	return nil

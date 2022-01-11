@@ -176,7 +176,7 @@ func sequence() js.Func {
 			}
 			h := rfc6962.DefaultHasher.HashLeaf(l)
 			isDupe := false
-			seq, err := logStorage.Sequence(h, l)
+			seq, err := logStorage.Sequence(context.Backgroun(), h, l)
 			if err != nil {
 				if !errors.Is(err, storage.ErrDupeLeaf) {
 					logMsg(err.Error())

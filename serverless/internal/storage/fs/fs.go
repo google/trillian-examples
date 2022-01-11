@@ -302,7 +302,7 @@ func (fs *Storage) StoreTile(level, index uint64, tile *api.Tile) error {
 }
 
 // WriteCheckpoint stores a raw log checkpoint on disk.
-func (fs Storage) WriteCheckpoint(newCPRaw []byte) error {
+func (fs Storage) WriteCheckpoint(ctx context.Context, newCPRaw []byte) error {
 	oPath := filepath.Join(fs.rootDir, layout.CheckpointPath)
 	tmp := fmt.Sprintf("%s.tmp", oPath)
 	if err := createExclusive(tmp, newCPRaw); err != nil {

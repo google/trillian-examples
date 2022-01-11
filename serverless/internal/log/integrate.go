@@ -39,7 +39,7 @@ type Storage interface {
 	StoreTile(level, index uint64, tile *api.Tile) error
 
 	// WriteCheckpoint stores a newly updated log checkpoint.
-	WriteCheckpoint(newCPRaw []byte) error
+	WriteCheckpoint(ctx context.Context, newCPRaw []byte) error
 
 	// ScanSequenced calls f for each contiguous sequenced log entry >= begin.
 	// It should stop scanning if the call to f returns an error.

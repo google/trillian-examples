@@ -39,11 +39,11 @@ type Storage interface {
 	StoreTile(level, index uint64, tile *api.Tile) error
 
 	// WriteCheckpoint stores a newly updated log checkpoint.
-	WriteCheckpoint(newCPRaw []byte) error
+	WriteCheckpoint(ctx context.Context, newCPRaw []byte) error
 
 	// ScanSequenced calls f for each contiguous sequenced log entry >= begin.
 	// It should stop scanning if the call to f returns an error.
-	ScanSequenced(begin uint64, f func(seq uint64, entry []byte) error) (uint64, error)
+	ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error)
 
 	// Sequence assigns sequence numbers to the passed in entry.
 	// Returns the assigned sequence number for the leafhash.
@@ -51,7 +51,7 @@ type Storage interface {
 	// If a duplicate leaf is sequenced the storage implementation may return
 	// the sequence number associated with an earlier instance, along with a
 	// os.ErrDupeLeaf error.
-	Sequence(leafhash []byte, leaf []byte) (uint64, error)
+	Sequence(ctx context.Context, leafhash []byte, leaf []byte) (uint64, error)
 }
 
 // Integrate adds all sequenced entries greater than checkpoint.Size into the tree.
@@ -85,7 +85,8 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 	// Create a new compact range which represents the update to the tree
 	newRange := rf.NewEmptyRange(checkpoint.Size)
 	tc := tileCache{m: make(map[tileKey]*api.Tile), getTile: getTile}
-	n, err := st.ScanSequenced(checkpoint.Size,
+	n, err := st.ScanSequenced(context.Background(),
+		checkpoint.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
 			// Set leafhash on zeroth level

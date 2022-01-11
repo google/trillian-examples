@@ -16,6 +16,7 @@
 package fs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"

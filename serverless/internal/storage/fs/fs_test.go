@@ -15,6 +15,7 @@
 package fs
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"os"
@@ -70,7 +71,7 @@ func TestWriteLoadState(t *testing.T) {
 
 	a := []byte("hello")
 
-	if err := s.WriteCheckpoint(ctx.Background(), a); err != nil {
+	if err := s.WriteCheckpoint(context.Background(), a); err != nil {
 		t.Fatalf("WriteCheckpoint = %v", err)
 	}
 

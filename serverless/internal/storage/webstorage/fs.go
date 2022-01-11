@@ -162,7 +162,7 @@ func (fs *Storage) DeletePending(f string) error {
 // Returns the sequence number assigned to this leaf (if the leaf has already
 // been sequenced it will return the original sequence number and
 // storage.ErrDupeLeaf).
-func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
+func (fs *Storage) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (uint64, error) {
 	// 1. Check for dupe leafhash
 	// 2. Write temp file
 	// 3. Hard link temp -> seq file
@@ -281,7 +281,7 @@ func (fs *Storage) StoreTile(ctx context.Context, level, index uint64, tile *api
 }
 
 // WriteCheckpoint stores a raw log checkpoint on disk.
-func (fs Storage) WriteCheckpoint(newCPRaw []byte) error {
+func (fs Storage) WriteCheckpoint(ctx context.Context, newCPRaw []byte) error {
 	oPath := filepath.Join(fs.root, layout.CheckpointPath)
 	return set(oPath, newCPRaw)
 }

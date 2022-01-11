@@ -106,7 +106,7 @@ func Create(rootDir string) (*Storage, error) {
 // Returns the sequence number assigned to this leaf (if the leaf has already
 // been sequenced it will return the original sequence number and
 // storage.ErrDupeLeaf).
-func (fs *Storage) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
+func (fs *Storage) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (uint64, error) {
 	// 1. Check for dupe leafhash
 	// 2. Write temp file
 	// 3. Hard link temp -> seq file

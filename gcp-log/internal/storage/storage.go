@@ -8,11 +8,12 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	gcs "cloud.google.com/go/storage"
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"google.golang.org/api/iterator"
+
+	gcs "cloud.google.com/go/storage"
 )
 
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
@@ -55,7 +56,7 @@ func (c *Client) Create(ctx context.Context, bucket string) error {
 
 	// If bucket has not been created, this returns error.
 	if _, err := bkt.Attrs(ctx); !errors.Is(err, gcs.ErrBucketNotExist) {
-		return fmt.Errorf("expected bucket '%s' to not be created yet (bucket attribute retrieval succeeded, expected error)",
+		return fmt.Errorf("expected bucket %q to not be created yet (bucket attribute retrieval succeeded, expected error)",
 			bucket)
 	}
 
@@ -87,15 +88,11 @@ func (c *Client) ReadCheckpoint(ctx context.Context) ([]byte, error) {
 
 	r, err := obj.NewReader(ctx)
 	if err != nil {
-			return []byte{}, err
+			return nil, err
 	}
 	defer r.Close()
 
-	content, err := ioutil.ReadAll(r)
-	if err != nil {
-		return []byte{}, err
-	}
-	return content, nil
+	return ioutil.ReadAll(r)
 }
 
 // GetTile returns the tile at the given tile-level and tile-index.
@@ -109,13 +106,13 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 	objName := filepath.Join(layout.TilePath("", level, index, tileSize))
 	r, err := bkt.Object(objName).NewReader(ctx)
 	if err != nil {
-			return nil, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", objName, c.bucket, err)
+			return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
 	}
 	defer r.Close()
 
 	t, err := ioutil.ReadAll(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read tile object '%s' in bucket '%s': %v", objName, c.bucket, err)
+		return nil, fmt.Errorf("failed to read tile object %q in bucket %q: %v", objName, c.bucket, err)
 	}
 
 	var tile api.Tile
@@ -123,6 +120,11 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 		return nil, fmt.Errorf("failed to parse tile: %w", err)
 	}
 	return &tile, nil
+}
+
+// TODO(jayhou): Not implemented yet, but needed for the Storage interface.
+func (c *Client) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
+	return 0, nil
 }
 
 // ScanSequenced calls the provided function once for each contiguous entry
@@ -142,7 +144,7 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 		numSequenced, err := func() (uint64, error) {
 			r, err := bkt.Object(sp).NewReader(ctx)
 			if err != nil {
-					return end - begin, fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", sp, c.bucket, err)
+					return end - begin, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
 			}
 			defer r.Close()
 
@@ -168,7 +170,7 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 	}
 }
 
-// StoreTile writes a tile out to disk.
+// StoreTile writes a tile out to GCS.
 // Fully populated tiles are stored at the path corresponding to the level &
 // index parameters, partially populated (i.e. right-hand edge) tiles are
 // stored with a .xx suffix where xx is the number of "tile leaves" in hex.
@@ -191,7 +193,7 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 
 	w := obj.NewWriter(ctx)
 	if _, err := w.Write(t); err != nil {
-		return fmt.Errorf("failed to write tile object '%s' to bucket '%s': %w", tPath, c.bucket, err)
+		return fmt.Errorf("failed to write tile object %q to bucket %q: %w", tPath, c.bucket, err)
 	}
 	return w.Close()
 
@@ -210,12 +212,12 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 				break
 			}
 			if err != nil {
-				return fmt.Errorf("failed to get object '%s' from bucket '%s': %v", tPath, c.bucket, err)
+				return fmt.Errorf("failed to get object %q from bucket %q: %v", tPath, c.bucket, err)
 			}
 
 
 			if _, err := bkt.Object(attrs.Name).NewWriter(ctx).Write(t); err != nil {
-				return fmt.Errorf("failed to copy full tile to partials object '%s' in bucket '%s': %v", attrs.Name, c.bucket, err)
+				return fmt.Errorf("failed to copy full tile to partials object %q in bucket %q: %v", attrs.Name, c.bucket, err)
 			}
 		}
 	}

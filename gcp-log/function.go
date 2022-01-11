@@ -6,16 +6,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	golog "log"
 	"net/http"
 	"os"
 
-	fmtlog "github.com/google/trillian-examples/formats/log"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
-	"github.com/gcp_serverless_module/internal/log"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 	"github.com/gcp_serverless_module/internal/storage"
+
+	fmtlog "github.com/google/trillian-examples/formats/log"
+	golog "log"
 )
 
 // Integrate is the entrypoint of the `integrate` GCF function.

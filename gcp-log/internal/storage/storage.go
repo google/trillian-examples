@@ -141,31 +141,31 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 
 		// Read the object in an anonymous function so that the reader gets closed
 		// in each iteration of the outside for loop.
-		numSequenced, err := func() (uint64, error) {
+		err := func() (uint64, error) {
 			r, err := bkt.Object(sp).NewReader(ctx)
 			if err != nil {
-					return end - begin, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
+					return fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
 			}
 			defer r.Close()
 
 			entry, err := ioutil.ReadAll(r)
 			if errors.Is(err, gcs.ErrObjectNotExist) {
 				// we're done.
-				return end - begin, nil
+				return nil
 			} else if err != nil {
-				return end - begin, fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
+				return fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
 			}
 
 			if err := f(end, entry); err != nil {
-				return end - begin, err
+				return err
 			}
 			end++
 
-			return end - begin, nil
+			return nil
 		}()
 
 		if err != nil {
-			return numSequenced, err
+			return end - begin, err
 		}
 	}
 }

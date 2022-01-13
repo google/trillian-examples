@@ -15,6 +15,7 @@
 package fs
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"os"
@@ -62,7 +63,6 @@ func TestLoadForNonExistentDir(t *testing.T) {
 }
 
 func TestWriteLoadState(t *testing.T) {
-
 	d := filepath.Join(t.TempDir(), "storage")
 	s, err := Create(d)
 	if err != nil {
@@ -71,7 +71,7 @@ func TestWriteLoadState(t *testing.T) {
 
 	a := []byte("hello")
 
-	if err := s.WriteCheckpoint(a); err != nil {
+	if err := s.WriteCheckpoint(context.Background(), a); err != nil {
 		t.Fatalf("WriteCheckpoint = %v", err)
 	}
 
@@ -88,6 +88,8 @@ func TestWriteLoadState(t *testing.T) {
 type errCheck func(error) bool
 
 func TestSequence(t *testing.T) {
+	ctx := context.Background()
+
 	for _, test := range []struct {
 		desc    string
 		leaves  [][]byte
@@ -113,7 +115,7 @@ func TestSequence(t *testing.T) {
 			}
 			for i, leaf := range test.leaves {
 				h := sha256.Sum256(leaf)
-				gotSeq, gotErr := s.Sequence(h[:], leaf)
+				gotSeq, gotErr := s.Sequence(ctx, h[:], leaf)
 				if gotErr != nil {
 					t.Logf("Sequence %d = %v", i, gotErr)
 				}

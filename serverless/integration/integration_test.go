@@ -46,7 +46,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 	ctx := context.Background()
 	lv := merkle.NewLogVerifier(lh)
 
-	// Do a few interations around the sequence/integrate loop;
+	// Do a few interactions around the sequence/integrate loop;
 	const (
 		loops         = 50
 		leavesPerLoop = 257
@@ -82,7 +82,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			if err != nil {
 				t.Fatalf("Failed to sign Checkpoint: %q", err)
 			}
-			if err := s.WriteCheckpoint(cpNoteSigned); err != nil {
+			if err := s.WriteCheckpoint(ctx, cpNoteSigned); err != nil {
 				t.Fatalf("Failed to store new log checkpoint: %q", err)
 			}
 		}

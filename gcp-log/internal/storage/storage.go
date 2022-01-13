@@ -130,7 +130,7 @@ func (c *Client) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
 // ScanSequenced calls the provided function once for each contiguous entry
 // in storage starting at begin.
 // The scan will abort if the function returns an error, otherwise it will
-// return the number of sequenced entries.
+// return the number of sequenced entries scanned.
 func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
 

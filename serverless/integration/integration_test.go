@@ -68,7 +68,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		checkpoint := lst.LatestConsistent
 
 		// Sequence some leaves:
-		leaves := sequenceNLeaves(t, s, lh, i*leavesPerLoop, leavesPerLoop)
+		leaves := sequenceNLeaves(ctx, t, s, lh, i*leavesPerLoop, leavesPerLoop)
 
 		// Integrate those leaves
 		{
@@ -82,7 +82,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			if err != nil {
 				t.Fatalf("Failed to sign Checkpoint: %q", err)
 			}
-			if err := s.WriteCheckpoint(cpNoteSigned); err != nil {
+			if err := s.WriteCheckpoint(ctx, cpNoteSigned); err != nil {
 				t.Fatalf("Failed to store new log checkpoint: %q", err)
 			}
 		}
@@ -130,7 +130,7 @@ func TestServerlessViaFile(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, root, s)
+	st := mustCreateAndInitialiseStorage(context.Background(), t, root, s)
 
 	// Create file fetcher
 	rootURL, err := url.Parse(fmt.Sprintf("file://%s/", root))
@@ -161,7 +161,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 	s := mustGetSigner(t, privKey)
 
 	// Create empty checkpoint
-	st := mustCreateAndInitialiseStorage(t, root, s)
+	st := mustCreateAndInitialiseStorage(context.Background(), t, root, s)
 
 	// Arrange for its files to be served via HTTP
 	listener, err := net.Listen("tcp", ":0")
@@ -184,11 +184,11 @@ func TestServerlessViaHTTP(t *testing.T) {
 	RunIntegration(t, st, f, h, s)
 }
 
-func sequenceNLeaves(t *testing.T, s log.Storage, lh merkle.LogHasher, start, n int) [][]byte {
+func sequenceNLeaves(ctx context.Context, t *testing.T, s log.Storage, lh merkle.LogHasher, start, n int) [][]byte {
 	r := make([][]byte, 0, n)
 	for i := 0; i < n; i++ {
 		c := []byte(fmt.Sprintf("Leaf %d", start+i))
-		if _, err := s.Sequence(lh.HashLeaf(c), c); err != nil {
+		if _, err := s.Sequence(ctx, lh.HashLeaf(c), c); err != nil {
 			t.Fatalf("Sequence = %v", err)
 		}
 		r = append(r, c)
@@ -230,7 +230,7 @@ func mustGetSigner(t *testing.T, privKey string) note.Signer {
 	return s
 }
 
-func mustCreateAndInitialiseStorage(t *testing.T, root string, s note.Signer) *fs.Storage {
+func mustCreateAndInitialiseStorage(ctx context.Context, t *testing.T, root string, s note.Signer) *fs.Storage {
 	t.Helper()
 	st, err := fs.Create(root)
 	if err != nil {
@@ -243,7 +243,7 @@ func mustCreateAndInitialiseStorage(t *testing.T, root string, s note.Signer) *f
 	if err != nil {
 		t.Fatalf("Failed to sign Checkpoint: %q", err)
 	}
-	if err := st.WriteCheckpoint(cpNoteSigned); err != nil {
+	if err := st.WriteCheckpoint(ctx, cpNoteSigned); err != nil {
 		t.Fatalf("Failed to store new log checkpoint: %q", err)
 	}
 	return st

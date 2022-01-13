@@ -23,7 +23,7 @@ This means that GitHub credentials must be provided.
 If you aren't comfortable doing this on your primary account, set up a secondary account for this purpose.
 
 Github setup:
-  * Create a personal access token with `repo` and `workflow` permissions at https://github.com/settings/token
+  * Create a personal access token with `repo` and `workflow` permissions at https://github.com/settings/tokens
   * Fork both of the repositories:
     * https://github.com/mhutchinson/mhutchinson-distributor
     * https://github.com/WolseyBankWitness/rediffusion

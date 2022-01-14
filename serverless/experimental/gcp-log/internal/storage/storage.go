@@ -29,17 +29,13 @@ import (
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"google.golang.org/api/iterator"
 
-	// TODO(jayhou): need to move this
-	// stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
+	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
 	gcs "cloud.google.com/go/storage"
 )
-
-const leavesPendingPathFmt = "leaves/pending/%0x"
 
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
 // The naming of the objects of the GCS object is:
 //  leaves/aa/bb/cc/ddeeff...
-//  leaves/pending/aabbccddeeff...
 //  seq/aa/bb/cc/ddeeff...
 //  tile/<level>/aa/bb/ccddee...
 //  checkpoint
@@ -196,11 +192,7 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	// 3. Hard link temp -> seq file
 	// 4. Create leafhash file containing assigned sequence number
 
-	// Check for dupe leaf already present.
-	// If there is one, it should contain the existing leaf's sequence number,
-	// so read that back and return it.
 	leafFQ := filepath.Join(layout.LeafPath("", leafhash))
-
 	bkt := c.gcsClient.Bucket(c.bucket)
 	r, err := bkt.Object(leafFQ).NewReader(ctx)
 	if err != nil {
@@ -208,6 +200,9 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	}
 	defer r.Close()
 
+	// Check for dupe leaf already present.
+	// If there is one, it should contain the existing leaf's sequence number,
+	// so read that back and return it.
 	seqString, err := ioutil.ReadAll(r)
 	if err != gcs.ErrObjectNotExist {
 		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
@@ -216,15 +211,6 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		}
 		return origSeq, stErrors.ErrDupeLeaf
 	}
-
-	// Write a temp file with the leaf data
-	tmpPath := fmt.Sprintf(leavesPendingPathFmt, leafhash)
-	if err := createExclusive(tmpPath, leaf); err != nil {
-		return 0, fmt.Errorf("unable to write temporary file: %w", err)
-	}
-	defer func() {
-		os.Remove(tmpPath)
-	}()
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
 	// if Sequence has been called since the last time an Integrate/WriteCheckpoint

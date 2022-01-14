@@ -39,7 +39,6 @@ import (
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/google/trillian-examples/serverless/client"
-	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/webstorage"
 	"github.com/google/trillian-examples/serverless/pkg/log"
 	"github.com/transparency-dev/merkle/compact"
@@ -47,6 +46,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 
 	logfmt "github.com/google/trillian-examples/formats/log"
+	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
 )
 
 const (
@@ -179,7 +179,7 @@ func sequence() js.Func {
 			isDupe := false
 			seq, err := logStorage.Sequence(context.Background(), h, l)
 			if err != nil {
-				if !errors.Is(err, storage.ErrDupeLeaf) {
+				if !errors.Is(err, stErrors.ErrDupeLeaf) {
 					logMsg(err.Error())
 					return nil
 				}

@@ -26,12 +26,13 @@ import (
 	"path/filepath"
 
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"golang.org/x/mod/sumdb/note"
 
 	"github.com/golang/glog"
 	"github.com/transparency-dev/merkle/rfc6962"
+
+	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
 )
 
 var (
@@ -118,7 +119,7 @@ func main() {
 		dupe := false
 		seq, err := st.Sequence(context.Background(), lh, entry.b)
 		if err != nil {
-			if errors.Is(err, storage.ErrDupeLeaf) {
+			if errors.Is(err, stErrors.ErrDupeLeaf) {
 				dupe = true
 			} else {
 				glog.Exitf("failed to sequence %q: %q", entry.name, err)

@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package storage
+// Package errors includes errors encountered relating to storage.
+package errors
 
 import (
 	"errors"

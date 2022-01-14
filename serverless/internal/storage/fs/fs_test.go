@@ -23,7 +23,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/serverless/internal/storage"
+
+	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
 )
 
 func TestCreate(t *testing.T) {
@@ -104,7 +105,7 @@ func TestSequence(t *testing.T) {
 			desc:    "dupe squashed",
 			leaves:  [][]byte{{0x10}, {0x10}},
 			wantSeq: []uint64{0, 0},
-			wantErr: []errCheck{nil, func(e error) bool { return errors.Is(e, storage.ErrDupeLeaf) }},
+			wantErr: []errCheck{nil, func(e error) bool { return errors.Is(e, stErrors.ErrDupeLeaf) }},
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 
@@ -31,6 +32,8 @@ import (
 
 	gcs "cloud.google.com/go/storage"
 )
+
+const leavesPendingPathFmt = "leaves/pending/%0x"
 
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
 // The naming of the objects of the GCS object is:

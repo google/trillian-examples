@@ -41,6 +41,7 @@ func validateCommonArgs(w http.ResponseWriter, origin string) (ok bool, pubKey s
 	}
 
 	pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+
 	if len(pubKey) == 0 {
 		http.Error(w,
 			"Please set SERVERLESS_LOG_PUBLIC_KEY environment variable",

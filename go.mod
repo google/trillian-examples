@@ -16,15 +16,15 @@ require (
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.4.1-0.20211013081307-5af22d0b4a1d
 	github.com/gorilla/mux v1.8.0
-	github.com/mattn/go-sqlite3 v1.14.9
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
-	github.com/transparency-dev/merkle v0.0.0-20211104134637-a76aeeada497
+	github.com/transparency-dev/merkle v0.0.0-20220104141048-2fe6541b4c0d
 	github.com/u-root/u-root v7.0.0+incompatible
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/mod v0.5.1
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	google.golang.org/grpc v1.42.0
+	google.golang.org/grpc v1.43.0
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v2 v2.4.0

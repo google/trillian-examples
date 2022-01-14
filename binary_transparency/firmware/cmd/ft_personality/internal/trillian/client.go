@@ -28,6 +28,7 @@ import (
 	"github.com/google/trillian/client"
 	tt "github.com/google/trillian/types"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Client represents the personality's view of the Trillian Log.
@@ -48,7 +49,7 @@ type Client struct {
 func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeStorage *trees.TreeStorage) (*Client, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, logAddr, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, logAddr, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
 		return nil, fmt.Errorf("did not connect to trillian on %v: %v", logAddr, err)
 	}

@@ -33,8 +33,6 @@ import (
 	gcs "cloud.google.com/go/storage"
 )
 
-const leavesPendingPathFmt = "leaves/pending/%0x"
-
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
 // The naming of the objects of the GCS object is:
 //  leaves/aa/bb/cc/ddeeff...
@@ -217,7 +215,6 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	// 1. Check for dupe leafhash
 	// 2. Create seq file
 	// 3. Create leafhash file containing assigned sequence number
-
 	bkt := c.gcsClient.Bucket(c.bucket)
 
 	// Check for dupe leaf already present.
@@ -231,7 +228,6 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		if err != nil {
 			return 0, err
 		}
-
 		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
 		if err != nil {
 			return 0, err

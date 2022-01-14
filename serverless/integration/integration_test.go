@@ -46,7 +46,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 	ctx := context.Background()
 	lv := merkle.NewLogVerifier(lh)
 
-	// Do a few interations around the sequence/integrate loop;
+	// Do a few iterations around the sequence/integrate loop;
 	const (
 		loops         = 50
 		leavesPerLoop = 257

@@ -162,7 +162,7 @@ func (fs *Storage) DeletePending(f string) error {
 // Returns the sequence number assigned to this leaf (if the leaf has already
 // been sequenced it will return the original sequence number and
 // storage.ErrDupeLeaf).
-func (fs *Storage) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (uint64, error) {
+func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (uint64, error) {
 	// 1. Check for dupe leafhash
 	// 2. Write temp file
 	// 3. Hard link temp -> seq file
@@ -217,7 +217,7 @@ func (fs *Storage) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (
 // in storage starting at begin.
 // The scan will abort if the function returns an error, otherwise it will
 // return the number of sequenced entries.
-func (fs *Storage) ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
+func (fs *Storage) ScanSequenced(_ context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
 	for {
 		sp := filepath.Join(layout.SeqPath(fs.root, end))
@@ -238,7 +238,7 @@ func (fs *Storage) ScanSequenced(ctx context.Context, begin uint64, f func(seq u
 // GetTile returns the tile at the given tile-level and tile-index.
 // If no complete tile exists at that location, it will attempt to find a
 // partial tile for the given tree size at that location.
-func (fs *Storage) GetTile(ctx context.Context, level, index, logSize uint64) (*api.Tile, error) {
+func (fs *Storage) GetTile(_ context.Context, level, index, logSize uint64) (*api.Tile, error) {
 	tileSize := layout.PartialTileSize(level, index, logSize)
 	p := filepath.Join(layout.TilePath(fs.root, level, index, tileSize))
 	t, err := get(p)
@@ -260,7 +260,7 @@ func (fs *Storage) GetTile(ctx context.Context, level, index, logSize uint64) (*
 // Fully populated tiles are stored at the path corresponding to the level &
 // index parameters, partially populated (i.e. right-hand edge) tiles are
 // stored with a .xx suffix where xx is the number of "tile leaves" in hex.
-func (fs *Storage) StoreTile(ctx context.Context, level, index uint64, tile *api.Tile) error {
+func (fs *Storage) StoreTile(_ context.Context, level, index uint64, tile *api.Tile) error {
 	tileSize := uint64(tile.NumLeaves)
 	if tileSize == 0 || tileSize > 256 {
 		return fmt.Errorf("tileSize %d must be > 0 and <= 256", tileSize)
@@ -281,7 +281,7 @@ func (fs *Storage) StoreTile(ctx context.Context, level, index uint64, tile *api
 }
 
 // WriteCheckpoint stores a raw log checkpoint on disk.
-func (fs Storage) WriteCheckpoint(ctx context.Context, newCPRaw []byte) error {
+func (fs Storage) WriteCheckpoint(_ context.Context, newCPRaw []byte) error {
 	oPath := filepath.Join(fs.root, layout.CheckpointPath)
 	return set(oPath, newCPRaw)
 }

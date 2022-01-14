@@ -20,15 +20,21 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"google.golang.org/api/iterator"
 
+	// TODO(jayhou): need to move this
+	// stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
 	gcs "cloud.google.com/go/storage"
 )
+
+const leavesPendingPathFmt = "leaves/pending/%0x"
 
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
 // The naming of the objects of the GCS object is:
@@ -136,11 +142,6 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 	return &tile, nil
 }
 
-// TODO(jayhou): Not implemented yet, but needed for the Storage interface.
-func (c *Client) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
-	return 0, nil
-}
-
 // ScanSequenced calls the provided function once for each contiguous entry
 // in storage starting at begin.
 // The scan will abort if the function returns an error, otherwise it will
@@ -155,7 +156,7 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 
 		// Read the object in an anonymous function so that the reader gets closed
 		// in each iteration of the outside for loop.
-		err := func() (uint64, error) {
+		err := func() error {
 			r, err := bkt.Object(sp).NewReader(ctx)
 			if err != nil {
 					return fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
@@ -181,6 +182,82 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 		if err != nil {
 			return end - begin, err
 		}
+	}
+}
+
+// Sequence assigns the given leaf entry to the next available sequence number.
+// This method will attempt to silently squash duplicate leaves, but it cannot
+// be guaranteed that no duplicate entries will exist.
+// Returns the sequence number assigned to this leaf (if the leaf has already
+// been sequenced it will return the original sequence number and ErrDupeLeaf).
+func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (uint64, error) {
+	// 1. Check for dupe leafhash
+	// 2. Write temp file
+	// 3. Hard link temp -> seq file
+	// 4. Create leafhash file containing assigned sequence number
+
+	// Check for dupe leaf already present.
+	// If there is one, it should contain the existing leaf's sequence number,
+	// so read that back and return it.
+	leafFQ := filepath.Join(layout.LeafPath("", leafhash))
+
+	bkt := c.gcsClient.Bucket(c.bucket)
+	r, err := bkt.Object(leafFQ).NewReader(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer r.Close()
+
+	seqString, err := ioutil.ReadAll(r)
+	if err != gcs.ErrObjectNotExist {
+		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
+		if err != nil {
+			return 0, err
+		}
+		return origSeq, stErrors.ErrDupeLeaf
+	}
+
+	// Write a temp file with the leaf data
+	tmpPath := fmt.Sprintf(leavesPendingPathFmt, leafhash)
+	if err := createExclusive(tmpPath, leaf); err != nil {
+		return 0, fmt.Errorf("unable to write temporary file: %w", err)
+	}
+	defer func() {
+		os.Remove(tmpPath)
+	}()
+
+	// Now try to sequence it, we may have to scan over some newly sequenced entries
+	// if Sequence has been called since the last time an Integrate/WriteCheckpoint
+	// was called.
+	for {
+		seq := c.nextSeq
+
+		// Write the sequence file
+		seqPath := filepath.Join(layout.SeqPath("", seq))
+
+		bkt := c.gcsClient.Bucket(c.bucket)
+		wSeq := bkt.Object(seqPath).NewWriter(ctx)
+
+		if _, err := wSeq.Write(leaf); errors.Is(err, os.ErrExist) {
+			// That sequence number is in use, try the next one
+			c.nextSeq++
+			continue
+		} else if err != nil {
+			return 0, fmt.Errorf("failed to write seq file: %w", err)
+		}
+
+		// Create a leafhash file containing the assigned sequence number.
+		// This isn't infallible though, if we crash after hardlinking the
+		// sequence file above, but before doing this a resubmission of the
+		// same leafhash would be permitted.
+		leafPath := fmt.Sprintf("%s.tmp", leafFQ)
+		wLeaf := bkt.Object(leafPath).NewWriter(ctx)
+		if _, err := wLeaf.Write([]byte(strconv.FormatUint(seq, 16))); err != nil {
+			return 0, fmt.Errorf("couldn't create leafhash object: %w", err)
+		}
+
+		// All done!
+		return seq, nil
 	}
 }
 

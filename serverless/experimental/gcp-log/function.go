@@ -33,6 +33,136 @@ import (
 	golog "log"
 )
 
+func validateCommonArgs(w http.ResponseWriter, origin string) (ok bool) {
+	if len(origin) == 0 {
+		http.Error(w, "Please set `origin` in HTTP body to log identifier.", http.StatusBadRequest)
+		return false
+	}
+
+	pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+	if len(pubKey) == 0 {
+		http.Error(w,
+			"Please set SERVERLESS_LOG_PUBLIC_KEY environment variable",
+			http.StatusBadRequest)
+		return false
+	}
+
+	return true
+}
+
+// Sequence is the entrypoint of the `sequence` GCF function.
+func Sequence(w http.ResponseWriter, r *http.Request) {
+	var d struct {
+		Origin     string `json:"origin"`
+		Bucket 		 string `json:"bucket"`
+		Entries 	 string `prefix:"entries"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
+		golog.Printf("json.NewDecoder: %v", err)
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
+	if ok := validateCommonArgs(w, d.Origin); !ok {
+		return
+	}
+
+	// TODO(jayhou): list entries objects
+	it := bkt.Objects(ctx, &gcs.Query{
+		Prefix: tPath, // TODO(jayhou): get path under the pending dir?
+	})
+
+	h := rfc6962.DefaultHasher
+	// init storage
+
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to create GCS client: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	// TODO(jayhou): should this take a bucket name param?
+	cpRaw, err := client.ReadCheckpoint(d.Bucket)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to read log checkpoint: %q", err), http.StatusBadRequest)
+		return
+	}
+
+	// Check signatures
+	v, err := note.NewVerifier(pubKey)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to instantiate Verifier: %q", err), http.StatusBadRequest)
+		return
+	}
+	cp, _, _, err := fmtlog.ParseCheckpoint(cpRaw, d.Origin, v)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to parse Checkpoint: %q", err), http.StatusBadRequest)
+		return
+	}
+
+	// sequence entries
+
+	// entryInfo binds the actual bytes to be added as a leaf with a
+	// user-recognisable name for the source of those bytes.
+	// The name is only used below in order to inform the user of the
+	// sequence numbers assigned to the data from the provided input files.
+	type entryInfo struct {
+		name string
+		b    []byte
+	}
+	entries := make(chan entryInfo, 100)
+	go func() {
+		for {
+			attrs, err := it.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				// TODO(jayhou): log this?
+				fmt.Errorf("failed to get object '%s' from bucket '%s': %v", tPath, c.bucket, err)
+			}
+
+			r, err := bkt.Object(attrs.Name).NewReader(ctx)
+			if err != nil {
+				// TODO(jayhou): log this?
+				fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", attrs.Name, c.bucket, err)
+			}
+			defer r.Close()
+
+			b, err := ioutil.ReadAll(r)
+			if err != nil {
+				// TODO(jayhou): log failure
+			}
+
+			entries <- entryInfo{name: attrs.Name, b: b}
+		}
+		close(entries)
+	}()
+
+	for entry := range entries {
+		// ask storage to sequence
+		lh := h.HashLeaf(entry.b)
+		dupe := false
+		seq, err := client.Sequence(lh, entry.b)
+		if err != nil {
+			if errors.Is(err, storage.ErrDupeLeaf) {
+				dupe = true
+			} else {
+				// TODO(jayhou): log this
+				glog.Exitf("failed to sequence %q: %q", entry.name, err)
+			}
+		}
+		l := fmt.Sprintf("%d: %v", seq, entry.name)
+		if dupe {
+			l += " (dupe)"
+		}
+		// TODO(jayhou): log this
+		glog.Info(l)
+	}
+}
+
 // Integrate is the entrypoint of the `integrate` GCF function.
 func Integrate(w http.ResponseWriter, r *http.Request) {
 	var d struct {
@@ -47,16 +177,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(d.Origin) == 0 {
-		http.Error(w, "Please set `origin` in HTTP body to log identifier.", http.StatusBadRequest)
-		return
-	}
-
-	pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
-	if len(pubKey) == 0 {
-		http.Error(w,
-			"Please set SERVERLESS_LOG_PUBLIC_KEY environment variable",
-			http.StatusBadRequest)
+	if ok := validateCommonArgs(w, d.Origin); !ok {
 		return
 	}
 

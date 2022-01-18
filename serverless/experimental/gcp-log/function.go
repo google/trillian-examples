@@ -31,6 +31,7 @@ import (
 
 	fmtlog "github.com/google/trillian-examples/formats/log"
 	golog "log"
+	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
 )
 
 func validateCommonArgs(w http.ResponseWriter, origin string) (ok bool) {
@@ -147,7 +148,7 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 		dupe := false
 		seq, err := client.Sequence(lh, entry.b)
 		if err != nil {
-			if errors.Is(err, storage.ErrDupeLeaf) {
+			if errors.Is(err, stErrors.ErrDupeLeaf) {
 				dupe = true
 			} else {
 				// TODO(jayhou): log this

@@ -36,8 +36,7 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
-
-	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 )
 
 // Storage is a serverless storage implementation which uses webstorage entries to store tree state.
@@ -178,7 +177,7 @@ func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (ui
 		if err != nil {
 			return 0, err
 		}
-		return origSeq, stErrors.ErrDupeLeaf
+		return origSeq, log.ErrDupeLeaf
 	}
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries

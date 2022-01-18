@@ -33,7 +33,7 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/google/trillian-examples/formats/log"
+	fmtlog "github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/google/trillian-examples/serverless/pkg/log"
@@ -57,7 +57,7 @@ type Storage struct {
 	// never greater.
 	nextSeq uint64
 	// checkpoint is the latest known checkpoint of the log.
-	checkpoint log.Checkpoint
+	checkpoint fmtlog.Checkpoint
 }
 
 const leavesPendingPathFmt = "leaves/pending/%0x"

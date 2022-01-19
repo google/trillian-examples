@@ -33,11 +33,12 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/google/trillian-examples/formats/log"
+
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 
-	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
+	fmtlog "github.com/google/trillian-examples/formats/log"
 )
 
 // Storage is a serverless storage implementation which uses webstorage entries to store tree state.
@@ -58,7 +59,7 @@ type Storage struct {
 	// never greater.
 	nextSeq uint64
 	// checkpoint is the latest known checkpoint of the log.
-	checkpoint log.Checkpoint
+	checkpoint fmtlog.Checkpoint
 }
 
 const leavesPendingPathFmt = "leaves/pending/%0x"
@@ -178,7 +179,7 @@ func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (ui
 		if err != nil {
 			return 0, err
 		}
-		return origSeq, stErrors.ErrDupeLeaf
+		return origSeq, log.ErrDupeLeaf
 	}
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries

@@ -46,7 +46,6 @@ import (
 	"golang.org/x/mod/sumdb/note"
 
 	logfmt "github.com/google/trillian-examples/formats/log"
-	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
 )
 
 const (
@@ -179,7 +178,7 @@ func sequence() js.Func {
 			isDupe := false
 			seq, err := logStorage.Sequence(context.Background(), h, l)
 			if err != nil {
-				if !errors.Is(err, stErrors.ErrDupeLeaf) {
+				if !errors.Is(err, log.ErrDupeLeaf) {
 					logMsg(err.Error())
 					return nil
 				}

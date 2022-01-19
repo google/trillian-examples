@@ -33,10 +33,10 @@ import (
 	"strings"
 	"syscall/js"
 
-	"github.com/google/trillian-examples/formats/log"
+	fmtlog "github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
-	"github.com/google/trillian-examples/serverless/internal/storage"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 )
 
 // Storage is a serverless storage implementation which uses webstorage entries to store tree state.
@@ -57,7 +57,7 @@ type Storage struct {
 	// never greater.
 	nextSeq uint64
 	// checkpoint is the latest known checkpoint of the log.
-	checkpoint log.Checkpoint
+	checkpoint fmtlog.Checkpoint
 }
 
 const leavesPendingPathFmt = "leaves/pending/%0x"
@@ -160,8 +160,7 @@ func (fs *Storage) DeletePending(f string) error {
 // This method will attempt to silently squash duplicate leaves, but it cannot
 // be guaranteed that no duplicate entries will exist.
 // Returns the sequence number assigned to this leaf (if the leaf has already
-// been sequenced it will return the original sequence number and
-// storage.ErrDupeLeaf).
+// been sequenced it will return the original sequence number and ErrDupeLeaf).
 func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (uint64, error) {
 	// 1. Check for dupe leafhash
 	// 2. Write temp file
@@ -178,7 +177,7 @@ func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (ui
 		if err != nil {
 			return 0, err
 		}
-		return origSeq, storage.ErrDupeLeaf
+		return origSeq, log.ErrDupeLeaf
 	}
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries

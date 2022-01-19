@@ -25,13 +25,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian-examples/serverless/internal/storage"
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"golang.org/x/mod/sumdb/note"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 	"github.com/transparency-dev/merkle/rfc6962"
+
+	fmtlog "github.com/google/trillian-examples/formats/log"
 )
 
 var (
@@ -80,7 +81,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to instantiate Verifier: %q", err)
 	}
-	cp, _, _, err := log.ParseCheckpoint(cpRaw, *origin, v)
+	cp, _, _, err := fmtlog.ParseCheckpoint(cpRaw, *origin, v)
 	if err != nil {
 		glog.Exitf("Failed to parse Checkpoint: %q", err)
 	}
@@ -118,7 +119,7 @@ func main() {
 		dupe := false
 		seq, err := st.Sequence(context.Background(), lh, entry.b)
 		if err != nil {
-			if errors.Is(err, storage.ErrDupeLeaf) {
+			if errors.Is(err, log.ErrDupeLeaf) {
 				dupe = true
 			} else {
 				glog.Exitf("failed to sequence %q: %q", entry.name, err)

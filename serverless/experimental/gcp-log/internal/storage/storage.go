@@ -27,9 +27,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 	"google.golang.org/api/iterator"
 
-	stErrors "github.com/google/trillian-examples/serverless/pkg/storage/errors"
 	gcs "cloud.google.com/go/storage"
 )
 
@@ -209,7 +209,7 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		if err != nil {
 			return 0, err
 		}
-		return origSeq, stErrors.ErrDupeLeaf
+		return origSeq, log.ErrDupeLeaf
 	}
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries

@@ -18,6 +18,7 @@ package log
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -53,6 +54,11 @@ type Storage interface {
 	// It should stop scanning if the call to f returns an error.
 	ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error)
 }
+
+
+// ErrDupeLeaf is returned by the Sequence method of storage implementations to
+// indicate that a leaf has already been sequenced.
+var ErrDupeLeaf = errors.New("duplicate leaf")
 
 // Integrate adds all sequenced entries greater than checkpoint.Size into the tree.
 // Returns an updated Checkpoint, or an error.

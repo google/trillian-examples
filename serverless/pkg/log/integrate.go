@@ -115,7 +115,7 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 	}
 
 	// Calculate the new root hash - don't pass in the tileCache visitor here since
-	// this will construct any emphemeral nodes and we do not want to store those.
+	// this will construct any ephemeral nodes and we do not want to store those.
 	newRoot, err := baseRange.GetRootHash(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate new root hash: %w", err)

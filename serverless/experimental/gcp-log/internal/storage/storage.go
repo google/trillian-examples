@@ -74,7 +74,7 @@ func (c *Client) Create(ctx context.Context, bucket string) error {
 	// If bucket has not been created, this returns error.
 	if _, err := bkt.Attrs(ctx); !errors.Is(err, gcs.ErrBucketNotExist) {
 		return fmt.Errorf("expected bucket %q to not be created yet (bucket attribute retrieval succeeded, expected error)",
-			bucket, err)
+			bucket)
 	}
 
 	if err := bkt.Create(ctx, c.projectID, nil); err != nil {
@@ -236,8 +236,6 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	} else if err != nil {
 		return 0, err
 	}
-	// TODO(jayhou): what if error is something else?
-
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
 	// if Sequence has been called since the last time an Integrate/WriteCheckpoint

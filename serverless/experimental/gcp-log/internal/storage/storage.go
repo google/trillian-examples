@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strconv"
 
@@ -75,7 +74,7 @@ func (c *Client) Create(ctx context.Context, bucket string) error {
 	// If bucket has not been created, this returns error.
 	if _, err := bkt.Attrs(ctx); !errors.Is(err, gcs.ErrBucketNotExist) {
 		return fmt.Errorf("expected bucket %q to not be created yet (bucket attribute retrieval succeeded, expected error)",
-			bucket)
+			bucket, err)
 	}
 
 	if err := bkt.Create(ctx, c.projectID, nil); err != nil {
@@ -228,6 +227,7 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		if err != nil {
 			return 0, err
 		}
+
 		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
 		if err != nil {
 			return 0, err
@@ -236,6 +236,8 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	} else if err != nil {
 		return 0, err
 	}
+	// TODO(jayhou): what if error is something else?
+
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
 	// if Sequence has been called since the last time an Integrate/WriteCheckpoint
@@ -253,6 +255,10 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		} else if err != nil {
 			return 0, fmt.Errorf("couldn't get attr of object %s: %q", seqPath, err)
 		}
+		if err := w.Close(); err != nil {
+			return 0, fmt.Errorf("couldn't close writer for object %q", seqPath)
+		}
+		fmt.Printf("Wrote leaf data to path %q", seqPath)
 
 		// Found the next available sequence number; write it.
 		w := bkt.Object(seqPath).NewWriter(ctx)

@@ -29,6 +29,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 	"github.com/transparency-dev/merkle/rfc6962"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"

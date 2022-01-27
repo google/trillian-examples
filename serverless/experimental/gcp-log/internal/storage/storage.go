@@ -74,7 +74,7 @@ func (c *Client) Create(ctx context.Context, bucket string) error {
 	// If bucket has not been created, this returns error.
 	if _, err := bkt.Attrs(ctx); !errors.Is(err, gcs.ErrBucketNotExist) {
 		return fmt.Errorf("expected bucket %q to not be created yet (bucket attribute retrieval succeeded, expected error)",
-			bucket, err)
+			bucket)
 	}
 
 	if err := bkt.Create(ctx, c.projectID, nil); err != nil {
@@ -160,16 +160,16 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 		// in each iteration of the outside for loop.
 		err := func() error {
 			r, err := bkt.Object(sp).NewReader(ctx)
-			if err != nil {
-					return fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
-			}
-			defer r.Close()
-
-			entry, err := ioutil.ReadAll(r)
 			if errors.Is(err, gcs.ErrObjectNotExist) {
 				// we're done.
 				return nil
 			} else if err != nil {
+				return fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
+			}
+			defer r.Close()
+
+			entry, err := ioutil.ReadAll(r)
+			if err != nil {
 				return fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
 			}
 
@@ -218,11 +218,10 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	bkt := c.gcsClient.Bucket(c.bucket)
 
 	// Check for dupe leaf already present.
-	leafFQ := filepath.Join(layout.LeafPath("", leafhash))
-	r, err := bkt.Object(leafFQ).NewReader(ctx)
+	leafPath := filepath.Join(layout.LeafPath("", leafhash))
+	r, err := bkt.Object(leafPath).NewReader(ctx)
+	defer r.Close()
 	if !errors.Is(err, gcs.ErrObjectNotExist) {
-		defer r.Close()
-
 		// If there is one, it should contain the existing leaf's sequence number,
 		// so read that back and return it.
 		seqString, err := ioutil.ReadAll(r)
@@ -235,9 +234,9 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 			return 0, err
 		}
 		return origSeq, log.ErrDupeLeaf
+	} else if err != nil {
+		return 0, err
 	}
-	// TODO(jayhou): what if error is something else?
-
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
 	// if Sequence has been called since the last time an Integrate/WriteCheckpoint
@@ -252,8 +251,10 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 			c.nextSeq++
 			fmt.Printf("Seq num %d in use, continuing", seq)
 			continue
+		} else if err != nil {
+			return 0, fmt.Errorf("couldn't get attr of object %s: %q", seqPath, err)
 		}
-		// TODO(jayhou): what happens if this is not ErrObjNotExist?
+
 		// Found the next available sequence number; write it.
 		w := bkt.Object(seqPath).NewWriter(ctx)
 		if _, err := w.Write(leaf); err != nil {
@@ -265,16 +266,15 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		fmt.Printf("Wrote leaf data to path %q", seqPath)
 
 		// Create a leafhash file containing the assigned sequence number.
-		// This isn't infallible though, if we crash after hardlinking the
-		// sequence file above, but before doing this a resubmission of the
-		// same leafhash would be permitted.
-		leafPath := fmt.Sprintf("%s.tmp", leafFQ)
+		// This isn't infallible though, if we crash after writing the sequence
+		// file above but before doing this, a resubmission of the same leafhash
+		// would be permitted.
 		wLeaf := bkt.Object(leafPath).NewWriter(ctx)
 		if _, err := wLeaf.Write([]byte(strconv.FormatUint(seq, 16))); err != nil {
 			return 0, fmt.Errorf("couldn't create leafhash object: %w", err)
 		}
 		if err := wLeaf.Close(); err != nil {
-				return 0, fmt.Errorf("couldn't close writer for object %q", leafPath)
+			return 0, fmt.Errorf("couldn't close writer for object %q", leafPath)
 		}
 
 		// All done!

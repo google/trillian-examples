@@ -35,7 +35,6 @@ import (
 )
 
 func validateCommonArgs(w http.ResponseWriter, origin string) (ok bool, pubKey string) {
-	// TODO(jayhou): do we need this?
 	if len(origin) == 0 {
 		http.Error(w, "Please set `origin` in HTTP body to log identifier.", http.StatusBadRequest)
 		return false, ""
@@ -125,9 +124,8 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 
 		bytes, err := client.GetObjectData(ctx, attrs.Name)
 		if err != nil {
-			// TODO(jayhou): should this be an exit or a continue?
 			http.Error(w,
-				fmt.Sprintf("failed to create read for object %q in bucket %q: %q", attrs.Name, d.Bucket, err),
+				fmt.Sprintf("Failed to get data of object %q: %q", attrs.Name, err),
 				http.StatusInternalServerError)
 			return
 		}
@@ -141,12 +139,12 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 				dupe = true
 			} else {
 				http.Error(w,
-					fmt.Sprintf("failed to sequence %q: %q", attrs.Name, err),
+					fmt.Sprintf("Failed to sequence %q: %q", attrs.Name, err),
 					http.StatusInternalServerError)
 				return
 			}
 
-			l := fmt.Sprintf("Sequence num %d assigned to %v", seq, attrs.Name)
+			l := fmt.Sprintf("Sequence num %d assigned to %s", seq, attrs.Name)
 			if dupe {
 				l += " (dupe)"
 			}

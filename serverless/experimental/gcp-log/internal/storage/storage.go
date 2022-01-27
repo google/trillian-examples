@@ -60,8 +60,6 @@ func NewClient(ctx context.Context, projectID, bucket string) (*Client, error) {
 		return nil, err
 	}
 
-	// TODO(jayhou): create bucket?
-
 	return &Client{
 		gcsClient: c,
 		projectID: projectID,

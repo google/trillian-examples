@@ -32,7 +32,6 @@ import (
 	"github.com/gcp_serverless_module/internal/storage"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"
-	golog "log"
 )
 
 func validateCommonArgs(w http.ResponseWriter, origin string) (ok bool, pubKey string) {
@@ -64,7 +63,7 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
-		golog.Printf("json.NewDecoder: %v", err)
+		fmt.Printf("json.NewDecoder: %v", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
@@ -79,11 +78,9 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"), d.Bucket)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create GCS client: %v", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed to create GCS client: %q", err), http.StatusBadRequest)
 		return
 	}
-
-	// TODO(jayhou): return error check if bucket does not exist yet.
 
 	// Read the current log checkpoint to retrieve next sequence number.
 
@@ -153,7 +150,7 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 			if dupe {
 				l += " (dupe)"
 			}
-			golog.Println(l)
+			fmt.Println(l)
 		}
 	}
 }
@@ -167,7 +164,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
-		golog.Printf("json.NewDecoder: %v", err)
+		fmt.Printf("json.NewDecoder: %v", err)
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}

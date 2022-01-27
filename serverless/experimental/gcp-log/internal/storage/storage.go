@@ -52,8 +52,8 @@ type Client struct {
 	nextSeq uint64
 }
 
-// NewClient returns a Client which allows interaction with the log implemented
-// in the specified bucket on GCS.
+// NewClient returns a Client which allows interaction with the log stored in
+// the specified bucket on GCS.
 func NewClient(ctx context.Context, projectID, bucket string) (*Client, error) {
 	c, err := gcs.NewClient(ctx)
 	if err != nil {
@@ -63,7 +63,7 @@ func NewClient(ctx context.Context, projectID, bucket string) (*Client, error) {
 	return &Client{
 		gcsClient: c,
 		projectID: projectID,
-		bucket: bucket,
+		bucket:    bucket,
 	}, nil
 }
 
@@ -110,7 +110,7 @@ func (c *Client) ReadCheckpoint(ctx context.Context) ([]byte, error) {
 
 	r, err := obj.NewReader(ctx)
 	if err != nil {
-			return nil, err
+		return nil, err
 	}
 	defer r.Close()
 
@@ -128,7 +128,7 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 	objName := filepath.Join(layout.TilePath("", level, index, tileSize))
 	r, err := bkt.Object(objName).NewReader(ctx)
 	if err != nil {
-			return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
+		return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
 	}
 	defer r.Close()
 
@@ -190,7 +190,7 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 // GetObjects returns an object iterator for objects in the entriesDir.
 func (c *Client) GetObjects(ctx context.Context, entriesDir string) *gcs.ObjectIterator {
 	return c.gcsClient.Bucket(c.bucket).Objects(ctx, &gcs.Query{
-		Prefix:    entriesDir,
+		Prefix: entriesDir,
 	})
 }
 
@@ -326,7 +326,6 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 			if err != nil {
 				return fmt.Errorf("failed to get object %q from bucket %q: %v", tPath, c.bucket, err)
 			}
-
 
 			if _, err := bkt.Object(attrs.Name).NewWriter(ctx).Write(t); err != nil {
 				return fmt.Errorf("failed to copy full tile to partials object %q in bucket %q: %v", attrs.Name, c.bucket, err)

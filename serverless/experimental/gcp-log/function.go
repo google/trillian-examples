@@ -28,8 +28,8 @@ import (
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/api/iterator"
 
-	"github.com/google/trillian-examples/serverless/pkg/log"
 	"github.com/gcp_serverless_module/internal/storage"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"
 )
@@ -56,14 +56,15 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 	// TODO(jayhou): validate that EntriesDir is only touching the log path.
 
 	var d struct {
-		Bucket string `json:"bucket"`
-		EntriesDir string   `json:"entriesDir"`
+		Bucket     string `json:"bucket"`
+		EntriesDir string `json:"entriesDir"`
 		Origin     string `json:"origin"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
+		code := http.StatusBadRequest
 		fmt.Printf("json.NewDecoder: %v", err)
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(w, http.StatusText(code), code)
 		return
 	}
 
@@ -77,7 +78,7 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"), d.Bucket)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create GCS client: %q", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed to create GCS client: %q", err), http.InternalServerError)
 		return
 	}
 
@@ -85,19 +86,19 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 
 	cpRaw, err := client.ReadCheckpoint(ctx)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to read log checkpoint: %q", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed to read log checkpoint: %q", err), http.InternalServerError)
 		return
 	}
 
 	// Check signatures
 	v, err := note.NewVerifier(pubKey)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to instantiate Verifier: %q", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed to instantiate Verifier: %q", err), http.InternalServerError)
 		return
 	}
 	cp, _, _, err := fmtlog.ParseCheckpoint(cpRaw, d.Origin, v)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to parse Checkpoint: %q", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Failed to parse Checkpoint: %q", err), http.InternalServerError)
 		return
 	}
 	client.SetNextSeq(cp.Size)
@@ -114,7 +115,7 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w,
 				fmt.Sprintf("Bucket(%q).Objects: %v", d.Bucket, err),
-				http.StatusBadRequest)
+				http.InternalServerError)
 			return
 		}
 		// Skip this directory - only add files under it.
@@ -158,7 +159,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 	var d struct {
 		Origin     string `json:"origin"`
 		Initialise bool   `json:"initialise"`
-		Bucket string `json:"bucket"`
+		Bucket     string `json:"bucket"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {

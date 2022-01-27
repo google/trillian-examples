@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strconv"
 
@@ -53,16 +52,20 @@ type Client struct {
 	nextSeq uint64
 }
 
-// NewClient returns a Client which allows interaction with the log implemented on GCS.
-func NewClient(ctx context.Context, projectID string) (*Client, error) {
+// NewClient returns a Client which allows interaction with the log implemented
+// in the specified bucket on GCS.
+func NewClient(ctx context.Context, projectID, bucket string) (*Client, error) {
 	c, err := gcs.NewClient(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO(jayhou): create bucket?
+
 	return &Client{
 		gcsClient: c,
 		projectID: projectID,
+		bucket: bucket,
 	}, nil
 }
 
@@ -73,7 +76,7 @@ func (c *Client) Create(ctx context.Context, bucket string) error {
 	// If bucket has not been created, this returns error.
 	if _, err := bkt.Attrs(ctx); !errors.Is(err, gcs.ErrBucketNotExist) {
 		return fmt.Errorf("expected bucket %q to not be created yet (bucket attribute retrieval succeeded, expected error)",
-			bucket)
+			bucket, err)
 	}
 
 	if err := bkt.Create(ctx, c.projectID, nil); err != nil {
@@ -84,6 +87,11 @@ func (c *Client) Create(ctx context.Context, bucket string) error {
 	c.bucket = bucket
 	c.nextSeq = 0
 	return nil
+}
+
+// SetNextSeq sets the input as the nextSeq of the client.
+func (c *Client) SetNextSeq(num uint64) {
+	c.nextSeq = num
 }
 
 // WriteCheckpoint stores a raw log checkpoint on GCS.
@@ -181,6 +189,24 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 	}
 }
 
+// GetObjects returns an object iterator for objects in the entriesDir.
+func (c *Client) GetObjects(ctx context.Context, entriesDir string) *gcs.ObjectIterator {
+	return c.gcsClient.Bucket(c.bucket).Objects(ctx, &gcs.Query{
+		Prefix:    entriesDir,
+	})
+}
+
+// GetObjectData returns the bytes of the input object path.
+func (c *Client) GetObjectData(ctx context.Context, obj string) ([]byte, error) {
+	r, err := c.gcsClient.Bucket(c.bucket).Object(obj).NewReader(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %q", obj, c.bucket, err)
+	}
+	defer r.Close()
+
+	return ioutil.ReadAll(r)
+}
+
 // Sequence assigns the given leaf entry to the next available sequence number.
 // This method will attempt to silently squash duplicate leaves, but it cannot
 // be guaranteed that no duplicate entries will exist.
@@ -188,29 +214,32 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 // been sequenced it will return the original sequence number and ErrDupeLeaf).
 func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (uint64, error) {
 	// 1. Check for dupe leafhash
-	// 2. Write temp file
-	// 3. Hard link temp -> seq file
-	// 4. Create leafhash file containing assigned sequence number
+	// 2. Create seq file
+	// 3. Create leafhash file containing assigned sequence number
 
-	leafFQ := filepath.Join(layout.LeafPath("", leafhash))
 	bkt := c.gcsClient.Bucket(c.bucket)
-	r, err := bkt.Object(leafFQ).NewReader(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer r.Close()
 
 	// Check for dupe leaf already present.
-	// If there is one, it should contain the existing leaf's sequence number,
-	// so read that back and return it.
-	seqString, err := ioutil.ReadAll(r)
-	if err != gcs.ErrObjectNotExist {
+	leafFQ := filepath.Join(layout.LeafPath("", leafhash))
+	r, err := bkt.Object(leafFQ).NewReader(ctx)
+	if !errors.Is(err, gcs.ErrObjectNotExist) {
+		defer r.Close()
+
+		// If there is one, it should contain the existing leaf's sequence number,
+		// so read that back and return it.
+		seqString, err := ioutil.ReadAll(r)
+		if err != nil {
+			return 0, err
+		}
+
 		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
 		if err != nil {
 			return 0, err
 		}
 		return origSeq, log.ErrDupeLeaf
 	}
+	// TODO(jayhou): what if error is something else?
+
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
 	// if Sequence has been called since the last time an Integrate/WriteCheckpoint
@@ -218,19 +247,24 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	for {
 		seq := c.nextSeq
 
-		// Write the sequence file
+		// Try to write the sequence file
 		seqPath := filepath.Join(layout.SeqPath("", seq))
-
-		bkt := c.gcsClient.Bucket(c.bucket)
-		wSeq := bkt.Object(seqPath).NewWriter(ctx)
-
-		if _, err := wSeq.Write(leaf); errors.Is(err, os.ErrExist) {
+		if _, err := bkt.Object(seqPath).Attrs(ctx); !errors.Is(err, gcs.ErrObjectNotExist) {
 			// That sequence number is in use, try the next one
 			c.nextSeq++
+			fmt.Printf("Seq num %d in use, continuing", seq)
 			continue
-		} else if err != nil {
+		}
+		// TODO(jayhou): what happens if this is not ErrObjNotExist?
+		// Found the next available sequence number; write it.
+		w := bkt.Object(seqPath).NewWriter(ctx)
+		if _, err := w.Write(leaf); err != nil {
 			return 0, fmt.Errorf("failed to write seq file: %w", err)
 		}
+		if err := w.Close(); err != nil {
+			return 0, fmt.Errorf("couldn't close writer for object %q", seqPath)
+		}
+		fmt.Printf("Wrote leaf data to path %q", seqPath)
 
 		// Create a leafhash file containing the assigned sequence number.
 		// This isn't infallible though, if we crash after hardlinking the
@@ -240,6 +274,9 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		wLeaf := bkt.Object(leafPath).NewWriter(ctx)
 		if _, err := wLeaf.Write([]byte(strconv.FormatUint(seq, 16))); err != nil {
 			return 0, fmt.Errorf("couldn't create leafhash object: %w", err)
+		}
+		if err := wLeaf.Close(); err != nil {
+				return 0, fmt.Errorf("couldn't close writer for object %q", leafPath)
 		}
 
 		// All done!

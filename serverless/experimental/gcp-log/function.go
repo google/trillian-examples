@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package p provides Google Cloud Function for sequencing entries in a
-// serverless log.
+// Package p provides Google Cloud Functions for adding (sequencing and
+// integrating) new entries to a serverless log.
 package p
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
+	"google.golang.org/api/iterator"
 
 	"github.com/google/trillian-examples/serverless/pkg/log"
 	"github.com/gcp_serverless_module/internal/storage"
@@ -33,29 +35,32 @@ import (
 	golog "log"
 )
 
-func validateCommonArgs(w http.ResponseWriter, origin string) (ok bool) {
+func validateCommonArgs(w http.ResponseWriter, origin string) (ok bool, pubKey string) {
+	// TODO(jayhou): do we need this?
 	if len(origin) == 0 {
 		http.Error(w, "Please set `origin` in HTTP body to log identifier.", http.StatusBadRequest)
-		return false
+		return false, ""
 	}
 
-	pubKey := os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
+	pubKey = os.Getenv("SERVERLESS_LOG_PUBLIC_KEY")
 	if len(pubKey) == 0 {
 		http.Error(w,
 			"Please set SERVERLESS_LOG_PUBLIC_KEY environment variable",
 			http.StatusBadRequest)
-		return false
+		return false, ""
 	}
 
-	return true
+	return true, pubKey
 }
 
 // Sequence is the entrypoint of the `sequence` GCF function.
 func Sequence(w http.ResponseWriter, r *http.Request) {
+	// TODO(jayhou): validate that EntriesDir is only touching the log path.
+
 	var d struct {
+		Bucket string `json:"bucket"`
+		EntriesDir string   `json:"entriesDir"`
 		Origin     string `json:"origin"`
-		Bucket 		 string `json:"bucket"`
-		Entries 	 string `prefix:"entries"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
@@ -64,27 +69,25 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ok := validateCommonArgs(w, d.Origin); !ok {
+	ok, pubKey := validateCommonArgs(w, d.Origin)
+	if !ok {
 		return
 	}
 
-	// TODO(jayhou): list entries objects
-	it := bkt.Objects(ctx, &gcs.Query{
-		Prefix: tPath, // TODO(jayhou): get path under the pending dir?
-	})
-
-	h := rfc6962.DefaultHasher
 	// init storage
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"))
+	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"), d.Bucket)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create GCS client: %v", err), http.StatusBadRequest)
 		return
 	}
 
-	// TODO(jayhou): should this take a bucket name param?
-	cpRaw, err := client.ReadCheckpoint(d.Bucket)
+	// TODO(jayhou): return error check if bucket does not exist yet.
+
+	// Read the current log checkpoint to retrieve next sequence number.
+
+	cpRaw, err := client.ReadCheckpoint(ctx)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to read log checkpoint: %q", err), http.StatusBadRequest)
 		return
@@ -101,65 +104,57 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to parse Checkpoint: %q", err), http.StatusBadRequest)
 		return
 	}
+	client.SetNextSeq(cp.Size)
 
 	// sequence entries
 
-	// entryInfo binds the actual bytes to be added as a leaf with a
-	// user-recognisable name for the source of those bytes.
-	// The name is only used below in order to inform the user of the
-	// sequence numbers assigned to the data from the provided input files.
-	type entryInfo struct {
-		name string
-		b    []byte
-	}
-	entries := make(chan entryInfo, 100)
-	go func() {
-		for {
-			attrs, err := it.Next()
-			if err == iterator.Done {
-				break
-			}
-			if err != nil {
-				// TODO(jayhou): log this?
-				fmt.Errorf("failed to get object '%s' from bucket '%s': %v", tPath, c.bucket, err)
-			}
-
-			r, err := bkt.Object(attrs.Name).NewReader(ctx)
-			if err != nil {
-				// TODO(jayhou): log this?
-				fmt.Errorf("failed to create reader for object '%s' in bucket '%s': %v", attrs.Name, c.bucket, err)
-			}
-			defer r.Close()
-
-			b, err := ioutil.ReadAll(r)
-			if err != nil {
-				// TODO(jayhou): log failure
-			}
-
-			entries <- entryInfo{name: attrs.Name, b: b}
+	h := rfc6962.DefaultHasher
+	it := client.GetObjects(ctx, d.EntriesDir)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
 		}
-		close(entries)
-	}()
+		if err != nil {
+			http.Error(w,
+				fmt.Sprintf("Bucket(%q).Objects: %v", d.Bucket, err),
+				http.StatusBadRequest)
+			return
+		}
+		// Skip this directory - only add files under it.
+		if attrs.Name == d.EntriesDir {
+			continue
+		}
 
-	for entry := range entries {
+		bytes, err := client.GetObjectData(ctx, attrs.Name)
+		if err != nil {
+			// TODO(jayhou): should this be an exit or a continue?
+			http.Error(w,
+				fmt.Sprintf("failed to create read for object %q in bucket %q: %q", attrs.Name, d.Bucket, err),
+				http.StatusInternalServerError)
+			return
+		}
+
 		// ask storage to sequence
-		lh := h.HashLeaf(entry.b)
+		lh := h.HashLeaf(bytes)
 		dupe := false
-		seq, err := client.Sequence(lh, entry.b)
+		seq, err := client.Sequence(ctx, lh, bytes)
 		if err != nil {
 			if errors.Is(err, log.ErrDupeLeaf) {
 				dupe = true
 			} else {
-				// TODO(jayhou): log this
-				glog.Exitf("failed to sequence %q: %q", entry.name, err)
+				http.Error(w,
+					fmt.Sprintf("failed to sequence %q: %q", attrs.Name, err),
+					http.StatusInternalServerError)
+				return
 			}
+
+			l := fmt.Sprintf("Sequence num %d assigned to %v", seq, attrs.Name)
+			if dupe {
+				l += " (dupe)"
+			}
+			golog.Println(l)
 		}
-		l := fmt.Sprintf("%d: %v", seq, entry.name)
-		if dupe {
-			l += " (dupe)"
-		}
-		// TODO(jayhou): log this
-		glog.Info(l)
 	}
 }
 
@@ -177,7 +172,8 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ok := validateCommonArgs(w, d.Origin); !ok {
+	ok, pubKey := validateCommonArgs(w, d.Origin)
+	if !ok {
 		return
 	}
 
@@ -195,7 +191,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"))
+	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"), d.Bucket)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create GCS client: %v", err), http.StatusBadRequest)
 		return

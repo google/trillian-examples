@@ -360,6 +360,8 @@ github.com/google/trillian-examples v0.0.0-20211207131118-581cc02967e1 h1:73KdHj
 github.com/google/trillian-examples v0.0.0-20211207131118-581cc02967e1/go.mod h1:99sWhCTTOjl8M/r+bQCOCN2DyZMDwgKVgWIxyu9bMY4=
 github.com/google/trillian-examples v0.0.0-20220111153204-c0186d27f557 h1:3c4gyuHJwBZ0LfTMZj6bPWcBicytn8LFQp5uee3c8V0=
 github.com/google/trillian-examples v0.0.0-20220111153204-c0186d27f557/go.mod h1:vHDQpxR3j9vubyAjHkXTvygVm4qwTb2gKfZFt00c+OI=
+github.com/google/trillian-examples v0.0.0-20220119175720-4a84adf321cd h1:ZCe5Pi4ZMGrjRYgmwDkNzu1U7Zg+YZdF+Wyop7guHmk=
+github.com/google/trillian-examples v0.0.0-20220119175720-4a84adf321cd/go.mod h1:vHDQpxR3j9vubyAjHkXTvygVm4qwTb2gKfZFt00c+OI=
 github.com/google/uuid v0.0.0-20161128191214-064e2069ce9c/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.0.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=

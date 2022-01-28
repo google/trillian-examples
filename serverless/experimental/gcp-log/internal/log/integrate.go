@@ -72,7 +72,6 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch compact range nodes: %w", err)
 	}
-	fmt.Printf("~~hashes: %v", hashes)
 
 	rf := compact.RangeFactory{Hash: h.HashChildren}
 	baseRange, err := rf.NewRange(0, checkpoint.Size, hashes)
@@ -104,8 +103,6 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 			newRange.Append(lh, tc.Visit)
 			return nil
 		})
-	fmt.Printf("~~~scanned %d sequenced.", n)
-	return nil, fmt.Errorf("expected end")
 
 	if err != nil {
 		return nil, fmt.Errorf("error while integrating: %w", err)

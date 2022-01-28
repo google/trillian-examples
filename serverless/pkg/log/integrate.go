@@ -18,7 +18,6 @@ package log
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 

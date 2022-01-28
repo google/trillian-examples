@@ -176,15 +176,16 @@ func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
 	tileLevel, tileIndex, nodeLevel, nodeIndex := layout.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
 	tileKey := tileKey{level: tileLevel, index: tileIndex}
 	tile := tc.m[tileKey]
-	var err error
 	if tile == nil {
 		// We haven't see this tile before, so try to fetch it from disk
 		created := false
+
+		var err error
 		tile, err = tc.getTile(tileLevel, tileIndex)
+		if !os.IsNotExist(err) {
+			panic(err)
+		}
 		if err != nil {
-			if !os.IsNotExist(err) {
-				panic(err)
-			}
 			// This is a brand new tile.
 			created = true
 			tile = &api.Tile{

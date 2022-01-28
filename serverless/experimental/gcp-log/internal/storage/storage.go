@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 
@@ -128,7 +129,14 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 	objName := filepath.Join(layout.TilePath("", level, index, tileSize))
 	r, err := bkt.Object(objName).NewReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
+		fmt.Printf("failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
+
+		if errors.Is(err, gcs.ErrObjectNotExist) {
+			// Return the generic NotExist error so that tileCache.Visit can differentiate
+			// between this and other errors.
+			return nil, os.ErrNotExist
+		}
+		return nil, err
 	}
 	defer r.Close()
 
@@ -152,36 +160,39 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 	end := begin
 
 	bkt := c.gcsClient.Bucket(c.bucket)
+
 	for {
 		// Pass an empty rootDir since we don't need this concept in GCS.
 		sp := filepath.Join(layout.SeqPath("", end))
-		fmt.Printf("~~~sequence path: %s", sp)
 
 		// Read the object in an anonymous function so that the reader gets closed
 		// in each iteration of the outside for loop.
-		err := func() error {
+		done, err := func() (done bool, err error) {
 			r, err := bkt.Object(sp).NewReader(ctx)
 			if errors.Is(err, gcs.ErrObjectNotExist) {
 				// we're done.
-				return nil
+				return true, nil
 			} else if err != nil {
-				return fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
+				return false, fmt.Errorf("1.failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
 			}
 			defer r.Close()
 
 			entry, err := ioutil.ReadAll(r)
 			if err != nil {
-				return fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
+				return false, fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
 			}
 
 			if err := f(end, entry); err != nil {
-				return err
+				return false, err
 			}
 			end++
 
-			return nil
+			return false, nil
 		}()
 
+		if done {
+			return end - begin, nil
+		}
 		if err != nil {
 			return end - begin, err
 		}

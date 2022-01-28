@@ -186,15 +186,16 @@ func (tc tileCache) MaybeLoadCache(id compact.NodeID, hash []byte) error {
 	if !os.IsNotExist(err) || !errors.Is(err, gcs.ErrObjectNotExist) {
 		return fmt.Errorf("expected tileLevel %d, tileIndex %d to not exist (getTile succeeded, expected error)", tileLevel, tileIndex)
 	}
-	created := false
 	if err != nil {
 		// This is a brand new tile.
-		created = true
 		tile = &api.Tile{
 			Nodes: make([][]byte, 0, 256*2),
 		}
+		glog.V(1).Infof("MaybeLoadCache: %v, created new empty in-memory tile", tileKey)
+	} else {
+		glog.V(1).Infof("MaybeLoadCache: %v, loaded from disk", tileKey)
 	}
-	glog.V(1).Infof("GetTile: %v new: %v", tileKey, created)
+
 	tc.m[tileKey] = tile
 	return nil
 }

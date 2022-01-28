@@ -18,6 +18,7 @@ package log
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -28,6 +29,8 @@ import (
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/compact"
+
+	gcs "cloud.google.com/go/storage"
 )
 
 // Storage represents the set of functions needed by the log tooling.
@@ -89,8 +92,13 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 		checkpoint.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
+
 			// Set leafhash on zeroth level
+			if err := tc.MaybeLoadCache(compact.NodeID{Level: 0, Index: seq}, lh); err != nil {
+				return err
+			}
 			tc.Visit(compact.NodeID{Level: 0, Index: seq}, lh)
+
 			// Update range and set internal nodes
 			newRange.Append(lh, tc.Visit)
 			return nil
@@ -161,6 +169,36 @@ type tileCache struct {
 	getTile func(level, index uint64) (*api.Tile, error)
 }
 
+// If the tile containing id has not been seen before, this method will fetch
+// it from disk (or create a new empty in-memory tile if it doesn't exist), and
+// update it by setting the node corresponding to id to the value hash.
+func (tc tileCache) MaybeLoadCache(id compact.NodeID, hash []byte) error {
+	tileLevel, tileIndex, _, _ := layout.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
+	tileKey := tileKey{level: tileLevel, index: tileIndex}
+	tile := tc.m[tileKey]
+	var err error
+	if tile != nil {
+		return nil
+	}
+
+	// We haven't see this tile before, so try to fetch it from disk
+	tile, err = tc.getTile(tileLevel, tileIndex)
+	if !os.IsNotExist(err) || !errors.Is(err, gcs.ErrObjectNotExist) {
+		return fmt.Errorf("expected tileLevel %d, tileIndex %d to not exist (getTile succeeded, expected error)", tileLevel, tileIndex)
+	}
+	created := false
+	if err != nil {
+		// This is a brand new tile.
+		created = true
+		tile = &api.Tile{
+			Nodes: make([][]byte, 0, 256*2),
+		}
+	}
+	glog.V(1).Infof("GetTile: %v new: %v", tileKey, created)
+	tc.m[tileKey] = tile
+	return nil
+}
+
 // Visit should be called once for each newly set non-ephemeral node in the
 // tree.
 //
@@ -171,24 +209,7 @@ func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
 	tileLevel, tileIndex, nodeLevel, nodeIndex := layout.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
 	tileKey := tileKey{level: tileLevel, index: tileIndex}
 	tile := tc.m[tileKey]
-	var err error
-	if tile == nil {
-		// We haven't see this tile before, so try to fetch it from disk
-		created := false
-		tile, err = tc.getTile(tileLevel, tileIndex)
-		if err != nil {
-			if !os.IsNotExist(err) {
-				panic(err)
-			}
-			// This is a brand new tile.
-			created = true
-			tile = &api.Tile{
-				Nodes: make([][]byte, 0, 256*2),
-			}
-		}
-		glog.V(1).Infof("GetTile: %v new: %v", tileKey, created)
-		tc.m[tileKey] = tile
-	}
+
 	// Update the tile with the new node hash.
 	idx := api.TileNodeKey(nodeLevel, nodeIndex)
 	if l := uint(len(tile.Nodes)); idx >= l {

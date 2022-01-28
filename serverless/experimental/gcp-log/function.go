@@ -29,7 +29,8 @@ import (
 	"google.golang.org/api/iterator"
 
 	"github.com/gcp_serverless_module/internal/storage"
-	"github.com/google/trillian-examples/serverless/pkg/log"
+	// "github.com/google/trillian-examples/serverless/pkg/log"
+	"github.com/gcp_serverless_module/internal/log"
 
 	fmtlog "github.com/google/trillian-examples/formats/log"
 )
@@ -79,7 +80,7 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"), d.Bucket)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create GCS client: %q", err), http.InternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to create GCS client: %q", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -240,6 +241,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w,
 			fmt.Sprintf("Failed to integrate: %q", err),
 			http.StatusInternalServerError)
+		return
 	}
 	if newCp == nil {
 		http.Error(w, "Nothing to integrate", http.StatusInternalServerError)

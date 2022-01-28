@@ -3,7 +3,6 @@ module github.com/google/trillian-examples
 go 1.16
 
 require (
-	cloud.google.com/go/storage v1.15.0 // indirect
 	github.com/apache/beam/sdks/v2 v2.0.0-20211013024802-71d7213d9867
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8

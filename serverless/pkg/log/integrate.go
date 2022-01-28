@@ -29,8 +29,6 @@ import (
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/compact"
-
-	gcs "cloud.google.com/go/storage"
 )
 
 // Storage represents the set of functions needed by the log tooling.
@@ -183,7 +181,7 @@ func (tc tileCache) MaybeLoadCache(id compact.NodeID, hash []byte) error {
 	// We haven't see this tile before, so try to fetch it from disk
 	var err error
 	tile, err = tc.getTile(tileLevel, tileIndex)
-	if !os.IsNotExist(err) || !errors.Is(err, gcs.ErrObjectNotExist) {
+	if !os.IsNotExist(err) {
 		return fmt.Errorf("expected tileLevel %d, tileIndex %d to not exist (getTile succeeded, expected error)", tileLevel, tileIndex)
 	}
 	if err != nil {

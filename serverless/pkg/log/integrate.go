@@ -176,12 +176,12 @@ func (tc tileCache) MaybeLoadCache(id compact.NodeID, hash []byte) error {
 	tileLevel, tileIndex, _, _ := layout.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
 	tileKey := tileKey{level: tileLevel, index: tileIndex}
 	tile := tc.m[tileKey]
-	var err error
 	if tile != nil {
 		return nil
 	}
 
 	// We haven't see this tile before, so try to fetch it from disk
+	var err error
 	tile, err = tc.getTile(tileLevel, tileIndex)
 	if !os.IsNotExist(err) || !errors.Is(err, gcs.ErrObjectNotExist) {
 		return fmt.Errorf("expected tileLevel %d, tileIndex %d to not exist (getTile succeeded, expected error)", tileLevel, tileIndex)

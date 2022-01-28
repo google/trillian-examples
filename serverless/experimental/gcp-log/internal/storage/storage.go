@@ -155,6 +155,7 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 	for {
 		// Pass an empty rootDir since we don't need this concept in GCS.
 		sp := filepath.Join(layout.SeqPath("", end))
+		fmt.Printf("~~~sequence path: %s", sp)
 
 		// Read the object in an anonymous function so that the reader gets closed
 		// in each iteration of the outside for loop.

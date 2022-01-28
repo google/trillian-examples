@@ -87,8 +87,7 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 	}
 
 	glog.Infof("Loaded state with roothash %x", r)
-	fmt.Printf("~~Loaded state with roothash %x", r)
-	return nil, fmt.Errorf("expected end")
+
 
 	// Create a new compact range which represents the update to the tree
 	newRange := rf.NewEmptyRange(checkpoint.Size)
@@ -97,12 +96,17 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 		checkpoint.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
+
 			// Set leafhash on zeroth level
 			tc.Visit(compact.NodeID{Level: 0, Index: seq}, lh)
+
 			// Update range and set internal nodes
 			newRange.Append(lh, tc.Visit)
 			return nil
 		})
+	fmt.Printf("~~~scanned %d sequenced.", n)
+	return nil, fmt.Errorf("expected end")
+
 	if err != nil {
 		return nil, fmt.Errorf("error while integrating: %w", err)
 	}
@@ -171,23 +175,20 @@ type tileCache struct {
 
 // Visit should be called once for each newly set non-ephemeral node in the
 // tree.
-//
-// If the tile containing id has not been seen before, this method will fetch
-// it from disk (or create a new empty in-memory tile if it doesn't exist), and
-// update it by setting the node corresponding to id to the value hash.
 func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
 	tileLevel, tileIndex, nodeLevel, nodeIndex := layout.NodeCoordsToTileAddress(uint64(id.Level), uint64(id.Index))
 	tileKey := tileKey{level: tileLevel, index: tileIndex}
 	tile := tc.m[tileKey]
-	var err error
 	if tile == nil {
 		// We haven't see this tile before, so try to fetch it from disk
 		created := false
+
+		var err error
 		tile, err = tc.getTile(tileLevel, tileIndex)
+		if !os.IsNotExist(err) {
+			panic(err)
+		}
 		if err != nil {
-			if !os.IsNotExist(err) {
-				panic(err)
-			}
 			// This is a brand new tile.
 			created = true
 			tile = &api.Tile{
@@ -197,6 +198,7 @@ func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
 		glog.V(1).Infof("GetTile: %v new: %v", tileKey, created)
 		tc.m[tileKey] = tile
 	}
+
 	// Update the tile with the new node hash.
 	idx := api.TileNodeKey(nodeLevel, nodeIndex)
 	if l := uint(len(tile.Nodes)); idx >= l {

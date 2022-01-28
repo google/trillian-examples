@@ -158,7 +158,6 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 // return the number of sequenced entries scanned.
 func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uint64, entry []byte) error) (uint64, error) {
 	end := begin
-
 	bkt := c.gcsClient.Bucket(c.bucket)
 
 	for {
@@ -167,13 +166,13 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 
 		// Read the object in an anonymous function so that the reader gets closed
 		// in each iteration of the outside for loop.
-		done, err := func() (done bool, err error) {
+		done, err := func() (bool, error) {
 			r, err := bkt.Object(sp).NewReader(ctx)
 			if errors.Is(err, gcs.ErrObjectNotExist) {
 				// we're done.
 				return true, nil
 			} else if err != nil {
-				return false, fmt.Errorf("1.failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
+				return false, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
 			}
 			defer r.Close()
 

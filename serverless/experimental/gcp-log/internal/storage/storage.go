@@ -129,7 +129,7 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 	objName := filepath.Join(layout.TilePath("", level, index, tileSize))
 	r, err := bkt.Object(objName).NewReader(ctx)
 	if err != nil {
-		fmt.Printf("failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
+		fmt.Printf("GetTile: failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
 
 		if errors.Is(err, gcs.ErrObjectNotExist) {
 			// Return the generic NotExist error so that tileCache.Visit can differentiate
@@ -172,7 +172,7 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 				// we're done.
 				return true, nil
 			} else if err != nil {
-				return false, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
+				return false, fmt.Errorf("ScanSequenced: failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
 			}
 			defer r.Close()
 
@@ -209,7 +209,7 @@ func (c *Client) GetObjects(ctx context.Context, entriesDir string) *gcs.ObjectI
 func (c *Client) GetObjectData(ctx context.Context, obj string) ([]byte, error) {
 	r, err := c.gcsClient.Bucket(c.bucket).Object(obj).NewReader(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %q", obj, c.bucket, err)
+		return nil, fmt.Errorf("GetObjectData: failed to create reader for object %q in bucket %q: %q", obj, c.bucket, err)
 	}
 	defer r.Close()
 
@@ -265,10 +265,6 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		} else if err != nil {
 			return 0, fmt.Errorf("couldn't get attr of object %s: %q", seqPath, err)
 		}
-		if err := w.Close(); err != nil {
-			return 0, fmt.Errorf("couldn't close writer for object %q", seqPath)
-		}
-		fmt.Printf("Wrote leaf data to path %q", seqPath)
 
 		// Found the next available sequence number; write it.
 		w := bkt.Object(seqPath).NewWriter(ctx)

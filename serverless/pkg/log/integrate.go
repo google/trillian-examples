@@ -182,10 +182,10 @@ func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
 
 		var err error
 		tile, err = tc.getTile(tileLevel, tileIndex)
-		if !os.IsNotExist(err) {
-			panic(err)
-		}
 		if err != nil {
+			if !os.IsNotExist(err) {
+				panic(err)
+			}
 			// This is a brand new tile.
 			created = true
 			tile = &api.Tile{

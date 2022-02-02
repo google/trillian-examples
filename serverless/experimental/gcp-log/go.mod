@@ -5,7 +5,6 @@ go 1.17
 require (
 	cloud.google.com/go/storage v1.18.2
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/google/trillian-examples v0.0.0-20220111153204-c0186d27f557
 	github.com/transparency-dev/merkle v0.0.0-20220104141048-2fe6541b4c0d
 	golang.org/x/mod v0.5.1
 )
@@ -15,6 +14,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
+	github.com/google/trillian-examples v0.0.0-20220119175720-4a84adf321cd // indirect
 	github.com/googleapis/gax-go/v2 v2.1.1 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect

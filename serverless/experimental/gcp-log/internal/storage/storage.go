@@ -21,10 +21,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
+	"github.com/google/trillian-examples/serverless/pkg/log"
 	"google.golang.org/api/iterator"
 
 	gcs "cloud.google.com/go/storage"
@@ -33,7 +35,6 @@ import (
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
 // The naming of the objects of the GCS object is:
 //  leaves/aa/bb/cc/ddeeff...
-//  leaves/pending/aabbccddeeff...
 //  seq/aa/bb/cc/ddeeff...
 //  tile/<level>/aa/bb/ccddee...
 //  checkpoint
@@ -51,8 +52,9 @@ type Client struct {
 	nextSeq uint64
 }
 
-// NewClient returns a Client which allows interaction with the log implemented on GCS.
-func NewClient(ctx context.Context, projectID string) (*Client, error) {
+// NewClient returns a Client which allows interaction with the log stored in
+// the specified bucket on GCS.
+func NewClient(ctx context.Context, projectID, bucket string) (*Client, error) {
 	c, err := gcs.NewClient(ctx)
 	if err != nil {
 		return nil, err
@@ -61,6 +63,7 @@ func NewClient(ctx context.Context, projectID string) (*Client, error) {
 	return &Client{
 		gcsClient: c,
 		projectID: projectID,
+		bucket:    bucket,
 	}, nil
 }
 
@@ -84,6 +87,11 @@ func (c *Client) Create(ctx context.Context, bucket string) error {
 	return nil
 }
 
+// SetNextSeq sets the input as the nextSeq of the client.
+func (c *Client) SetNextSeq(num uint64) {
+	c.nextSeq = num
+}
+
 // WriteCheckpoint stores a raw log checkpoint on GCS.
 func (c *Client) WriteCheckpoint(ctx context.Context, newCPRaw []byte) error {
 	bkt := c.gcsClient.Bucket(c.bucket)
@@ -102,7 +110,7 @@ func (c *Client) ReadCheckpoint(ctx context.Context) ([]byte, error) {
 
 	r, err := obj.NewReader(ctx)
 	if err != nil {
-			return nil, err
+		return nil, err
 	}
 	defer r.Close()
 
@@ -120,7 +128,7 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 	objName := filepath.Join(layout.TilePath("", level, index, tileSize))
 	r, err := bkt.Object(objName).NewReader(ctx)
 	if err != nil {
-			return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
+		return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %v", objName, c.bucket, err)
 	}
 	defer r.Close()
 
@@ -134,11 +142,6 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 		return nil, fmt.Errorf("failed to parse tile: %w", err)
 	}
 	return &tile, nil
-}
-
-// TODO(jayhou): Not implemented yet, but needed for the Storage interface.
-func (c *Client) Sequence(leafhash []byte, leaf []byte) (uint64, error) {
-	return 0, nil
 }
 
 // ScanSequenced calls the provided function once for each contiguous entry
@@ -155,18 +158,18 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 
 		// Read the object in an anonymous function so that the reader gets closed
 		// in each iteration of the outside for loop.
-		err := func() (uint64, error) {
+		err := func() error {
 			r, err := bkt.Object(sp).NewReader(ctx)
-			if err != nil {
-					return fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
-			}
-			defer r.Close()
-
-			entry, err := ioutil.ReadAll(r)
 			if errors.Is(err, gcs.ErrObjectNotExist) {
 				// we're done.
 				return nil
 			} else if err != nil {
+				return fmt.Errorf("failed to create reader for object %q in bucket %q: %v", sp, c.bucket, err)
+			}
+			defer r.Close()
+
+			entry, err := ioutil.ReadAll(r)
+			if err != nil {
 				return fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
 			}
 
@@ -181,6 +184,101 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 		if err != nil {
 			return end - begin, err
 		}
+	}
+}
+
+// GetObjects returns an object iterator for objects in the entriesDir.
+func (c *Client) GetObjects(ctx context.Context, entriesDir string) *gcs.ObjectIterator {
+	return c.gcsClient.Bucket(c.bucket).Objects(ctx, &gcs.Query{
+		Prefix: entriesDir,
+	})
+}
+
+// GetObjectData returns the bytes of the input object path.
+func (c *Client) GetObjectData(ctx context.Context, obj string) ([]byte, error) {
+	r, err := c.gcsClient.Bucket(c.bucket).Object(obj).NewReader(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create reader for object %q in bucket %q: %q", obj, c.bucket, err)
+	}
+	defer r.Close()
+
+	return ioutil.ReadAll(r)
+}
+
+// Sequence assigns the given leaf entry to the next available sequence number.
+// This method will attempt to silently squash duplicate leaves, but it cannot
+// be guaranteed that no duplicate entries will exist.
+// Returns the sequence number assigned to this leaf (if the leaf has already
+// been sequenced it will return the original sequence number and ErrDupeLeaf).
+func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (uint64, error) {
+	// 1. Check for dupe leafhash
+	// 2. Create seq file
+	// 3. Create leafhash file containing assigned sequence number
+
+	bkt := c.gcsClient.Bucket(c.bucket)
+
+	// Check for dupe leaf already present.
+	leafPath := filepath.Join(layout.LeafPath("", leafhash))
+	r, err := bkt.Object(leafPath).NewReader(ctx)
+	defer r.Close()
+	if !errors.Is(err, gcs.ErrObjectNotExist) {
+		// If there is one, it should contain the existing leaf's sequence number,
+		// so read that back and return it.
+		seqString, err := ioutil.ReadAll(r)
+		if err != nil {
+			return 0, err
+		}
+
+		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
+		if err != nil {
+			return 0, err
+		}
+		return origSeq, log.ErrDupeLeaf
+	} else if err != nil {
+		return 0, err
+	}
+
+	// Now try to sequence it, we may have to scan over some newly sequenced entries
+	// if Sequence has been called since the last time an Integrate/WriteCheckpoint
+	// was called.
+	for {
+		seq := c.nextSeq
+
+		// Try to write the sequence file
+		seqPath := filepath.Join(layout.SeqPath("", seq))
+		if _, err := bkt.Object(seqPath).Attrs(ctx); !errors.Is(err, gcs.ErrObjectNotExist) {
+			// That sequence number is in use, try the next one
+			c.nextSeq++
+			fmt.Printf("Seq num %d in use, continuing", seq)
+			continue
+		} else if err != nil {
+			return 0, fmt.Errorf("couldn't get attr of object %s: %q", seqPath, err)
+		}
+
+		// Found the next available sequence number; write it.
+		w := bkt.Object(seqPath).NewWriter(ctx)
+		if _, err := w.Write(leaf); err != nil {
+			return 0, fmt.Errorf("failed to write seq file: %w", err)
+		}
+		if err := w.Close(); err != nil {
+			return 0, fmt.Errorf("couldn't close writer for object %q", seqPath)
+		}
+		fmt.Printf("Wrote leaf data to path %q", seqPath)
+
+		// Create a leafhash file containing the assigned sequence number.
+		// This isn't infallible though, if we crash after writing the sequence
+		// file above but before doing this, a resubmission of the same leafhash
+		// would be permitted.
+		wLeaf := bkt.Object(leafPath).NewWriter(ctx)
+		if _, err := wLeaf.Write([]byte(strconv.FormatUint(seq, 16))); err != nil {
+			return 0, fmt.Errorf("couldn't create leafhash object: %w", err)
+		}
+		if err := wLeaf.Close(); err != nil {
+			return 0, fmt.Errorf("couldn't close writer for object %q", leafPath)
+		}
+
+		// All done!
+		return seq, nil
 	}
 }
 
@@ -228,7 +326,6 @@ func (c *Client) StoreTile(ctx context.Context, level, index uint64, tile *api.T
 			if err != nil {
 				return fmt.Errorf("failed to get object %q from bucket %q: %v", tPath, c.bucket, err)
 			}
-
 
 			if _, err := bkt.Object(attrs.Name).NewWriter(ctx).Write(t); err != nil {
 				return fmt.Errorf("failed to copy full tile to partials object %q in bucket %q: %v", attrs.Name, c.bucket, err)

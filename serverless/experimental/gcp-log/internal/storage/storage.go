@@ -225,6 +225,7 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	// 1. Check for dupe leafhash
 	// 2. Create seq file
 	// 3. Create leafhash file containing assigned sequence number
+
 	bkt := c.gcsClient.Bucket(c.bucket)
 
 	// Check for dupe leaf already present.

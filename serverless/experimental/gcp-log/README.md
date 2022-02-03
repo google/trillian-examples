@@ -23,7 +23,7 @@ Both functions are HTTP-triggered and run when their respective endpoints are re
     [these](https://github.com/google/trillian-examples/tree/master/serverless#generating-keys)
     instructions and set them as the `SERVERLESS_LOG_PUBLIC_KEY` and
     `SERVERLESS_LOG_PRIVATE_KEY`.
-1. Set `GCP_PROJECT` as the name of your project (string, not number).
+1. Set `PROJECT_NAME` as the name of your GCP project (string, not number).
 1.  Deploy the Integrate function:
     ```
     gcloud functions deploy integrate \

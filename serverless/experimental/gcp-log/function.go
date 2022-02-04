@@ -78,7 +78,7 @@ func Sequence(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, os.Getenv("GCP_PROJECT"), d.Bucket)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to create GCS client: %q", err), http.InternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to create GCS client: %q", err), http.StatusInternalServerError)
 		return
 	}
 

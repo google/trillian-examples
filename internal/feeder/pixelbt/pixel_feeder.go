@@ -57,9 +57,7 @@ func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch checkpoint.txt: %v", err)
 		}
-		n, err := convertToNote(string(cpTxt), logSigV.Name(), logSigV.KeyHash())
-		glog.V(1).Infof("note : %q", n)
-		return n, err
+		return cpTxt, err
 	}
 	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
 		if from.Size == 0 {

@@ -20,11 +20,17 @@ import (
 	"golang.org/x/mod/sumdb/note"
 )
 
-// These come from the the current SigStore Rekór key, which is an ECDSA key:
 const (
+	// These come from the the current SigStore Rekór key, which is an ECDSA key:
 	sigStoreKeyMaterial = "AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc="
 	sigStoreKeyHash     = "c0d23d6a"
 	sigStoreKey         = "rekor.sigstore.dev" + "+" + sigStoreKeyHash + "+" + sigStoreKeyMaterial
+
+	// These come from the the current Pixel6 log key, which is an ECDSA key.
+	// KeyMaterial converted from PEM contents here: https://go.dev/play/p/xKGbOGW_JHZ
+	pixelKeyMaterial = "AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABN+4x0Jk1yTwvLFI9A4NDdGZcX0aiWVdWM5XJVy0M4VWD3AvyW5Q6Hs9A0mcDkpUoYgn+KKPNzFC0H3nN3q6JQ8="
+	pixelKeyHash     = "91c16e30"
+	pixelKey         = "pixel6_transparency_log" + "+" + pixelKeyHash + "+" + pixelKeyMaterial
 )
 
 func TestNewVerifier(t *testing.T) {
@@ -72,8 +78,11 @@ func TestNewECDSAVerifier(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "works",
+			name: "sigStore works",
 			pubK: sigStoreKey,
+		}, {
+			name: "pixel works",
+			pubK: pixelKey,
 		}, {
 			name:    "wrong number of parts",
 			pubK:    "bananas.sigstore.dev+12344556",
@@ -112,9 +121,13 @@ func TestECDSAVerifier(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "works",
+			name: "sigstore works",
 			pubK: sigStoreKey,
 			note: []byte("Rekor\n798034\nf+7CoKgXKE/tNys9TTXcr/ad6U/K3xvznmzew9y6SP0=\n\n— rekor.sigstore.dev wNI9ajBEAiARInWIWyCdyG27CO6LPnPekyw20qO0YJfoaPaowGp/XgIgc+qEHS3+GKVClgqq20uDLet7MCoTURUCRdxwWBHHufk=\n"),
+		}, {
+			name: "pixel works",
+			pubK: pixelKey,
+			note: []byte("DEFAULT\n10\nbsWRucJU5xJPHb5eBdOm6+DM+VelCZBuvtI3sHERJ9Y=\n\n— pixel6_transparency_log kcFuMDBFAiEAhqMAP8P6qf6QxtUJhzMhbN+MbZ9dwfUHzGQJmffJHtoCIGD0cNe47dHWBoPwYdgBCepB06/+g5O1FmYjXl06owL4\n"),
 		}, {
 			name:    "invalid name",
 			pubK:    "bananas.sigstore.dev" + "+" + sigStoreKeyHash + "+" + sigStoreKeyMaterial,

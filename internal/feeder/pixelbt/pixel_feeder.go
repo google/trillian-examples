@@ -36,7 +36,7 @@ import (
 
 const (
 	// tileHeight is the tlog tile height.
-	// From: https://developers.devsite.corp.google.com/android/binary_transparency/tile
+	// From: https://developers.google.com/android/binary_transparency/tile
 	tileHeight = 1
 )
 

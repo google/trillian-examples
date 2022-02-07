@@ -239,6 +239,7 @@ func Integrate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w,
 			fmt.Sprintf("Failed to integrate: %q", err),
 			http.StatusInternalServerError)
+		return
 	}
 	if newCp == nil {
 		http.Error(w, "Nothing to integrate", http.StatusInternalServerError)

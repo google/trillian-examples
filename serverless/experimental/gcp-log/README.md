@@ -31,7 +31,8 @@ Both functions are HTTP-triggered and run when their respective endpoints are re
     --runtime go116 \
     --trigger-http \
     --set-env-vars GCP_PROJECT=${PROJECT_NAME} SERVERLESS_LOG_PUBLIC_KEY=${PUBLIC_KEY} SERVERLESS_LOG_PRIVATE_KEY=${PRIVATE_KEY} \
-    --source=./serverless/experimental/gcp-log 
+    --source=./serverless/experimental/gcp-log \
+    --max-instances 1
     ```
 1.  Deploy the Sequence function:
     ```

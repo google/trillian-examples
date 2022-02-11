@@ -100,6 +100,9 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to DB: %w", err)
 	}
+	// Avoid "database locked" issues with multiple concurrent updates.
+	db.SetMaxOpenConns(1)
+
 	// Load log configuration into the map.
 	logMap, err := buildLogMap(opts.Config)
 	if err != nil {

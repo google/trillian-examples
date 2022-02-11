@@ -155,6 +155,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if err != nil {
 		return nil, fmt.Errorf("couldn't create db tx: %v", err)
 	}
+	// Defer a rollback to clean up the TX if something fails.
 	defer tx.Rollback()
 
 	// Get the latest checkpoint (if one exists) and compact range.

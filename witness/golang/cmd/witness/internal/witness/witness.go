@@ -155,6 +155,8 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if err != nil {
 		return nil, fmt.Errorf("couldn't create db tx: %v", err)
 	}
+	defer tx.Rollback()
+
 	// Get the latest checkpoint (if one exists) and compact range.
 	prevRaw, rangeRaw, err := w.getLatestChkptData(tx.QueryRow, logID)
 	if err != nil {
@@ -300,10 +302,9 @@ func verifyRangeHash(rootHash []byte, rng *compact.Range) error {
 // setChkptData writes the checkpoint and any associated data (a compact range)
 // to the database for a given log.
 func (w *Witness) setChkptData(tx *sql.Tx, logID string, c []byte, rng []byte) error {
-	tx.Exec(`INSERT INTO chkpts (logID, chkpt, range) VALUES (?, ?, ?)
-		 ON CONFLICT(logID) DO
-		 UPDATE SET chkpt=excluded.chkpt, range=excluded.range`,
-		logID, c, rng)
+	if _, err := tx.Exec(`INSERT OR REPLACE INTO chkpts (logID, chkpt, range) VALUES (?, ?, ?)`, logID, c, rng); err != nil {
+		return fmt.Errorf("failed to update checkpoint: %v", err)
+	}
 	return tx.Commit()
 }
 

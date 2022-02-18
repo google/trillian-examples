@@ -77,8 +77,8 @@ defined above.  Currently it contains implementations in the following languages
 ## Feeders
 
 Specific feeders are listed below, however potential witness operators are advised to
-simply deploy the [Omniwitness](golang/omniwitness) unless there is a compelling reason
-to limit the witnessed logs.
+simply deploy the [Omniwitness](golang/omniwitness) which contains all of these
+feeders, unless there is a compelling reason to limit the witnessed logs.
 
 * [Go SumDB](https://github.com/google/trillian-examples/tree/master/sumdbaudit/witness)
 * [Serverless](https://github.com/google/trillian-examples/tree/master/serverless/cmd/feeder)

@@ -17,9 +17,9 @@ package p
 
 import (
 	"context"
-  "encoding/json"
-  "fmt"
-  "net/http"
+	"encoding/json"
+	"fmt"
+	"net/http"
 
 	gcs "cloud.google.com/go/storage"
 )
@@ -27,32 +27,32 @@ import (
 // CreateGCSObject is writes a GCS object with EntryContent to EntryPath in
 // Bucket.
 func CreateGCSObject(w http.ResponseWriter, r *http.Request) {
-  var d struct {
-    EntryContent string `json:"entryContent"`
-		Bucket string       `json:"bucket"`
-		EntryPath string 		`json:"entryPath"`
-  }
-  if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
-    code := http.StatusBadRequest
+	var d struct {
+		EntryContent string `json:"entryContent"`
+		Bucket       string `json:"bucket"`
+		EntryPath    string `json:"entryPath"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
+		code := http.StatusBadRequest
 		fmt.Printf("json.NewDecoder: %v", err)
 		http.Error(w, http.StatusText(code), code)
-    return
-  }
-  if d.EntryContent == "" {
-    http.Error(w, "entryContent must not be empty",
+		return
+	}
+	if d.EntryContent == "" {
+		http.Error(w, "entryContent must not be empty",
 			http.StatusBadRequest)
 		return
-  }
+	}
 	if d.Bucket == "" {
-    http.Error(w, "bucket must not be empty",
+		http.Error(w, "bucket must not be empty",
 			http.StatusBadRequest)
 		return
-  }
+	}
 	if d.EntryPath == "" {
-    http.Error(w, "entryPath must not be empty",
+		http.Error(w, "entryPath must not be empty",
 			http.StatusBadRequest)
 		return
-  }
+	}
 
 	ctx := context.Background()
 	client, err := gcs.NewClient(ctx)
@@ -72,7 +72,7 @@ func CreateGCSObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := writer.Close(); err != nil {
-			http.Error(w,
+		http.Error(w,
 			fmt.Sprintf("Failed to close GCS obj %q: %q", d.EntryPath, err),
 			http.StatusInternalServerError)
 	}

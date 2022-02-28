@@ -62,8 +62,7 @@ func CreateGCSObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bkt := client.Bucket(d.Bucket)
-	obj := bkt.Object(d.EntryPath)
+	obj := client.Bucket(d.Bucket).Object(d.EntryPath)
 	writer := obj.NewWriter(ctx)
 	if _, err := fmt.Fprintf(writer, d.EntryContent); err != nil {
 		http.Error(w,

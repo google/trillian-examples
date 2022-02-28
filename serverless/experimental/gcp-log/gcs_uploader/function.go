@@ -76,5 +76,5 @@ func CreateGCSObject(w http.ResponseWriter, r *http.Request) {
 			http.StatusInternalServerError)
 	}
 
-	fmt.Fprintf(w, "Successfully wrote GCS obj '%q'", d.EntryPath)
+	fmt.Fprintf(w, "Successfully wrote GCS obj %q", d.EntryPath)
 }

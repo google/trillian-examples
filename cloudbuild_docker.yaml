@@ -113,5 +113,29 @@ steps:
       - show-target-build-platforms
     id: 'build-pixel-feeder-image'
 
+  # Write this build to a serverless log. Note this step is experimental, and it is configured to
+  # always appear to succeed from the view of Cloud Build.
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      # Set ERR trap to be inherited by shell functions. Allows our bash command logs to show up in
+      # Cloud Console.
+      - '-E'
+      - '-c'
+      - |
+      - >-
+        gcloud functions call create_gcs_object --data='{
+          "bucket":"tlog",
+          "entryContent":"${REPO_NAME},${COMMIT_SHA},linux/amd64",
+          "entryPath":"${REPO_NAME}-linux-amd64"
+        }' &&
+        gcloud functions call create_gcs_object --data='{
+          "bucket":"tlog",
+          "entryContent":"${REPO_NAME},${COMMIT_SHA},linux/arm/v7",
+          "entryPath":"${REPO_NAME}-linux-arm-v7"
+        }' || exit 0
+      # `exit 0` will tell Cloud Build that this step succeeded. See workaround documented here:
+      # https://github.com/GoogleCloudPlatform/cloud-builders/issues/253#issuecomment-381600420
+
 substitutions:
   _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v7'

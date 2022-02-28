@@ -136,6 +136,7 @@ steps:
         }' || exit 0
       # `exit 0` will tell Cloud Build that this step succeeded. See workaround documented here:
       # https://github.com/GoogleCloudPlatform/cloud-builders/issues/253#issuecomment-381600420
+      # TODO(jayhou): also invoke the `sequence` and `integrate` functions of the log.
 
 substitutions:
   _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v7'

@@ -81,6 +81,8 @@ func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client
 }
 
 // TODO(al): factor this stuff out and share between tools:
+// Consider moving client.Fetcher to somewhere more general, and then
+// replacing http.Client with this Fetcher in all feeder impls.
 
 // newFetcher creates a Fetcher for the log at the given root location.
 // If the scheme is http/https then the client provided will be used.

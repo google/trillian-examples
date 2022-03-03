@@ -32,7 +32,6 @@ import (
 	"github.com/google/trillian-examples/serverless/config"
 
 	i_note "github.com/google/trillian-examples/internal/note"
-	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
 // logInfo is a partial representation of the JSON object returned by Rekór's
@@ -51,7 +50,7 @@ type proof struct {
 // FeedLog feeds checkpoints from the source log to the witness.
 // If interval is non-zero, this function will return when the context is done, otherwise it will perform
 // one feed cycle and return.
-func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time.Duration, interval time.Duration) error {
+func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client, interval time.Duration) error {
 	lURL, err := url.Parse(l.URL)
 	if err != nil {
 		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
@@ -63,7 +62,7 @@ func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 
 	fetchCP := func(ctx context.Context) ([]byte, error) {
 		li := logInfo{}
-		if err := getJSON(ctx, lURL, "api/v1/log", &li); err != nil {
+		if err := getJSON(ctx, c, lURL, "api/v1/log", &li); err != nil {
 			return nil, fmt.Errorf("failed to fetch log info: %v", err)
 		}
 		return []byte(li.SignedTreeHead), nil
@@ -73,7 +72,7 @@ func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 			return [][]byte{}, nil
 		}
 		cp := proof{}
-		if err := getJSON(ctx, lURL, fmt.Sprintf("api/v1/log/proof?firstSize=%d&lastSize=%d", from.Size, to.Size), &cp); err != nil {
+		if err := getJSON(ctx, c, lURL, fmt.Sprintf("api/v1/log/proof?firstSize=%d&lastSize=%d", from.Size, to.Size), &cp); err != nil {
 			return nil, fmt.Errorf("failed to fetch log info: %v", err)
 		}
 		var err error
@@ -102,7 +101,7 @@ func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 	return err
 }
 
-func getJSON(ctx context.Context, base *url.URL, path string, s interface{}) error {
+func getJSON(ctx context.Context, c *http.Client, base *url.URL, path string, s interface{}) error {
 	u, err := base.Parse(path)
 	if err != nil {
 		return fmt.Errorf("failed to parse URL: %v", err)
@@ -113,7 +112,7 @@ func getJSON(ctx context.Context, base *url.URL, path string, s interface{}) err
 	}
 	req = req.WithContext(ctx)
 
-	rsp, err := http.DefaultClient.Do(req)
+	rsp, err := c.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to make request to %q: %v", u.String(), err)
 	}

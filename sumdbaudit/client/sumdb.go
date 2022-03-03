@@ -55,7 +55,7 @@ type SumDBClient struct {
 }
 
 // NewSumDB creates a new client that fetches tiles of the given height.
-func NewSumDB(height int, vkey string) *SumDBClient {
+func NewSumDB(height int, vkey string, c *http.Client) *SumDBClient {
 	name := vkey
 	if i := strings.Index(name, "+"); i >= 0 {
 		name = name[:i]
@@ -63,9 +63,12 @@ func NewSumDB(height int, vkey string) *SumDBClient {
 	target := "https://" + name
 
 	return &SumDBClient{
-		height:  height,
-		vkey:    vkey,
-		fetcher: &HTTPFetcher{baseURL: target},
+		height: height,
+		vkey:   vkey,
+		fetcher: &HTTPFetcher{
+			c:       c,
+			baseURL: target,
+		},
 	}
 }
 
@@ -174,13 +177,14 @@ func (c *SumDBClient) TileHashes(level, offset, partial int) ([]tlog.Hash, error
 
 // HTTPFetcher gets the data over HTTP(S).
 type HTTPFetcher struct {
+	c       *http.Client
 	baseURL string
 }
 
 // GetData gets the data.
 func (f *HTTPFetcher) GetData(path string) ([]byte, error) {
 	target := f.baseURL + path
-	resp, err := http.Get(target)
+	resp, err := f.c.Get(target)
 	if err != nil {
 		return nil, err
 	}

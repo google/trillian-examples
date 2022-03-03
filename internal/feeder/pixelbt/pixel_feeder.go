@@ -31,7 +31,6 @@ import (
 	"golang.org/x/mod/sumdb/tlog"
 
 	i_note "github.com/google/trillian-examples/internal/note"
-	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
 const (
@@ -42,7 +41,7 @@ const (
 
 // FeedLog retrieves checkpoints and proofs from the source Pixel BT log, and sends them to the witness.
 // This method blocks until the context is done.
-func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time.Duration, interval time.Duration) error {
+func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client, interval time.Duration) error {
 	lURL, err := url.Parse(l.URL)
 	if err != nil {
 		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
@@ -53,7 +52,7 @@ func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 	}
 
 	fetchCP := func(ctx context.Context) ([]byte, error) {
-		cpTxt, err := fetch(ctx, lURL, "checkpoint.txt")
+		cpTxt, err := fetch(ctx, c, lURL, "checkpoint.txt")
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch checkpoint.txt: %v", err)
 		}
@@ -70,7 +69,7 @@ func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 			Hash: h,
 		}
 		tr := tileReader{fetch: func(p string) ([]byte, error) {
-			return fetch(ctx, lURL, p)
+			return fetch(ctx, c, lURL, p)
 		}}
 
 		proof, err := tlog.ProveTree(int64(to.Size), int64(from.Size), tlog.TileHashReader(tree, tr))
@@ -125,7 +124,7 @@ func (tr tileReader) ReadTiles(tiles []tlog.Tile) ([][]byte, error) {
 	return r, nil
 }
 
-func fetch(ctx context.Context, base *url.URL, path string) ([]byte, error) {
+func fetch(ctx context.Context, c *http.Client, base *url.URL, path string) ([]byte, error) {
 	u, err := base.Parse(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
@@ -137,7 +136,7 @@ func fetch(ctx context.Context, base *url.URL, path string) ([]byte, error) {
 	}
 	req = req.WithContext(ctx)
 
-	rsp, err := http.DefaultClient.Do(req)
+	rsp, err := c.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make request to %q: %v", u.String(), err)
 	}

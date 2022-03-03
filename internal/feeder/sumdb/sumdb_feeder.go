@@ -18,6 +18,7 @@ package sumdb
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/golang/glog"
@@ -25,7 +26,6 @@ import (
 	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/serverless/config"
 	"github.com/google/trillian-examples/sumdbaudit/client"
-	"github.com/google/trillian-examples/witness/golang/client/http"
 	"github.com/transparency-dev/merkle/compact"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/tlog"
@@ -44,8 +44,8 @@ var (
 	}
 )
 
-func FeedLog(ctx context.Context, l config.Log, w http.Witness, interval time.Duration) error {
-	sdb := client.NewSumDB(tileHeight, l.PublicKey)
+func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client, interval time.Duration) error {
+	sdb := client.NewSumDB(tileHeight, l.PublicKey, c)
 	logSigV, err := i_note.NewVerifier(l.PublicKeyType, l.PublicKey)
 	if err != nil {
 		return err

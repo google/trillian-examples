@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/internal/feeder/sumdb"
 	"github.com/google/trillian-examples/serverless/config"
-	"github.com/google/trillian-examples/witness/golang/client/http"
+	wclient "github.com/google/trillian-examples/witness/golang/client/http"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -46,7 +47,7 @@ func main() {
 		glog.Exitf("Failed to parse witness URL: %v", err)
 	}
 
-	w := http.Witness{
+	w := wclient.Witness{
 		URL:      wURL,
 		Verifier: mustCreateVerifier(*witnessKey),
 	}
@@ -61,7 +62,7 @@ func main() {
 		PublicKey: *vkey,
 		ID:        lid,
 	}
-	if err := sumdb.FeedLog(ctx, log, w, *pollInterval); err != nil {
+	if err := sumdb.FeedLog(ctx, log, w, http.DefaultClient, *pollInterval); err != nil {
 		glog.Exitf("Feeder: %v", err)
 	}
 }

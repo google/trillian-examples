@@ -30,12 +30,11 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 
 	i_note "github.com/google/trillian-examples/internal/note"
-	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
 // FeedLog periodically feeds checkpoints from the log to the witness.
 // This function returns once the provided context is done.
-func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time.Duration, interval time.Duration) error {
+func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client, interval time.Duration) error {
 	lURL, err := url.Parse(l.URL)
 	if err != nil {
 		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
@@ -44,7 +43,7 @@ func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 	if err != nil {
 		return err
 	}
-	f := newFetcher(lURL)
+	f := newFetcher(c, lURL)
 	h := rfc6962.DefaultHasher
 
 	fetchCP := func(ctx context.Context) ([]byte, error) {
@@ -82,11 +81,34 @@ func FeedLog(ctx context.Context, l config.Log, w wit_http.Witness, timeout time
 }
 
 // TODO(al): factor this stuff out and share between tools:
+// Consider moving client.Fetcher to somewhere more general, and then
+// replacing http.Client with this Fetcher in all feeder impls.
 
 // newFetcher creates a Fetcher for the log at the given root location.
-func newFetcher(root *url.URL) client.Fetcher {
-	get := getByScheme[root.Scheme]
-	if get == nil {
+// If the scheme is http/https then the client provided will be used.
+func newFetcher(c *http.Client, root *url.URL) client.Fetcher {
+	var get func(context.Context, *url.URL) ([]byte, error)
+	switch root.Scheme {
+	case "http":
+		fallthrough
+	case "https":
+		get = func(ctx context.Context, u *url.URL) ([]byte, error) {
+			req, err := http.NewRequest("GET", u.String(), nil)
+			if err != nil {
+				return nil, err
+			}
+			resp, err := c.Do(req.WithContext(ctx))
+			if err != nil {
+				return nil, err
+			}
+			defer resp.Body.Close()
+			return ioutil.ReadAll(resp.Body)
+		}
+	case "file":
+		get = func(_ context.Context, u *url.URL) ([]byte, error) {
+			return ioutil.ReadFile(u.Path)
+		}
+	default:
 		panic(fmt.Errorf("unsupported URL scheme %s", root.Scheme))
 	}
 
@@ -97,25 +119,4 @@ func newFetcher(root *url.URL) client.Fetcher {
 		}
 		return get(ctx, u)
 	}
-}
-
-var getByScheme = map[string]func(context.Context, *url.URL) ([]byte, error){
-	"http":  readHTTP,
-	"https": readHTTP,
-	"file": func(_ context.Context, u *url.URL) ([]byte, error) {
-		return ioutil.ReadFile(u.Path)
-	},
-}
-
-func readHTTP(ctx context.Context, u *url.URL) ([]byte, error) {
-	req, err := http.NewRequest("GET", u.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
 }

@@ -20,6 +20,8 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/golang/glog"
@@ -37,6 +39,7 @@ var (
 	mysqlURI       = flag.String("mysql_uri", "", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
 	writeBatchSize = flag.Uint("write_batch_size", 1024, "The number of leaves to write in each DB transaction.")
 	workers        = flag.Uint("workers", 4, "The number of worker threads to run in parallel to fetch entries.")
+	timeout        = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for http connections to complete.")
 )
 
 const (
@@ -56,7 +59,9 @@ func main() {
 		glog.Exitf("Failed to connect to database: %q", err)
 	}
 
-	client := sdbclient.NewSumDB(tileHeight, *vkey)
+	client := sdbclient.NewSumDB(tileHeight, *vkey, &http.Client{
+		Timeout: *timeout,
+	})
 	targetCp, err := client.LatestCheckpoint()
 	if err != nil {
 		glog.Exitf("Failed to get latest checkpoint from log: %v", err)

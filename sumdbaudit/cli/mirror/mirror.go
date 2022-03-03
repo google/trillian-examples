@@ -17,6 +17,7 @@ package main
 import (
 	"context"
 	"flag"
+	"net/http"
 	"time"
 
 	"github.com/golang/glog"
@@ -28,6 +29,7 @@ var (
 	height   = flag.Int("h", 8, "tile height")
 	vkey     = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
 	unpack   = flag.Bool("unpack", false, "if provided then the leafMetadata table will be populated by parsing the raw leaf data")
+	timeout  = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for http connections to complete.")
 	interval = flag.Duration("interval", 5*time.Minute, "how long to wait between runs")
 )
 
@@ -45,7 +47,9 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to init DB: %v", err)
 	}
-	sumDB := client.NewSumDB(*height, *vkey)
+	sumDB := client.NewSumDB(*height, *vkey, &http.Client{
+		Timeout: *timeout,
+	})
 	s := audit.NewService(db, sumDB, *height)
 
 	for {

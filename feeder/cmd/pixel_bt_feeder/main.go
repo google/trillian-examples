@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -63,8 +64,11 @@ func main() {
 		URL: u,
 	}
 
+	c := &http.Client{
+		Timeout: *timeout,
+	}
 	ctx := context.Background()
-	if err := pixelbt.FeedLog(ctx, cfg.Log, witness, *timeout, *interval); err != nil {
+	if err := pixelbt.FeedLog(ctx, cfg.Log, witness, c, *interval); err != nil {
 		glog.Errorf("feedLog: %v", err)
 	}
 }

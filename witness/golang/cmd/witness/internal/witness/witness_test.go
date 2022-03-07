@@ -16,12 +16,12 @@ package witness
 
 import (
 	"context"
-	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"sort"
 	"testing"
 
+	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/persistence/inmemory"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
@@ -69,7 +69,7 @@ type logOpts struct {
 	useCompact bool
 }
 
-func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *Witness {
+func newWitness(t *testing.T, logs []logOpts) *Witness {
 	// Set up Opts for the witness.
 	ns, err := note.NewSigner(wSK)
 	if err != nil {
@@ -91,9 +91,9 @@ func newWitness(t *testing.T, d *sql.DB, logs []logOpts) *Witness {
 		logMap[log.ID] = logInfo
 	}
 	opts := Opts{
-		DB:        d,
-		Signer:    ns,
-		KnownLogs: logMap,
+		Persistence: inmemory.NewInMemoryPersistence(),
+		Signer:      ns,
+		KnownLogs:   logMap,
 	}
 	// Create the witness
 	w, err := New(opts)
@@ -113,15 +113,6 @@ func dh(h string, expLen int) []byte {
 		panic(fmt.Sprintf("decode %q: len=%d, want %d", h, got, expLen))
 	}
 	return r
-}
-
-func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
-	t.Helper()
-	db, err := sql.Open("sqlite3", ":memory:")
-	if err != nil {
-		t.Fatalf("failed to open temporary in-memory DB: %v", err)
-	}
-	return db, db.Close
 }
 
 func TestGetLogs(t *testing.T) {
@@ -147,8 +138,6 @@ func TestGetLogs(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			d, closeFn := mustCreateDB(t)
-			defer closeFn()
 			ctx := context.Background()
 			// Set up witness.
 			logs := make([]logOpts, len(test.logIDs))
@@ -160,7 +149,7 @@ func TestGetLogs(t *testing.T) {
 					useCompact: false,
 				}
 			}
-			w := newWitness(t, d, logs)
+			w := newWitness(t, logs)
 			// Update to a checkpoint for all logs.
 			for i, logID := range test.logIDs {
 				if _, err := w.Update(ctx, logID, test.chkpts[i], nil); err != nil {
@@ -222,11 +211,9 @@ func TestGetChkpt(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			d, closeFn := mustCreateDB(t)
-			defer closeFn()
 			ctx := context.Background()
 			// Set up witness.
-			w := newWitness(t, d, []logOpts{{
+			w := newWitness(t, []logOpts{{
 				ID:         test.setID,
 				origin:     logOrigin,
 				PK:         test.setPK,
@@ -342,12 +329,10 @@ func TestUpdate(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			d, closeFn := mustCreateDB(t)
-			defer closeFn()
 			ctx := context.Background()
 			logID := "monkeys"
 			// Set up witness.
-			w := newWitness(t, d, []logOpts{{
+			w := newWitness(t, []logOpts{{
 				ID:         logID,
 				origin:     logOrigin,
 				PK:         mPK,

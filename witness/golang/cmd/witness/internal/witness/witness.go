@@ -20,11 +20,11 @@ package witness
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
+	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/persistence"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/compact"
 	"golang.org/x/mod/sumdb/note"
@@ -34,9 +34,9 @@ import (
 
 // Opts is the options passed to a witness.
 type Opts struct {
-	DB        *sql.DB
-	Signer    note.Signer
-	KnownLogs map[string]LogInfo
+	Persistence persistence.LogStatePersistence
+	Signer      note.Signer
+	KnownLogs   map[string]LogInfo
 }
 
 // LogInfo contains the information needed to verify log checkpoints.
@@ -55,7 +55,7 @@ type LogInfo struct {
 // Witness consists of a database for storing checkpoints, a signer, and a list
 // of logs for which it stores and verifies checkpoints.
 type Witness struct {
-	db     *sql.DB
+	lsp    persistence.LogStatePersistence
 	Signer note.Signer
 	// At some point we might want to store this information in a table in
 	// the database too but as I imagine it being populated from a static
@@ -66,16 +66,11 @@ type Witness struct {
 // New creates a new witness, which initially has no logs to follow.
 func New(wo Opts) (*Witness, error) {
 	// Create the chkpts table if needed.
-	_, err := wo.DB.Exec(`CREATE TABLE IF NOT EXISTS chkpts (
-			      logID BLOB PRIMARY KEY,
-			      chkpt BLOB,
-			      range BLOB
-			      )`)
-	if err != nil {
-		return nil, err
+	if err := wo.Persistence.Init(); err != nil {
+		return nil, fmt.Errorf("Init(): %v", err)
 	}
 	return &Witness{
-		db:     wo.DB,
+		lsp:    wo.Persistence,
 		Signer: wo.Signer,
 		Logs:   wo.KnownLogs,
 	}, nil
@@ -94,31 +89,17 @@ func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, *note.N
 
 // GetLogs returns a list of all logs the witness is aware of.
 func (w *Witness) GetLogs() ([]string, error) {
-	rows, err := w.db.Query("SELECT logID FROM chkpts")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var logs []string
-	for rows.Next() {
-		var logID string
-		err := rows.Scan(&logID)
-		if err != nil {
-			return nil, err
-		}
-		logs = append(logs, logID)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return logs, nil
+	return w.lsp.Logs()
 }
 
 // GetCheckpoint gets a checkpoint for a given log, which is consistent with all
 // other checkpoints for the same log signed by this witness.
 func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
-	chkpt, _, err := w.getLatestChkptData(w.db.QueryRow, logID)
+	read, err := w.lsp.ReadOps(logID)
+	if err != nil {
+		return nil, fmt.Errorf("ReadOps(): %v", err)
+	}
+	chkpt, _, err := read.GetLatestCheckpoint()
 	if err != nil {
 		return nil, err
 	}
@@ -151,15 +132,15 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	// Get the latest one for the log because we don't want consistency proofs
 	// with respect to older checkpoints.  Bind this all in a transaction to
 	// avoid race conditions when updating the database.
-	tx, err := w.db.BeginTx(ctx, nil)
+	write, err := w.lsp.WriteOps(logID)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't create db tx: %v", err)
+		return nil, fmt.Errorf("WriteOps(%v): %v", logID, err)
 	}
 	// Defer a rollback to clean up the TX if something fails.
-	defer tx.Rollback()
+	defer write.Close()
 
 	// Get the latest checkpoint (if one exists) and compact range.
-	prevRaw, rangeRaw, err := w.getLatestChkptData(tx.QueryRow, logID)
+	prevRaw, rangeRaw, err := write.GetLatestCheckpoint()
 	if err != nil {
 		// If there was nothing stored already then treat this new
 		// checkpoint as trust-on-first-use (TOFU).
@@ -169,7 +150,29 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 			}
-			if err := w.setInitChkptData(tx, logID, next, signed, proof); err != nil {
+			setInitChkptData := func() error {
+				// If we're using compact ranges then store the initial range, assuming
+				// it matches the initial checkpoint.
+				if logInfo.UseCompact {
+					rf := compact.RangeFactory{Hash: logInfo.Hasher.HashChildren}
+					rng, err := rf.NewRange(0, next.Size, proof)
+					if err != nil {
+						return fmt.Errorf("can't form compact range: %v", err)
+					}
+					if err := verifyRangeHash(next.Hash, rng); err != nil {
+						return fmt.Errorf("input root hash doesn't verify: %v", err)
+					}
+					r := []byte(log.Proof(proof).Marshal())
+					return write.SetCheckpoint(signed, r)
+				}
+				// If we're not using compact ranges no need to store one.
+				return write.SetCheckpoint(signed, nil)
+			}
+
+			if err := setInitChkptData(); err != nil {
+				return nil, status.Errorf(codes.Internal, "couldn't set TOFU checkpoint: %v", err)
+			}
+			if err := write.Commit(); err != nil {
 				return nil, status.Errorf(codes.Internal, "couldn't set TOFU checkpoint: %v", err)
 			}
 			return signed, nil
@@ -214,7 +217,10 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 		}
-		if err := w.setChkptData(tx, logID, signed, r); err != nil {
+		if err := write.SetCheckpoint(signed, r); err != nil {
+			return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
+		}
+		if err := write.Commit(); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
 		}
 		return signed, nil
@@ -230,7 +236,10 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 	}
-	if err := w.setChkptData(tx, logID, signed, nil); err != nil {
+	if err := write.SetCheckpoint(signed, nil); err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
+	}
+	if err := write.Commit(); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
 	}
 	return signed, nil
@@ -243,24 +252,6 @@ func (w *Witness) signChkpt(n *note.Note) ([]byte, error) {
 		return nil, fmt.Errorf("couldn't sign checkpoint: %v", err)
 	}
 	return cosigned, nil
-}
-
-// getLatestChkptData returns the raw stored data for the latest checkpoint and
-// its associated compact range, if one exists, for a given log.
-func (w *Witness) getLatestChkptData(queryRow func(query string, args ...interface{}) *sql.Row, logID string) ([]byte, []byte, error) {
-	row := queryRow("SELECT chkpt, range FROM chkpts WHERE logID = ?", logID)
-	if err := row.Err(); err != nil {
-		return nil, nil, err
-	}
-	var chkpt []byte
-	var pf []byte
-	if err := row.Scan(&chkpt, &pf); err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil, status.Errorf(codes.NotFound, "no checkpoint for log %q", logID)
-		}
-		return nil, nil, err
-	}
-	return chkpt, pf, nil
 }
 
 // verifyRange verifies the new checkpoint against the stored and given compact
@@ -298,35 +289,4 @@ func verifyRangeHash(rootHash []byte, rng *compact.Range) error {
 		return fmt.Errorf("hashes aren't equal (got %x, given %x)", h, rootHash)
 	}
 	return nil
-}
-
-// setChkptData writes the checkpoint and any associated data (a compact range)
-// to the database for a given log.
-func (w *Witness) setChkptData(tx *sql.Tx, logID string, c []byte, rng []byte) error {
-	if _, err := tx.Exec(`INSERT OR REPLACE INTO chkpts (logID, chkpt, range) VALUES (?, ?, ?)`, logID, c, rng); err != nil {
-		return fmt.Errorf("failed to update checkpoint: %v", err)
-	}
-	return tx.Commit()
-}
-
-// setInitChkptData stores the data for an initial checkpoint and, if using one,
-// its associated compact range.
-func (w *Witness) setInitChkptData(tx *sql.Tx, logID string, c *log.Checkpoint, cRaw []byte, rngRaw [][]byte) error {
-	logInfo := w.Logs[logID]
-	// If we're using compact ranges then store the initial range, assuming
-	// it matches the initial checkpoint.
-	if logInfo.UseCompact {
-		rf := compact.RangeFactory{Hash: logInfo.Hasher.HashChildren}
-		rng, err := rf.NewRange(0, c.Size, rngRaw)
-		if err != nil {
-			return fmt.Errorf("can't form compact range: %v", err)
-		}
-		if err := verifyRangeHash(c.Hash, rng); err != nil {
-			return fmt.Errorf("input root hash doesn't verify: %v", err)
-		}
-		r := []byte(log.Proof(rngRaw).Marshal())
-		return w.setChkptData(tx, logID, cRaw, r)
-	}
-	// If we're not using compact ranges no need to store one.
-	return w.setChkptData(tx, logID, cRaw, nil)
 }

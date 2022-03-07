@@ -24,7 +24,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/formats/log"
-	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/persistence"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/compact"
 	"golang.org/x/mod/sumdb/note"

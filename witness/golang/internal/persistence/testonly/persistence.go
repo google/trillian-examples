@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/persistence"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

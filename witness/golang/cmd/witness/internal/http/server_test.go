@@ -28,8 +28,8 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/witness/golang/api"
-	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/persistence/inmemory"
-	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
+	"github.com/google/trillian-examples/witness/golang/internal/witness"
 	"github.com/gorilla/mux"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"

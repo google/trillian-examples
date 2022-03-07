@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	"github.com/google/trillian-examples/witness/golang/api"
-	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
+	"github.com/google/trillian-examples/witness/golang/internal/witness"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

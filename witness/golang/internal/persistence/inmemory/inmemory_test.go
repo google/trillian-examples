@@ -12,49 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sql
+package inmemory
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
-	"database/sql"
-
-	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/persistence"
-	ptest "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/persistence/testonly"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence"
+	ptest "github.com/google/trillian-examples/witness/golang/internal/persistence/testonly"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
+var nopClose = func() error { return nil }
+
 func TestGetLogs(t *testing.T) {
 	ptest.TestGetLogs(t, func() (persistence.LogStatePersistence, func() error) {
-		db, close := mustCreateDB(t)
-		return NewSqlPersistence(db), close
+		return NewInMemoryPersistence(), nopClose
 	})
 }
 
 func TestWriteOps(t *testing.T) {
 	ptest.TestWriteOps(t, func() (persistence.LogStatePersistence, func() error) {
-		db, close := mustCreateDB(t)
-		return NewSqlPersistence(db), close
+		return NewInMemoryPersistence(), nopClose
 	})
-}
-
-func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
-	t.Helper()
-	// Use a file to try to get as close to real sqlite behaviour as possible.
-	// Concurrent transactions still don't really work though.
-	f, err := ioutil.TempFile("", "dbtest*.db")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	db, err := sql.Open("sqlite3", f.Name())
-	if err != nil {
-		t.Fatalf("failed to open temporary DB: %v", err)
-	}
-	db.SetMaxOpenConns(1)
-	return db, func() error {
-		defer os.Remove(f.Name())
-		return db.Close()
-	}
 }

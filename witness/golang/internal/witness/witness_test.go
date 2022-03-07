@@ -21,7 +21,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/persistence/inmemory"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"

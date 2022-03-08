@@ -111,7 +111,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	}
 
 	w, err := witness.New(witness.Opts{
-		Persistence: wsql.NewSqlPersistence(db),
+		Persistence: wsql.NewSQLPersistence(db),
 		Signer:      opts.Signer,
 		KnownLogs:   logMap,
 	})

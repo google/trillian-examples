@@ -15,6 +15,7 @@
 package inmemory
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/google/trillian-examples/witness/golang/internal/persistence"
@@ -34,4 +35,42 @@ func TestWriteOps(t *testing.T) {
 	ptest.TestWriteOps(t, func() (persistence.LogStatePersistence, func() error) {
 		return NewInMemoryPersistence(), nopClose
 	})
+}
+
+func TestWriteOpsAdvanced(t *testing.T) {
+	p := NewInMemoryPersistence()
+
+	for i := 0; i < 10; i++ {
+		fooWrite, err := p.WriteOps("foo")
+		if err != nil {
+			t.Fatal(err)
+		}
+		conflictWrite, err := p.WriteOps("foo")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if err := fooWrite.SetCheckpoint([]byte(fmt.Sprintf("success %d", i)), nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := conflictWrite.SetCheckpoint([]byte(fmt.Sprintf("fail %d", i)), nil); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := fooWrite.Commit(); err != nil {
+			t.Fatal(err)
+		}
+		if err := conflictWrite.Commit(); err == nil {
+			t.Fatal("expected error on conflicting write")
+		}
+	}
+
+	read, err := p.ReadOps("foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp, _, _ := read.GetLatestCheckpoint()
+	if got, want := string(cp), "success 9"; got != want {
+		t.Errorf("got != want (%s != %s)", got, want)
+	}
 }

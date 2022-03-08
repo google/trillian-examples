@@ -68,6 +68,10 @@ func TestWriteOps(t *testing.T, lspFactory func() (persistence.LogStatePersisten
 		t.Fatal(err)
 	}
 
+	read, err = lsp.ReadOps("foo")
+	if err != nil {
+		t.Fatalf("ReadOps(): %v", err)
+	}
 	var cpRaw []byte
 	if cpRaw, _, err = read.GetLatestCheckpoint(); err != nil {
 		t.Fatalf("GetLatestCheckpoint(): %v", err)

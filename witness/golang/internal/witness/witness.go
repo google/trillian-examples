@@ -150,26 +150,8 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 			if err != nil {
 				return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 			}
-			setInitChkptData := func() error {
-				// If we're using compact ranges then store the initial range, assuming
-				// it matches the initial checkpoint.
-				if logInfo.UseCompact {
-					rf := compact.RangeFactory{Hash: logInfo.Hasher.HashChildren}
-					rng, err := rf.NewRange(0, next.Size, proof)
-					if err != nil {
-						return fmt.Errorf("can't form compact range: %v", err)
-					}
-					if err := verifyRangeHash(next.Hash, rng); err != nil {
-						return fmt.Errorf("input root hash doesn't verify: %v", err)
-					}
-					r := []byte(log.Proof(proof).Marshal())
-					return write.SetCheckpoint(signed, r)
-				}
-				// If we're not using compact ranges no need to store one.
-				return write.SetCheckpoint(signed, nil)
-			}
 
-			if err := setInitChkptData(); err != nil {
+			if err := setInitChkptData(write, logInfo, next, signed, proof); err != nil {
 				return nil, status.Errorf(codes.Internal, "couldn't set TOFU checkpoint: %v", err)
 			}
 			if err := write.Commit(); err != nil {
@@ -289,4 +271,25 @@ func verifyRangeHash(rootHash []byte, rng *compact.Range) error {
 		return fmt.Errorf("hashes aren't equal (got %x, given %x)", h, rootHash)
 	}
 	return nil
+}
+
+// setInitChkptData stores the data for an initial checkpoint and, if using one,
+// its associated compact range.
+func setInitChkptData(write persistence.LogStateWriteOps, logInfo LogInfo, c *log.Checkpoint, cRaw []byte, rngRaw [][]byte) error {
+	// If we're using compact ranges then store the initial range, assuming
+	// it matches the initial checkpoint.
+	if logInfo.UseCompact {
+		rf := compact.RangeFactory{Hash: logInfo.Hasher.HashChildren}
+		rng, err := rf.NewRange(0, c.Size, rngRaw)
+		if err != nil {
+			return fmt.Errorf("can't form compact range: %v", err)
+		}
+		if err := verifyRangeHash(c.Hash, rng); err != nil {
+			return fmt.Errorf("input root hash doesn't verify: %v", err)
+		}
+		r := []byte(log.Proof(rngRaw).Marshal())
+		return write.SetCheckpoint(cRaw, r)
+	}
+	// If we're not using compact ranges no need to store one.
+	return write.SetCheckpoint(cRaw, nil)
 }

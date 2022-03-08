@@ -29,14 +29,14 @@ import (
 func TestGetLogs(t *testing.T) {
 	ptest.TestGetLogs(t, func() (persistence.LogStatePersistence, func() error) {
 		db, close := mustCreateDB(t)
-		return NewSqlPersistence(db), close
+		return NewSQLPersistence(db), close
 	})
 }
 
 func TestWriteOps(t *testing.T) {
 	ptest.TestWriteOps(t, func() (persistence.LogStatePersistence, func() error) {
 		db, close := mustCreateDB(t)
-		return NewSqlPersistence(db), close
+		return NewSQLPersistence(db), close
 	})
 }
 

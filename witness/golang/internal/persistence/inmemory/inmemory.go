@@ -125,10 +125,7 @@ func (rw *readWriter) SetCheckpoint(c []byte, rng []byte) error {
 		rawChkpt:     c,
 		compactRange: rng,
 	}
-	return nil
-}
 
-func (rw *readWriter) Commit() error {
 	return rw.write(rw.read, *rw.toStore)
 }
 

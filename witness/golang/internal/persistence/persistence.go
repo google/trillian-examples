@@ -31,7 +31,7 @@ type LogStatePersistence interface {
 
 	// WriteOps shows intent to write data for the given logID. The
 	// returned operations must have Close() called when the intent
-	// is complete. To persist any changes, Commit() must be called.
+	// is complete.
 	// There is no requirement that the ID is present in Logs(); if
 	// the ID is not there and this operation succeeds in committing
 	// a checkpoint, then Logs() will return the new ID afterwards.
@@ -48,21 +48,17 @@ type LogStateReadOps interface {
 // LogStateWriteOps allows data about a single log to be read and written
 // in an ACID transaction. This naturally mirrors a DB transaction, but
 // implementations don't need to use a database.
-// Note that Commit() must be called to persist any state, and Close() must
-// be called whenever these operations are no longer needed.
+// Note that Close() must be called whenever these operations are no longer
+// needed.
 type LogStateWriteOps interface {
 	LogStateReadOps
 
 	// SetCheckpoint sets a new checkpoint and (optional) compact range
-	// for the log.
+	// for the log. This commits the state to persistence, and this Ops
+	// object shouldn't be used after this.
 	SetCheckpoint(checkpointRaw []byte, compactRange []byte) error
 
-	// Commits any write operations made using this object to
-	// be persisted.
-	Commit() error
-
 	// Terminates the write operation, freeing all resouces.
-	// If Commit() has not been called, then no changes should
-	// be made to the persistence layer. This method MUST be called.
+	// This method MUST be called.
 	Close()
 }

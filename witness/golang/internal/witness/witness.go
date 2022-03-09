@@ -154,9 +154,6 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 			if err := setInitChkptData(write, logInfo, next, signed, proof); err != nil {
 				return nil, status.Errorf(codes.Internal, "couldn't set TOFU checkpoint: %v", err)
 			}
-			if err := write.Commit(); err != nil {
-				return nil, status.Errorf(codes.Internal, "couldn't set TOFU checkpoint: %v", err)
-			}
 			return signed, nil
 		}
 		return nil, status.Errorf(codes.Internal, "couldn't retrieve latest checkpoint: %v", err)
@@ -202,9 +199,6 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		if err := write.SetCheckpoint(signed, r); err != nil {
 			return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
 		}
-		if err := write.Commit(); err != nil {
-			return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
-		}
 		return signed, nil
 	}
 	// If we're not using compact ranges then use consistency proofs.
@@ -219,9 +213,6 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 	}
 	if err := write.SetCheckpoint(signed, nil); err != nil {
-		return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
-	}
-	if err := write.Commit(); err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to store new checkpoint: %v", err)
 	}
 	return signed, nil

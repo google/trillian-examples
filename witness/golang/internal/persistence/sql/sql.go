@@ -104,10 +104,9 @@ func (w *writer) GetLatestCheckpoint() ([]byte, []byte, error) {
 
 func (w *writer) SetCheckpoint(c []byte, rng []byte) error {
 	_, err := w.tx.Exec(`INSERT OR REPLACE INTO chkpts (logID, chkpt, range) VALUES (?, ?, ?)`, w.logID, c, rng)
-	return err
-}
-
-func (w *writer) Commit() error {
+	if err != nil {
+		return fmt.Errorf("Exec(): %v", err)
+	}
 	return w.tx.Commit()
 }
 

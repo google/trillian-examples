@@ -16,11 +16,15 @@ package inmemory
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/trillian-examples/witness/golang/internal/persistence"
 	ptest "github.com/google/trillian-examples/witness/golang/internal/persistence/testonly"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var nopClose = func() error { return nil }
@@ -37,40 +41,43 @@ func TestWriteOps(t *testing.T) {
 	})
 }
 
-func TestWriteOpsAdvanced(t *testing.T) {
+func TestWriteOpsConcurrent(t *testing.T) {
 	p := NewInMemoryPersistence()
 
-	for i := 0; i < 10; i++ {
-		fooWrite, err := p.WriteOps("foo")
-		if err != nil {
-			t.Fatal(err)
-		}
-		conflictWrite, err := p.WriteOps("foo")
-		if err != nil {
-			t.Fatal(err)
-		}
+	g := errgroup.Group{}
 
-		if err := fooWrite.SetCheckpoint([]byte(fmt.Sprintf("success %d", i)), nil); err != nil {
-			t.Fatal(err)
-		}
-		if err := conflictWrite.SetCheckpoint([]byte(fmt.Sprintf("fail %d", i)), nil); err != nil {
-			t.Fatal(err)
-		}
-
-		if err := fooWrite.Commit(); err != nil {
-			t.Fatal(err)
-		}
-		if err := conflictWrite.Commit(); err == nil {
-			t.Fatal("expected error on conflicting write")
-		}
+	for i := 0; i < 25; i++ {
+		i := i
+		g.Go(func() error {
+			w, err := p.WriteOps("foo")
+			if err != nil {
+				return fmt.Errorf("WriteOps %d: %v", i, err)
+			}
+			defer w.Close()
+			if _, _, err := w.GetLatestCheckpoint(); err != nil {
+				if status.Code(err) != codes.NotFound {
+					return fmt.Errorf("GetLatestCheckpoint %d: %v", i, err)
+				}
+			}
+			// Ignore any error on SetCheckpoint because we expect some.
+			w.SetCheckpoint([]byte(fmt.Sprintf("success %d", i)), nil)
+			return nil
+		})
 	}
 
-	read, err := p.ReadOps("foo")
+	if err := g.Wait(); err != nil {
+		t.Error(err)
+	}
+
+	r, err := p.ReadOps("foo")
 	if err != nil {
 		t.Fatal(err)
 	}
-	cp, _, _ := read.GetLatestCheckpoint()
-	if got, want := string(cp), "success 9"; got != want {
-		t.Errorf("got != want (%s != %s)", got, want)
+	cp, _, err := r.GetLatestCheckpoint()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(cp), "success") {
+		t.Errorf("expected at least one success but got %s", string(cp))
 	}
 }

@@ -15,8 +15,6 @@
 package sql
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"database/sql"
@@ -29,32 +27,23 @@ import (
 func TestGetLogs(t *testing.T) {
 	ptest.TestGetLogs(t, func() (persistence.LogStatePersistence, func() error) {
 		db, close := mustCreateDB(t)
-		return NewSQLPersistence(db), close
+		return NewPersistence(db), close
 	})
 }
 
 func TestWriteOps(t *testing.T) {
 	ptest.TestWriteOps(t, func() (persistence.LogStatePersistence, func() error) {
 		db, close := mustCreateDB(t)
-		return NewSQLPersistence(db), close
+		return NewPersistence(db), close
 	})
 }
 
 func mustCreateDB(t *testing.T) (*sql.DB, func() error) {
 	t.Helper()
-	// Use a file to try to get as close to real sqlite behaviour as possible.
-	// Concurrent transactions still don't really work though.
-	f, err := ioutil.TempFile("", "dbtest*.db")
-	if err != nil {
-		t.Fatalf("failed to create temp file: %v", err)
-	}
-	db, err := sql.Open("sqlite3", f.Name())
+	db, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open temporary DB: %v", err)
 	}
 	db.SetMaxOpenConns(1)
-	return db, func() error {
-		defer os.Remove(f.Name())
-		return db.Close()
-	}
+	return db, db.Close
 }

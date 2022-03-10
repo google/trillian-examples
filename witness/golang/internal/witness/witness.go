@@ -67,7 +67,7 @@ type Witness struct {
 func New(wo Opts) (*Witness, error) {
 	// Create the chkpts table if needed.
 	if err := wo.Persistence.Init(); err != nil {
-		return nil, fmt.Errorf("Init(): %v", err)
+		return nil, fmt.Errorf("Persistence.Init(): %v", err)
 	}
 	return &Witness{
 		lsp:    wo.Persistence,
@@ -136,7 +136,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	if err != nil {
 		return nil, fmt.Errorf("WriteOps(%v): %v", logID, err)
 	}
-	// Defer a rollback to clean up the TX if something fails.
+	// The WriteOps contract is that Close must always be called.
 	defer write.Close()
 
 	// Get the latest checkpoint (if one exists) and compact range.

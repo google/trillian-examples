@@ -91,7 +91,7 @@ func newWitness(t *testing.T, logs []logOpts) *Witness {
 		logMap[log.ID] = logInfo
 	}
 	opts := Opts{
-		Persistence: inmemory.NewInMemoryPersistence(),
+		Persistence: inmemory.NewPersistence(),
 		Signer:      ns,
 		KnownLogs:   logMap,
 	}

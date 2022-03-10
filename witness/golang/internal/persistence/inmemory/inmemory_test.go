@@ -31,18 +31,18 @@ var nopClose = func() error { return nil }
 
 func TestGetLogs(t *testing.T) {
 	ptest.TestGetLogs(t, func() (persistence.LogStatePersistence, func() error) {
-		return NewInMemoryPersistence(), nopClose
+		return NewPersistence(), nopClose
 	})
 }
 
 func TestWriteOps(t *testing.T) {
 	ptest.TestWriteOps(t, func() (persistence.LogStatePersistence, func() error) {
-		return NewInMemoryPersistence(), nopClose
+		return NewPersistence(), nopClose
 	})
 }
 
 func TestWriteOpsConcurrent(t *testing.T) {
-	p := NewInMemoryPersistence()
+	p := NewPersistence()
 
 	g := errgroup.Group{}
 

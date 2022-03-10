@@ -25,8 +25,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// NewInMemoryPersistence returns a persistence object that lives only in memory.
-func NewInMemoryPersistence() persistence.LogStatePersistence {
+// NewPersistence returns a persistence object that lives only in memory.
+func NewPersistence() persistence.LogStatePersistence {
 	return &inMemoryPersistence{
 		checkpoints: make(map[string]checkpointState),
 	}
@@ -38,6 +38,8 @@ type checkpointState struct {
 }
 
 type inMemoryPersistence struct {
+	// mu allows checkpoints to be read concurrently, but
+	// exclusively locked for writing.
 	mu          sync.RWMutex
 	checkpoints map[string]checkpointState
 }

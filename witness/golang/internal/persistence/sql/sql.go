@@ -24,8 +24,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// NewSQLPersistence returns a persistence object that is backed by the SQL database.
-func NewSQLPersistence(db *sql.DB) persistence.LogStatePersistence {
+// NewPersistence returns a persistence object that is backed by the SQL database.
+func NewPersistence(db *sql.DB) persistence.LogStatePersistence {
 	return &sqlLogPersistence{
 		db: db,
 	}

@@ -89,7 +89,7 @@ type reader struct {
 	db    *sql.DB
 }
 
-func (r *reader) GetLatestCheckpoint() ([]byte, []byte, error) {
+func (r *reader) GetLatest() ([]byte, []byte, error) {
 	return getLatestCheckpoint(r.db.QueryRow, r.logID)
 }
 
@@ -98,11 +98,11 @@ type writer struct {
 	tx    *sql.Tx
 }
 
-func (w *writer) GetLatestCheckpoint() ([]byte, []byte, error) {
+func (w *writer) GetLatest() ([]byte, []byte, error) {
 	return getLatestCheckpoint(w.tx.QueryRow, w.logID)
 }
 
-func (w *writer) SetCheckpoint(c []byte, rng []byte) error {
+func (w *writer) Set(c []byte, rng []byte) error {
 	_, err := w.tx.Exec(`INSERT OR REPLACE INTO chkpts (logID, chkpt, range) VALUES (?, ?, ?)`, w.logID, c, rng)
 	if err != nil {
 		return fmt.Errorf("Exec(): %v", err)

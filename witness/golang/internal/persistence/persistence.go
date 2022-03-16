@@ -40,9 +40,9 @@ type LogStatePersistence interface {
 
 // LogStateReadOps allows the data about a single log to be read.
 type LogStateReadOps interface {
-	// GetLatestCheckpoint returns the latest checkpoint and its compact range (if applicable).
+	// GetLatest returns the latest checkpoint and its compact range (if applicable).
 	// If no checkpoint exists, it must return codes.NotFound.
-	GetLatestCheckpoint() ([]byte, []byte, error)
+	GetLatest() ([]byte, []byte, error)
 }
 
 // LogStateWriteOps allows data about a single log to be read and written
@@ -53,10 +53,10 @@ type LogStateReadOps interface {
 type LogStateWriteOps interface {
 	LogStateReadOps
 
-	// SetCheckpoint sets a new checkpoint and (optional) compact range
+	// Set sets a new checkpoint and (optional) compact range
 	// for the log. This commits the state to persistence.
 	// After this call, only Close() should be called on this object.
-	SetCheckpoint(checkpointRaw []byte, compactRange []byte) error
+	Set(checkpointRaw []byte, compactRange []byte) error
 
 	// Terminates the write operation, freeing all resources.
 	// This method MUST be called.

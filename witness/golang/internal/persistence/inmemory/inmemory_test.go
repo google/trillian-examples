@@ -54,13 +54,13 @@ func TestWriteOpsConcurrent(t *testing.T) {
 				return fmt.Errorf("WriteOps %d: %v", i, err)
 			}
 			defer w.Close()
-			if _, _, err := w.GetLatestCheckpoint(); err != nil {
+			if _, _, err := w.GetLatest(); err != nil {
 				if status.Code(err) != codes.NotFound {
-					return fmt.Errorf("GetLatestCheckpoint %d: %v", i, err)
+					return fmt.Errorf("GetLatest %d: %v", i, err)
 				}
 			}
-			// Ignore any error on SetCheckpoint because we expect some.
-			w.SetCheckpoint([]byte(fmt.Sprintf("success %d", i)), nil)
+			// Ignore any error on Set because we expect some.
+			w.Set([]byte(fmt.Sprintf("success %d", i)), nil)
 			return nil
 		})
 	}
@@ -73,7 +73,7 @@ func TestWriteOpsConcurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cp, _, err := r.GetLatestCheckpoint()
+	cp, _, err := r.GetLatest()
 	if err != nil {
 		t.Fatal(err)
 	}

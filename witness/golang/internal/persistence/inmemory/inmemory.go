@@ -115,14 +115,14 @@ type readWriter struct {
 	read, toStore *checkpointState
 }
 
-func (rw *readWriter) GetLatestCheckpoint() ([]byte, []byte, error) {
+func (rw *readWriter) GetLatest() ([]byte, []byte, error) {
 	if rw.read == nil {
 		return nil, nil, status.Error(codes.NotFound, "no checkpoint found")
 	}
 	return rw.read.rawChkpt, rw.read.compactRange, nil
 }
 
-func (rw *readWriter) SetCheckpoint(c []byte, rng []byte) error {
+func (rw *readWriter) Set(c []byte, rng []byte) error {
 	rw.toStore = &checkpointState{
 		rawChkpt:     c,
 		compactRange: rng,

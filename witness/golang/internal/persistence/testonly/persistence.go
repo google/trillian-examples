@@ -59,7 +59,7 @@ func TestWriteOps(t *testing.T, lspFactory func() (persistence.LogStatePersisten
 	if err != nil {
 		t.Fatalf("ReadOps(): %v", err)
 	}
-	_, _, err = read.GetLatestCheckpoint()
+	_, _, err = read.GetLatest()
 	if got, want := status.Code(err), codes.NotFound; got != want {
 		t.Fatalf("error code got != want (%s, %s): %v", got, want, err)
 	}
@@ -73,8 +73,8 @@ func TestWriteOps(t *testing.T, lspFactory func() (persistence.LogStatePersisten
 		t.Fatalf("ReadOps(): %v", err)
 	}
 	var cpRaw []byte
-	if cpRaw, _, err = read.GetLatestCheckpoint(); err != nil {
-		t.Fatalf("GetLatestCheckpoint(): %v", err)
+	if cpRaw, _, err = read.GetLatest(); err != nil {
+		t.Fatalf("GetLatest(): %v", err)
 	}
 	if got, want := cpRaw, []byte("foo cp"); !bytes.Equal(got, want) {
 		t.Errorf("got != want (%s != %s)", got, want)
@@ -87,8 +87,8 @@ func writeCheckpoint(lsp persistence.LogStatePersistence, id string) error {
 		return fmt.Errorf("WriteOps(%s): %v", id, err)
 	}
 	defer writeOps.Close()
-	if err := writeOps.SetCheckpoint([]byte(fmt.Sprintf("%s cp", id)), nil); err != nil {
-		return fmt.Errorf("SetCheckpoint(%s): %v", id, err)
+	if err := writeOps.Set([]byte(fmt.Sprintf("%s cp", id)), nil); err != nil {
+		return fmt.Errorf("Set(%s): %v", id, err)
 	}
 	return nil
 }

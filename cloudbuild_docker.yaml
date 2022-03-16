@@ -55,6 +55,8 @@ steps:
       - '-c'
       - >
         docker pull gcr.io/$PROJECT_ID/witness &&
+        # Special /workspace path:
+        # https://cloud.google.com/build/docs/configuring-builds/pass-data-between-steps#passing_data_using_workspaces
         echo $(docker images --format '{{.Digest}}' gcr.io/$PROJECT_ID/witness) > /workspace/image-digest.txt ||
         # Tell Cloud Build that this step succeeded. See this workaround documented here:
         # https://github.com/GoogleCloudPlatform/cloud-builders/issues/253#issuecomment-381600420
@@ -69,23 +71,11 @@ steps:
       # Cloud Console.
       - '-E'
       - '-c'
-      - >
-        # Special /workspace path:
-        # https://cloud.google.com/build/docs/configuring-builds/pass-data-between-steps#passing_data_using_workspaces
-        gcloud functions call create_gcs_object --data="{
-          \"bucket\":\"${_BUCKET}\",
-          \"entryContent\":\"${REPO_NAME},${COMMIT_SHA},$(cat /workspace/image-digest.txt),linux/amd64\",
-          \"entryPath\":\"${REPO_NAME}-linux-amd64\"
-        }" &&
-        gcloud functions call create_gcs_object --data="{
-          \"bucket\":\"${_BUCKET}\",
-          \"entryContent\":\"${REPO_NAME},${COMMIT_SHA},$(cat /workspace/image-digest.txt),linux/arm/v7\",
-          \"entryPath\":\"${REPO_NAME}-linux-arm-v7\"
-        }" ||
-        # Tell Cloud Build that this step succeeded. See this workaround documented here:
-        # https://github.com/GoogleCloudPlatform/cloud-builders/issues/253#issuecomment-381600420
-        exit 0
-      # TODO(jayhou): also invoke the `sequence` and `integrate` functions of the log.
+      - |
+        echo "bucket ${_BUCKET}"
+        echo "log entry content ${REPO_NAME},${COMMIT_SHA},$(cat /workspace/image-digest.txt)\"
+        echo "entry path ${ENTRIES_DIR}/${REPO_NAME}-${COMMIT_SHA}\"
+        # TODO(jayhou): after setting up GCF for serverless logs, invoke the functions here.
     waitFor:
       - store-witness-image-digest
 
@@ -162,4 +152,5 @@ steps:
 
 substitutions:
   _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v7'
-  _BUCKET: 'tlog'
+  _BUCKET: 'transparency_log'
+  _ENTRIES_DIR: 'log_entries'

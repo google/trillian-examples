@@ -26,7 +26,8 @@ import (
 	logfmt "github.com/google/trillian-examples/formats/log"
 	i_note "github.com/google/trillian-examples/internal/note"
 	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
-	"github.com/google/trillian-examples/witness/golang/cmd/witness/internal/witness"
+	wsql "github.com/google/trillian-examples/witness/golang/internal/persistence/sql"
+	"github.com/google/trillian-examples/witness/golang/internal/witness"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"github.com/transparency-dev/merkle/rfc6962"
@@ -110,9 +111,9 @@ func Main(ctx context.Context, opts ServerOpts) error {
 	}
 
 	w, err := witness.New(witness.Opts{
-		DB:        db,
-		Signer:    opts.Signer,
-		KnownLogs: logMap,
+		Persistence: wsql.NewPersistence(db),
+		Signer:      opts.Signer,
+		KnownLogs:   logMap,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating witness: %v", err)

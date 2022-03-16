@@ -44,7 +44,7 @@ func loadELF(mem uint32, kernel []byte) (addr uint32) {
 		}
 
 		offset := uint32(prg.Paddr) - mem
-		dma.Write(mem, b, int(offset))
+		dma.Write(mem, int(offset), b)
 	}
 
 	return uint32(f.Entry)

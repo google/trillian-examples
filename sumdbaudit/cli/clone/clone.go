@@ -16,6 +16,8 @@ package main
 
 import (
 	"context"
+	"net/http"
+	"time"
 
 	"flag"
 
@@ -26,10 +28,11 @@ import (
 )
 
 var (
-	height = flag.Int("h", 8, "tile height")
-	vkey   = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
-	extraV = flag.Bool("x", false, "performs additional checks on each tile hashes")
-	force  = flag.Bool("f", false, "forces the auditor to run even if no new data is available")
+	height  = flag.Int("h", 8, "tile height")
+	vkey    = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
+	extraV  = flag.Bool("x", false, "performs additional checks on each tile hashes")
+	force   = flag.Bool("f", false, "forces the auditor to run even if no new data is available")
+	timeout = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for http connections to complete.")
 )
 
 // Clones the leaves of the SumDB into the local database and verifies the result.
@@ -49,7 +52,9 @@ func main() {
 		glog.Exitf("failed to init DB: %v", err)
 	}
 
-	sumDB := client.NewSumDB(*height, *vkey)
+	sumDB := client.NewSumDB(*height, *vkey, &http.Client{
+		Timeout: *timeout,
+	})
 	checkpoint, err := sumDB.LatestCheckpoint()
 	if err != nil {
 		glog.Exitf("failed to get latest checkpoint: %s", err)

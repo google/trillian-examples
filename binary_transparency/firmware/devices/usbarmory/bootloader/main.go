@@ -129,8 +129,8 @@ func main() {
 	if conf.elf {
 		boot(loadELF(mem, conf.kernel), 0)
 	} else {
-		dma.Write(mem, conf.kernel, kernelOffset)
-		dma.Write(mem, conf.params, paramsOffset)
+		dma.Write(mem, kernelOffset, conf.kernel)
+		dma.Write(mem, paramsOffset, conf.params)
 
 		boot(mem+kernelOffset, mem+paramsOffset)
 	}

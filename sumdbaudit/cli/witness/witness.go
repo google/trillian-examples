@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/sumdbaudit/audit"
@@ -30,8 +31,9 @@ import (
 )
 
 var (
-	height = flag.Int("h", 8, "tile height")
-	vkey   = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
+	height  = flag.Int("h", 8, "tile height")
+	vkey    = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
+	timeout = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for http connections to complete.")
 
 	listenAddr = flag.String("listen", ":8000", "address:port to listen for requests on")
 )
@@ -92,7 +94,9 @@ func main() {
 		glog.Exitf("Failed to open DB: %v", err)
 	}
 
-	sumDB := client.NewSumDB(*height, *vkey)
+	sumDB := client.NewSumDB(*height, *vkey, &http.Client{
+		Timeout: *timeout,
+	})
 	auditor := audit.NewService(db, sumDB, *height)
 	server := &server{a: auditor}
 

@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"sync"
 	"time"
@@ -73,7 +74,11 @@ func main() {
 		wg.Add(1)
 		go func(l config.Log, w wit_http.Witness) {
 			defer wg.Done()
-			if err := serverless.FeedLog(ctx, l, witness, *timeout, *interval); err != nil {
+
+			c := &http.Client{
+				Timeout: *timeout,
+			}
+			if err := serverless.FeedLog(ctx, l, witness, c, *interval); err != nil {
 				glog.Errorf("feedLog: %v", err)
 			}
 		}(l, witness)

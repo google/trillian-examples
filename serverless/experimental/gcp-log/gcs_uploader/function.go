@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2022 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,8 +24,8 @@ import (
 	gcs "cloud.google.com/go/storage"
 )
 
-// CreateGCSObject is writes a GCS object with EntryContent to EntryPath in
-// Bucket.
+// CreateGCSObject writes a GCS object with `entryContent` to `entryPath` in
+// `bucket`.
 func CreateGCSObject(w http.ResponseWriter, r *http.Request) {
 	var d struct {
 		EntryContent string `json:"entryContent"`
@@ -64,12 +64,18 @@ func CreateGCSObject(w http.ResponseWriter, r *http.Request) {
 
 	obj := client.Bucket(d.Bucket).Object(d.EntryPath)
 	writer := obj.NewWriter(ctx)
-	if _, err := fmt.Fprintf(writer, d.EntryContent); err != nil {
+	if n, err := writer.Write([]byte(d.EntryContent)); err != nil {
 		http.Error(w,
 			fmt.Sprintf("Failed to write GCS obj %q: %q", d.EntryPath, err),
 			http.StatusInternalServerError)
 		return
+	} else if n != len(d.EntryContent) {
+		http.Error(w,
+			fmt.Sprintf("Failed to write GCS obj %q: only wrote %d of %d bytes", d.EntryPath, n, len(d.EntryContent)),
+			http.StatusInternalServerError)
+		return
 	}
+
 	if err := writer.Close(); err != nil {
 		http.Error(w,
 			fmt.Sprintf("Failed to close GCS obj %q: %q", d.EntryPath, err),

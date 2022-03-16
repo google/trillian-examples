@@ -176,7 +176,9 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	}
 	if next.Size == prev.Size {
 		if !bytes.Equal(next.Hash, prev.Hash) {
-			glog.Errorf("%s: INCONSISTENT CHECKPOINTS!:\n%v\n%v", logID, prev, next)
+			// Code analysis complains about the next line, but it's fine; we've already bailed out
+			// further up the method if the log ID was not found.
+			glog.Errorf("%s: INCONSISTENT CHECKPOINTS!:\n%v\n%v", logID, prev, next) // lgtm [go/log-injection]
 			return prevRaw, status.Errorf(codes.FailedPrecondition, "checkpoint for same size log with differing hash (got %x, have %x)", next.Hash, prev.Hash)
 		}
 		// If it's identical to the previous one do nothing.

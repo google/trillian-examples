@@ -1,4 +1,4 @@
-// https://github.com/f-secure-foundry/armory-boot
+// https://github.com/usbarmory/armory-boot
 //
 // Copyright (c) F-Secure Corporation
 // https://foundry.f-secure.com
@@ -20,7 +20,7 @@ import (
 
 	"github.com/dsoprea/go-ext4"
 
-	"github.com/f-secure-foundry/tamago/soc/imx6/usdhc"
+	"github.com/usbarmory/tamago/soc/imx6/usdhc"
 )
 
 type Partition struct {

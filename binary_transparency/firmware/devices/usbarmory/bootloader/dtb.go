@@ -1,4 +1,4 @@
-// https://github.com/f-secure-foundry/armory-boot
+// https://github.com/usbarmory/armory-boot
 //
 // Copyright (c) F-Secure Corporation
 // https://foundry.f-secure.com

@@ -1,4 +1,4 @@
-// https://github.com/f-secure-foundry/armory-boot
+// https://github.com/usbarmory/armory-boot
 //
 // Copyright (c) F-Secure Corporation
 // https://foundry.f-secure.com
@@ -16,7 +16,7 @@ import (
 	"debug/elf"
 	"fmt"
 
-	"github.com/f-secure-foundry/tamago/dma"
+	"github.com/usbarmory/tamago/dma"
 )
 
 // loadELF attempts to load the provided ELF image.

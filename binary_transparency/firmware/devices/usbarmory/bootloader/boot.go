@@ -1,4 +1,4 @@
-// https://github.com/f-secure-foundry/armory-boot
+// https://github.com/usbarmory/armory-boot
 //
 // Copyright (c) F-Secure Corporation
 // https://foundry.f-secure.com
@@ -14,10 +14,10 @@ package main
 import (
 	"log"
 
-	"github.com/f-secure-foundry/tamago/arm"
-	usbarmory "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
-	"github.com/f-secure-foundry/tamago/soc/imx6"
-	"github.com/f-secure-foundry/tamago/soc/imx6/rngb"
+	"github.com/usbarmory/tamago/arm"
+	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
+	"github.com/usbarmory/tamago/soc/imx6"
+	"github.com/usbarmory/tamago/soc/imx6/rngb"
 )
 
 // defined in boot.s

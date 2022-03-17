@@ -1,22 +1,22 @@
 > The contents of this directory are modified versions of the original which can
-> be found here: https://github.com/f-secure-foundry/armory-boot
+> be found here: https://github.com/usbarmory/armory-boot
 
 Introduction
 ============
 
-This [TamaGo](https://github.com/f-secure-foundry/tamago) based unikernel
-acts as a primary boot loader for the [USB armory Mk II](https://github.com/f-secure-foundry/usbarmory/wiki),
+This [TamaGo](https://github.com/usbarmory/tamago) based unikernel
+acts as a primary boot loader for the [USB armory Mk II](https://github.com/usbarmory/usbarmory/wiki),
 allowing boot of kernel images (e.g. Linux) from either the eMMC card or an
 external microSD card.
 
 Compiling
 =========
 
-Build the [TamaGo compiler](https://github.com/f-secure-foundry/tamago-go)
-(or use the [latest binary release](https://github.com/f-secure-foundry/tamago-go/releases/latest)):
+Build the [TamaGo compiler](https://github.com/usbarmory/tamago-go)
+(or use the [latest binary release](https://github.com/usbarmory/tamago-go/releases/latest)):
 
 ```
-git clone https://github.com/f-secure-foundry/tamago-go -b latest
+git clone https://github.com/usbarmory/tamago-go -b latest
 cd tamago-go/src && ./all.bash
 cd ../bin && export TAMAGO=`pwd`/go
 ```
@@ -30,13 +30,13 @@ ext4 partition where `/boot/armory-boot.conf` is located (typically 5242880 for
 USB armory Mk II default pre-compiled images).
 
 The `CONSOLE` environment variable may be set to `on` to enable serial
-logging when a [debug accessory](https://github.com/f-secure-foundry/usbarmory/tree/master/hardware/mark-two-debug-accessory)
+logging when a [debug accessory](https://github.com/usbarmory/usbarmory/tree/master/hardware/mark-two-debug-accessory)
 is connected.
 
 Build the `armory-boot.imx` application executable:
 
 ```
-git clone https://github.com/f-secure-foundry/armory-boot && cd armory-boot
+git clone https://github.com/usbarmory/armory-boot && cd armory-boot
 make CROSS_COMPILE=arm-none-eabi- imx BOOT=uSD START=5242880
 ```
 
@@ -44,7 +44,7 @@ Installing
 ==========
 
 The `armory-boot.imx` file can be flashed on the internal eMMC card or an
-external micro SD card as shown in [these instructions](https://github.com/f-secure-foundry/usbarmory/wiki/Boot-Modes-(Mk-II)#flashing-imx-native-images).
+external micro SD card as shown in [these instructions](https://github.com/usbarmory/usbarmory/wiki/Boot-Modes-(Mk-II)#flashing-imx-native-images).
 
 Configuration
 =============
@@ -54,7 +54,7 @@ image and parameters to boot.
 
 The bootloader is configured via a single configuration file, and can boot either
  an ARM kernel image or an ELF unikernel (e.g.
-[tamago-example](https://github.com/f-secure-foundry/tamago-example)).
+[tamago-example](https://github.com/usbarmory/tamago-example)).
 The required elements in the configuration file differ depending on the type of
 image being loaded, examples for both are given below.
 
@@ -109,7 +109,7 @@ Secure Boot
 ===========
 
 On secure booted systems the `imx_signed` target should be used instead with the relevant
-[`HAB_KEYS`](https://github.com/f-secure-foundry/usbarmory/wiki/Secure-boot-(Mk-II)) set.
+[`HAB_KEYS`](https://github.com/usbarmory/usbarmory/wiki/Secure-boot-(Mk-II)) set.
 
 Additionally, to maintain the chain of trust, the `PUBLIC_KEY` environment
 variable must be set with either a [signify](https://man.openbsd.org/signify)
@@ -153,7 +153,7 @@ minisign -S -s armory-boot.sec -m armory-boot.conf -x armory-boot.conf.sig
 LED status
 ==========
 
-The [USB armory Mk II](https://github.com/f-secure-foundry/usbarmory/wiki) LEDs
+The [USB armory Mk II](https://github.com/usbarmory/usbarmory/wiki) LEDs
 are used, in sequence, as follows:
 
 | Boot sequence                   | Blue | White |
@@ -172,8 +172,8 @@ andrea.barisani@f-secure.com | andrea@inversepath.com
 License
 =======
 
-armory-boot | https://github.com/f-secure-foundry/armory-boot
+armory-boot | https://github.com/usbarmory/armory-boot
 Copyright (c) F-Secure Corporation
 
 These source files are distributed under the BSD-style license found in the
-[LICENSE](https://github.com/f-secure-foundry/armory-boot/blob/master/LICENSE) file.
+[LICENSE](https://github.com/usbarmory/armory-boot/blob/master/LICENSE) file.

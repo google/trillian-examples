@@ -355,11 +355,10 @@ github.com/envoyproxy/protoc-gen-validate v0.3.0-java/go.mod h1:iSmxcyjqTsJpI2R4
 github.com/etcd-io/gofail v0.0.0-20190801230047-ad7f989257ca/go.mod h1:49H/RkXP8pKaZy4h0d+NW16rSLhyVBt4o6VLJbmOqDE=
 github.com/evanphx/json-patch v4.2.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
 github.com/evanphx/json-patch v4.9.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
-github.com/f-secure-foundry/imx-usbnet v0.0.0-20211005152612-ec70eaf9b56c h1:GMCKEl+UOdX0N6H0i5IHEiDKgFW0xvmVsBDJXvg6sts=
-github.com/f-secure-foundry/imx-usbnet v0.0.0-20211005152612-ec70eaf9b56c/go.mod h1:cdWNn9wINdW0rP0B+J13fk3mnLPxMqKtuSUQ9txzq+E=
-github.com/f-secure-foundry/tamago v0.0.0-20210607142218-878b4c69ff4e/go.mod h1:Zs5U/3bxiFFQzq23F7KkmS8Gz1jTGH141hbcdFHCk8E=
-github.com/f-secure-foundry/tamago v0.0.0-20220307101044-d73fcdd7f11b h1:lQprQ63VwWseLwyyC1jqFfEbawf3sKTlyBendLxdjq8=
-github.com/f-secure-foundry/tamago v0.0.0-20220307101044-d73fcdd7f11b/go.mod h1:PeqYMgpP/R3MESqPnF2rvmD6Mu8G4JSSf9srGeQkz2M=
+github.com/usbarmory/tamago v0.0.0-20201201222556-c7d3ba598c56 h1:HH3Y8V0tIqE/ZgzqwvZ8BF868LdhjlJkFjXdnArk6DU=
+github.com/usbarmory/tamago v0.0.0-20201201222556-c7d3ba598c56/go.mod h1:+xmhdYxGfaNhWUZ/F1mbwFu38H73slg/k/oPjOL7tc8=
+github.com/usbarmory/tamago v0.0.0-20220307101044-d73fcdd7f11b h1:lQprQ63VwWseLwyyC1jqFfEbawf3sKTlyBendLxdjq8=
+github.com/usbarmory/tamago v0.0.0-20220307101044-d73fcdd7f11b/go.mod h1:PeqYMgpP/R3MESqPnF2rvmD6Mu8G4JSSf9srGeQkz2M=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.9.0 h1:8xPHl4/q1VyqGIPif1F+1V3Y3lSmrq01EabUW3CoW5s=
 github.com/fatih/color v1.9.0/go.mod h1:eQcE1qtQxscV5RaZvpXrrb8Drkc3/DdQ+uUYCNjL+zU=

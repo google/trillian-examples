@@ -20,10 +20,10 @@ import (
 	"strings"
 	"time"
 
-	usbnet "github.com/f-secure-foundry/imx-usbnet"
-	"github.com/f-secure-foundry/tamago/soc/imx6/usb"
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
+	usbnet "github.com/usbarmory/imx-usbnet"
+	"github.com/usbarmory/tamago/soc/imx6/usb"
 )
 
 const (

@@ -24,18 +24,14 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	i_omni "github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
 	"golang.org/x/mod/sumdb/note"
 )
 
-const (
-	// Timeout for any http requests.
-	httpTimeout = 10 * time.Second
-)
-
 var (
-	addr       = flag.String("listen", ":8080", "Address to listen on")
-	signingKey = flag.String("private_key", "", "The note-compatible signing key to use")
+	addr        = flag.String("listen", ":8080", "Address to listen on")
+	signingKey  = flag.String("private_key", "", "The note-compatible signing key to use")
+	httpTimeout = flag.Duration("http_timeout", 10*time.Second, "HTTP timeout for outbound requests")
 )
 
 func main() {
@@ -44,17 +40,17 @@ func main() {
 
 	httpListener, err := net.Listen("tcp", *addr)
 	if err != nil {
-		glog.Fatalf("failed to listen on 8080")
+		glog.Fatalf("failed to listen on %q", *addr)
 	}
 	httpClient := &http.Client{
-		Timeout: httpTimeout,
+		Timeout: *httpTimeout,
 	}
 
 	signer, err := note.NewSigner(*signingKey)
 	if err != nil {
 		glog.Exitf("Failed to init signer: %v", err)
 	}
-	if err := i_omni.Main(ctx, signer, httpListener, httpClient); err != nil {
+	if err := omniwitness.Main(ctx, signer, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
 }

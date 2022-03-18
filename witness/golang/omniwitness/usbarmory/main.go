@@ -27,7 +27,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	i_omni "github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
 
@@ -53,7 +53,7 @@ func main() {
 
 	httpListener, err := initNetworking()
 	if err != nil {
-		glog.Exitf("failed to init usb networking: %v", err)
+		glog.Exitf("Failed to init usb networking: %v", err)
 	}
 	g.Go(runNetworking)
 	httpClient := getHttpClient()
@@ -62,7 +62,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to init signer: %v", err)
 	}
-	if err := i_omni.Main(ctx, signer, httpListener, httpClient); err != nil {
+	if err := omniwitness.Main(ctx, signer, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
 }

@@ -48,6 +48,7 @@ import (
 
 const (
 	// Interval between attempts to feed checkpoints
+	// TODO(mhutchinson): Make this configurable
 	feedInterval = 5 * time.Minute
 )
 
@@ -58,8 +59,8 @@ type singleLogFeederConfig struct {
 	Log config.Log `yaml:"Log"`
 }
 
-// multiLogFeederConfig encapsulates the feeder config for a feeder that can only
-// feed a single log.
+// multiLogFeederConfig encapsulates the feeder config for a feeder that can support
+// multiple logs.
 // TODO(mhutchinson): why do we do this to ourselves with similar but different configs?!
 // See if we can standardize on them all being plural.
 type multiLogFeederConfig struct {
@@ -76,6 +77,7 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 	type logFeeder func(context.Context, config.Log, feeder.Witness, *http.Client, time.Duration) error
 	feeders := make(map[config.Log]logFeeder)
 	// Feeder: SumDB
+	// TODO(mhutchinson): Make sumdb configured by a config file too.
 	sumdbConfig := config.Log{
 		Origin:    "go.sum database tree",
 		PublicKey: "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8",
@@ -87,14 +89,14 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 	// Feeder: PixelBT
 	pixelFeederConfig := singleLogFeederConfig{}
 	if err := yaml.Unmarshal(omniwitness.ConfigFeederPixel, &pixelFeederConfig); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %v", err)
+		return fmt.Errorf("failed to unmarshal pixel config: %v", err)
 	}
 	feeders[pixelFeederConfig.Log] = pixelbt.FeedLog
 
 	// Feeder: Rekor
 	rekorFeederConfig := multiLogFeederConfig{}
 	if err := yaml.Unmarshal(omniwitness.ConfigFeederRekor, &rekorFeederConfig); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %v", err)
+		return fmt.Errorf("failed to unmarshal rekor config: %v", err)
 	}
 	for _, l := range rekorFeederConfig.Logs {
 		feeders[l] = rekor.FeedLog
@@ -103,7 +105,7 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 	// Feeder: Serverless
 	serverlessFeederConfig := multiLogFeederConfig{}
 	if err := yaml.Unmarshal(omniwitness.ConfigFeederServerless, &serverlessFeederConfig); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %v", err)
+		return fmt.Errorf("failed to unmarshal serverless config: %v", err)
 	}
 	for _, l := range serverlessFeederConfig.Logs {
 		feeders[l] = serverless.FeedLog
@@ -112,7 +114,7 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 	// Witness
 	witCfg := wimpl.LogConfig{}
 	if err := yaml.Unmarshal(omniwitness.ConfigWitness, &witCfg); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %v", err)
+		return fmt.Errorf("failed to unmarshal witness config: %v", err)
 	}
 	knownLogs, err := witCfg.AsLogMap()
 	if err != nil {

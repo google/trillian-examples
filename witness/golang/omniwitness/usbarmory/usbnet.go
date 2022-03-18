@@ -1,4 +1,4 @@
-// https://github.com/f-secure-foundry/tamago-example
+// https://github.com/usbarmory/tamago-example
 //
 // Copyright (c) F-Secure Corporation
 // https://foundry.f-secure.com
@@ -115,7 +115,7 @@ func getHttpClient() *http.Client {
 				return nil, fmt.Errorf("expected A record but got %T %q", r.Answer[0], r.Answer[0])
 			}
 			target := fmt.Sprintf("%s:%s", ip, port)
-			glog.Infof("Dialing %s", target)
+			glog.V(2).Infof("Dialing %s", target)
 			return iface.DialTCP4(target)
 		},
 		TLSClientConfig: &tls.Config{

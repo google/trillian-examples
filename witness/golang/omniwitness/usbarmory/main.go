@@ -31,7 +31,9 @@ import (
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
 
-	_ "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/storage"
+
+	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
 )
 
 const (
@@ -45,10 +47,32 @@ const (
 	_          = publicKey // public key is here so it doesn't get lost, we don't need it right now.
 )
 
+func init() {
+	usbarmory.LED("white", false)
+	usbarmory.LED("blue", true)
+	// On the USB armory Mk II the standard serial console (UART2) is
+	// exposed through the debug accessory, which needs to be enabled.
+	debugConsole, _ := usbarmory.DetectDebugAccessory(1000 * time.Millisecond)
+	<-debugConsole
+
+	usbarmory.LED("white", true)
+	usbarmory.LED("blue", false)
+}
+
 func main() {
 	// We parse the flags despite declaring none ourselves so libraries are
 	// happy (looking at you, glog).
+	flag.Set("stderrthreshold", "INFO")
 	flag.Parse()
+
+	if err := usbarmory.MMC.Detect(); err != nil {
+		glog.Exitf("Failed to detect MMC: %v", err)
+	}
+
+	_ = storage.Device{
+		Card: usbarmory.MMC,
+	}
+
 	ctx := context.Background()
 	// This error group will be used to run all top level processes
 	g := errgroup.Group{}

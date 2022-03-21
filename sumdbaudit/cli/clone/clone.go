@@ -30,6 +30,7 @@ import (
 var (
 	height  = flag.Int("h", 8, "tile height")
 	vkey    = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
+	url     = flag.String("url", "https://sum.golang.org", "Base URL for the sumdb HTTP API.")
 	extraV  = flag.Bool("x", false, "performs additional checks on each tile hashes")
 	force   = flag.Bool("f", false, "forces the auditor to run even if no new data is available")
 	timeout = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for http connections to complete.")
@@ -52,7 +53,7 @@ func main() {
 		glog.Exitf("failed to init DB: %v", err)
 	}
 
-	sumDB := client.NewSumDB(*height, *vkey, &http.Client{
+	sumDB := client.NewSumDB(*height, *vkey, *url, &http.Client{
 		Timeout: *timeout,
 	})
 	checkpoint, err := sumDB.LatestCheckpoint()

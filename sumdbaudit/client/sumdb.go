@@ -20,7 +20,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/mod/sumdb/tlog"
@@ -55,19 +54,13 @@ type SumDBClient struct {
 }
 
 // NewSumDB creates a new client that fetches tiles of the given height.
-func NewSumDB(height int, vkey string, c *http.Client) *SumDBClient {
-	name := vkey
-	if i := strings.Index(name, "+"); i >= 0 {
-		name = name[:i]
-	}
-	target := "https://" + name
-
+func NewSumDB(height int, vkey, url string, c *http.Client) *SumDBClient {
 	return &SumDBClient{
 		height: height,
 		vkey:   vkey,
 		fetcher: &HTTPFetcher{
 			c:       c,
-			baseURL: target,
+			baseURL: url,
 		},
 	}
 }

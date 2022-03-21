@@ -45,7 +45,7 @@ var (
 )
 
 func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client, interval time.Duration) error {
-	sdb := client.NewSumDB(tileHeight, l.PublicKey, c)
+	sdb := client.NewSumDB(tileHeight, l.PublicKey, l.URL, c)
 	logSigV, err := i_note.NewVerifier(l.PublicKeyType, l.PublicKey)
 	if err != nil {
 		return err

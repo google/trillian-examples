@@ -29,6 +29,10 @@ var (
 	//go:embed feeder_configs/serverless.yaml
 	ConfigFeederServerless []byte
 
+	// ConfigFeederSumDB is the config for the feeder for SumDB.
+	//go:embed feeder_configs/sumdb.yaml
+	ConfigFeederSumDB []byte
+
 	// ConfigWitness is the config for the witness used in the omniwitness.
 	//go:embed witness_configs/witness.yaml
 	ConfigWitness []byte

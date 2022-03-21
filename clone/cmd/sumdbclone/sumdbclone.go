@@ -36,6 +36,7 @@ import (
 
 var (
 	vkey           = flag.String("vkey", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "The verification key for the log checkpoints")
+	url            = flag.String("url", "https://sum.golang.org", "The base URL for the sumdb HTTP API.")
 	mysqlURI       = flag.String("mysql_uri", "", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
 	writeBatchSize = flag.Uint("write_batch_size", 1024, "The number of leaves to write in each DB transaction.")
 	workers        = flag.Uint("workers", 4, "The number of worker threads to run in parallel to fetch entries.")
@@ -59,7 +60,7 @@ func main() {
 		glog.Exitf("Failed to connect to database: %q", err)
 	}
 
-	client := sdbclient.NewSumDB(tileHeight, *vkey, &http.Client{
+	client := sdbclient.NewSumDB(tileHeight, *vkey, *url, &http.Client{
 		Timeout: *timeout,
 	})
 	targetCp, err := client.LatestCheckpoint()

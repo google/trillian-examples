@@ -26,7 +26,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/config"
 	wimpl "github.com/google/trillian-examples/witness/golang/cmd/witness/impl"
 	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
@@ -76,15 +75,15 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 
 	type logFeeder func(context.Context, config.Log, feeder.Witness, *http.Client, time.Duration) error
 	feeders := make(map[config.Log]logFeeder)
+
 	// Feeder: SumDB
-	// TODO(mhutchinson): Make sumdb configured by a config file too.
-	sumdbConfig := config.Log{
-		Origin:    "go.sum database tree",
-		PublicKey: "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8",
+	sumdbFeederConfig := multiLogFeederConfig{}
+	if err := yaml.Unmarshal(omniwitness.ConfigFeederSumDB, &sumdbFeederConfig); err != nil {
+		return fmt.Errorf("failed to unmarshal sumdb config: %v", err)
 	}
-	// Calculate the ID (this doesn't happen if the struct is not parsed from yaml)
-	sumdbConfig.ID = log.ID(sumdbConfig.Origin, []byte(sumdbConfig.PublicKey))
-	feeders[sumdbConfig] = sumdb.FeedLog
+	for _, l := range sumdbFeederConfig.Logs {
+		feeders[l] = sumdb.FeedLog
+	}
 
 	// Feeder: PixelBT
 	pixelFeederConfig := singleLogFeederConfig{}

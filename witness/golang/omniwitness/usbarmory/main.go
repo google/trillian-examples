@@ -46,6 +46,8 @@ const (
 )
 
 func main() {
+	// We parse the flags despite declaring none ourselves so libraries are
+	// happy (looking at you, glog).
 	flag.Parse()
 	ctx := context.Background()
 	// This error group will be used to run all top level processes

@@ -7,8 +7,6 @@ require (
 	github.com/cenkalti/backoff/v4 v4.1.2
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
-	github.com/f-secure-foundry/imx-usbnet v0.0.0-20211005152612-ec70eaf9b56c
-	github.com/f-secure-foundry/tamago v0.0.0-20220307101044-d73fcdd7f11b
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/mock v1.6.0
@@ -22,6 +20,8 @@ require (
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/transparency-dev/merkle v0.0.0-20220104141048-2fe6541b4c0d
 	github.com/u-root/u-root v7.0.0+incompatible
+	github.com/usbarmory/imx-usbnet v0.0.0-20220317105544-a29e0d6b2167
+	github.com/usbarmory/tamago v0.0.0-20220317131509-7fbcfbeb1abb
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/mod v0.5.1
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f

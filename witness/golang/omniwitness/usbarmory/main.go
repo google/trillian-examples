@@ -31,7 +31,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
 
-	_ "github.com/f-secure-foundry/tamago/board/f-secure/usbarmory/mark-two"
+	_ "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
 )
 
 const (

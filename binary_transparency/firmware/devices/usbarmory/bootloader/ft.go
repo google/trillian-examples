@@ -9,9 +9,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/f-secure-foundry/tamago/soc/imx6/dcp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"github.com/usbarmory/tamago/soc/imx6/dcp"
 	"golang.org/x/mod/sumdb/note"
 )
 

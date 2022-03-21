@@ -101,7 +101,7 @@ Compiling the bootloader
 ------------------------
 
 Follow the instructions on the
-[tamago-example](https://github.com/f-secure-foundry/tamago-example#Compiling)
+[tamago-example](https://github.com/usbarmory/tamago-example#Compiling)
 site to set up your tool-chain and environment variables.
 
 To compile the bootloader itself, run the following command in the `bootloader`
@@ -192,7 +192,7 @@ $ sudo mv /tmp/bundle.proof /mnt/proof/bundle.json
 
 ### Linux
 
-> :frog: The [Armory Debian Base Image](https://github.com/f-secure-foundry/usbarmory-debian-base_image/releases)
+> :frog: The [Armory Debian Base Image](https://github.com/usbarmory/usbarmory-debian-base_image/releases)
 > is a good source for the kernel (zImage) and dtb files.
 >
 > You can decompress and mount the image to access the files like so:
@@ -237,7 +237,7 @@ TODO(al): Consider wrapping this up into a script.
 ### ELF unikernel
 
 > :frog: A good sample unikernel is the
-> [tamago-example](https://github.com/f-secure-foundry/tamago-example)
+> [tamago-example](https://github.com/usbarmory/tamago-example)
 > application.
 
 An example `armory-boot.conf` file configured to boot an ELF unikernel is:

@@ -1,4 +1,4 @@
-# http://github.com/f-secure-foundry/tamago-example
+# http://github.com/usbarmory/tamago-example
 #
 # Copyright (c) F-Secure Corporation
 # https://foundry.f-secure.com
@@ -49,21 +49,21 @@ check_env:
 
 check_tamago:
 	@if [ "${TAMAGO}" == "" ] || [ ! -f "${TAMAGO}" ]; then \
-		echo 'You need to set the TAMAGO variable to a compiled version of https://github.com/f-secure-foundry/tamago-go'; \
+		echo 'You need to set the TAMAGO variable to a compiled version of https://github.com/usbarmory/tamago-go'; \
 		exit 1; \
 	fi
 
 check_usbarmory_git:
 	@if [ "${USBARMORY_GIT}" == "" ]; then \
 		echo 'You need to set the USBARMORY_GIT variable to the path of a clone of'; \
-		echo '  https://github.com/f-secure-foundry/usbarmory'; \
+		echo '  https://github.com/usbarmory/usbarmory'; \
 		exit 1; \
 	fi
 
 check_hab_keys:
 	@if [ "${HAB_KEYS}" == "" ]; then \
 		echo 'You need to set the HAB_KEYS variable to the path of secure boot keys'; \
-		echo 'See https://github.com/f-secure-foundry/usbarmory/wiki/Secure-boot-(Mk-II)'; \
+		echo 'See https://github.com/usbarmory/usbarmory/wiki/Secure-boot-(Mk-II)'; \
 		exit 1; \
 	fi
 
@@ -82,7 +82,7 @@ $(APP): check_tamago check_env
 	$(GOENV) $(TAMAGO) build $(GOFLAGS) -o ${APP}
 
 $(APP).dcd: check_tamago
-$(APP).dcd: TAMAGO_PKG=$(shell go list -f {{.Root}} github.com/f-secure-foundry/tamago/bits)
+$(APP).dcd: TAMAGO_PKG=$(shell go list -f {{.Root}} github.com/usbarmory/tamago/bits)
 $(APP).dcd: dcd
 
 $(APP).bin: $(APP)

@@ -12,7 +12,18 @@ Features:
 
 ## Configuration
 
-The only file that should need to be edited is the `.env` file.
+The only file that should need to be edited is the `.env` file which needs to be created in key-value format following this template:
+
+```
+WITNESS_PRIVATE_KEY=PRIVATE+KEY+YourTokenHere+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+WITNESS_PUBLIC_KEY=YourTokenHere+01234567+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+
+GITHUB_AUTH_TOKEN=ghp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+GIT_USERNAME=johndoe
+GIT_EMAIL=johndoe@example.com
+
+WITNESS_VERSION=latest
+```
 
 `WITNESS_PRIVATE_KEY` and `WITNESS_PUBLIC_KEY` should be generated for this witness, and the private key kept secret.
 The keys can be generated using `note.GenerateKey`; example code is provided https://play.golang.org/p/uWUKLNK6h9v.

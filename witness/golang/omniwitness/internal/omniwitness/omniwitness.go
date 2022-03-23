@@ -19,7 +19,6 @@ package omniwitness
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -28,6 +27,7 @@ import (
 
 	"github.com/google/trillian-examples/serverless/config"
 	wimpl "github.com/google/trillian-examples/witness/golang/cmd/witness/impl"
+	ihttp "github.com/google/trillian-examples/witness/golang/internal/http"
 	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
 	"github.com/google/trillian-examples/witness/golang/internal/witness"
 	"github.com/google/trillian-examples/witness/golang/omniwitness"
@@ -141,80 +141,18 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 
 	// TODO(mhutchinson): Start the distributors too if auth details are present.
 
-	s := server{
-		w: witness,
-	}
-	g.Go(func() error {
-		return s.run(ctx, httpListener)
-	})
-
-	return g.Wait()
-}
-
-// server binds the witness to HTTP interface.
-// TODO(mhutchinson): consider de-duping with the version in cmd/witness/internal/http
-type server struct {
-	w *witness.Witness
-}
-
-// getCheckpoint returns a checkpoint stored for a given log.
-func (s *server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
-	v := mux.Vars(r)
-	logID := v["logid"]
-	// Get the signed checkpoint from the witness.
-	chkpt, err := s.w.GetCheckpoint(logID)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get checkpoint: %v", err), httpForCode(status.Code(err)))
-		return
-	}
-	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
-	w.Write(chkpt)
-}
-
-// getLogs returns a list of all logs the witness is aware of.
-func (s *server) getLogs(w http.ResponseWriter, r *http.Request) {
-	logs, err := s.w.GetLogs()
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get log list: %v", err), http.StatusInternalServerError)
-		return
-	}
-	logList, err := json.Marshal(logs)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to convert log list to JSON: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "text/json")
-	w.Write(logList)
-}
-
-func (s *server) run(ctx context.Context, l net.Listener) error {
 	r := mux.NewRouter()
-	r.HandleFunc("/", s.getLogs)
-	r.HandleFunc("/{logid}", s.getCheckpoint)
+	s := ihttp.NewServer(witness)
+	s.RegisterHandlers(r)
 	srv := http.Server{
 		Handler: r,
 	}
-	e := make(chan error, 1)
-	go func() {
-		e <- srv.Serve(l)
-		close(e)
-	}()
-	<-ctx.Done()
-	srv.Shutdown(ctx)
-	return <-e
-}
+	g.Go(func() error {
+		defer srv.Shutdown(ctx)
+		return srv.Serve(httpListener)
+	})
 
-func httpForCode(c codes.Code) int {
-	switch c {
-	case codes.AlreadyExists:
-		return http.StatusConflict
-	case codes.NotFound:
-		return http.StatusNotFound
-	case codes.FailedPrecondition, codes.InvalidArgument:
-		return http.StatusBadRequest
-	default:
-		return http.StatusInternalServerError
-	}
+	return g.Wait()
 }
 
 // witnessAdapter binds the internal witness implementation to the feeder interface.

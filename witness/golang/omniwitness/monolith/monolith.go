@@ -29,8 +29,15 @@ import (
 )
 
 var (
-	addr        = flag.String("listen", ":8080", "Address to listen on")
+	addr = flag.String("listen", ":8080", "Address to listen on")
+
 	signingKey  = flag.String("private_key", "", "The note-compatible signing key to use")
+	verifierKey = flag.String("public_key", "", "The note-compatible verifier key to use")
+
+	githubUser  = flag.String("gh_user", "", "The github user account to propose witnessed PRs from")
+	githubEmail = flag.String("gh_email", "", "The email that witnessed checkopoint git commits should be done under")
+	githubToken = flag.String("gh_token", "", "The github auth token to allow checkpoint distribution via PRs")
+
 	httpTimeout = flag.Duration("http_timeout", 10*time.Second, "HTTP timeout for outbound requests")
 )
 
@@ -50,7 +57,19 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to init signer: %v", err)
 	}
-	if err := omniwitness.Main(ctx, signer, httpListener, httpClient); err != nil {
+	verifier, err := note.NewVerifier(*verifierKey)
+	if err != nil {
+		glog.Exitf("Failed to init verifier: %v", err)
+	}
+	opConfig := omniwitness.OperatorConfig{
+		WitnessSigner:   signer,
+		WitnessVerifier: verifier,
+
+		GithubUser:  *githubUser,
+		GithubEmail: *githubEmail,
+		GithubToken: *githubToken,
+	}
+	if err := omniwitness.Main(ctx, opConfig, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
 }

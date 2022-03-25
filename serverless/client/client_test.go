@@ -15,6 +15,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"io/ioutil"
@@ -22,6 +23,8 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/formats/log"
+	"github.com/google/trillian-examples/serverless/api"
+	"github.com/transparency-dev/merkle/compact"
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
@@ -188,5 +191,29 @@ func TestCheckConsistency(t *testing.T) {
 				t.Fatalf("wantErr: %t, got %v", test.wantErr, err)
 			}
 		})
+	}
+}
+
+func TestNodeCacheHandlesInvalidRequest(t *testing.T) {
+	ctx := context.Background()
+	wantBytes := []byte("one")
+	f := func(_ context.Context, _, _ uint64) (*api.Tile, error) {
+		return &api.Tile{
+			Nodes: [][]byte{wantBytes},
+		}, nil
+	}
+
+	// Large tree, but we're emulating skew since f, above, will return a tile which only knows about 1
+	// leaf.
+	nc := newNodeCache(f, 10)
+
+	if got, err := nc.GetNode(ctx, compact.NewNodeID(0, 0)); err != nil {
+		t.Errorf("got %v, want no error", err)
+	} else if !bytes.Equal(got, wantBytes) {
+		t.Errorf("got %v, want %v", got, wantBytes)
+	}
+
+	if _, err := nc.GetNode(ctx, compact.NewNodeID(0, 1)); err == nil {
+		t.Error("got no error, want error because ID is out of range")
 	}
 }

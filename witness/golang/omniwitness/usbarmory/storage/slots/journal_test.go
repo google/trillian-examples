@@ -168,7 +168,7 @@ func TestWriteSizeLimit(t *testing.T) {
 		t.Fatalf("Update: %v, but expected write to succeed", err)
 	}
 	if err := j.Update(fill(limit+1, "BOOM")); err == nil {
-		t.Fatal("Update suceeded, but expected write fail")
+		t.Fatal("Update succeeded, but expected write fail")
 	}
 }
 

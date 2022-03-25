@@ -15,17 +15,19 @@
 //go:build usbarmory
 // +build usbarmory
 
-// Package storage provides support for using the SD/eMMC storage provided
+// Package storage provides support for accessing the SD/eMMC storage provided
 // by the USB Armory.
+// Note that these are very low-level primitives, and care must be taken when
+// using them not to overwrite existing data (e.g. the unikernel itself!)
 package storage
 
 import "github.com/usbarmory/tamago/soc/imx6/usdhc"
 
 var (
-	// MaxTransfer is the largest transfer we'll attempt.
+	// MaxTransferBytes is the largest transfer we'll attempt.
 	// If we're asked to read or write more data than can fit into available DMA memeory
-	// we'll had a bad time, so we'll chunk into requests of at most MaxTransfer bytes.
-	MaxTransfer = 32 * 1024
+	// we'll had a bad time, so we'll chunk into requests of at most MaxTransferBytes bytes.
+	MaxTransferBytes = 32 * 1024
 )
 
 // Device allows writing to one of the USB Armory storage peripherals, hiding some
@@ -46,22 +48,20 @@ func (d *Device) WriteBlocks(lba uint, b []byte) error {
 	if len(b) == 0 {
 		return nil
 	}
-	ci := d.Card.Info()
-	// If the requested write is not a multiple of the block size, tack on
-	// some zeros to make it be.
-	if r := len(b) % ci.BlockSize; r != 0 {
-		b = append(b, make([]byte, ci.BlockSize-r)...)
+	bs := int(d.BlockSize())
+	if r := len(b) % bs; r != 0 {
+		b = append(b, make([]byte, bs-r)...)
 	}
 	for len(b) > 0 {
 		bl := len(b)
-		if bl > MaxTransfer {
-			bl = MaxTransfer
+		if bl > MaxTransferBytes {
+			bl = MaxTransferBytes
 		}
 		if err := d.Card.WriteBlocks(int(lba), b[:bl]); err != nil {
 			return err
 		}
 		b = b[bl:]
-		lba += uint(bl / ci.BlockSize)
+		lba += uint(bl / bs)
 	}
 	return nil
 }
@@ -72,17 +72,17 @@ func (d *Device) ReadBlocks(lba uint, b []byte) error {
 	if len(b) == 0 {
 		return nil
 	}
-	ci := d.Card.Info()
+	bs := int(d.BlockSize())
 	for len(b) > 0 {
 		bl := len(b)
-		if bl > MaxTransfer {
-			bl = MaxTransfer
+		if bl > MaxTransferBytes {
+			bl = MaxTransferBytes
 		}
 		if err := d.Card.ReadBlocks(int(lba), b[:bl]); err != nil {
 			return err
 		}
 		b = b[bl:]
-		lba += uint(bl / ci.BlockSize)
+		lba += uint(bl / bs)
 	}
 	return nil
 }

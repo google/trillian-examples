@@ -79,7 +79,7 @@ func OpenPartition(rw BlockReaderWriter, geo Geometry) (*Partition, error) {
 type Partition struct {
 	// dev provides the device-specific read/write functionality.
 	dev BlockReaderWriter
-	// slots decribes the layout of the slot(s) stored within this partition.
+	// slots describes the layout of the slot(s) stored within this partition.
 	slots []Slot
 }
 

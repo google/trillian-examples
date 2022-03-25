@@ -91,6 +91,10 @@ type Repository struct {
 	ghCli          *gh_api.Client
 }
 
+func (r Repository) String() string {
+	return fmt.Sprintf("%s → %s", r.fork, r.upstream)
+}
+
 // CreateOrUpdateBranch attempts to create a new branch on the fork repo if it doesn't already exist, or
 // rebase it onto HEAD if it does.
 func (r *Repository) CreateOrUpdateBranch(ctx context.Context, branchName string) error {
@@ -139,7 +143,7 @@ func (r *Repository) CommitFile(ctx context.Context, path string, raw []byte, br
 	if err != nil {
 		return fmt.Errorf("failed to CreateFile(%q): %v", path, err)
 	}
-	glog.V(1).Infof("Commit %s updated %q on %s", cRsp.Commit, path, branch)
+	glog.V(2).Infof("Commit %s updated %q on %s", cRsp.Commit, path, branch)
 	return nil
 }
 
@@ -161,13 +165,13 @@ func (r *Repository) CreatePR(ctx context.Context, title, commitBranch string) e
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON for new PR request: %v", err)
 	}
-	glog.V(1).Infof("Creating PR:\n%s", prJSON)
+	glog.V(2).Infof("Creating PR:\n%s", prJSON)
 
 	pr, _, err := r.ghCli.PullRequests.Create(ctx, r.upstream.Owner, r.upstream.RepoName, newPR)
 	if err != nil {
 		return err
 	}
 
-	glog.Infof("PR created: %s", pr.GetHTMLURL())
+	glog.V(1).Infof("PR created: %q %s", title, pr.GetHTMLURL())
 	return nil
 }

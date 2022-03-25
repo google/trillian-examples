@@ -79,7 +79,7 @@ func FeedOnce(ctx context.Context, opts FeedOpts) ([]byte, error) {
 		return nil, fmt.Errorf("failed to read input checkpoint: %v", err)
 	}
 
-	glog.Infof("CP to feed:\n%s", string(cp))
+	glog.V(2).Infof("CP to feed:\n%s", string(cp))
 
 	cpSubmit, _, _, err := log.ParseCheckpoint(cp, opts.LogOrigin, opts.LogSigVerifier)
 	if err != nil {
@@ -122,6 +122,7 @@ func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, opts FeedOpts) ([]byte, error) {
 	var returnCp []byte
 	submitOp := func() error {
+		logName := opts.LogSigVerifier.Name()
 		latestCPRaw, err := opts.Witness.GetLatestCheckpoint(ctx, opts.LogID)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("failed to fetch latest CP from witness: %v", err)
@@ -140,21 +141,21 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 				return backoff.Permanent(fmt.Errorf("witness checkpoint size (%d) > submit checkpoint size (%d)", latestCP.Size, cpSubmit.Size))
 			}
 			if latestCP.Size == cpSubmit.Size && bytes.Equal(latestCP.Hash, cpSubmit.Hash) {
-				glog.V(1).Info("got sig from witness")
+				glog.V(1).Infof("%q unchanged - @%d: %x", logName, latestCP.Size, latestCP.Hash)
 				returnCp = latestCPRaw
 				return nil
 			}
 		}
 
-		glog.V(1).Infof("%q grew - @%d: %x → @%d: %x", opts.LogSigVerifier.Name(), latestCP.Size, latestCP.Hash, cpSubmit.Size, cpSubmit.Hash)
+		glog.V(1).Infof("%q grew - @%d: %x → @%d: %x", logName, latestCP.Size, latestCP.Hash, cpSubmit.Size, cpSubmit.Hash)
 
 		// The witness may be configured to expect a coct-range type proof, so we need to always
 		// try to build one, even if the witness doesn't have a "latest" checkpoint for this log.
 		conP, err = opts.FetchProof(ctx, latestCP, cpSubmit)
 		if err != nil {
-			return fmt.Errorf("failed to fetch consistencyroof: %v", err)
+			return fmt.Errorf("failed to fetch consistency proof: %v", err)
 		}
-		glog.V(2).Infof("%s %d -> %d proof: %x", opts.LogSigVerifier.Name(), latestCP.Size, cpSubmit.Size, conP)
+		glog.V(2).Infof("%q %d -> %d proof: %x", logName, latestCP.Size, cpSubmit.Size, conP)
 
 		if returnCp, err = opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
 			return fmt.Errorf("failed to submit checkpoint to witness: %v", err)

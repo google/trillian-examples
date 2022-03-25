@@ -129,7 +129,7 @@ func fetch(ctx context.Context, c *http.Client, base *url.URL, path string) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
-	glog.Infof("GET %s", u.String())
+	glog.V(2).Infof("GET %s", u.String())
 	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)

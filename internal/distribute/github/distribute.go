@@ -69,7 +69,7 @@ func DistributeOnce(ctx context.Context, opts *DistributeOptions) error {
 	numErrs := 0
 	for _, log := range opts.Logs {
 		if err := distributeForLog(ctx, log, opts); err != nil {
-			glog.Warningf("Failed to distribute for log %q: %v", log.SigV.Name(), err)
+			glog.Warningf("Failed to distribute %q (%s): %v", opts.Repo, log.SigV.Name(), err)
 			numErrs++
 		}
 	}
@@ -110,13 +110,15 @@ func distributeForLog(ctx context.Context, l Log, opts *DistributeOptions) error
 		return fmt.Errorf("couldn't determine whether to distribute: %v", err)
 	}
 	if found {
-		glog.Infof("%q: CP already present in distributor, not raising PR.", l.SigV.Name())
+		glog.V(1).Infof("%q (%s): CP already present in distributor, not raising PR.", opts.Repo, l.SigV.Name())
 		return nil
 	}
 
 	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", wcpID(wcpRaw)))
 	// First, check whether we've already managed to submit this CP into the incoming directory
 	if _, err := opts.Repo.ReadFile(ctx, outputPath); err == nil {
+		// TODO(mhutchinson): This comes up a lot in cases that should have matched the `found`
+		// check above. Look more into this and see if this should also return nil.
 		return fmt.Errorf("witnessed checkpoint already pending: %v", outputPath)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to check for existing pending checkpoint: %v", err)
@@ -127,7 +129,7 @@ func distributeForLog(ctx context.Context, l Log, opts *DistributeOptions) error
 		return fmt.Errorf("failed to commit updated checkpoint.witnessed file: %v", err)
 	}
 
-	glog.V(1).Info("Creating PR")
+	glog.V(1).Infof("%q (%s): Creating PR", opts.Repo, l.SigV.Name())
 	return opts.Repo.CreatePR(ctx, fmt.Sprintf("[Witness] %s: %s@%d", opts.WitSigV.Name(), wCp.Origin, wCp.Size), witnessBranch)
 }
 

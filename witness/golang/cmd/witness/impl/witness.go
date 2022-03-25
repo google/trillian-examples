@@ -25,7 +25,7 @@ import (
 	"github.com/golang/glog"
 	logfmt "github.com/google/trillian-examples/formats/log"
 	i_note "github.com/google/trillian-examples/internal/note"
-	ih "github.com/google/trillian-examples/witness/golang/cmd/witness/internal/http"
+	ih "github.com/google/trillian-examples/witness/golang/internal/http"
 	wsql "github.com/google/trillian-examples/witness/golang/internal/persistence/sql"
 	"github.com/google/trillian-examples/witness/golang/internal/witness"
 	"github.com/gorilla/mux"

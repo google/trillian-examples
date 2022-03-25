@@ -254,12 +254,12 @@ func (n *nodeCache) GetNode(ctx context.Context, id compact.NodeID) ([]byte, err
 		n.tiles[tKey] = *tile
 	}
 	nodeKey := int(api.TileNodeKey(nodeLevel, nodeIndex))
-	if nodeKey > len(t.Nodes) {
-		return nil, fmt.Errorf("node %v (tile coords [%d,%d]/[%d,%d]) unreachable", id, tileLevel, tileIndex, nodeLevel, nodeIndex)
+	if l := len(t.Nodes); nodeKey >= l {
+		return nil, fmt.Errorf("node %v (tile coords [%d,%d]/[%d,%d], key %d) outside populated tile nodes (%d)", id, tileLevel, tileIndex, nodeLevel, nodeIndex, nodeKey, l)
 	}
 	node := t.Nodes[nodeKey]
 	if node == nil {
-		return nil, fmt.Errorf("node %v (tile coords [%d,%d]/[%d,%d]) unknown", id, tileLevel, tileIndex, nodeLevel, nodeIndex)
+		return nil, fmt.Errorf("node %v (tile coords [%d,%d]/[%d,%d], key %d) unknown", id, tileLevel, tileIndex, nodeLevel, nodeIndex, nodeKey)
 	}
 	return node, nil
 }

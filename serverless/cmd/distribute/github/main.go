@@ -27,12 +27,12 @@ import (
 
 	"github.com/golang/glog"
 
+	"github.com/google/trillian-examples/internal/github"
 	"github.com/google/trillian-examples/serverless/config"
-	"github.com/google/trillian-examples/serverless/internal/github"
 	"golang.org/x/mod/sumdb/note"
 
+	dist_gh "github.com/google/trillian-examples/internal/distribute/github"
 	i_note "github.com/google/trillian-examples/internal/note"
-	dist_gh "github.com/google/trillian-examples/serverless/internal/distribute/github"
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 	yaml "gopkg.in/yaml.v2"
 )

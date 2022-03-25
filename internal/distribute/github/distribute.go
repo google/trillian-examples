@@ -29,11 +29,9 @@ import (
 	"github.com/golang/glog"
 
 	"github.com/google/trillian-examples/formats/log"
+	"github.com/google/trillian-examples/internal/github"
 	"github.com/google/trillian-examples/serverless/config"
-	"github.com/google/trillian-examples/serverless/internal/github"
 	"golang.org/x/mod/sumdb/note"
-
-	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
 // Log represents a log known to the distributor.
@@ -41,6 +39,13 @@ type Log struct {
 	Config config.Log
 	// SigV can verify the source log signatures.
 	SigV note.Verifier
+}
+
+// Witness describes the operations the feeder needs to interact with a witness.
+type Witness interface {
+	// GetLatestCheckpoint returns the latest checkpoint the witness holds for the given logID.
+	// Must return os.ErrNotExists if the logID is known, but it has no checkpoint for that log.
+	GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error)
 }
 
 // DistributeOptions contains the various configuration and state required to perform a distribute action.
@@ -56,7 +61,7 @@ type DistributeOptions struct {
 	// WitSigV can verify the cosignatures from the witness we're distributing from.
 	WitSigV note.Verifier
 	// Witness is a client for talking to the witness we're distributing from.
-	Witness wit_http.Witness
+	Witness Witness
 }
 
 // DistributeOnce a) polls the witness b) updates the fork c) proposes a PR if needed.

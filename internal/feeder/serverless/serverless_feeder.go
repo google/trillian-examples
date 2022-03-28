@@ -74,9 +74,9 @@ func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client
 		Witness:         w,
 	}
 	if interval > 0 {
-		return feeder.Run(context.Background(), interval, opts)
+		return feeder.Run(ctx, interval, opts)
 	}
-	_, err = feeder.FeedOnce(context.Background(), opts)
+	_, err = feeder.FeedOnce(ctx, opts)
 	return err
 }
 

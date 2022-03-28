@@ -65,7 +65,10 @@ func main() {
 
 		o, ok := opts[logID]
 		if !ok {
-			glog.Exitf("Found incoming directory for unknown log %q", logID)
+			// TODO(mhutchinson): it would be better to not allow these to be automerged,
+			// but not blocking everything else should this happen is a big win.
+			glog.Errorf("Found incoming directory for unknown log %q. This log will be skipped.", logID)
+			continue
 		}
 
 		// Read state

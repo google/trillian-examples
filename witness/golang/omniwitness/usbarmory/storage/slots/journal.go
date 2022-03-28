@@ -119,6 +119,8 @@ func OpenJournal(dev BlockReaderWriter, start, length uint) (*Journal, error) {
 
 // Data returns the application data from the most recent valid entry in the
 // journal, along with the entry's revision number.
+// If the returned revision is zero, then no successful writes have taken place
+// on this journal.
 func (j *Journal) Data() ([]byte, uint32) {
 	return j.current.Data, j.current.Revision
 }
@@ -138,7 +140,7 @@ func (j *Journal) Update(data []byte) error {
 		Data:       data,
 	}
 
-	cap := (j.length - j.nextBlock) * j.dev.BlockSize()
+	cap := (j.start + j.length - j.nextBlock) * j.dev.BlockSize()
 	if cap < uint(e.Size()) {
 		// The record won't fit in the remaining space, so wrap around and write at the beginning.
 		j.nextBlock = j.start
@@ -153,37 +155,59 @@ func (j *Journal) Update(data []byte) error {
 
 // Init scans the journal to figure out the latest valid record, if any.
 func (j *Journal) init() error {
-	j.nextBlock = j.start
 	// Start where all good stories do: at the beginning!
 	lba := j.start
-	var lastEntry *entry
+	var lastEntry entry
+	nextWriteLBA := j.start
 	for lba < j.start+j.length {
 		br := newBlockReader(j.dev, lba)
 		e, err := unmarshalEntry(br)
 		if err != nil {
-			if lastEntry != nil {
+			if lastEntry.Revision > 0 {
 				// We already found the lastet record in the journal, so we're done.
-				j.current = *lastEntry
-				j.nextBlock = lba
-				return nil
+				break
 			}
-			// Since we couldn't unmarshal the entry struct we'll have to fall back to
-			// scanning all blocks.
+			// Since we haven't already found a good entry, and we were unable
+			// to unmarshal this one,
+			// this means that either:
+			//  a) the journal is completely empty, or
+			//  b) the previously good entry/ies at the start of the journal
+			//     have been completely or partially overwritten during a
+			//     failed write attempt.
+			// Either way, we don't have a valid entry wth a length field we can
+			// rely on, so we we'll have to fall back to scanning all blocks to
+			// look for one.
 			lba++
 			continue
 		}
-		if lastEntry == nil || e.Revision > lastEntry.Revision {
-			lastEntry = e
+		if lastEntry.Revision == 0 || e.Revision > lastEntry.Revision {
+			// We've found a(nother) good entry, so update our state
+			lastEntry = *e
+			// Skip past the blocks we've just read
 			lba = (br.pos-1)/br.dev.BlockSize() + 1
+			// If this turns out to be the last good entry, then we'll write
+			// at the next block.
+			nextWriteLBA = lba
+			// But loop around again, just in case there are yet more good
+			// entries following on...
 			continue
 		} else if e.Revision < lastEntry.Revision {
-			// We've found an older revision following a newer one, so we're done
-			j.current = *lastEntry
-			return nil
+			// We've found an older revision following a newer one, so we're done.
+			nextWriteLBA = lba
+			break
 		} else {
 			return fmt.Errorf("journal is corrupt - found two entries with the same revision (%d)", e.Revision)
 		}
 	}
+	// In the case where the very last entry in the journal is the current one,
+	// and that entry extends into the final block, we'll need to wrap the
+	// nextBlock pointer to the start of the journal.
+	if nextWriteLBA >= j.start+j.length {
+		nextWriteLBA = j.start
+	}
+	j.nextBlock = nextWriteLBA
+	j.current = lastEntry
+
 	return nil
 }
 
@@ -223,7 +247,6 @@ func marshalEntry(e *entry, w io.Writer) error {
 	if h := sha256.Sum256(e.Data); !bytes.Equal(h[:], e.DataSHA256[:]) {
 		return fmt.Errorf("incorrect data SHA256 (%x), header claims (%x)", h, e.DataSHA256[:])
 	}
-
 	if err := binary.Write(w, binary.BigEndian, e.Magic); err != nil {
 		return fmt.Errorf("failed to write magic: %v", err)
 	}

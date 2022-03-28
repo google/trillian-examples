@@ -44,13 +44,15 @@ type BlockReaderWriter interface {
 }
 
 // Journal implements a record-based format which provides a resilient storage.
+// This structure is not thread-safe, so concurrent access must be enforced at
+// a higher level.
 type Journal struct {
-	dev           BlockReaderWriter
-	start         uint
-	length        uint
-	current       entry
-	nextBlock     uint
-	maxWriteBytes uint
+	dev          BlockReaderWriter
+	start        uint
+	length       uint
+	current      entry
+	nextBlock    uint
+	maxDataBytes uint
 }
 
 // entry represents an entry in the journal.
@@ -70,8 +72,27 @@ type entry struct {
 	Data []byte
 }
 
-// entryHeaderSize is the on-disk size of an entry without application data.
-const entryHeaderSize = 4 + 4 + 8 + 32
+const (
+	// entryHeaderSize is the on-disk size of an entry without application data.
+	entryHeaderSize = 4 + 4 + 8 + 32
+
+	// minEntries is the minimum number of entries a journal must be able
+	// to store.
+	// At least 3 guarantees that a journal is always recoverable in the case of a
+	// failed write; imagine a journal of 10 blocks where it's permitted to write
+	// records of up to 50% of the available space (== 5 blocks), and that the user
+	// performs 3 writes in sequence with the following sizes:
+	//    1 block, 5 blocks, 5 blocks
+	// but the final write fails after having only stored 2 of the 5 blocks.
+	// In this case, due to the current implementation avoiding wrapping records
+	// which would go past the end of the journal, we would corrupt the first two
+	// entries.
+	//
+	// This trade-off, which currently favours simplicity over space efficiency,
+	// could be shifted in the other direction by adding support for wrapping the
+	// journal, at which point this value could be lowered to 2.
+	minEntries = 3
+)
 
 // Size returns the number of bytes used by this entry record.
 func (e *entry) Size() int {
@@ -80,12 +101,13 @@ func (e *entry) Size() int {
 
 // OpenJournal returns a new journal structure for interacting with a journal stored in the
 // [start, start+length) range of blocks accessible via dev.
+// Journal ranges should not overlap with one another, or corruption will almost certainly occur.
 func OpenJournal(dev BlockReaderWriter, start, length uint) (*Journal, error) {
 	j := &Journal{
-		dev:           dev,
-		start:         start,
-		length:        length,
-		maxWriteBytes: (length*dev.BlockSize())/3 - entryHeaderSize,
+		dev:          dev,
+		start:        start,
+		length:       length,
+		maxDataBytes: (length*dev.BlockSize())/minEntries - entryHeaderSize,
 	}
 
 	if err := j.init(); err != nil {
@@ -105,8 +127,8 @@ func (j *Journal) Data() ([]byte, uint32) {
 // The new record's revision will be one greater than the previous record (or 1
 // if no previous record exists).
 func (j *Journal) Update(data []byte) error {
-	if l := len(data); l > int(j.maxWriteBytes) {
-		return fmt.Errorf("attemping to write %d bytes, larger than the max permitted in this journal (%d bytes)", l, j.maxWriteBytes)
+	if l := len(data); l > int(j.maxDataBytes) {
+		return fmt.Errorf("attemping to write %d bytes, larger than the max permitted in this journal (%d bytes)", l, j.maxDataBytes)
 	}
 	e := &entry{
 		Magic:      [4]byte{magic0[0], magic0[1], magic0[2], magic0[3]},
@@ -126,7 +148,7 @@ func (j *Journal) Update(data []byte) error {
 	if err := marshalEntry(e, buf); err != nil {
 		return fmt.Errorf("failed to marshal entry: %v", err)
 	}
-	return j.dev.WriteBlocks(j.nextBlock, padToBlock(buf.Bytes(), j.dev.BlockSize()))
+	return j.dev.WriteBlocks(j.nextBlock, buf.Bytes())
 }
 
 // Init scans the journal to figure out the latest valid record, if any.
@@ -247,12 +269,4 @@ func (br *blockReader) Read(b []byte) (int, error) {
 	l := copy(b, br.buf[br.pos%br.dev.BlockSize():])
 	br.pos += uint(l)
 	return l, nil
-}
-
-func padToBlock(in []byte, blockSize uint) []byte {
-	rem := uint(len(in)) % blockSize
-	if rem == 0 {
-		return in
-	}
-	return append(in, make([]byte, blockSize-rem)...)
 }

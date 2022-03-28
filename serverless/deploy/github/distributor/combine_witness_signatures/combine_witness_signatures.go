@@ -65,10 +65,7 @@ func main() {
 
 		o, ok := opts[logID]
 		if !ok {
-			// TODO(mhutchinson): it would be better to not allow these to be automerged,
-			// but not blocking everything else should this happen is a big win.
-			glog.Errorf("Found incoming directory for unknown log %q. This log will be skipped.", logID)
-			continue
+			glog.Exitf("Found incoming directory for unknown log %q", logID)
 		}
 
 		// Read state
@@ -82,7 +79,7 @@ func main() {
 		}
 		if *dryRun {
 			glog.Infof("Not writing new state to disk because --dry_run is set")
-			return
+			continue
 		}
 		if err := storeState(m[0], newState); err != nil {
 			glog.Exitf("Error storing distributor state for log %q: %v", logID, err)

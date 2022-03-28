@@ -113,7 +113,7 @@ func TestEntryUnmarshal(t *testing.T) {
 		}, {
 			name: "bad hash",
 			b: []byte{
-				'N', 'o', 'P', 'e',
+				'T', 'F', 'J', '0',
 				0x00, 0x00, 0x00, 0x2a,
 				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05,
 				0x2c, 0xf2, 0x4d, 0xba, 0x5f, 0xb0, 0xa3, 0x0e, 0x26, 0xe8, 0x3b, 0x2a, 0xc5, 0xb9, 0xe2, 0x9e, 0x1b, 0x16, 0x1e, 0x5c, 0x1f, 0xa7, 0x42, 0x5e, 0x73, 0x04, 0x33, 0x62, 0x93, 0x8b, 0x98, 0x24,
@@ -139,24 +139,24 @@ func TestEntryUnmarshal(t *testing.T) {
 }
 
 func TestOpenJournal(t *testing.T) {
-	md := testonly.NewMemDev(t, 1)
-	start, length := uint(1), uint(len(md)-2)
+	md := testonly.NewMemDev(t, 2)
+	start, length := uint(1), uint(len(md)-1)
 	j, err := OpenJournal(md, start, length)
 	if err != nil {
 		t.Fatalf("OpenJournal: %v", err)
 	}
 	if j.start != start {
-		t.Fatalf("Journal.start=%d, want %d", j.start, start)
+		t.Errorf("Journal.start=%d, want %d", j.start, start)
 	}
 	if j.length != length {
-		t.Fatalf("Journal.length=%d, want %d", j.length, length)
+		t.Errorf("Journal.length=%d, want %d", j.length, length)
 	}
 }
 
 func TestWriteSizeLimit(t *testing.T) {
 	storageBlocks := uint(20)
 	md := testonly.NewMemDev(t, storageBlocks)
-	start, length := uint(1), uint(storageBlocks)
+	start, length := uint(1), storageBlocks-1
 
 	j, err := OpenJournal(md, start, length)
 	if err != nil {
@@ -172,10 +172,69 @@ func TestWriteSizeLimit(t *testing.T) {
 	}
 }
 
+func TestPerfectlyFullJournal(t *testing.T) {
+	storageBlocks := uint(10)
+	md := testonly.NewMemDev(t, storageBlocks)
+	start, length := uint(1), storageBlocks-1
+
+	var prevData []byte
+	for i, test := range []struct {
+		data               []byte
+		expectedWriteBlock uint
+	}{
+		{data: []byte{}, expectedWriteBlock: start},                          // 1 block
+		{data: fill(256, "One"), expectedWriteBlock: start + 1},              // 1 block
+		{data: fill(1000, "Two"), expectedWriteBlock: start + 1 + 1},         // 3 blocks
+		{data: fill(1000, "Three"), expectedWriteBlock: start + 1 + 1 + 3},   // 3 blocks
+		{data: fill(433, "Four"), expectedWriteBlock: start + 1 + 1 + 3 + 3}, // 1 block - we're full!
+	} {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			j, err := OpenJournal(md, start, length)
+			if err != nil {
+				t.Fatalf("OpenJournal: %v", err)
+			}
+
+			// Check the current record is as we expect:
+			// - Revision should match the iteration count
+			// - The next block to write to is correct
+			// - The stored data matches what we last wrote
+			curData, rev := j.Data()
+			if rev != uint32(i) {
+				t.Errorf("Got revision %d, want %d", rev, i)
+			}
+			if got, want := j.nextBlock, test.expectedWriteBlock; got != want {
+				t.Errorf("nextBlock = %d, want %d", got, want)
+			}
+			// Ensure we see the data written in the last iteration, if any
+			if prevData != nil && !bytes.Equal(curData, prevData) {
+				t.Errorf("Got data %q, want %q", string(curData), string(prevData))
+			}
+			prevData = test.data
+
+			// Write some updated data
+			if err := j.Update(test.data); err != nil {
+				t.Fatalf("Update: %v", err)
+			}
+		})
+	}
+
+	t.Run("final", func(t *testing.T) {
+		// Now just ensure we can successfully read from the last entry of a full journal,
+		// and that the next write position is at the start of the journal.
+		j, err := OpenJournal(md, start, length)
+		if err != nil {
+			t.Fatalf("OpenJournal: %v", err)
+		}
+		if got, want := j.nextBlock, start; got != want {
+			t.Fatalf("nextBlock didn't wrap to first block of journal, got %d, want %d", got, want)
+		}
+	})
+}
+
 func TestRoundTrip(t *testing.T) {
 	storageBlocks := uint(20)
 	md := testonly.NewMemDev(t, storageBlocks)
-	start, length := uint(1), uint(storageBlocks)
+	start, length := uint(1), storageBlocks-1
 
 	var prevData []byte
 	for i, test := range []struct {

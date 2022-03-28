@@ -15,7 +15,10 @@
 // Package testonly provides support for storage tests.
 package testonly
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 const MemBlockSize = 512
 
@@ -27,10 +30,10 @@ func (md MemDev) BlockSize() uint {
 }
 
 func (md MemDev) ReadBlocks(lba uint, b []byte) error {
-	lenB := uint(len(b))
-	if lba > lenB {
-		return nil
+	if lba >= uint(len(md)) {
+		return fmt.Errorf("lba (%d) >= device blocks (%d)", lba, len(md))
 	}
+	lenB := uint(len(b))
 	bl := lenB / MemBlockSize
 	if l := uint(len(md)); lba+bl > l {
 		bl = l - lba
@@ -42,10 +45,15 @@ func (md MemDev) ReadBlocks(lba uint, b []byte) error {
 }
 
 func (md MemDev) WriteBlocks(lba uint, b []byte) error {
-	lenB := uint(len(b))
-	if lba > lenB {
-		return nil
+	if lba >= uint(len(md)) {
+		return fmt.Errorf("lba (%d) >= device blocks (%d)", lba, len(md))
 	}
+	// If the data isn't a multiple of the blocksize, pad it up
+	// so that it is.
+	if r := len(b) % MemBlockSize; r != 0 {
+		b = append(b, make([]byte, MemBlockSize-r)...)
+	}
+	lenB := uint(len(b))
 	bl := lenB / MemBlockSize
 	if l := uint(len(md)); lba+bl > l {
 		bl = l - lba

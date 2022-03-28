@@ -156,7 +156,7 @@ func TestOpenJournal(t *testing.T) {
 func TestWriteSizeLimit(t *testing.T) {
 	storageBlocks := uint(20)
 	md := testonly.NewMemDev(t, storageBlocks)
-	start, length := uint(1), storageBlocks-1
+	start, length := uint(1), storageBlocks
 
 	j, err := OpenJournal(md, start, length)
 	if err != nil {
@@ -165,7 +165,7 @@ func TestWriteSizeLimit(t *testing.T) {
 
 	limit := int((storageBlocks * md.BlockSize() / 3) - entryHeaderSize)
 	if err := j.Update(fill(limit, "ok...")); err != nil {
-		t.Fatalf("Update: %v, but expected write to succeed", err)
+		t.Fatalf("Update: %q, but expected write to succeed", err)
 	}
 	if err := j.Update(fill(limit+1, "BOOM")); err == nil {
 		t.Fatal("Update succeeded, but expected write fail")
@@ -241,16 +241,16 @@ func TestRoundTrip(t *testing.T) {
 		data               []byte
 		expectedWriteBlock uint
 	}{
-		{data: []byte{}, expectedWriteBlock: start},                                        // 1 block
-		{data: fill(256, "hello"), expectedWriteBlock: start + 1},                          // 1 block
-		{data: fill(1000, "there"), expectedWriteBlock: start + 1 + 1},                     // 3 blocks
-		{data: fill(30, "how"), expectedWriteBlock: start + 1 + 1 + 3},                     // 1 block
-		{data: fill(3000, "are"), expectedWriteBlock: start + 1 + 1 + 3 + 1},               // 6 blocks
-		{data: fill(59, "you"), expectedWriteBlock: start + 1 + 1 + 3 + 1 + 6},             // 1 block
-		{data: fill(3000, "doing"), expectedWriteBlock: start + 1 + 1 + 3 + 1 + 6 + 1},     // 6 blocks,
-		{data: fill(1000, "doing"), expectedWriteBlock: start + 1 + 1 + 3 + 1 + 6 + 1 + 6}, // 3 blocks, won't fit so will end up writing at `start`
-		{data: fill(3000, "today?"), expectedWriteBlock: start + 3},                        // 6 blocks
-		{data: fill(20, "All done!"), expectedWriteBlock: start + 9},                       // 1 blocks
+		{data: []byte{}, expectedWriteBlock: start},                                    // 1 block
+		{data: fill(256, "hello"), expectedWriteBlock: start + 1},                      // 1 block
+		{data: fill(1000, "there"), expectedWriteBlock: start + 1 + 1},                 // 3 blocks
+		{data: fill(30, "how"), expectedWriteBlock: start + 1 + 1 + 3},                 // 1 block
+		{data: fill(3000, "are"), expectedWriteBlock: start + 1 + 1 + 3 + 1},           // 6 blocks
+		{data: fill(59, "you"), expectedWriteBlock: start + 1 + 1 + 3 + 1 + 6},         // 1 block
+		{data: fill(3000, "doing"), expectedWriteBlock: start + 1 + 1 + 3 + 1 + 6 + 1}, // 6 blocks,
+		{data: fill(1000, "doing"), expectedWriteBlock: start},                         // 3 blocks, won't fit so will end up writing at `start`
+		{data: fill(3000, "today?"), expectedWriteBlock: start + 3},                    // 6 blocks
+		{data: fill(20, "All done!"), expectedWriteBlock: start + 9},                   // 1 blocks
 	} {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			j, err := OpenJournal(md, start, length)

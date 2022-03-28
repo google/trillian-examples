@@ -32,8 +32,8 @@ import (
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/storage"
-	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/storage/slots"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage/slots"
 
 	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
 )

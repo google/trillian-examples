@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/storage/testonly"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage/testonly"
 )
 
 func TestOpenPartition(t *testing.T) {

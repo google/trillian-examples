@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/storage/testonly"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage/testonly"
 )
 
 func magic0Hdr() [4]byte {

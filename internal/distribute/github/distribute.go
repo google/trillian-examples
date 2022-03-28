@@ -114,11 +114,9 @@ func distributeForLog(ctx context.Context, l Log, opts *DistributeOptions) error
 		return nil
 	}
 
-	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", wcpID(wcpRaw)))
+	outputPath := filepath.Join(logDir, "incoming", fmt.Sprintf("checkpoint_%s", wcpID(wcpRaw, opts.WitSigV.Name())))
 	// First, check whether we've already managed to submit this CP into the incoming directory
 	if _, err := opts.Repo.ReadFile(ctx, outputPath); err == nil {
-		// TODO(mhutchinson): This comes up a lot in cases that should have matched the `found`
-		// check above. Look more into this and see if this should also return nil.
 		return fmt.Errorf("witnessed checkpoint already pending: %v", outputPath)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("failed to check for existing pending checkpoint: %v", err)
@@ -133,9 +131,12 @@ func distributeForLog(ctx context.Context, l Log, opts *DistributeOptions) error
 	return opts.Repo.CreatePR(ctx, fmt.Sprintf("[Witness] %s: %s@%d", opts.WitSigV.Name(), wCp.Origin, wCp.Size), witnessBranch)
 }
 
-// wcpID returns a stable identifier for a given checkpoint.
-func wcpID(r []byte) string {
-	h := sha256.Sum256(r)
+// wcpID returns a stable identifier for a given checkpoint for a given witness ID.
+// The witness ID allows multiple users to upload their witnessed view of the same
+// checkpoint without git collisions, but means that the same user trying multiple
+// times won't create multiple files.
+func wcpID(r []byte, witnessID string) string {
+	h := sha256.Sum256(append(r, []byte(witnessID)...))
 	return hex.EncodeToString(h[:])
 }
 

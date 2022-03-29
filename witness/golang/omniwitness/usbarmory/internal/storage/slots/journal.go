@@ -150,7 +150,17 @@ func (j *Journal) Update(data []byte) error {
 	if err := marshalEntry(e, buf); err != nil {
 		return fmt.Errorf("failed to marshal entry: %v", err)
 	}
-	return j.dev.WriteBlocks(j.nextBlock, buf.Bytes())
+	if err := j.dev.WriteBlocks(j.nextBlock, buf.Bytes()); err != nil {
+		return fmt.Errorf("failed to write blocks: %v", err)
+	}
+	// Finally, we'll rescan the journal and make sure that all is well.
+	if err := j.init(); err != nil {
+		return fmt.Errorf("failed to re-scan journal: %v", err)
+	}
+	if got, want := j.current.Revision, e.Revision; got != want {
+		return fmt.Errorf("journal error, latest entry revision %d != written revision %d", got, want)
+	}
+	return nil
 }
 
 // Init scans the journal to figure out the latest valid record, if any.

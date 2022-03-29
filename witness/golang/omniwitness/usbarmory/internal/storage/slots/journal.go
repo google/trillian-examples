@@ -132,7 +132,7 @@ func (j *Journal) Update(data []byte) error {
 	if l := len(data); l > int(j.maxDataBytes) {
 		return fmt.Errorf("attemping to write %d bytes, larger than the max permitted in this journal (%d bytes)", l, j.maxDataBytes)
 	}
-	e := &entry{
+	e := entry{
 		Magic:      [4]byte{magic0[0], magic0[1], magic0[2], magic0[3]},
 		Revision:   j.current.Revision + 1,
 		DataLen:    uint64(len(data)),
@@ -180,7 +180,7 @@ func (j *Journal) init() error {
 			lba++
 			continue
 		}
-		if lastEntry.Revision == 0 || e.Revision > lastEntry.Revision {
+		if e.Revision > lastEntry.Revision {
 			// We've found a(nother) good entry, so update our state
 			lastEntry = *e
 			// Skip past the blocks we've just read
@@ -240,7 +240,7 @@ func unmarshalEntry(r io.Reader) (*entry, error) {
 }
 
 // marshalEntry serialises e and writes it to the provided writer.
-func marshalEntry(e *entry, w io.Writer) error {
+func marshalEntry(e entry, w io.Writer) error {
 	if string(e.Magic[:]) != magic0 {
 		return fmt.Errorf("invalid header magic %v", e.Magic)
 	}

@@ -18,13 +18,13 @@ func magic0Hdr() [4]byte {
 func TestEntryMarshal(t *testing.T) {
 	for _, test := range []struct {
 		name    string
-		e       *entry
+		e       entry
 		want    []byte
 		wantErr bool
 	}{
 		{
 			name: "golden",
-			e: &entry{
+			e: entry{
 				Magic:      magic0Hdr(),
 				Revision:   42,
 				DataLen:    uint64(len("hello")),
@@ -40,7 +40,7 @@ func TestEntryMarshal(t *testing.T) {
 			},
 		}, {
 			name: "bad magic",
-			e: &entry{
+			e: entry{
 				Magic:      [4]byte{'n', 'O', 'p', 'E'},
 				Revision:   42,
 				DataLen:    uint64(len("hello")),
@@ -50,7 +50,7 @@ func TestEntryMarshal(t *testing.T) {
 			wantErr: true,
 		}, {
 			name: "bad hash",
-			e: &entry{
+			e: entry{
 				Magic:      magic0Hdr(),
 				Revision:   42,
 				DataLen:    uint64(len("hello")),

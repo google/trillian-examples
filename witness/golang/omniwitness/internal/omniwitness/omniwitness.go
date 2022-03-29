@@ -158,7 +158,7 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, httpListener net.L
 		})
 	}
 
-	if len(operatorConfig.GithubUser) > 0 {
+	if operatorConfig.GithubUser != "" {
 		var distLogs = []dist_gh.Log{}
 		for config := range feeders {
 			// TODO(mhutchinson): This verifier could be created inside the distributor.
@@ -214,57 +214,45 @@ func runDistributors(ctx context.Context, g *errgroup.Group, logs []dist_gh.Log,
 		}
 	}
 
-	g.Go(func() error {
-		dr, err := github.NewRepoID("mhutchinson/mhutchinson-distributor")
-		if err != nil {
-			return fmt.Errorf("NewRepoID: %v", err)
+	createOpts := func(upstreamOwner, repoName, mainBranch, distributorPath string) (*dist_gh.DistributeOptions, error) {
+		dr := github.RepoID{
+			Owner:    upstreamOwner,
+			RepoName: repoName,
 		}
-		glog.Infof("Distributor %q goroutine started", dr)
-		defer glog.Infof("Distributor %q goroutine done", dr)
-
-		fork, err := github.NewRepoID(fmt.Sprintf("%s/mhutchinson-distributor", operatorConfig.GithubUser))
-		if err != nil {
-			return fmt.Errorf("NewRepoID: %v", err)
+		fork := github.RepoID{
+			Owner:    operatorConfig.GithubUser,
+			RepoName: repoName,
 		}
-		repo, err := github.NewRepository(ctx, dr, "main", fork, operatorConfig.GithubUser, operatorConfig.GithubEmail, operatorConfig.GithubToken)
+		repo, err := github.NewRepository(ctx, dr, mainBranch, fork, operatorConfig.GithubUser, operatorConfig.GithubEmail, operatorConfig.GithubToken)
 		if err != nil {
-			return fmt.Errorf("NewRepository: %v", err)
+			return nil, fmt.Errorf("NewRepository: %v", err)
 		}
-		opts := &dist_gh.DistributeOptions{
+		return &dist_gh.DistributeOptions{
 			Repo:            repo,
-			DistributorPath: "distributor",
+			DistributorPath: distributorPath,
 			Logs:            logs,
 			WitSigV:         operatorConfig.WitnessVerifier,
 			Witness:         witness,
-		}
+		}, nil
+	}
 
+	g.Go(func() error {
+		opts, err := createOpts("mhutchinson", "mhutchinson-distributor", "main", "distributor")
+		if err != nil {
+			return fmt.Errorf("createOpts(mhutchinson): %v", err)
+		}
+		glog.Infof("Distributor %q goroutine started", opts.Repo)
+		defer glog.Infof("Distributor %q goroutine done", opts.Repo)
 		return distribute(opts)
 	})
 
 	g.Go(func() error {
-		dr, err := github.NewRepoID("WolseyBankWitness/rediffusion")
+		opts, err := createOpts("WolseyBankWitness", "rediffusion", "main", ".")
 		if err != nil {
-			return fmt.Errorf("NewRepoID: %v", err)
+			return fmt.Errorf("createOpts(WolseyBankWitness): %v", err)
 		}
-		glog.Infof("Distributor %q goroutine started", dr)
-		defer glog.Infof("Distributor %q goroutine done", dr)
-
-		fork, err := github.NewRepoID(fmt.Sprintf("%s/rediffusion", operatorConfig.GithubUser))
-		if err != nil {
-			return fmt.Errorf("NewRepoID: %v", err)
-		}
-		repo, err := github.NewRepository(ctx, dr, "main", fork, operatorConfig.GithubUser, operatorConfig.GithubEmail, operatorConfig.GithubToken)
-		if err != nil {
-			return fmt.Errorf("NewRepository: %v", err)
-		}
-		opts := &dist_gh.DistributeOptions{
-			Repo:            repo,
-			DistributorPath: ".",
-			Logs:            logs,
-			WitSigV:         operatorConfig.WitnessVerifier,
-			Witness:         witness,
-		}
-
+		glog.Infof("Distributor %q goroutine started", opts.Repo)
+		defer glog.Infof("Distributor %q goroutine done", opts.Repo)
 		return distribute(opts)
 	})
 }

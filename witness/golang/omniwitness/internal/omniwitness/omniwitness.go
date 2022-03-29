@@ -29,7 +29,7 @@ import (
 	"github.com/google/trillian-examples/serverless/config"
 	wimpl "github.com/google/trillian-examples/witness/golang/cmd/witness/impl"
 	ihttp "github.com/google/trillian-examples/witness/golang/internal/http"
-	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence"
 	"github.com/google/trillian-examples/witness/golang/internal/witness"
 	"github.com/google/trillian-examples/witness/golang/omniwitness"
 	"github.com/gorilla/mux"
@@ -85,7 +85,7 @@ type OperatorConfig struct {
 
 // Main runs the omniwitness, with the witness listening using the listener, and all
 // outbound HTTP calls using the client provided.
-func Main(ctx context.Context, operatorConfig OperatorConfig, httpListener net.Listener, httpClient *http.Client) error {
+func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogStatePersistence, httpListener net.Listener, httpClient *http.Client) error {
 	// This error group will be used to run all top level processes.
 	// If any process dies, then all of them will be stopped via context cancellation.
 	g, ctx := errgroup.WithContext(ctx)
@@ -137,7 +137,7 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, httpListener net.L
 		return fmt.Errorf("failed to convert witness config to map: %v", err)
 	}
 	witness, err := witness.New(witness.Opts{
-		Persistence: inmemory.NewPersistence(),
+		Persistence: p,
 		Signer:      operatorConfig.WitnessSigner,
 		KnownLogs:   knownLogs,
 	})

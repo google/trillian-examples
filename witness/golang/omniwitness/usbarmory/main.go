@@ -29,10 +29,13 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
 	"github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage/slots"
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
 
 	_ "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
+	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
 )
 
 const (
@@ -43,12 +46,34 @@ const (
 	// TODO(mhutchinson): these need to be read from file instead of constants
 	publicKey  = "TrustMe+68958214+AQ4Ys/PsXqfhPkNK7Y7RyYUMOJvfl65PzJOEiq9VFPjF"
 	signingKey = "PRIVATE+KEY+TrustMe+68958214+AZKby3TDZizdARF975ZyLJwGbHTivd+EqbfYTN5qr2cI"
+
+	// slotsPartitionOffsetBytes defines where our witness data storage partition starts.
+	// Changing this location is overwhelmingly likely to result in data loss.
+	slotsPartitionOffsetBytes = 1 << 30
+	// slotsPartitionLengthBytes specifies the size of the slots partition.
+	// Increasing this value is relatively safe, if you're sure there is no data
+	// stored in blocks which follow the current partition.
+	//
+	// We're starting with enough space for 1024 slots of 1MB each.
+	slotsPartitionLengthBytes = 1024 * slotSizeBytes
+
+	// slotSizeBytes is the size of each individual slot in the partition.
+	slotSizeBytes = 1 << 20
 )
+
+func init() {
+	if err := usbarmory.MMC.Detect(); err != nil {
+		glog.Exitf("Failed to detect MMC: %v", err)
+	}
+}
 
 func main() {
 	// We parse the flags despite declaring none ourselves so libraries are
 	// happy (looking at you, glog).
 	flag.Parse()
+
+	_ = openStorage()
+
 	ctx := context.Background()
 	// This error group will be used to run all top level processes
 	g := errgroup.Group{}
@@ -77,4 +102,25 @@ func main() {
 	if err := omniwitness.Main(ctx, opConfig, p, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
+}
+
+func openStorage() *slots.Partition {
+	// dev is our access to the MMC storage.
+	dev := &storage.Device{
+		Card: usbarmory.MMC,
+	}
+	bs := uint(usbarmory.MMC.Info().BlockSize)
+	geo := slots.Geometry{
+		Start:  slotsPartitionOffsetBytes / bs,
+		Length: slotsPartitionLengthBytes / bs,
+	}
+	for i, sl := uint(0), slotSizeBytes/bs; i < geo.Length; i += sl {
+		geo.SlotLengths = append(geo.SlotLengths, sl)
+	}
+
+	p, err := slots.OpenPartition(dev, geo)
+	if err != nil {
+		glog.Exitf("Failed to open partition: %v", err)
+	}
+	return p
 }

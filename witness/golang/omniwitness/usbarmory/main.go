@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
 	"github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
 	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage"
 	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage/slots"
@@ -55,13 +54,16 @@ const (
 	// stored in blocks which follow the current partition.
 	//
 	// We're starting with enough space for 1024 slots of 1MB each.
-	slotsPartitionLengthBytes = 1024 * slotSizeBytes
+	slotsPartitionLengthBytes = 10 * slotSizeBytes
 
 	// slotSizeBytes is the size of each individual slot in the partition.
 	slotSizeBytes = 1 << 20
 )
 
 func init() {
+	debugConsole, _ := usbarmory.DetectDebugAccessory(250 * time.Millisecond)
+	<-debugConsole
+
 	if err := usbarmory.MMC.Detect(); err != nil {
 		glog.Exitf("Failed to detect MMC: %v", err)
 	}
@@ -70,9 +72,12 @@ func init() {
 func main() {
 	// We parse the flags despite declaring none ourselves so libraries are
 	// happy (looking at you, glog).
+	flag.Set("stderrthreshold", "INFO")
 	flag.Parse()
 
-	_ = openStorage()
+	glog.Infof("Opening storage...")
+	part := openStorage()
+	glog.Infof("Storage opened.")
 
 	ctx := context.Background()
 	// This error group will be used to run all top level processes
@@ -98,7 +103,10 @@ func main() {
 		WitnessVerifier: verifier,
 	}
 	// TODO(mhutchinson): replace this with a real persistence layer.
-	p := inmemory.NewPersistence()
+	p := storage.NewSlotPersistence(part)
+	if err := p.Init(); err != nil {
+		glog.Exitf("Failed to create persistence layer: %v", err)
+	}
 	if err := omniwitness.Main(ctx, opConfig, p, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}

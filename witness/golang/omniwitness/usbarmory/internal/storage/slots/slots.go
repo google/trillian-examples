@@ -60,6 +60,7 @@ func OpenPartition(rw BlockReaderWriter, geo Geometry) (*Partition, error) {
 	}
 
 	b := geo.Start
+	// TODO(al): make journal opening lazy
 	for i, l := range geo.SlotLengths {
 		j, err := OpenJournal(ret.dev, b, l)
 		if err != nil {
@@ -90,6 +91,11 @@ func (p *Partition) Open(slot uint) (*Slot, error) {
 	}
 	s := &p.slots[slot]
 	return s, nil
+}
+
+// NumSlots returns the number of slots configured in this partition.
+func (p *Partition) NumSlots() int {
+	return len(p.slots)
 }
 
 // Slot represents the current data in a slot.

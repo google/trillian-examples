@@ -53,7 +53,7 @@ const (
 	// Increasing this value is relatively safe, if you're sure there is no data
 	// stored in blocks which follow the current partition.
 	//
-	// We're starting with enough space for 1024 slots of 1MB each.
+	// We're starting with enough space for 10 slots of 1MB each.
 	slotsPartitionLengthBytes = 10 * slotSizeBytes
 
 	// slotSizeBytes is the size of each individual slot in the partition.

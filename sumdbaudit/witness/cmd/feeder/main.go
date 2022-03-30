@@ -26,15 +26,13 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/internal/feeder/sumdb"
 	"github.com/google/trillian-examples/serverless/config"
-	wclient "github.com/google/trillian-examples/witness/golang/client/http"
-	"golang.org/x/mod/sumdb/note"
+	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 )
 
 var (
 	vkey         = flag.String("k", "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8", "key")
 	origin       = flag.String("origin", "go.sum database tree", "The expected first origin log (first line of the checkpoint)")
 	witness      = flag.String("w", "", "The endpoint of the witness HTTP REST API")
-	witnessKey   = flag.String("wk", "", "The public key of the witness")
 	logID        = flag.String("lid", "", "The ID of the log within the witness")
 	pollInterval = flag.Duration("poll", 10*time.Second, "How quickly to poll the sumdb to get updates")
 )
@@ -47,10 +45,7 @@ func main() {
 		glog.Exitf("Failed to parse witness URL: %v", err)
 	}
 
-	w := wclient.Witness{
-		URL:      wURL,
-		Verifier: mustCreateVerifier(*witnessKey),
-	}
+	w := wit_http.NewWitness(wURL)
 
 	lid := *logID
 	if len(lid) == 0 {
@@ -65,12 +60,4 @@ func main() {
 	if err := sumdb.FeedLog(ctx, log, w, http.DefaultClient, *pollInterval); err != nil {
 		glog.Exitf("Feeder: %v", err)
 	}
-}
-
-func mustCreateVerifier(pub string) note.Verifier {
-	v, err := note.NewVerifier(pub)
-	if err != nil {
-		glog.Exitf("Failed to create signature verifier from %q: %v", pub, err)
-	}
-	return v
 }

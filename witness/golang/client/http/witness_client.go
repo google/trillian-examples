@@ -27,26 +27,27 @@ import (
 	"os"
 
 	wit_api "github.com/google/trillian-examples/witness/golang/api"
-	"golang.org/x/mod/sumdb/note"
 )
 
 // ErrCheckpointTooOld is returned if the checkpoint passed to Update needs to be updated.
 var ErrCheckpointTooOld error = errors.New("checkpoint too old")
 
-// Witness is a simple client for interacting with witnesses over HTTP.
-type Witness struct {
-	URL      *url.URL
-	Verifier note.Verifier
+func NewWitness(url *url.URL) Witness {
+	return Witness{
+		url:    url,
+		client: *http.DefaultClient, // TODO(mhutchinson): Make this an arg
+	}
 }
 
-// SigVerifier returns a note Verifier to verify signatures from the witness.
-func (w Witness) SigVerifier() note.Verifier {
-	return w.Verifier
+// Witness is a simple client for interacting with witnesses over HTTP.
+type Witness struct {
+	url    *url.URL
+	client http.Client
 }
 
 // GetLatestCheckpoint returns a recent checkpoint from the witness for the specified log ID.
 func (w Witness) GetLatestCheckpoint(ctx context.Context, logID string) ([]byte, error) {
-	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPGetCheckpoint, logID))
+	u, err := w.url.Parse(fmt.Sprintf(wit_api.HTTPGetCheckpoint, logID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
@@ -54,7 +55,7 @@ func (w Witness) GetLatestCheckpoint(ctx context.Context, logID string) ([]byte,
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	resp, err := w.client.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to do http request: %v", err)
 	}
@@ -78,7 +79,7 @@ func (w Witness) Update(ctx context.Context, logID string, cp []byte, proof [][]
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal update request: %v", err)
 	}
-	u, err := w.URL.Parse(fmt.Sprintf(wit_api.HTTPUpdate, logID))
+	u, err := w.url.Parse(fmt.Sprintf(wit_api.HTTPUpdate, logID))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse URL: %v", err)
 	}
@@ -86,7 +87,7 @@ func (w Witness) Update(ctx context.Context, logID string, cp []byte, proof [][]
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
-	resp, err := http.DefaultClient.Do(req.WithContext(ctx))
+	resp, err := w.client.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to do http request: %v", err)
 	}

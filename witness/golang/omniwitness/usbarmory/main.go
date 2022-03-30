@@ -42,7 +42,6 @@ const (
 	// TODO(mhutchinson): these need to be read from file instead of constants
 	publicKey  = "TrustMe+68958214+AQ4Ys/PsXqfhPkNK7Y7RyYUMOJvfl65PzJOEiq9VFPjF"
 	signingKey = "PRIVATE+KEY+TrustMe+68958214+AZKby3TDZizdARF975ZyLJwGbHTivd+EqbfYTN5qr2cI"
-	_          = publicKey // public key is here so it doesn't get lost, we don't need it right now.
 )
 
 func main() {
@@ -64,7 +63,15 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to init signer: %v", err)
 	}
-	if err := omniwitness.Main(ctx, signer, httpListener, httpClient); err != nil {
+	verifier, err := note.NewVerifier(publicKey)
+	if err != nil {
+		glog.Exitf("Failed to init verifier: %v", err)
+	}
+	opConfig := omniwitness.OperatorConfig{
+		WitnessSigner:   signer,
+		WitnessVerifier: verifier,
+	}
+	if err := omniwitness.Main(ctx, opConfig, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
 }

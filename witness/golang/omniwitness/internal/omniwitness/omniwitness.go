@@ -25,6 +25,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/config"
 	wimpl "github.com/google/trillian-examples/witness/golang/cmd/witness/impl"
 	ihttp "github.com/google/trillian-examples/witness/golang/internal/http"
@@ -38,17 +39,21 @@ import (
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 
+	dist_gh "github.com/google/trillian-examples/internal/distribute/github"
 	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/internal/feeder/pixelbt"
 	"github.com/google/trillian-examples/internal/feeder/rekor"
 	"github.com/google/trillian-examples/internal/feeder/serverless"
 	"github.com/google/trillian-examples/internal/feeder/sumdb"
+	"github.com/google/trillian-examples/internal/github"
+	i_note "github.com/google/trillian-examples/internal/note"
 )
 
 const (
 	// Interval between attempts to feed checkpoints
 	// TODO(mhutchinson): Make this configurable
-	feedInterval = 5 * time.Minute
+	feedInterval       = 5 * time.Minute
+	distributeInterval = 5 * time.Minute
 )
 
 // singleLogFeederConfig encapsulates the feeder config for a feeder that can only
@@ -67,11 +72,23 @@ type multiLogFeederConfig struct {
 	Logs []config.Log `yaml:"Logs"`
 }
 
+// OperatorConfig allows the bare minimum operator-specific configuration.
+// This should only contain configuration details that are custom per-operator.
+type OperatorConfig struct {
+	WitnessSigner   note.Signer
+	WitnessVerifier note.Verifier
+
+	GithubUser  string
+	GithubEmail string
+	GithubToken string
+}
+
 // Main runs the omniwitness, with the witness listening using the listener, and all
 // outbound HTTP calls using the client provided.
-func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, httpClient *http.Client) error {
-	// This error group will be used to run all top level processes
-	g := errgroup.Group{}
+func Main(ctx context.Context, operatorConfig OperatorConfig, httpListener net.Listener, httpClient *http.Client) error {
+	// This error group will be used to run all top level processes.
+	// If any process dies, then all of them will be stopped via context cancellation.
+	g, ctx := errgroup.WithContext(ctx)
 
 	type logFeeder func(context.Context, config.Log, feeder.Witness, *http.Client, time.Duration) error
 	feeders := make(map[config.Log]logFeeder)
@@ -121,7 +138,7 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 	}
 	witness, err := witness.New(witness.Opts{
 		Persistence: inmemory.NewPersistence(),
-		Signer:      signer,
+		Signer:      operatorConfig.WitnessSigner,
 		KnownLogs:   knownLogs,
 	})
 	if err != nil {
@@ -135,11 +152,28 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 		c, f := c, f
 		// Continually feed this log in its own goroutine, hooked up to the global waitgroup.
 		g.Go(func() error {
+			glog.Infof("Feeder %q goroutine started", c.Origin)
+			defer glog.Infof("Feeder %q goroutine done", c.Origin)
 			return f(ctx, c, bw, httpClient, feedInterval)
 		})
 	}
 
-	// TODO(mhutchinson): Start the distributors too if auth details are present.
+	if operatorConfig.GithubUser != "" {
+		var distLogs = []dist_gh.Log{}
+		for config := range feeders {
+			// TODO(mhutchinson): This verifier could be created inside the distributor.
+			logSigV, err := i_note.NewVerifier(config.PublicKeyType, config.PublicKey)
+			if err != nil {
+				return err
+			}
+			distLogs = append(distLogs, dist_gh.Log{
+				Config: config,
+				SigV:   logSigV,
+			})
+		}
+
+		runDistributors(ctx, g, distLogs, bw, operatorConfig)
+	}
 
 	r := mux.NewRouter()
 	s := ihttp.NewServer(witness)
@@ -148,11 +182,79 @@ func Main(ctx context.Context, signer note.Signer, httpListener net.Listener, ht
 		Handler: r,
 	}
 	g.Go(func() error {
-		defer srv.Shutdown(ctx)
+		glog.Info("HTTP server goroutine started")
+		defer glog.Info("HTTP server goroutine done")
 		return srv.Serve(httpListener)
+	})
+	g.Go(func() error {
+		// This goroutine brings down the HTTP server when ctx is done.
+		glog.Info("HTTP server-shutdown goroutine started")
+		defer glog.Info("HTTP server-shutdown goroutine done")
+		<-ctx.Done()
+		return srv.Shutdown(ctx)
 	})
 
 	return g.Wait()
+}
+
+func runDistributors(ctx context.Context, g *errgroup.Group, logs []dist_gh.Log, witness dist_gh.Witness, operatorConfig OperatorConfig) {
+	distribute := func(opts *dist_gh.DistributeOptions) error {
+		if err := dist_gh.DistributeOnce(ctx, opts); err != nil {
+			glog.Errorf("DistributeOnce: %v", err)
+		}
+		for {
+			select {
+			case <-time.After(distributeInterval):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			if err := dist_gh.DistributeOnce(ctx, opts); err != nil {
+				glog.Errorf("DistributeOnce: %v", err)
+			}
+		}
+	}
+
+	createOpts := func(upstreamOwner, repoName, mainBranch, distributorPath string) (*dist_gh.DistributeOptions, error) {
+		dr := github.RepoID{
+			Owner:    upstreamOwner,
+			RepoName: repoName,
+		}
+		fork := github.RepoID{
+			Owner:    operatorConfig.GithubUser,
+			RepoName: repoName,
+		}
+		repo, err := github.NewRepository(ctx, dr, mainBranch, fork, operatorConfig.GithubUser, operatorConfig.GithubEmail, operatorConfig.GithubToken)
+		if err != nil {
+			return nil, fmt.Errorf("NewRepository: %v", err)
+		}
+		return &dist_gh.DistributeOptions{
+			Repo:            repo,
+			DistributorPath: distributorPath,
+			Logs:            logs,
+			WitSigV:         operatorConfig.WitnessVerifier,
+			Witness:         witness,
+		}, nil
+	}
+
+	g.Go(func() error {
+		opts, err := createOpts("mhutchinson", "mhutchinson-distributor", "main", "distributor")
+		if err != nil {
+			return fmt.Errorf("createOpts(mhutchinson): %v", err)
+		}
+		glog.Infof("Distributor %q goroutine started", opts.Repo)
+		defer glog.Infof("Distributor %q goroutine done", opts.Repo)
+		return distribute(opts)
+	})
+
+	g.Go(func() error {
+		opts, err := createOpts("WolseyBankWitness", "rediffusion", "main", ".")
+		if err != nil {
+			return fmt.Errorf("createOpts(WolseyBankWitness): %v", err)
+		}
+		glog.Infof("Distributor %q goroutine started", opts.Repo)
+		defer glog.Infof("Distributor %q goroutine done", opts.Repo)
+		return distribute(opts)
+	})
 }
 
 // witnessAdapter binds the internal witness implementation to the feeder interface.

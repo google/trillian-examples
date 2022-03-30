@@ -32,17 +32,17 @@ import (
 // ErrCheckpointTooOld is returned if the checkpoint passed to Update needs to be updated.
 var ErrCheckpointTooOld error = errors.New("checkpoint too old")
 
-func NewWitness(url *url.URL) Witness {
+func NewWitness(url *url.URL, c *http.Client) Witness {
 	return Witness{
 		url:    url,
-		client: *http.DefaultClient, // TODO(mhutchinson): Make this an arg
+		client: c,
 	}
 }
 
 // Witness is a simple client for interacting with witnesses over HTTP.
 type Witness struct {
 	url    *url.URL
-	client http.Client
+	client *http.Client
 }
 
 // GetLatestCheckpoint returns a recent checkpoint from the witness for the specified log ID.

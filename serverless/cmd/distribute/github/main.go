@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"net/url"
 	"os"
 	"time"
@@ -162,7 +163,7 @@ func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 		DistributorPath: *distributorPath,
 		Logs:            logs,
 		WitSigV:         wSigV,
-		Witness:         wit_http.NewWitness(u),
+		Witness:         wit_http.NewWitness(u, http.DefaultClient),
 	}
 }
 

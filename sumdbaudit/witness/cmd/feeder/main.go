@@ -45,7 +45,7 @@ func main() {
 		glog.Exitf("Failed to parse witness URL: %v", err)
 	}
 
-	w := wit_http.NewWitness(wURL)
+	w := wit_http.NewWitness(wURL, http.DefaultClient)
 
 	lid := *logID
 	if len(lid) == 0 {

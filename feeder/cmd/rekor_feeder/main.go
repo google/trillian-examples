@@ -61,9 +61,7 @@ func main() {
 	if err != nil {
 		glog.Exitf("Failed to parse witness URL %q: %v", cfg.Witness.URL, err)
 	}
-	witness := wit_http.Witness{
-		URL: u,
-	}
+	witness := wit_http.NewWitness(u, http.DefaultClient)
 
 	wg := &sync.WaitGroup{}
 	ctx := context.Background()

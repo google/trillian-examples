@@ -18,18 +18,25 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"flag"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
+	psql "github.com/google/trillian-examples/witness/golang/internal/persistence/sql"
 	"github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
 	"golang.org/x/mod/sumdb/note"
+
+	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
 var (
-	addr = flag.String("listen", ":8080", "Address to listen on")
+	addr   = flag.String("listen", ":8080", "Address to listen on")
+	dbFile = flag.String("db_file", "", "path to a file to be used as sqlite3 storage for checkpoints, e.g. /tmp/chkpts.db")
 
 	signingKey  = flag.String("private_key", "", "The note-compatible signing key to use")
 	verifierKey = flag.String("public_key", "", "The note-compatible verifier key to use")
@@ -69,7 +76,22 @@ func main() {
 		GithubEmail: *githubEmail,
 		GithubToken: *githubToken,
 	}
-	if err := omniwitness.Main(ctx, opConfig, httpListener, httpClient); err != nil {
+	var p persistence.LogStatePersistence
+	if len(*dbFile) > 0 {
+		// Start up local database.
+		glog.Infof("Connecting to local DB at %q", *dbFile)
+		db, err := sql.Open("sqlite3", *dbFile)
+		if err != nil {
+			glog.Exitf("Failed to connect to DB: %v", err)
+		}
+		// Avoid "database locked" issues with multiple concurrent updates.
+		db.SetMaxOpenConns(1)
+		p = psql.NewPersistence(db)
+	} else {
+		glog.Warning("No persistence configured for witness. Reboots will lose guarantees of witness correctness. Use --db_file for production deployments.")
+		p = inmemory.NewPersistence()
+	}
+	if err := omniwitness.Main(ctx, opConfig, p, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
 }

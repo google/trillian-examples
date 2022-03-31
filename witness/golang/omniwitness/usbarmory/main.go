@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
 	"github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
@@ -71,7 +72,9 @@ func main() {
 		WitnessSigner:   signer,
 		WitnessVerifier: verifier,
 	}
-	if err := omniwitness.Main(ctx, opConfig, httpListener, httpClient); err != nil {
+	// TODO(mhutchinson): replace this with a real persistence layer.
+	p := inmemory.NewPersistence()
+	if err := omniwitness.Main(ctx, opConfig, p, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
 }

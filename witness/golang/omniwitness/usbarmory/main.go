@@ -73,6 +73,7 @@ func main() {
 	// We parse the flags despite declaring none ourselves so libraries are
 	// happy (looking at you, glog).
 	flag.Set("stderrthreshold", "INFO")
+	flag.Set("v", "1")
 	flag.Parse()
 
 	glog.Infof("Opening storage...")
@@ -102,7 +103,6 @@ func main() {
 		WitnessSigner:   signer,
 		WitnessVerifier: verifier,
 	}
-	// TODO(mhutchinson): replace this with a real persistence layer.
 	p := storage.NewSlotPersistence(part)
 	if err := p.Init(); err != nil {
 		glog.Exitf("Failed to create persistence layer: %v", err)

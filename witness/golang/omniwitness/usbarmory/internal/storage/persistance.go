@@ -21,6 +21,8 @@ import (
 
 	"github.com/google/trillian-examples/witness/golang/internal/persistence"
 	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage/slots"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 )
 
@@ -47,10 +49,9 @@ func NewSlotPersistence(part *slots.Partition) *SlotPersistence {
 	}
 }
 
+// populateMap reads the logID -> slot mapping from storage.
+// Must be called with p.mu locked.
 func (p *SlotPersistence) populateMap() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	b, t, err := p.mapSlot.Read()
 	if err != nil {
 		return fmt.Errorf("failed to read persistence mapping: %v", err)
@@ -72,10 +73,9 @@ func (p *SlotPersistence) populateMap() error {
 	return nil
 }
 
+// storeMap writes the current logID -> slot map to storage.
+// Must be called with p.mu locked.
 func (p *SlotPersistence) storeMap() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	smRaw, err := yaml.Marshal(p.idToSlot)
 	if err != nil {
 		return fmt.Errorf("failed to marshal mapping: %v", err)
@@ -87,10 +87,9 @@ func (p *SlotPersistence) storeMap() error {
 	return nil
 }
 
+// addLog assigns a slot to a new log ID.
+// Must be called with p.mu locked.
 func (p *SlotPersistence) addLog(id string) (uint, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
 	if idx, ok := p.idToSlot[id]; ok {
 		return idx, nil
 	}
@@ -106,6 +105,9 @@ func (p *SlotPersistence) addLog(id string) (uint, error) {
 // Init sets up the persistence layer. This should be idempotent,
 // and will be called once per process startup.
 func (p *SlotPersistence) Init() error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	s, err := p.part.Open(0)
 	if err != nil {
 		return fmt.Errorf("failed to open mapping slot 0: %v", err)
@@ -137,7 +139,12 @@ func (p *SlotPersistence) ReadOps(logID string) (persistence.LogStateReadOps, er
 	defer p.mu.Unlock()
 	i, ok := p.idToSlot[logID]
 	if !ok {
-		return nil, fmt.Errorf("log ID %q unknown", logID)
+		// TODO(al): work around undocumented assumptions in the storage interface;
+		// we have to return a ReadOp even if we don't know about the specified logID.
+		// the ReadOps we return must then return an error of codes.NotFound when GetLatest
+		// is called so that the witness will eventually call WriteOps/Update with the
+		// same logID and create the record.
+		return &slotOps{}, nil
 	}
 	s, err := p.part.Open(i)
 	if err != nil {
@@ -187,11 +194,20 @@ func (s *slotOps) GetLatest() ([]byte, []byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// TODO(al): workaround for storage assumption - see comment in ReadOps above.
+	if s.slot == nil {
+		return nil, nil, status.Error(codes.NotFound, "no checkpoint for log")
+	}
+
 	b, t, err := s.slot.Read()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read data: %v", err)
 	}
 	s.writeToken = t
+	if len(b) == 0 {
+		glog.V(2).Infof("No checkpoint")
+		return nil, nil, status.Error(codes.NotFound, "no checkpoint for log")
+	}
 	lr := logRecord{}
 	if err := yaml.Unmarshal(b, &lr); err != nil {
 		return nil, nil, fmt.Errorf("failed to unmarshal data: %v", err)

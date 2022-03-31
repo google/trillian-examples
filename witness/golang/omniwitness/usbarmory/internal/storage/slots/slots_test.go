@@ -16,8 +16,8 @@ func TestOpenPartition(t *testing.T) {
 		r := make([]slotGeo, len(in))
 		for i := range in {
 			r[i] = slotGeo{
-				Start:  in[i].journal.start,
-				Length: in[i].journal.length,
+				Start:  in[i].start,
+				Length: in[i].length,
 			}
 		}
 		return r

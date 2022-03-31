@@ -24,6 +24,8 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/golang/glog"
@@ -35,6 +37,7 @@ import (
 
 	_ "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
 	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
+	"github.com/usbarmory/tamago/soc/imx6/dcp"
 )
 
 const (
@@ -64,9 +67,36 @@ func init() {
 	debugConsole, _ := usbarmory.DetectDebugAccessory(250 * time.Millisecond)
 	<-debugConsole
 
+	dcp.Init()
+
 	if err := usbarmory.MMC.Detect(); err != nil {
 		glog.Exitf("Failed to detect MMC: %v", err)
 	}
+
+}
+
+func dcpHasher(r io.Reader) ([32]byte, error) {
+	var ret [32]byte
+	h, err := dcp.New256()
+	if err != nil {
+		return ret, fmt.Errorf("failed to create DCP hasher: %v", err)
+	}
+	bs := 32 << 10
+	buf := make([]byte, bs)
+	var n int
+	for err == nil {
+		n, err = r.Read(buf)
+		if n > 0 {
+			h.Write(buf[:n])
+		}
+
+	}
+	s, err := h.Sum(nil)
+	if err != nil {
+		return ret, err
+	}
+	copy(ret[:], s)
+	return ret, nil
 }
 
 func main() {
@@ -138,7 +168,7 @@ func openStorage() *slots.Partition {
 		geo.SlotLengths = append(geo.SlotLengths, sl)
 	}
 
-	p, err := slots.OpenPartition(dev, geo)
+	p, err := slots.OpenPartition(dev, geo, dcpHasher)
 	if err != nil {
 		glog.Exitf("Failed to open partition: %v", err)
 	}

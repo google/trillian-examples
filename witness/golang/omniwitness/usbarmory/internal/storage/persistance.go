@@ -27,25 +27,43 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const (
+	mappingConfigSlot = 0
+)
+
 // SlotPersistence is an implementation of the witness Persistence
 // interface based on Slots.
 type SlotPersistence struct {
-	mu   sync.Mutex
+	// mu protects access to everything below.
+	mu sync.Mutex
+
+	// part is the underlying storage partition we're using to persist
+	// data.
 	part *slots.Partition
 
 	// mapSlot is a reference to the zeroth slot in a partition.
 	// This slot is used to maintain a mapping of log ID to slot index
 	// where state for that log is stored.
-	mapSlot       *slots.Slot
+	mapSlot *slots.Slot
+	// mapWriteToken is the token received when we read the mapping config
+	// from the mapSlot above. It'll be used when we want to store an updated
+	// mapping config.
 	mapWriteToken uint32
 
-	idToSlot  slotMap
+	// idToSlot maintains the mapping from LogID to slot index used to store
+	// checkpoints from that log.
+	idToSlot slotMap
+
+	// freeSlots is a list of unused slot indices available to be mapped to logIDs.
 	freeSlots []uint
 }
 
+// slotMap defines the structure of the mapping config stored in slot zero.
 type slotMap map[string]uint
 
 // NewSlotPeristence creates a new SlotPersistence instance.
+// As per the Persistence interface, Init must be called before it's used to
+// read or write any data.
 func NewSlotPersistence(part *slots.Partition) *SlotPersistence {
 	return &SlotPersistence{
 		part:     part,
@@ -63,16 +81,22 @@ func (p *SlotPersistence) populateMap() error {
 	if err := yaml.Unmarshal(b, &p.idToSlot); err != nil {
 		return fmt.Errorf("failed to unmarshal persistence mapping: %v", err)
 	}
+	// We read the mapping config, so save the token for if/when we want to
+	// store an updated mapping.
 	p.mapWriteToken = t
+
+	// Precalculate the list of available slots.
 	slotState := make([]bool, p.part.NumSlots())
 	for _, idx := range p.idToSlot {
-		if idx == 0 {
+		if idx == mappingConfigSlot {
 			return errors.New("internal-error, reserved slot 0 has been used")
 		}
 		slotState[idx] = true
 	}
-	// Slot 0 is reserved.
-	slotState[0] = true
+
+	// Slot 0 is reserved for the mapping config, so mark it used here:
+	slotState[mappingConfigSlot] = true
+
 	p.freeSlots = make([]uint, 0, p.part.NumSlots())
 	for idx, used := range slotState {
 		if !used {
@@ -92,6 +116,8 @@ func (p *SlotPersistence) storeMap() error {
 	if err := p.mapSlot.CheckAndWrite(p.mapWriteToken, smRaw); err != nil {
 		return fmt.Errorf("failed to store mapping: %v", err)
 	}
+	// TODO(al): CheckAndWrite should return the next token rather than us knowing
+	// how the token changes after a successful write.
 	p.mapWriteToken++
 	return nil
 }
@@ -117,9 +143,9 @@ func (p *SlotPersistence) Init() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	s, err := p.part.Open(0)
+	s, err := p.part.Open(mappingConfigSlot)
 	if err != nil {
-		return fmt.Errorf("failed to open mapping slot 0: %v", err)
+		return fmt.Errorf("failed to open mapping slot: %v", err)
 	}
 	p.mapSlot = s
 	if err := p.populateMap(); err != nil {

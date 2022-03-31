@@ -32,6 +32,9 @@ type SlotPersistence struct {
 	mu   sync.Mutex
 	part *slots.Partition
 
+	// mapSlot is a reference to the zeroth slot in a partition.
+	// This slot is used to maintain a mapping of log ID to slot index
+	// where state for that log is stored.
 	mapSlot       *slots.Slot
 	mapWriteToken uint32
 
@@ -62,8 +65,13 @@ func (p *SlotPersistence) populateMap() error {
 	p.mapWriteToken = t
 	slotState := make([]bool, p.part.NumSlots())
 	for _, idx := range p.idToSlot {
+		if idx == 0 {
+			return errors.New("internal-error, reserved slot 0 has been used")
+		}
 		slotState[idx] = true
 	}
+	// Slot 0 is reserved.
+	slotState[0] = true
 	p.freeSlots = make([]uint, 0, p.part.NumSlots())
 	for idx, used := range slotState {
 		if !used {

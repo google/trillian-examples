@@ -153,4 +153,3 @@ steps:
 substitutions:
   _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v7'
   _BUCKET: 'transparency_log'
-  _ENTRIES_DIR: 'log_entries'

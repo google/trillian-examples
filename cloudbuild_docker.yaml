@@ -149,6 +149,20 @@ steps:
     waitFor:
       - show-target-build-platforms
     id: 'build-pixel-feeder-image'
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'buildx',
+      'build',
+      '--platform', '$_DOCKER_BUILDX_PLATFORMS',
+      '-t', 'gcr.io/$PROJECT_ID/omniwitness-monolith:latest',
+      '--cache-from', 'gcr.io/$PROJECT_ID/omniwitness-monolith:latest',
+      '-f', './witness/golang/omniwitness/monolith/Dockerfile',
+      '--push',
+      '.'
+    ]
+    waitFor:
+      - show-target-build-platforms
+    id: 'build-omniwitness-monolith-image'
 
 substitutions:
   _DOCKER_BUILDX_PLATFORMS: 'linux/amd64,linux/arm/v7'

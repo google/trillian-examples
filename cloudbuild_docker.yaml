@@ -74,7 +74,7 @@ steps:
       - |
         echo "bucket ${_BUCKET}"
         echo "log entry content ${REPO_NAME},${COMMIT_SHA},$(cat /workspace/image-digest.txt)\"
-        echo "entry path ${ENTRIES_DIR}/${REPO_NAME}-${COMMIT_SHA}\"
+        echo "entry path ${_ENTRIES_DIR}/${REPO_NAME}-${COMMIT_SHA}\"
         # TODO(jayhou): after setting up GCF for serverless logs, invoke the functions here.
     waitFor:
       - store-witness-image-digest

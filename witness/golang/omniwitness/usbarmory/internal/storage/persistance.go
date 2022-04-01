@@ -206,9 +206,9 @@ func (p *SlotPersistence) WriteOps(logID string) (persistence.LogStateWriteOps, 
 			glog.V(2).Infof("Failed to add mapping: %q", err)
 			return nil, fmt.Errorf("unable to assign slot for log ID %q: %v", logID, err)
 		}
-		glog.V(2).Infof("Added new mapping %s -> %d", logID, i)
+		glog.V(2).Infof("Added new mapping %q -> %d", logID, i)
 	}
-	glog.V(2).Infof("mapping %s -> %d", logID, i)
+	glog.V(2).Infof("mapping %q -> %d", logID, i)
 	s, err := p.part.Open(i)
 	if err != nil {
 		glog.V(2).Infof("failed to open %d: %v", i, err)

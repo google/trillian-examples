@@ -75,6 +75,9 @@ func init() {
 
 }
 
+// dcpHasher uses the DCP on the USBArmory for calculating SHA256 hashes of the
+// bytes available via the passed in Reader.
+// Using the DCP is faster and uses less power than computing SHA256 on the CPU.
 func dcpHasher(r io.Reader) ([32]byte, error) {
 	var ret [32]byte
 	h, err := dcp.New256()

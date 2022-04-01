@@ -47,13 +47,13 @@ steps:
   # to always appear to succeed from the view of Cloud Build, although more details may be found in
   # the logs.
   - name: 'gcr.io/cloud-builders/docker'
-    entrypoint: bash
+    entrypoint: 'bash'
     args:
       # Set ERR trap to be inherited by shell functions. Allows our bash command logs to show up in
       # Cloud Console.
       - '-E'
       - '-c'
-      - >
+      - |
         docker pull gcr.io/$PROJECT_ID/witness &&
         # Special /workspace path:
         # https://cloud.google.com/build/docs/configuring-builds/pass-data-between-steps#passing_data_using_workspaces

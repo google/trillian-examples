@@ -86,14 +86,8 @@ func main() {
 	// If the journal(s) become corrupt a larger hammer will be required.
 	reinit := false
 	if reinit {
-		for i := uint(0); i < uint(part.NumSlots()); i++ {
-			s, err := part.Open(i)
-			if err != nil {
-				glog.Exitf("Failed to open slot %d: %v", i, err)
-			}
-			if err := s.Write([]byte{}); err != nil {
-				glog.Errorf("Failed to init slot %d: %v", i, err)
-			}
+		if err := part.Erase(); err != nil {
+			glog.Exitf("Failed to erase partition: %v", err)
 		}
 	}
 

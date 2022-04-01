@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/golang/glog"
 )
 
 // Geometry describes the physical layout of a Partition and its slots on the
@@ -82,6 +84,30 @@ type Partition struct {
 	dev BlockReaderWriter
 	// slots describes the layout of the slot(s) stored within this partition.
 	slots []Slot
+}
+
+// Erase destroys the data stores in all slots configured in this partition.
+// WARNING: Data Loss!
+func (p *Partition) Erase() error {
+	glog.Info("Erasing partition")
+	borked := false
+	for i := range p.slots {
+		glog.Info("Erasing partition slot %d", i)
+		p.slots[i].mu.Lock()
+		defer p.slots[i].mu.Unlock()
+
+		length := p.slots[i].journal.length
+		start := p.slots[i].journal.start
+		b := make([]byte, length)
+		if err := p.dev.WriteBlocks(start, b); err != nil {
+			glog.Warningf("Failed to wipe slot %d occupying blocks [%d, %d): %v", i, start, start+length, err)
+			borked = true
+		}
+	}
+	if borked {
+		return errors.New("failed to erase one or more slots in partition")
+	}
+	return nil
 }
 
 // Open opens the specified slot, returns an error if the slot is out of bounds.

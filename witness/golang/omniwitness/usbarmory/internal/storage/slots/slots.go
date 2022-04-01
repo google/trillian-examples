@@ -52,7 +52,7 @@ func (g Geometry) Validate() error {
 
 // OpenPartition returns a partition struct for accessing the slots described by the given
 // geometry using the provided read/write methods.
-func OpenPartition(rw BlockReaderWriter, geo Geometry) (*Partition, error) {
+func OpenPartition(rw BlockReaderWriter, geo Geometry, h SHA256Func) (*Partition, error) {
 	if err := geo.Validate(); err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func OpenPartition(rw BlockReaderWriter, geo Geometry) (*Partition, error) {
 	b := geo.Start
 	// TODO(al): make journal opening lazy
 	for i, l := range geo.SlotLengths {
-		j, err := OpenJournal(ret.dev, b, l)
+		j, err := OpenJournal(ret.dev, b, l, h)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open journal for slot %d: %v", i, err)
 		}

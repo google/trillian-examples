@@ -203,15 +203,15 @@ func (p *SlotPersistence) WriteOps(logID string) (persistence.LogStateWriteOps, 
 		var err error
 		i, err = p.addLog(logID)
 		if err != nil {
-			glog.V(2).Infof("Failed to add mapping: %q", err)
+			glog.Warningf("Failed to add mapping: %q", err)
 			return nil, fmt.Errorf("unable to assign slot for log ID %q: %v", logID, err)
 		}
-		glog.V(2).Infof("Added new mapping %q -> %d", logID, i)
+		glog.V(1).Infof("Added new mapping %q -> %d", logID, i)
 	}
 	glog.V(2).Infof("mapping %q -> %d", logID, i)
 	s, err := p.part.Open(i)
 	if err != nil {
-		glog.V(2).Infof("failed to open %d: %v", i, err)
+		glog.Warningf("failed to open %d: %v", i, err)
 		return nil, fmt.Errorf("internal error opening slot %d associated with log ID %q: %v", i, logID, err)
 	}
 	return &slotOps{slot: s}, nil
@@ -241,17 +241,17 @@ func (s *slotOps) GetLatest() ([]byte, []byte, error) {
 
 	b, t, err := s.slot.Read()
 	if err != nil {
-		glog.V(2).Infof("Read failed: %v", err)
+		glog.Warning("Read failed: %v", err)
 		return nil, nil, fmt.Errorf("failed to read data: %v", err)
 	}
 	s.writeToken = t
 	if len(b) == 0 {
-		glog.V(2).Infof("No checkpoint")
+		glog.Warningf("No checkpoint")
 		return nil, nil, status.Error(codes.NotFound, "no checkpoint for log")
 	}
 	lr := logRecord{}
 	if err := yaml.Unmarshal(b, &lr); err != nil {
-		glog.V(2).Infof("Unmarshal failed: %v", err)
+		glog.Warningf("Unmarshal failed: %v", err)
 		return nil, nil, fmt.Errorf("failed to unmarshal data: %v", err)
 	}
 	glog.V(2).Infof("read:\n%s", lr.Checkpoint)
@@ -274,12 +274,12 @@ func (s *slotOps) Set(checkpointRaw []byte, compactRange []byte) error {
 
 	lrRaw, err := yaml.Marshal(&lr)
 	if err != nil {
-		glog.V(2).Infof("marshal failed: %v", err)
+		glog.Warningf("marshal failed: %v", err)
 		return fmt.Errorf("failed to marshal data: %v", err)
 	}
 
 	if err := s.slot.CheckAndWrite(s.writeToken, lrRaw); err != nil {
-		glog.V(2).Infof("Write failed: %v", err)
+		glog.Warningf("Write failed: %v", err)
 		return fmt.Errorf("failed to write data: %v", err)
 	}
 	return nil

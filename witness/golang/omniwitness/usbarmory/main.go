@@ -92,7 +92,6 @@ func dcpSHA256(r io.Reader) ([32]byte, error) {
 		if n > 0 {
 			h.Write(buf[:n])
 		}
-
 	}
 	s, err := h.Sum(nil)
 	if err != nil {

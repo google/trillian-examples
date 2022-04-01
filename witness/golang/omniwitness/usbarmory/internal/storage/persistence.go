@@ -241,7 +241,7 @@ func (s *slotOps) GetLatest() ([]byte, []byte, error) {
 
 	b, t, err := s.slot.Read()
 	if err != nil {
-		glog.Warning("Read failed: %v", err)
+		glog.Warningf("Read failed: %v", err)
 		return nil, nil, fmt.Errorf("failed to read data: %v", err)
 	}
 	s.writeToken = t

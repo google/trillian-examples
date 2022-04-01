@@ -27,12 +27,14 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/witness/golang/internal/persistence/inmemory"
 	"github.com/google/trillian-examples/witness/golang/omniwitness/internal/omniwitness"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage"
+	"github.com/google/trillian-examples/witness/golang/omniwitness/usbarmory/internal/storage/slots"
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
 
 	_ "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
+	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
 )
 
 const (
@@ -43,12 +45,52 @@ const (
 	// TODO(mhutchinson): these need to be read from file instead of constants
 	publicKey  = "TrustMe+68958214+AQ4Ys/PsXqfhPkNK7Y7RyYUMOJvfl65PzJOEiq9VFPjF"
 	signingKey = "PRIVATE+KEY+TrustMe+68958214+AZKby3TDZizdARF975ZyLJwGbHTivd+EqbfYTN5qr2cI"
+
+	// slotsPartitionOffsetBytes defines where our witness data storage partition starts.
+	// Changing this location is overwhelmingly likely to result in data loss.
+	slotsPartitionOffsetBytes = 1 << 30
+	// slotsPartitionLengthBytes specifies the size of the slots partition.
+	// Increasing this value is relatively safe, if you're sure there is no data
+	// stored in blocks which follow the current partition.
+	//
+	// We're starting with enough space for 10 slots of 1MB each.
+	slotsPartitionLengthBytes = 10 * slotSizeBytes
+
+	// slotSizeBytes is the size of each individual slot in the partition.
+	slotSizeBytes = 1 << 20
 )
+
+func init() {
+	debugConsole, _ := usbarmory.DetectDebugAccessory(250 * time.Millisecond)
+	<-debugConsole
+
+	if err := usbarmory.MMC.Detect(); err != nil {
+		glog.Exitf("Failed to detect MMC: %v", err)
+	}
+}
 
 func main() {
 	// We parse the flags despite declaring none ourselves so libraries are
 	// happy (looking at you, glog).
+	flag.Set("stderrthreshold", "INFO")
+	flag.Set("v", "1")
 	flag.Parse()
+
+	glog.Infof("Opening storage...")
+	part := openStorage()
+	glog.Infof("Storage opened.")
+
+	// Set this to true to "wipe" the storage.
+	// Currently this simply force-writes an entry with zero bytes to
+	// each known slot.
+	// If the journal(s) become corrupt a larger hammer will be required.
+	reinit := false
+	if reinit {
+		if err := part.Erase(); err != nil {
+			glog.Exitf("Failed to erase partition: %v", err)
+		}
+	}
+
 	ctx := context.Background()
 	// This error group will be used to run all top level processes
 	g := errgroup.Group{}
@@ -72,9 +114,33 @@ func main() {
 		WitnessSigner:   signer,
 		WitnessVerifier: verifier,
 	}
-	// TODO(mhutchinson): replace this with a real persistence layer.
-	p := inmemory.NewPersistence()
+	p := storage.NewSlotPersistence(part)
+	if err := p.Init(); err != nil {
+		glog.Exitf("Failed to create persistence layer: %v", err)
+	}
 	if err := omniwitness.Main(ctx, opConfig, p, httpListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
+}
+
+func openStorage() *slots.Partition {
+	// dev is our access to the MMC storage.
+	dev := &storage.Device{
+		Card: usbarmory.MMC,
+	}
+	bs := uint(usbarmory.MMC.Info().BlockSize)
+	geo := slots.Geometry{
+		Start:  slotsPartitionOffsetBytes / bs,
+		Length: slotsPartitionLengthBytes / bs,
+	}
+	sl := slotSizeBytes / bs
+	for i := uint(0); i < geo.Length; i += sl {
+		geo.SlotLengths = append(geo.SlotLengths, sl)
+	}
+
+	p, err := slots.OpenPartition(dev, geo)
+	if err != nil {
+		glog.Exitf("Failed to open partition: %v", err)
+	}
+	return p
 }

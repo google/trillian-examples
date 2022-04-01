@@ -18,6 +18,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/golang/glog"
 )
 
 // Geometry describes the physical layout of a Partition and its slots on the
@@ -60,6 +62,7 @@ func OpenPartition(rw BlockReaderWriter, geo Geometry) (*Partition, error) {
 	}
 
 	b := geo.Start
+	// TODO(al): make journal opening lazy
 	for i, l := range geo.SlotLengths {
 		j, err := OpenJournal(ret.dev, b, l)
 		if err != nil {
@@ -83,6 +86,30 @@ type Partition struct {
 	slots []Slot
 }
 
+// Erase destroys the data stores in all slots configured in this partition.
+// WARNING: Data Loss!
+func (p *Partition) Erase() error {
+	glog.Info("Erasing partition")
+	borked := false
+	for i := range p.slots {
+		glog.Infof("Erasing partition slot %d", i)
+		p.slots[i].mu.Lock()
+		defer p.slots[i].mu.Unlock()
+
+		length := p.slots[i].journal.length
+		start := p.slots[i].journal.start
+		b := make([]byte, length)
+		if err := p.dev.WriteBlocks(start, b); err != nil {
+			glog.Warningf("Failed to wipe slot %d occupying blocks [%d, %d): %v", i, start, start+length, err)
+			borked = true
+		}
+	}
+	if borked {
+		return errors.New("failed to erase one or more slots in partition")
+	}
+	return nil
+}
+
 // Open opens the specified slot, returns an error if the slot is out of bounds.
 func (p *Partition) Open(slot uint) (*Slot, error) {
 	if l := uint(len(p.slots)); slot >= l {
@@ -90,6 +117,11 @@ func (p *Partition) Open(slot uint) (*Slot, error) {
 	}
 	s := &p.slots[slot]
 	return s, nil
+}
+
+// NumSlots returns the number of slots configured in this partition.
+func (p *Partition) NumSlots() int {
+	return len(p.slots)
 }
 
 // Slot represents the current data in a slot.

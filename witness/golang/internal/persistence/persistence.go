@@ -25,8 +25,10 @@ type LogStatePersistence interface {
 	// be read.
 	Logs() ([]string, error)
 
-	// ReadOps returns read-only operations for the given log ID. This
-	// method only makes sense for IDs returned by Logs().
+	// ReadOps returns read-only operations for the given log ID.
+	// TODO(al): This method MUST return a valid LogStateReadOps even if
+	// the logID is unknown, otherwise WriteOps will never be called
+	// and the TOFU checkpoint will never be written.
 	ReadOps(logID string) (LogStateReadOps, error)
 
 	// WriteOps shows intent to write data for the given logID. The

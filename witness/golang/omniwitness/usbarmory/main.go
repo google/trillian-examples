@@ -133,7 +133,8 @@ func openStorage() *slots.Partition {
 		Start:  slotsPartitionOffsetBytes / bs,
 		Length: slotsPartitionLengthBytes / bs,
 	}
-	for i, sl := uint(0), slotSizeBytes/bs; i < geo.Length; i += sl {
+	sl := slotSizeBytes / bs
+	for i := uint(0); i < geo.Length; i += sl {
 		geo.SlotLengths = append(geo.SlotLengths, sl)
 	}
 

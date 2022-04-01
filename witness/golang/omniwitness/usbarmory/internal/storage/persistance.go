@@ -203,7 +203,7 @@ func (p *SlotPersistence) WriteOps(logID string) (persistence.LogStateWriteOps, 
 		var err error
 		i, err = p.addLog(logID)
 		if err != nil {
-			glog.V(2).Infof("Failed to add mapping: %v", err)
+			glog.V(2).Infof("Failed to add mapping: %q", err)
 			return nil, fmt.Errorf("unable to assign slot for log ID %q: %v", logID, err)
 		}
 		glog.V(2).Infof("Added new mapping %s -> %d", logID, i)

@@ -52,7 +52,7 @@ func (g Geometry) Validate() error {
 
 // OpenPartition returns a partition struct for accessing the slots described by the given
 // geometry using the provided read/write methods.
-func OpenPartition(rw BlockReaderWriter, geo Geometry, h Hasher) (*Partition, error) {
+func OpenPartition(rw BlockReaderWriter, geo Geometry, h SHA256Func) (*Partition, error) {
 	if err := geo.Validate(); err != nil {
 		return nil, err
 	}

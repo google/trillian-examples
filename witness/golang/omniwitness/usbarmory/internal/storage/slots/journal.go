@@ -43,15 +43,18 @@ type BlockReaderWriter interface {
 	WriteBlocks(lba uint, b []byte) error
 }
 
-// Hasher returns a hash of the data available from the given reader.
-type Hasher func(io.Reader) ([32]byte, error)
+// SHA256Func returns the SHA256 hash of the data available from the given reader.
+// This abstraction allows different implementations of SHA256 to be used - in
+// particular h/w implementations where available, and s/w otherwise, without
+// taking a dependency on the specific implementation here.
+type SHA256Func func(io.Reader) ([32]byte, error)
 
 // Journal implements a record-based format which provides a resilient storage.
 // This structure is not thread-safe, so concurrent access must be enforced at
 // a higher level.
 type Journal struct {
 	dev          BlockReaderWriter
-	hasher       Hasher
+	sha256       SHA256Func
 	start        uint
 	length       uint
 	current      entry
@@ -106,13 +109,13 @@ func (e *entry) Size() int {
 // OpenJournal returns a new journal structure for interacting with a journal stored in the
 // [start, start+length) range of blocks accessible via dev.
 // Journal ranges should not overlap with one another, or corruption will almost certainly occur.
-func OpenJournal(dev BlockReaderWriter, start, length uint, h Hasher) (*Journal, error) {
+func OpenJournal(dev BlockReaderWriter, start, length uint, s SHA256Func) (*Journal, error) {
 	j := &Journal{
 		dev:          dev,
 		start:        start,
 		length:       length,
 		maxDataBytes: (length*dev.BlockSize())/minEntries - entryHeaderSize,
-		hasher:       h,
+		sha256:       s,
 	}
 
 	if err := j.init(); err != nil {
@@ -137,7 +140,7 @@ func (j *Journal) Update(data []byte) error {
 	if l := len(data); l > int(j.maxDataBytes) {
 		return fmt.Errorf("attemping to write %d bytes, larger than the max permitted in this journal (%d bytes)", l, j.maxDataBytes)
 	}
-	h, err := j.hasher(bytes.NewReader(data))
+	h, err := j.sha256(bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("failed to hash data: %v", err)
 	}
@@ -180,7 +183,7 @@ func (j *Journal) init() error {
 	nextWriteLBA := j.start
 	for lba < j.start+j.length {
 		br := newBlockReader(j.dev, lba)
-		e, err := unmarshalEntry(br, j.hasher)
+		e, err := unmarshalEntry(br, j.sha256)
 		if err != nil {
 			if lastEntry.Revision > 0 {
 				// We already found the lastet record in the journal, so we're done.
@@ -231,7 +234,7 @@ func (j *Journal) init() error {
 }
 
 // unmarshalEntry reads and deserialises an entry structure from the provided reader.
-func unmarshalEntry(r io.Reader, hasher Hasher) (*entry, error) {
+func unmarshalEntry(r io.Reader, hasher SHA256Func) (*entry, error) {
 	e := &entry{}
 	if err := binary.Read(r, binary.BigEndian, &e.Magic); err != nil {
 		return nil, fmt.Errorf("failed to read magic: %v", err)

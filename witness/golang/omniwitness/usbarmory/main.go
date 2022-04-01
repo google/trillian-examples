@@ -75,10 +75,10 @@ func init() {
 
 }
 
-// dcpHasher uses the DCP on the USBArmory for calculating SHA256 hashes of the
+// dcpSHA256 uses the DCP on the USBArmory for calculating SHA256 hashes of the
 // bytes available via the passed in Reader.
 // Using the DCP is faster and uses less power than computing SHA256 on the CPU.
-func dcpHasher(r io.Reader) ([32]byte, error) {
+func dcpSHA256(r io.Reader) ([32]byte, error) {
 	var ret [32]byte
 	h, err := dcp.New256()
 	if err != nil {
@@ -171,7 +171,7 @@ func openStorage() *slots.Partition {
 		geo.SlotLengths = append(geo.SlotLengths, sl)
 	}
 
-	p, err := slots.OpenPartition(dev, geo, dcpHasher)
+	p, err := slots.OpenPartition(dev, geo, dcpSHA256)
 	if err != nil {
 		glog.Exitf("Failed to open partition: %v", err)
 	}

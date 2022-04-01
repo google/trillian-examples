@@ -92,7 +92,7 @@ func (p *Partition) Erase() error {
 	glog.Info("Erasing partition")
 	borked := false
 	for i := range p.slots {
-		glog.Info("Erasing partition slot %d", i)
+		glog.Infof("Erasing partition slot %d", i)
 		p.slots[i].mu.Lock()
 		defer p.slots[i].mu.Unlock()
 

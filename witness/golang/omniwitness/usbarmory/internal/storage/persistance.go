@@ -35,7 +35,7 @@ const (
 // interface based on Slots.
 type SlotPersistence struct {
 	// mu protects access to everything below.
-	mu sync.Mutex
+	mu sync.RWMutex
 
 	// part is the underlying storage partition we're using to persist
 	// data.
@@ -72,7 +72,7 @@ func NewSlotPersistence(part *slots.Partition) *SlotPersistence {
 }
 
 // populateMap reads the logID -> slot mapping from storage.
-// Must be called with p.mu locked.
+// Must be called with p.mu write-locked.
 func (p *SlotPersistence) populateMap() error {
 	b, t, err := p.mapSlot.Read()
 	if err != nil {
@@ -107,7 +107,7 @@ func (p *SlotPersistence) populateMap() error {
 }
 
 // storeMap writes the current logID -> slot map to storage.
-// Must be called with p.mu locked.
+// Must be called with p.mu at leaest read-locked.
 func (p *SlotPersistence) storeMap() error {
 	smRaw, err := yaml.Marshal(p.idToSlot)
 	if err != nil {
@@ -123,7 +123,7 @@ func (p *SlotPersistence) storeMap() error {
 }
 
 // addLog assigns a slot to a new log ID.
-// Must be called with p.mu locked.
+// Must be called with p.mu write-locked.
 func (p *SlotPersistence) addLog(id string) (uint, error) {
 	if idx, ok := p.idToSlot[id]; ok {
 		return idx, nil
@@ -157,8 +157,8 @@ func (p *SlotPersistence) Init() error {
 // Logs returns the IDs of all logs that have checkpoints that can
 // be read.
 func (p *SlotPersistence) Logs() ([]string, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
 	r := make([]string, 0, len(p.idToSlot))
 	for k := range p.idToSlot {
@@ -170,8 +170,8 @@ func (p *SlotPersistence) Logs() ([]string, error) {
 // ReadOps returns read-only operations for the given log ID. This
 // method only makes sense for IDs returned by Logs().
 func (p *SlotPersistence) ReadOps(logID string) (persistence.LogStateReadOps, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	i, ok := p.idToSlot[logID]
 	if !ok {
 		// TODO(al): work around undocumented assumptions in the storage interface;
@@ -195,6 +195,7 @@ func (p *SlotPersistence) ReadOps(logID string) (persistence.LogStateReadOps, er
 // the ID is not there and this operation succeeds in committing
 // a checkpoint, then Logs() will return the new ID afterwards.
 func (p *SlotPersistence) WriteOps(logID string) (persistence.LogStateWriteOps, error) {
+	// Lock rather than RLock because we might add a new log mapping here.
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	i, ok := p.idToSlot[logID]
@@ -217,7 +218,7 @@ func (p *SlotPersistence) WriteOps(logID string) (persistence.LogStateWriteOps, 
 }
 
 type slotOps struct {
-	mu         sync.Mutex
+	mu         sync.RWMutex
 	slot       *slots.Slot
 	writeToken uint32
 }
@@ -230,8 +231,8 @@ type logRecord struct {
 // GetLatest returns the latest checkpoint and its compact range (if applicable).
 // If no checkpoint exists, it must return codes.NotFound.
 func (s *slotOps) GetLatest() ([]byte, []byte, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	// TODO(al): workaround for storage assumption - see comment in ReadOps above.
 	if s.slot == nil {

@@ -52,24 +52,21 @@ func (g Geometry) Validate() error {
 
 // OpenPartition returns a partition struct for accessing the slots described by the given
 // geometry using the provided read/write methods.
-func OpenPartition(rw BlockReaderWriter, geo Geometry, h SHA256Func) (*Partition, error) {
+func OpenPartition(rw BlockReaderWriter, geo Geometry, s SHA256Func) (*Partition, error) {
 	if err := geo.Validate(); err != nil {
 		return nil, err
 	}
 
 	ret := &Partition{
-		dev: rw,
+		dev:    rw,
+		sha256: s,
 	}
 
 	b := geo.Start
-	// TODO(al): make journal opening lazy
-	for i, l := range geo.SlotLengths {
-		j, err := OpenJournal(ret.dev, b, l, h)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open journal for slot %d: %v", i, err)
-		}
+	for _, l := range geo.SlotLengths {
 		ret.slots = append(ret.slots, Slot{
-			journal: j,
+			start:  b,
+			length: l,
 		})
 		b += l
 	}
@@ -82,6 +79,10 @@ func OpenPartition(rw BlockReaderWriter, geo Geometry, h SHA256Func) (*Partition
 type Partition struct {
 	// dev provides the device-specific read/write functionality.
 	dev BlockReaderWriter
+
+	// sha256 is used to verify entries are correct.
+	sha256 SHA256Func
+
 	// slots describes the layout of the slot(s) stored within this partition.
 	slots []Slot
 }
@@ -116,6 +117,11 @@ func (p *Partition) Open(slot uint) (*Slot, error) {
 		return nil, fmt.Errorf("invalid slot %d (partition has %d slots)", slot, l)
 	}
 	s := &p.slots[slot]
+	glog.V(2).Infof("Opening slot %d", slot)
+	if err := s.Open(p.dev, p.sha256); err != nil {
+		glog.V(2).Infof("Failed to open slot %d: %v", slot, err)
+	}
+
 	return s, nil
 }
 
@@ -129,7 +135,31 @@ type Slot struct {
 	// mu guards access to this Slot.
 	mu sync.RWMutex
 
+	// start and length define the on-storage blocks assigned to this journal:
+	// [start, start+length).
+	start, length uint
+
+	// journal is the underlying journal used to store the data in this slot.
+	// if it's nil, it hasn't yet been opened and will be opened upon first
+	// access.
 	journal *Journal
+}
+
+// Open prepares the slot for use.
+// This method is idempotent and will not return an error if called multiple times.
+func (s *Slot) Open(dev BlockReaderWriter, sha256 SHA256Func) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.journal != nil {
+		return nil
+	}
+	j, err := OpenJournal(dev, s.start, s.length, sha256)
+	if err != nil {
+		return fmt.Errorf("failed to open journal: %v", err)
+	}
+	s.journal = j
+	return nil
 }
 
 // Read returns the last data successfully written to the slot, along with a token

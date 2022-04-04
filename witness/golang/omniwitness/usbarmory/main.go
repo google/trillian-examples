@@ -26,6 +26,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -75,10 +76,17 @@ func init() {
 
 }
 
+// dcpSHA256Mu serialises access to the dcpSHA256 function.
+var dcpSHA256Mu = sync.Mutex{}
+
 // dcpSHA256 uses the DCP on the USBArmory for calculating SHA256 hashes of the
 // bytes available via the passed in Reader.
-// Using the DCP is faster and uses less power than computing SHA256 on the CPU.
+// Using the DCP is faster and uses less power than computing SHA256 on the CPU,
+// however only one hash can be computed at a time.
 func dcpSHA256(r io.Reader) ([32]byte, error) {
+	dcpSHA256Mu.Lock()
+	defer dcpSHA256Mu.Unlock()
+
 	var ret [32]byte
 	h, err := dcp.New256()
 	if err != nil {

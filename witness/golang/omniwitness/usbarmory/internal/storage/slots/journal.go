@@ -21,6 +21,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+
+	"github.com/golang/glog"
 )
 
 // magic0 is the only known journal header prefix.
@@ -186,6 +188,7 @@ func (j *Journal) init() error {
 		e, err := unmarshalEntry(br, j.sha256)
 		if err != nil {
 			if lastEntry.Revision > 0 {
+				glog.V(2).Infof("Scanned to invalid entry, using last good entry seen@rev %d (%v)", lastEntry.Revision, err)
 				// We already found the lastet record in the journal, so we're done.
 				break
 			}
@@ -203,6 +206,7 @@ func (j *Journal) init() error {
 			continue
 		}
 		if e.Revision > lastEntry.Revision {
+			glog.V(3).Infof("Scan found rev %d(@ block %d), continuing", e.Revision, lba)
 			// We've found a(nother) good entry, so update our state
 			lastEntry = *e
 			// Skip past the blocks we've just read
@@ -214,6 +218,7 @@ func (j *Journal) init() error {
 			// entries following on...
 			continue
 		} else if e.Revision < lastEntry.Revision {
+			glog.V(2).Infof("Found newest entry @ rev %d", lastEntry.Revision)
 			// We've found an older revision following a newer one, so we're done.
 			nextWriteLBA = lba
 			break

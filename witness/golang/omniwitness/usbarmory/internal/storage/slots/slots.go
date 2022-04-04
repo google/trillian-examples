@@ -117,14 +117,11 @@ func (p *Partition) Open(slot uint) (*Slot, error) {
 		return nil, fmt.Errorf("invalid slot %d (partition has %d slots)", slot, l)
 	}
 	s := &p.slots[slot]
-	if s.journal == nil {
-		glog.V(2).Infof("Opening journal for slot %d", slot)
-		j, err := OpenJournal(p.dev, s.start, s.length, p.sha256)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open journal for slot %d: %v", slot, err)
-		}
-		s.journal = j
+	glog.V(2).Infof("Opening slot %d", slot)
+	if err := s.Open(p.dev, p.sha256); err != nil {
+		glog.V(2).Infof("Failed to open slot %d: %v", slot, err)
 	}
+
 	return s, nil
 }
 
@@ -146,6 +143,23 @@ type Slot struct {
 	// if it's nil, it hasn't yet been opened and will be opened upon first
 	// access.
 	journal *Journal
+}
+
+// Open prepares the slot for use.
+// This method is idempotent and will not return an error if called multiple times.
+func (s *Slot) Open(dev BlockReaderWriter, sha256 SHA256Func) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.journal != nil {
+		return nil
+	}
+	j, err := OpenJournal(dev, s.start, s.length, sha256)
+	if err != nil {
+		return fmt.Errorf("failed to open journal: %v", err)
+	}
+	s.journal = j
+	return nil
 }
 
 // Read returns the last data successfully written to the slot, along with a token

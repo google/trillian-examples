@@ -106,6 +106,7 @@ func main() {
 	// happy (looking at you, glog).
 	flag.Set("stderrthreshold", "INFO")
 	flag.Set("v", "1")
+	flag.Set("vmodule", "journal=1")
 	flag.Parse()
 
 	glog.Infof("Opening storage...")

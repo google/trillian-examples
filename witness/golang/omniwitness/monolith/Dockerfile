@@ -1,4 +1,5 @@
-FROM golang:buster AS builder
+FROM golang:1.17-alpine AS builder
+RUN apk add --no-cache gcc musl-dev
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS

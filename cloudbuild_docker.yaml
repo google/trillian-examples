@@ -3,7 +3,7 @@
 # This builds the images multi-arch so they run on x64 and Raspberry Pi.
 timeout: 3600s
 options:
-  machineType: N1_HIGHCPU_8
+  machineType: E2_HIGHCPU_32
   volumes:
   - name: go-modules
     path: /go

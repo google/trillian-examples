@@ -231,8 +231,9 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 	// Check for dupe leaf already present.
 	leafPath := filepath.Join(layout.LeafPath("", leafhash))
 	r, err := bkt.Object(leafPath).NewReader(ctx)
-	defer r.Close()
-	if !errors.Is(err, gcs.ErrObjectNotExist) {
+	if err == nil {
+		defer r.Close()
+
 		// If there is one, it should contain the existing leaf's sequence number,
 		// so read that back and return it.
 		seqString, err := ioutil.ReadAll(r)
@@ -245,7 +246,7 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 			return 0, err
 		}
 		return origSeq, log.ErrDupeLeaf
-	} else if err != nil {
+	} else if !errors.Is(err, gcs.ErrObjectNotExist) {
 		return 0, err
 	}
 
@@ -257,12 +258,12 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 
 		// Try to write the sequence file
 		seqPath := filepath.Join(layout.SeqPath("", seq))
-		if _, err := bkt.Object(seqPath).Attrs(ctx); !errors.Is(err, gcs.ErrObjectNotExist) {
+		if _, err := bkt.Object(seqPath).Attrs(ctx); err == nil {
 			// That sequence number is in use, try the next one
 			c.nextSeq++
 			fmt.Printf("Seq num %d in use, continuing", seq)
 			continue
-		} else if err != nil {
+		} else if !errors.Is(err, gcs.ErrObjectNotExist) {
 			return 0, fmt.Errorf("couldn't get attr of object %s: %q", seqPath, err)
 		}
 

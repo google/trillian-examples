@@ -37,7 +37,7 @@ Both functions are HTTP-triggered and run when their respective endpoints are re
     ```
     gcloud functions deploy sequence \
     --entry-point Sequence \
-    --runtime go116
+    --runtime go116 \
     --trigger-http \
     --set-env-vars GCP_PROJECT=${PROJECT_NAME},SERVERLESS_LOG_PUBLIC_KEY=${PUBLIC_KEY} \
     --source=./serverless/experimental/gcp-log \

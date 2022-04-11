@@ -58,7 +58,7 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 	// Verify the consistency proof between device and bundle checkpoint
 	if dc.Size > 0 {
 		lv := NewLogVerifier()
-		if err := lv.VerifyConsistencyProof(int64(dc.Size), int64(pc.Size), dc.Hash, pc.Hash, cProof); err != nil {
+		if err := lv.VerifyConsistency(dc.Size, pc.Size, dc.Hash, pc.Hash, cProof); err != nil {
 			return proofBundle, fwMeta, fmt.Errorf("failed verification of consistency proof %w", err)
 		}
 	}
@@ -87,7 +87,7 @@ func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc Consiste
 	if err != nil {
 		return fmt.Errorf("cpFunc failed: %q", err)
 	}
-	if err := lv.VerifyConsistencyProof(int64(fromCP.Size), int64(toCP.Size), fromCP.Hash, toCP.Hash, cProof); err != nil {
+	if err := lv.VerifyConsistency(fromCP.Size, toCP.Size, fromCP.Hash, toCP.Hash, cProof); err != nil {
 		return fmt.Errorf("failed consistency proof between remote and client checkpoint %w", err)
 	}
 	return nil
@@ -134,7 +134,7 @@ func verifyBundle(bundleRaw []byte, logSigVerifier note.Verifier) (api.ProofBund
 
 	lh := HashLeaf(pb.ManifestStatement)
 	lv := NewLogVerifier()
-	if err := lv.VerifyInclusionProof(int64(pb.InclusionProof.LeafIndex), int64(bundleCP.Size), pb.InclusionProof.Proof, bundleCP.Hash, lh); err != nil {
+	if err := lv.VerifyInclusion(pb.InclusionProof.LeafIndex, bundleCP.Size, lh, pb.InclusionProof.Proof, bundleCP.Hash); err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("invalid inclusion proof in bundle: %w", err)
 	}
 

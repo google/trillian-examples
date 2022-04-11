@@ -118,7 +118,7 @@ func (f *LogFollower) Checkpoints(ctx context.Context, pollInterval time.Duratio
 				glog.V(1).Infof("Consistency Proof = %x", consistency.Proof)
 
 				// Verify the fetched consistency proof
-				if err := f.lv.VerifyConsistencyProof(int64(golden.Size), int64(cp.Size), golden.Hash, cp.Hash, consistency.Proof); err != nil {
+				if err := f.lv.VerifyConsistency(golden.Size, cp.Size, golden.Hash, cp.Hash, consistency.Proof); err != nil {
 					errc <- ErrConsistency{
 						Golden: golden,
 						Latest: *cp,
@@ -152,7 +152,7 @@ func (f *LogFollower) Entries(ctx context.Context, cpc <-chan api.LogCheckpoint,
 					continue
 				}
 				lh := verify.HashLeaf(proof.Value)
-				if err := f.lv.VerifyInclusionProof(int64(proof.LeafIndex), int64(cp.Size), proof.Proof, cp.Hash, lh); err != nil {
+				if err := f.lv.VerifyInclusion(proof.LeafIndex, cp.Size, lh, proof.Proof, cp.Hash); err != nil {
 					errc <- ErrInclusion{
 						Checkpoint: cp,
 						Proof:      *proof,

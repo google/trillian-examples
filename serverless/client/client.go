@@ -33,6 +33,7 @@ import (
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/compact"
+	"github.com/transparency-dev/merkle/proof"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -121,21 +122,21 @@ func NewProofBuilder(ctx context.Context, cp log.Checkpoint, h compact.HashFn, f
 // This function uses the passed-in function to retrieve tiles containing any log tree
 // nodes necessary to build the proof.
 func (pb *ProofBuilder) InclusionProof(ctx context.Context, index uint64) ([][]byte, error) {
-	nodes, err := merkle.CalcInclusionProofNodeAddresses(pb.cp.Size, index)
+	nodes, err := proof.Inclusion(index, pb.cp.Size)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate inclusion proof node list: %w", err)
 	}
 
 	ret := make([][]byte, 0)
 	// TODO(al) parallelise this.
-	for _, n := range nodes {
-		h, err := pb.nodeCache.GetNode(ctx, n.ID)
+	for _, id := range nodes.IDs {
+		h, err := pb.nodeCache.GetNode(ctx, id)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get node (%v): %w", n.ID, err)
+			return nil, fmt.Errorf("failed to get node (%v): %w", id, err)
 		}
 		ret = append(ret, h)
 	}
-	if ret, err = merkle.Rehash(ret, nodes, pb.h); err != nil {
+	if ret, err = nodes.Rehash(ret, pb.h); err != nil {
 		return nil, fmt.Errorf("failed to rehash inclusion proof: %w", err)
 	}
 	return ret, nil
@@ -145,21 +146,21 @@ func (pb *ProofBuilder) InclusionProof(ctx context.Context, index uint64) ([][]b
 // This function uses the passed-in function to retrieve tiles containing any log tree
 // nodes necessary to build the proof.
 func (pb *ProofBuilder) ConsistencyProof(ctx context.Context, smaller, larger uint64) ([][]byte, error) {
-	nodes, err := merkle.CalcConsistencyProofNodeAddresses(smaller, larger)
+	nodes, err := proof.Consistency(smaller, larger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate consistency proof node list: %w", err)
 	}
 
 	hashes := make([][]byte, 0)
 	// TODO(al) parallelise this.
-	for _, n := range nodes {
-		h, err := pb.nodeCache.GetNode(ctx, n.ID)
+	for _, id := range nodes.IDs {
+		h, err := pb.nodeCache.GetNode(ctx, id)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get node (%v): %w", n.ID, err)
+			return nil, fmt.Errorf("failed to get node (%v): %w", id, err)
 		}
 		hashes = append(hashes, h)
 	}
-	if hashes, err = merkle.Rehash(hashes, nodes, pb.h); err != nil {
+	if hashes, err = nodes.Rehash(hashes, pb.h); err != nil {
 		return nil, fmt.Errorf("failed to rehash consistency proof: %w", err)
 	}
 	return hashes, nil
@@ -402,7 +403,7 @@ func (lst *LogStateTracker) Update(ctx context.Context) ([]byte, [][]byte, []byt
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			if err := lst.Verifier.VerifyConsistencyProof(int64(lst.LatestConsistent.Size), int64(c.Size), lst.LatestConsistent.Hash, c.Hash, p); err != nil {
+			if err := lst.Verifier.VerifyConsistency(lst.LatestConsistent.Size, c.Size, lst.LatestConsistent.Hash, c.Hash, p); err != nil {
 				return nil, nil, nil, ErrInconsistency{
 					SmallerRaw: lst.LatestConsistentRaw,
 					LargerRaw:  cRaw,
@@ -446,7 +447,7 @@ func CheckConsistency(ctx context.Context, h merkle.LogHasher, f Fetcher, cp []l
 			if err != nil {
 				return fmt.Errorf("failed to fetch consistency between sizes %d, %d: %v", a.Size, b.Size, err)
 			}
-			if err := lv.VerifyConsistencyProof(int64(a.Size), int64(b.Size), a.Hash, b.Hash, cp); err != nil {
+			if err := lv.VerifyConsistency(a.Size, b.Size, a.Hash, b.Hash, cp); err != nil {
 				return fmt.Errorf("invalid consistency proof between sizes %d, %d: %v", a.Size, b.Size, err)
 			}
 		}

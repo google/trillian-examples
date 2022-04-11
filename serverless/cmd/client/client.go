@@ -286,7 +286,7 @@ func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error
 
 	glog.V(1).Infof("Built inclusion proof: %#x", p)
 
-	if err := l.Verifier.VerifyInclusionProof(int64(idx), int64(cp.Size), p, cp.Hash, lh); err != nil {
+	if err := l.Verifier.VerifyInclusion(idx, cp.Size, lh, p, cp.Hash); err != nil {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
 	}
 

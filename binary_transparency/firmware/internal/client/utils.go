@@ -54,7 +54,7 @@ func AwaitInclusion(ctx context.Context, c *ReadonlyClient, cp api.LogCheckpoint
 				continue
 			}
 			consistency = *cproof
-			if err := lv.VerifyConsistencyProof(int64(cp.Size), int64(newCP.Size), cp.Hash, newCP.Hash, consistency.Proof); err != nil {
+			if err := lv.VerifyConsistency(cp.Size, newCP.Size, cp.Hash, newCP.Hash, consistency.Proof); err != nil {
 				// Whoa Nelly, this is bad - bail!
 				glog.Warning("Invalid consistency proof received!")
 				return *newCP, consistency, api.InclusionProof{}, fmt.Errorf("invalid inclusion proof received: %w", err)
@@ -68,7 +68,7 @@ func AwaitInclusion(ctx context.Context, c *ReadonlyClient, cp api.LogCheckpoint
 			glog.Warningf("Received error while fetching inclusion proof: %q", err)
 			continue
 		}
-		if err := lv.VerifyInclusionProof(int64(ip.LeafIndex), int64(cp.Size), ip.Proof, cp.Hash, lh); err != nil {
+		if err := lv.VerifyInclusion(ip.LeafIndex, cp.Size, lh, ip.Proof, cp.Hash); err != nil {
 			// Whoa Nelly, this is bad - bail!
 			glog.Warning("Invalid inclusion proof received!")
 			return cp, consistency, ip, fmt.Errorf("invalid inclusion proof received: %w", err)

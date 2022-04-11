@@ -69,8 +69,7 @@ func NewClient(prsn Personality, nv note.Verifier) Client {
 // VerIncl allows the client to check inclusion of a given entry.
 func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 	leafHash := rfc6962.DefaultHasher.HashLeaf(entry)
-	if err := c.v.VerifyInclusionProof(pf.LeafIndex, int64(c.chkpt.Size),
-		pf.Hashes, c.chkpt.Hash, leafHash); err != nil {
+	if err := c.v.VerifyInclusion(uint64(pf.LeafIndex), c.chkpt.Size, leafHash, pf.Hashes, c.chkpt.Hash); err != nil {
 		return false
 	}
 	return true
@@ -88,8 +87,7 @@ func (c *Client) UpdateChkpt(chkptNewRaw personality.SignedCheckpoint, pf *trill
 	if c.chkpt.Size != 0 {
 		// Else make sure this new checkpoint is consistent with the current one.
 		hashes := pf.GetHashes()
-		if err := c.v.VerifyConsistencyProof(int64(c.chkpt.Size), int64(chkptNew.Size),
-			c.chkpt.Hash, chkptNew.Hash, hashes); err != nil {
+		if err := c.v.VerifyConsistency(c.chkpt.Size, chkptNew.Size, c.chkpt.Hash, chkptNew.Hash, hashes); err != nil {
 			return fmt.Errorf("failed to verify consistency proof: %w", err)
 		}
 	}

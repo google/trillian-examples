@@ -205,7 +205,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	}
 	// If we're not using compact ranges then use consistency proofs.
 	logV := merkle.NewLogVerifier(logInfo.Hasher)
-	if err := logV.VerifyConsistencyProof(int64(prev.Size), int64(next.Size), prev.Hash, next.Hash, proof); err != nil {
+	if err := logV.VerifyConsistency(prev.Size, next.Size, prev.Hash, next.Hash, proof); err != nil {
 		// Complain if the checkpoints aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
 	}

@@ -61,9 +61,9 @@ steps:
         # Tell Cloud Build that this step succeeded. See this workaround documented here:
         # https://github.com/GoogleCloudPlatform/cloud-builders/issues/253#issuecomment-381600420
         exit 0
-    id: 'store-witness-image-digest'
     waitFor:
       - build-witness-image
+    id: 'store-witness-image-digest'
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -96,6 +96,7 @@ steps:
         exit 0
     waitFor:
       - store-witness-image-digest
+    id: 'write-to-transparency-log'
 
   - name: 'gcr.io/cloud-builders/docker'
     args: [

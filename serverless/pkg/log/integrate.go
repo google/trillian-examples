@@ -94,9 +94,7 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 		checkpoint.Size,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
-			// Set leafhash on zeroth level
-			tc.Visit(compact.NodeID{Level: 0, Index: seq}, lh)
-			// Update range and set internal nodes
+			// Update range and set nodes
 			newRange.Append(lh, tc.Visit)
 			return nil
 		})

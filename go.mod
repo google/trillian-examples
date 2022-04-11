@@ -18,7 +18,7 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/miekg/dns v1.1.48
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
-	github.com/transparency-dev/merkle v0.0.0-20220104141048-2fe6541b4c0d
+	github.com/transparency-dev/merkle v0.0.0-20220411132142-cfdaeb1822ee
 	github.com/u-root/u-root v7.0.0+incompatible
 	github.com/usbarmory/imx-usbnet v0.0.0-20220317105544-a29e0d6b2167
 	github.com/usbarmory/tamago v0.0.0-20220317131509-7fbcfbeb1abb

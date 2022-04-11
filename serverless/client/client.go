@@ -126,7 +126,6 @@ func (pb *ProofBuilder) InclusionProof(ctx context.Context, index uint64) ([][]b
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate inclusion proof node list: %w", err)
 	}
-
 	return pb.fetchNodes(ctx, nodes)
 }
 
@@ -138,7 +137,6 @@ func (pb *ProofBuilder) ConsistencyProof(ctx context.Context, smaller, larger ui
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate consistency proof node list: %w", err)
 	}
-
 	return pb.fetchNodes(ctx, nodes)
 }
 

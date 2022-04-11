@@ -111,7 +111,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			if err != nil {
 				t.Fatalf("Failed to fetch inclusion proof for %d: %v", idx, err)
 			}
-			if err := lv.VerifyInclusionProof(int64(idx), int64(newCheckpoint.Size), ip, newCheckpoint.Hash, h); err != nil {
+			if err := lv.VerifyInclusion(idx, newCheckpoint.Size, h, ip, newCheckpoint.Hash); err != nil {
 				t.Fatalf("Invalid inclusion proof for %d: %x", idx, ip)
 			}
 		}

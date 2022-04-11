@@ -126,20 +126,7 @@ func (pb *ProofBuilder) InclusionProof(ctx context.Context, index uint64) ([][]b
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate inclusion proof node list: %w", err)
 	}
-
-	ret := make([][]byte, 0)
-	// TODO(al) parallelise this.
-	for _, id := range nodes.IDs {
-		h, err := pb.nodeCache.GetNode(ctx, id)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get node (%v): %w", id, err)
-		}
-		ret = append(ret, h)
-	}
-	if ret, err = nodes.Rehash(ret, pb.h); err != nil {
-		return nil, fmt.Errorf("failed to rehash inclusion proof: %w", err)
-	}
-	return ret, nil
+	return pb.fetchNodes(ctx, nodes)
 }
 
 // ConsistencyProof constructs a consistency proof between the two passed in tree sizes.
@@ -150,7 +137,11 @@ func (pb *ProofBuilder) ConsistencyProof(ctx context.Context, smaller, larger ui
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate consistency proof node list: %w", err)
 	}
+	return pb.fetchNodes(ctx, nodes)
+}
 
+// fetchNodes retrieves the specified proof nodes via pb's nodeCache.
+func (pb *ProofBuilder) fetchNodes(ctx context.Context, nodes proof.Nodes) ([][]byte, error) {
 	hashes := make([][]byte, 0)
 	// TODO(al) parallelise this.
 	for _, id := range nodes.IDs {
@@ -160,8 +151,9 @@ func (pb *ProofBuilder) ConsistencyProof(ctx context.Context, smaller, larger ui
 		}
 		hashes = append(hashes, h)
 	}
+	var err error
 	if hashes, err = nodes.Rehash(hashes, pb.h); err != nil {
-		return nil, fmt.Errorf("failed to rehash consistency proof: %w", err)
+		return nil, fmt.Errorf("failed to rehash proof: %w", err)
 	}
 	return hashes, nil
 }

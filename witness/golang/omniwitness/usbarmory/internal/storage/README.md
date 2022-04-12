@@ -17,6 +17,7 @@ Some details on the requirements and design of the storage system are below.
 
 *   Be somewhat reusable for other USBArmory drive use cases we may have.
     *   This probably means being able to store different types of data in specified locations.
+
 #### Non-requirements
 
 *   While we're ultimately limited by the performance of the storage hardware, it's not a priority to achieve the lowest possible latency or highest possible throughput for writes.

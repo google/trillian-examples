@@ -35,26 +35,21 @@ const (
 
 var iface *usbnet.Interface
 
-func initNetworking() (net.Listener, error) {
+func initNetworking() error {
 	var err error
 
 	iface, err = usbnet.Init(deviceIP, deviceMAC, hostMAC, 1)
 
 	if err != nil {
-		return nil, fmt.Errorf("could not initialize USB networking, %v", err)
+		return fmt.Errorf("could not initialize USB networking, %v", err)
 	}
 
 	iface.EnableICMP()
 
-	l, err := iface.ListenerTCP4(80)
-	if err != nil {
-		return nil, fmt.Errorf("could not initialize HTTP listener, %v", err)
-	}
-
 	usb.USB1.Init()
 	usb.USB1.DeviceMode()
 	usb.USB1.Reset()
-	return l, nil
+	return nil
 }
 
 func runNetworking() error {

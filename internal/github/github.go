@@ -66,10 +66,7 @@ func NewRepository(ctx context.Context, c *http.Client, upstream RepoID, upstrea
 	}
 	var err error
 	repo.ghCli, err = authWithGithub(ctx, ghToken)
-	if err != nil {
-		return repo, err
-	}
-	return repo, nil
+	return repo, err
 }
 
 // authWithGithub returns a github client struct which uses the provided OAuth token.

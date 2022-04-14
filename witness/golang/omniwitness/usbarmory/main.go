@@ -136,10 +136,16 @@ func main() {
 	// This error group will be used to run all top level processes
 	g := errgroup.Group{}
 
-	httpListener, err := initNetworking()
-	if err != nil {
+	if err := initNetworking(); err != nil {
 		glog.Exitf("Failed to init usb networking: %v", err)
 	}
+
+	// TODO(mhutchinson): add a second listener for an admin API.
+	mainListener, err := iface.ListenerTCP4(80)
+	if err != nil {
+		glog.Exitf("could not initialize HTTP listener: %v", err)
+	}
+
 	g.Go(runNetworking)
 	httpClient := getHttpClient()
 
@@ -159,7 +165,7 @@ func main() {
 	if err := p.Init(); err != nil {
 		glog.Exitf("Failed to create persistence layer: %v", err)
 	}
-	if err := omniwitness.Main(ctx, opConfig, p, httpListener, httpClient); err != nil {
+	if err := omniwitness.Main(ctx, opConfig, p, mainListener, httpClient); err != nil {
 		glog.Exitf("Main failed: %v", err)
 	}
 }

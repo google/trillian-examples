@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -54,7 +55,8 @@ func NewRepoID(or string) (RepoID, error) {
 
 // NewRepository creates a wrapper around a git repository which has a fork owned by
 // the user, and an upstream repository configured that PRs can be proposed against.
-func NewRepository(ctx context.Context, upstream RepoID, upstreamBranch string, fork RepoID, ghUser, ghEmail, ghToken string) (Repository, error) {
+func NewRepository(ctx context.Context, c *http.Client, upstream RepoID, upstreamBranch string, fork RepoID, ghUser, ghEmail, ghToken string) (Repository, error) {
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, c)
 	repo := Repository{
 		upstream:       upstream,
 		upstreamBranch: upstreamBranch,
@@ -64,10 +66,7 @@ func NewRepository(ctx context.Context, upstream RepoID, upstreamBranch string, 
 	}
 	var err error
 	repo.ghCli, err = authWithGithub(ctx, ghToken)
-	if err != nil {
-		return repo, err
-	}
-	return repo, nil
+	return repo, err
 }
 
 // authWithGithub returns a github client struct which uses the provided OAuth token.

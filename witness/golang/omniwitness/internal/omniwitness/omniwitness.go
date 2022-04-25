@@ -172,7 +172,7 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogS
 			})
 		}
 
-		runDistributors(ctx, g, distLogs, bw, operatorConfig)
+		runDistributors(ctx, httpClient, g, distLogs, bw, operatorConfig)
 	}
 
 	r := mux.NewRouter()
@@ -197,7 +197,7 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogS
 	return g.Wait()
 }
 
-func runDistributors(ctx context.Context, g *errgroup.Group, logs []dist_gh.Log, witness dist_gh.Witness, operatorConfig OperatorConfig) {
+func runDistributors(ctx context.Context, c *http.Client, g *errgroup.Group, logs []dist_gh.Log, witness dist_gh.Witness, operatorConfig OperatorConfig) {
 	distribute := func(opts *dist_gh.DistributeOptions) error {
 		if err := dist_gh.DistributeOnce(ctx, opts); err != nil {
 			glog.Errorf("DistributeOnce: %v", err)
@@ -223,7 +223,7 @@ func runDistributors(ctx context.Context, g *errgroup.Group, logs []dist_gh.Log,
 			Owner:    operatorConfig.GithubUser,
 			RepoName: repoName,
 		}
-		repo, err := github.NewRepository(ctx, dr, mainBranch, fork, operatorConfig.GithubUser, operatorConfig.GithubEmail, operatorConfig.GithubToken)
+		repo, err := github.NewRepository(ctx, c, dr, mainBranch, fork, operatorConfig.GithubUser, operatorConfig.GithubEmail, operatorConfig.GithubToken)
 		if err != nil {
 			return nil, fmt.Errorf("NewRepository: %v", err)
 		}

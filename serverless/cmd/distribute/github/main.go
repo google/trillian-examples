@@ -67,7 +67,7 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	opts := mustConfigure(ctx)
+	opts := mustConfigure(ctx, http.DefaultClient)
 
 	if err := dist_gh.DistributeOnce(ctx, opts); err != nil {
 		glog.Warningf("DistributeOnce: %v", err)
@@ -94,7 +94,7 @@ func usageExit(m string) {
 
 // mustConfigure creates an options struct from flags and env vars.
 // It will terminate execution on any error.
-func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
+func mustConfigure(ctx context.Context, c *http.Client) *dist_gh.DistributeOptions {
 	checkNotEmpty := func(m, v string) {
 		if v == "" {
 			usageExit(m)
@@ -153,7 +153,7 @@ func mustConfigure(ctx context.Context) *dist_gh.DistributeOptions {
 		logs = append(logs, log)
 	}
 
-	repo, err := github.NewRepository(ctx, dr, *distributorBranch, fr, gitUsername, gitEmail, githubAuthToken)
+	repo, err := github.NewRepository(ctx, c, dr, *distributorBranch, fr, gitUsername, gitEmail, githubAuthToken)
 	if err != nil {
 		glog.Exitf("Failed to set up repository: %v", err)
 	}

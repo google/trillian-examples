@@ -28,7 +28,6 @@ services:
     image: gcr.io/trillian-opensource-ci/sumdb-feeder:${WITNESS_VERSION}
     command:
       - "--w=http://witness:8100"
-      - "--wk=${WITNESS_PUBLIC_KEY}"
       - "--poll=5m"
       - "--alsologtostderr"
       - "--v=1"

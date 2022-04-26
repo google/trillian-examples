@@ -21,8 +21,7 @@ Both functions are HTTP-triggered and run when their respective endpoints are re
 ### GCF function deployment:
 1.  Generate a set of public and private keys following
     [these](https://github.com/google/trillian-examples/tree/master/serverless#generating-keys)
-    instructions and set them as the `SERVERLESS_LOG_PUBLIC_KEY` and
-    `SERVERLESS_LOG_PRIVATE_KEY`.
+    instructions and set them as the `PUBLIC_KEY` and `PRIVATE_KEY`.
 1. Set `PROJECT_NAME` as the name of your GCP project (string, not number).
 1.  Deploy the Integrate function:
     ```
@@ -30,7 +29,7 @@ Both functions are HTTP-triggered and run when their respective endpoints are re
     --entry-point Integrate \
     --runtime go116 \
     --trigger-http \
-    --set-env-vars GCP_PROJECT=${PROJECT_NAME} SERVERLESS_LOG_PUBLIC_KEY=${PUBLIC_KEY} SERVERLESS_LOG_PRIVATE_KEY=${PRIVATE_KEY} \
+    --set-env-vars "GCP_PROJECT=${PROJECT_NAME},SERVERLESS_LOG_PUBLIC_KEY=${PUBLIC_KEY},SERVERLESS_LOG_PRIVATE_KEY=${PRIVATE_KEY}" \
     --source=./serverless/experimental/gcp-log \
     --max-instances 1
     ```
@@ -38,9 +37,9 @@ Both functions are HTTP-triggered and run when their respective endpoints are re
     ```
     gcloud functions deploy sequence \
     --entry-point Sequence \
-    --runtime go116
+    --runtime go116 \
     --trigger-http \
-    --set-env-vars GCP_PROJECT=${PROJECT_NAME} SERVERLESS_LOG_PUBLIC_KEY=${PUBLIC_KEY} \
+    --set-env-vars "GCP_PROJECT=${PROJECT_NAME},SERVERLESS_LOG_PUBLIC_KEY=${PUBLIC_KEY}" \
     --source=./serverless/experimental/gcp-log \
     --max-instances 1
     ```

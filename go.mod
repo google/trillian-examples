@@ -16,7 +16,7 @@ require (
 	github.com/google/trillian v1.4.1-0.20211013081307-5af22d0b4a1d
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
-	github.com/miekg/dns v1.1.48
+	github.com/miekg/dns v1.1.49
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/transparency-dev/merkle v0.0.0-20220411132142-cfdaeb1822ee
 	github.com/u-root/u-root v7.0.0+incompatible

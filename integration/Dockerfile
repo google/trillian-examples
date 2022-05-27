@@ -25,4 +25,4 @@ RUN curl -sfL https://github.com/usbarmory/tamago-go/releases/download/tamago-go
 ENV TAMAGO=/usr/local/tamago-go/bin/go
 
 ENV GOPATH /go
-ENV PATH $GOPATH/bin:/testbase/protoc/bin:/usr/local/tamago-go/bin:/usr/local/go/bin:$PATH
+ENV PATH $GOPATH/bin:/testbase/protoc/bin:/usr/local/go/bin:/usr/local/tamago-go/bin:$PATH

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package config declares how witnesses are configured.
 package config
 
 import (
@@ -19,7 +20,7 @@ import (
 	"net/url"
 )
 
-// Log describes a witness in a config file.
+// Witness describes a witness in a config file.
 type Witness struct {
 	// URL is the URL of the root of the witness.
 	// This is optional if direct witness communication is not required.

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// client contains a basic client for the SumDB log.
+// Package client contains a basic client for the SumDB log.
 package client
 
 import (

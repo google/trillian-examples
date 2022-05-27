@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package dummy provides a fake device to demo flashing firmware.
 package dummy
 
 import (
@@ -40,7 +41,7 @@ type Device struct {
 
 var _ devices.Device = Device{}
 
-// NewFromFlags creates a new dummy device instance using data from flags.
+// New creates a new dummy device instance using data from flags.
 // TODO(al): figure out how/whether to remove the flag from in here.
 func New(storage string) (*Device, error) {
 	dStat, err := os.Stat(storage)

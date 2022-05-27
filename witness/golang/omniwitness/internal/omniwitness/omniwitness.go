@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// omniwitness provides a single Main file that basically runs the omniwitness.
+// Package omniwitness provides a single Main file that runs the omniwitness.
 // Some components are left pluggable so this can be deployed on different
 // runtimes.
 package omniwitness

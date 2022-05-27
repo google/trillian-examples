@@ -126,6 +126,9 @@ func NodeHash(left, right []byte) []byte {
 	return h.Sum(nil)
 }
 
+// DomainCertIndexLog represents a key/value inside the map, and this value is a log.
+// The key is the domain, and the list of indices is an ordered sequence of leaf index
+// that contains certificates for this domain within the input log that was processed.
 type DomainCertIndexLog struct {
 	Domain  string
 	Indices []uint64

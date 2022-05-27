@@ -61,7 +61,7 @@ type SlotPersistence struct {
 // slotMap defines the structure of the mapping config stored in slot zero.
 type slotMap map[string]uint
 
-// NewSlotPeristence creates a new SlotPersistence instance.
+// NewSlotPersistence creates a new SlotPersistence instance.
 // As per the Persistence interface, Init must be called before it's used to
 // read or write any data.
 func NewSlotPersistence(part *slots.Partition) *SlotPersistence {

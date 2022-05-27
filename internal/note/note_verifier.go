@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package note provides note-compatible signature verifiers.
+// Package note provides note-compatible signature verifiers.
 package note
 
 import (
@@ -40,6 +40,7 @@ const (
 	algECDSAWithSHA256 = 2
 )
 
+// NewVerifier returns a verifier for the given key type and key.
 func NewVerifier(keyType, key string) (sdb_note.Verifier, error) {
 	switch keyType {
 	case ECDSA:

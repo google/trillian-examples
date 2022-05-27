@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// logdb contains read/write access to the locally cloned data.
+// Package logdb contains read/write access to the locally cloned data.
 package logdb
 
 import (
@@ -45,7 +45,7 @@ func NewDatabase(connString string) (*Database, error) {
 	return db, db.init()
 }
 
-// NewDatabase creates a Database using the given database connection.
+// NewDatabaseDirect creates a Database using the given database connection.
 func NewDatabaseDirect(db *sql.DB) (*Database, error) {
 	ret := &Database{
 		db: db,

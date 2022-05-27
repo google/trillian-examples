@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// TestGetLogs exposes a test that can be invoked by tests for specific implementations of persistence.
 func TestGetLogs(t *testing.T, lspFactory func() (persistence.LogStatePersistence, func() error)) {
 	lsp, close := lspFactory()
 	defer close()
@@ -48,6 +49,7 @@ func TestGetLogs(t *testing.T, lspFactory func() (persistence.LogStatePersistenc
 	}
 }
 
+// TestWriteOps exposes a test that can be invoked by tests for specific implementations of persistence.
 func TestWriteOps(t *testing.T, lspFactory func() (persistence.LogStatePersistence, func() error)) {
 	lsp, close := lspFactory()
 	defer close()

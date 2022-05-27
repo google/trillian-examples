@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// package impl is the implementation of a util to flash firmware update packages created by the publisher tool onto devices.
+// Package impl is the implementation of a util to flash firmware update packages created by the publisher tool onto devices.
 //
 // Currently, the only device is a dummy device, which simply sorts the firmware+metadata on local disk.
 package impl
@@ -51,6 +51,7 @@ type FlashOpts struct {
 	DeviceStorage  string
 }
 
+// Main flashes the device according to the options provided.
 func Main(ctx context.Context, opts FlashOpts) error {
 	logURL, err := url.Parse(opts.LogURL)
 	if err != nil {

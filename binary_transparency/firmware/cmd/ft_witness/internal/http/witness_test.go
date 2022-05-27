@@ -50,7 +50,7 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to sign checkpoint: %v", err)
 			}
-			witness, err := NewWitness(FakeStore{ns, true}, dummyURL, testVerifier, dummyPollInterval)
+			witness, err := NewWitness(&FakeStore{ns, true}, dummyURL, testVerifier, dummyPollInterval)
 			if err != nil {
 				t.Fatalf("error creating witness: %v", err)
 			}
@@ -92,7 +92,7 @@ func TestFailedWitnessCreation(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			_, err := NewWitness(FakeStore{[]byte{}, false}, dummyURL, testVerifier, dummyPollInterval)
+			_, err := NewWitness(&FakeStore{[]byte{}, false}, dummyURL, testVerifier, dummyPollInterval)
 			if err == nil {
 				t.Errorf("error witness creation happened smoothly: %v", err)
 			}
@@ -109,7 +109,7 @@ type FakeStore struct {
 	storeaccess bool
 }
 
-func (f FakeStore) StoreCP(wcp []byte) error {
+func (f *FakeStore) StoreCP(wcp []byte) error {
 	if !f.storeaccess {
 		return fmt.Errorf("unable to access store")
 	}
@@ -117,7 +117,7 @@ func (f FakeStore) StoreCP(wcp []byte) error {
 	return nil
 }
 
-func (f FakeStore) RetrieveCP() ([]byte, error) {
+func (f *FakeStore) RetrieveCP() ([]byte, error) {
 	if !f.storeaccess {
 		return nil, fmt.Errorf("unable to access store")
 	}

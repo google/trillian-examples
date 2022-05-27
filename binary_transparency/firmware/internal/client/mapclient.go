@@ -32,10 +32,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// MapClient is a client that exposes the operations on a remote map.
 type MapClient struct {
 	mapURL *url.URL
 }
 
+// NewMapClient creates a MapClient for a map hosted at the given URL.
 func NewMapClient(mapURL string) (*MapClient, error) {
 	u, err := url.Parse(mapURL)
 	if err != nil {

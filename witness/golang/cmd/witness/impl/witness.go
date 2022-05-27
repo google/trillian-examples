@@ -51,7 +51,7 @@ type LogInfo struct {
 	UseCompact    bool   `yaml:"UseCompact"`
 }
 
-// The options for a server (specified in main.go).
+// ServerOpts are the options for a server (specified in main.go).
 type ServerOpts struct {
 	// Where to listen for requests.
 	ListenAddr string
@@ -91,6 +91,7 @@ func (config LogConfig) AsLogMap() (map[string]witness.LogInfo, error) {
 	return logMap, nil
 }
 
+// Main runs the witness until the context is canceled.
 func Main(ctx context.Context, opts ServerOpts) error {
 	if len(opts.DBFile) == 0 {
 		return errors.New("DBFile is required")

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// clone contains the core engine for quickly downloading leaves and adding
+// Package cloner contains the core engine for quickly downloading leaves and adding
 // them to the database.
 package cloner
 

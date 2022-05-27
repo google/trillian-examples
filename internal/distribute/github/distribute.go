@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// The github package provides support for pushing witnessed checkpoints to a
+// Package github provides support for pushing witnessed checkpoints to a
 // github actions based distributor.
 package github
 

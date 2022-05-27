@@ -156,13 +156,13 @@ func (b *MapBuilder) getLogEnd(requiredEntries int64) (int64, []byte, error) {
 }
 
 const (
-	// Partition index for partition containing FirmwareMetadata
+	// FirmwareMetaPartition is the partition index for partition containing FirmwareMetadata
 	FirmwareMetaPartition = iota
-	// Partition index for partition containing MalwareStatement
+	// MalwareStatementPartition is the partition index for partition containing MalwareStatement
 	MalwareStatementPartition
-	// Partition index for partition containing anything not classified above
+	// UnclassifiedStatementPartition is the partition index for partition containing anything not classified above
 	UnclassifiedStatementPartition
-	// Add new partitions here
+	// MaxPartitions is the total number of supported partitions. Add new partitions here.
 	MaxPartitions
 )
 

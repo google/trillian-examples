@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Runs a simple client, designed to interact with a personality.
+// Package helloworld runs a simple client, designed to interact with a personality.
 package helloworld
 
 import (
@@ -46,7 +46,7 @@ type Personality interface {
 	UpdateChkpt(ctx context.Context, oldCPSize uint64) (personality.SignedCheckpoint, *trillian.Proof, error)
 }
 
-// A client is a verifier that maintains a checkpoint as state.
+// Client is a verifier that maintains a checkpoint as state.
 type Client struct {
 	v           merkle.LogVerifier
 	chkpt       *log.Checkpoint

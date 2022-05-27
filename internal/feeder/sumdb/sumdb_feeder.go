@@ -44,6 +44,8 @@ var (
 	}
 )
 
+// FeedLog continually feeds checkpoints from the given log into the witness.
+// This method blocks until the context is done.
 func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client, interval time.Duration) error {
 	sdb := client.NewSumDB(tileHeight, l.PublicKey, l.URL, c)
 	logSigV, err := i_note.NewVerifier(l.PublicKeyType, l.PublicKey)

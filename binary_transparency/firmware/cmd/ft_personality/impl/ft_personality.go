@@ -46,6 +46,7 @@ type PersonalityOpts struct {
 	Signer         note.Signer
 }
 
+// Main runs the FT personality server until the context is canceled.
 func Main(ctx context.Context, opts PersonalityOpts) error {
 	if len(opts.CASFile) == 0 {
 		return errors.New("CAS file is required")

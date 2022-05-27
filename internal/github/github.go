@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// github contains libraries for using github repositories that make serverless
-// operations easy to follow.
+// Package github contains libraries for using github repositories that
+// make serverless operations easy to follow.
 package github
 
 import (

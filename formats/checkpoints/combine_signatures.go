@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// checkpoints provides functionality for handling checkpoints.
+// Package checkpoints provides functionality for handling checkpoints.
 package checkpoints
 
 import (

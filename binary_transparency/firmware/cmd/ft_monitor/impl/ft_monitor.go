@@ -55,6 +55,7 @@ type MonitorOpts struct {
 	StateFile      string
 }
 
+// Main runs the monitor until the context is canceled.
 func Main(ctx context.Context, opts MonitorOpts) error {
 	if len(opts.LogURL) == 0 {
 		return errors.New("log URL is required")

@@ -62,6 +62,7 @@ func (l Log) Validate() error {
 	return nil
 }
 
+// UnmarshalYAML populates the log from yaml using the unmarshal func provided.
 func (l *Log) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	type rawLog Log
 	raw := rawLog{}

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// http is a simple client for interacting with witnesses over HTTP.
+// Package http is a simple client for interacting with witnesses over HTTP.
 package http
 
 import (
@@ -30,8 +30,10 @@ import (
 )
 
 // ErrCheckpointTooOld is returned if the checkpoint passed to Update needs to be updated.
-var ErrCheckpointTooOld error = errors.New("checkpoint too old")
+var ErrCheckpointTooOld = errors.New("checkpoint too old")
 
+// NewWitness returns a Witness accessed over http at the given URL
+// using the client provided.
 func NewWitness(url *url.URL, c *http.Client) Witness {
 	return Witness{
 		url:    url,

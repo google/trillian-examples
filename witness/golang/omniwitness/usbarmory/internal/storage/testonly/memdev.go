@@ -20,15 +20,20 @@ import (
 	"testing"
 )
 
+// MemBlockSize is the number of bytes in a single memory block.
 const MemBlockSize = 512
 
 //  MemDev is a simple in-memory block device.
 type MemDev [][MemBlockSize]byte
 
+// BlockSize returns the block size of the underlying storage system.
 func (md MemDev) BlockSize() uint {
 	return MemBlockSize
 }
 
+// ReadBlocks reads len(b) bytes into b from contiguous storage blocks starting
+// at the given block address.
+// b must be an integer multiple of the device's block size.
 func (md MemDev) ReadBlocks(lba uint, b []byte) error {
 	if lba >= uint(len(md)) {
 		return fmt.Errorf("lba (%d) >= device blocks (%d)", lba, len(md))
@@ -44,6 +49,9 @@ func (md MemDev) ReadBlocks(lba uint, b []byte) error {
 	return nil
 }
 
+// WriteBlocks writes len(b) bytes from b to contiguous storage blocks starting
+// at the given block address.
+// b must be an integer multiple of the device's block size.
 func (md MemDev) WriteBlocks(lba uint, b []byte) error {
 	if lba >= uint(len(md)) {
 		return fmt.Errorf("lba (%d) >= device blocks (%d)", lba, len(md))

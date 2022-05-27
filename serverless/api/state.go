@@ -23,7 +23,7 @@ import (
 	"strings"
 )
 
-// CheckpointHeader is the first line of a marshaled log checkpoint.
+// CheckpointHeaderV0 is the first line of a marshaled log checkpoint.
 const CheckpointHeaderV0 = "Log Checkpoint v0"
 
 // Tile represents a subtree tile, containing inner nodes of a log tree.

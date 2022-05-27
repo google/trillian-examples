@@ -36,6 +36,7 @@ import (
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
+// MapReader is an interface that allows a map to be read from storage.
 type MapReader interface {
 	// LatestRevision gets the metadata for the last completed write.
 	LatestRevision() (rev int, logroot types.LogRootV1, count int64, err error)
@@ -53,6 +54,7 @@ type MapServerOpts struct {
 	MapDBAddr  string
 }
 
+// Main brings up an http server according to the given options.
 func Main(ctx context.Context, opts MapServerOpts) error {
 	if len(opts.MapDBAddr) == 0 {
 		return errors.New("map DB is required")

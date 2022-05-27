@@ -36,34 +36,34 @@ const (
 func TestNewVerifier(t *testing.T) {
 	for _, test := range []struct {
 		name    string
-		kType   string
-		k       string
+		keyType string
+		key     string
 		wantErr bool
 	}{
 		{
 			name: "note works",
-			k:    "PeterNeumann+c74f20a3+ARpc2QcUPDhMQegwxbzhKqiBfsVkmqq/LDE4izWy10TW",
+			key:  "PeterNeumann+c74f20a3+ARpc2QcUPDhMQegwxbzhKqiBfsVkmqq/LDE4izWy10TW",
 		}, {
 			name:    "note mismatch",
-			k:       sigStoreKey,
+			key:     sigStoreKey,
 			wantErr: true,
 		}, {
-			name:  "ECDSA works",
-			kType: ECDSA,
-			k:     sigStoreKey,
+			name:    "ECDSA works",
+			keyType: ECDSA,
+			key:     sigStoreKey,
 		}, {
 			name:    "ECDSA mismatch",
-			kType:   ECDSA,
-			k:       "PeterNeumann+c74f20a3+ARpc2QcUPDhMQegwxbzhKqiBfsVkmqq/LDE4izWy10TW",
+			keyType: ECDSA,
+			key:     "PeterNeumann+c74f20a3+ARpc2QcUPDhMQegwxbzhKqiBfsVkmqq/LDE4izWy10TW",
 			wantErr: true,
 		}, {
 			name:    "unknown type fails",
-			kType:   "bananas",
+			keyType: "bananas",
 			wantErr: true,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := NewVerifier(test.kType, test.k)
+			_, err := NewVerifier(test.keyType, test.key)
 			if gotErr := err != nil; gotErr != test.wantErr {
 				t.Fatalf("NewVerifier: %v, wantErr %t", err, test.wantErr)
 			}

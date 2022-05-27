@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// Runs a simple Trillian personality.
+
+// Package personality runs a simple Trillian personality.
 package personality
 
 import (
@@ -37,6 +37,7 @@ var (
 // SignedCheckpoint is a serialised form of a checkpoint+signatures.
 type SignedCheckpoint []byte
 
+// TrillianP is a personality backed by a trillian log.
 type TrillianP struct {
 	l      trillian.TrillianLogClient
 	treeID int64

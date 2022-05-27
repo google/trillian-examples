@@ -67,7 +67,7 @@ func TestLeavesAtOffset(t *testing.T) {
 			t.Errorf("expected string terminating in newline, got: %x", l)
 		}
 		expStart := "golang.org/x/"
-		if got, want := fmt.Sprintf("%s", l[:len(expStart)]), expStart; got != want {
+		if got, want := string(l[:len(expStart)]), expStart; got != want {
 			t.Errorf("got prefix '%s', wanted '%s'", got, want)
 		}
 	}

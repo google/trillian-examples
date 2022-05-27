@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// download contains a library for downloading data from logs.
+// Package download contains a library for downloading data from logs.
 package download
 
 import (

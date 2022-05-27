@@ -11,7 +11,7 @@ RUN echo "deb http://deb.debian.org/debian buster-backports main contrib non-fre
 RUN apt-get update && apt-get -y install curl docker-compose lsof netcat unzip wget xxd
 
 RUN cd /usr/bin && curl -L -O https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && mv jq-linux64 /usr/bin/jq && chmod +x /usr/bin/jq
-RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.18.0
+RUN curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin v1.46.1
 RUN mkdir protoc && \
     (cd protoc && \
     wget "https://github.com/google/protobuf/releases/download/v3.5.1/protoc-3.5.1-linux-x86_64.zip" && \

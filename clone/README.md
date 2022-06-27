@@ -61,8 +61,22 @@ It depends on many variables such as log latency and rate limiting, the database
 Download clients are provided for:
   * [CT](cmd/ctclone/)
   * [sum.golang.org](cmd/sumdbclone/)
+  * [serverless HTTP logs](cmd/serverlessclone/)
  
 See the documentation for these for specifics of each tool.
+
+## Using Cloned Data
+
+The data is stored in a simple database table named `leaves`, where each leaf in the log
+is identified by its position in the log (column `id`) and the data at that position is a
+blob (column `data`). The expectation is that clients will write custom tooling that reads
+from this SQL table in order to perform custom tasks, e.g. verification of data, searching
+to find relevant records, etc.
+
+An example query that returns the first 5 leaves in the DB:
+```
+select * from leaves where id < 5;
+```
 
 ## Quick Start (Mac)
 

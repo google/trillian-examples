@@ -63,3 +63,16 @@ Download clients are provided for:
   * [sum.golang.org](cmd/sumdbclone/)
  
 See the documentation for these for specifics of each tool.
+
+## Quick Start (Mac)
+
+On a Mac with [Homebrew](https://brew.sh) already installed, getting MariaDB installed
+and connected to it in order to run the setup above is simple.
+At the time of writing, this installed `10.8.3-MariaDB Homebrew` which works well for
+the cloning tool.
+
+```
+brew install mariadb
+brew services restart mariadb
+mysql
+```

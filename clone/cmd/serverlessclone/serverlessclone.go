@@ -40,10 +40,10 @@ import (
 )
 
 var (
-	vkey     = flag.String("vkey", "lvfs+7908d142+ASnlGgOh+634tcE/2Lp3wV7k/cLoU6ncawmb/BLC1oMU", "The verification key for the log checkpoints")
-	origin   = flag.String("origin", "lvfs", "The origin string for the log checkpoints")
-	logURL   = flag.String("url", "https://fwupd.org/ftlog/lvfs/", "The base URL for the log HTTP API")
-	mysqlURI = flag.String("mysql_uri", "clonetool:letmein@tcp(localhost)/lvfs", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
+	logURL   = flag.String("url", "", "The base URL for the log HTTP API, should end with a trailing slash")
+	vkey     = flag.String("vkey", "", "The verification key for the log checkpoints")
+	origin   = flag.String("origin", "", "The origin string for the log checkpoints")
+	mysqlURI = flag.String("mysql_uri", "", "URL of a MySQL database to clone the log into. The DB should contain only one log.")
 
 	writeBatchSize = flag.Uint("write_batch_size", 100, "The number of leaves to write in each DB transaction.")
 	workers        = flag.Uint("workers", 50, "The number of worker threads to run in parallel to fetch entries.")
@@ -53,7 +53,16 @@ var (
 func main() {
 	flag.Parse()
 
-	if len(*mysqlURI) == 0 {
+	if *logURL == "" {
+		glog.Exit("Missing required parameter 'url'")
+	}
+	if *vkey == "" {
+		glog.Exit("Missing required parameter 'vkey'")
+	}
+	if *origin == "" {
+		glog.Exit("Missing required parameter 'origin'")
+	}
+	if *mysqlURI == "" {
 		glog.Exit("Missing required parameter 'mysql_uri'")
 	}
 
@@ -65,11 +74,11 @@ func main() {
 
 	v, err := note.NewVerifier(*vkey)
 	if err != nil {
-		glog.Exitf("failed to create verifier: %v", err)
+		glog.Exitf("Failed to create verifier: %v", err)
 	}
 	u, err := url.Parse(*logURL)
 	if err != nil {
-		glog.Exitf("invalid log URL %q: %v", *logURL, err)
+		glog.Exitf("Invalid log URL %q: %v", *logURL, err)
 	}
 	f := newFetcher(u)
 

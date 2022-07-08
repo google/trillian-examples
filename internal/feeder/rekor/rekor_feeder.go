@@ -111,6 +111,7 @@ func getJSON(ctx context.Context, c *http.Client, base *url.URL, path string, s 
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 	req = req.WithContext(ctx)
+	req.Header.Set("Accept", "application/json")
 
 	rsp, err := c.Do(req)
 	if err != nil {

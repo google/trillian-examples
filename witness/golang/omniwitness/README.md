@@ -16,7 +16,7 @@ a container will be deployed for:
 Instructions for deploying this are expanded below.
 
 In addition, there are two other equivalent implementations with different deployments:
-  * [monolith](./monolith): all in one process, can be ran bare or in Docker
+  * [monolith](./monolith): all in one process, can be run bare or in Docker
   * [usbarmory](./usbarmory): all in one unikernel, for specialized hardware
 
 ## Common Configuration

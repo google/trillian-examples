@@ -7,16 +7,16 @@ distributor on GitHub too.
 For more details on witnessing, and the various roles involved (including
 `distributor`), please see the [witness README](/witness) in this repo.
 
-The distributor here receives checkpoints from known witnesses via GitHub
+This distributor receives checkpoints from known witnesses via GitHub
 Pull Requests (PRs) and makes these available for clients to download.
-The value-add from having a central distributor is that a checkpoint that
-has been witnessed by a number of parties can be downloaded in a single
-request.
+Running distributors separately from witnesses allows for more simplicity
+for clients, e.g. a checkpoint that has been witnessed by a number of parties
+can be downloaded in a single request.
 
 In order to facilitate this, the actions described below will merge equivalent
 checkpoints seen by multiple witnesses into a single checkpoint.
-This leads to a file format which is `$logID/checkpoint.N`, where `N` is the
-number of witnessing parties required.
+This leads to a file naming scheme which is `$logID/checkpoint.N`, where `N`
+is the number of distinct witness signatures found.
 Lower values of `N` will be available faster, but higher values provide better
 protection from split views.
 

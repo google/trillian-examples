@@ -4,17 +4,31 @@
 
 Similar to serverless logs, we can deploy a file-based witnessed checkpoint
 distributor on GitHub too.
-
 For more details on witnessing, and the various roles involved (including
 `distributor`), please see the [witness README](/witness) in this repo.
 
-This directory provides some GitHub Actions and documentation to help with that.
+The distributor here receives checkpoints from known witnesses via GitHub
+Pull Requests (PRs) and makes these available for clients to download.
+The value-add from having a central distributor is that a checkpoint that
+has been witnessed by a number of parties can be downloaded in a single
+request.
+
+In order to facilitate this, the actions described below will merge equivalent
+checkpoints seen by multiple witnesses into a single checkpoint.
+This leads to a file format which is `$logID/checkpoint.N`, where `N` is the
+number of witnessing parties required.
+Lower values of `N` will be available faster, but higher values provide better
+protection from split views.
+
+Known deployments of this distributor can be found at:
+  * https://github.com/mhutchinson/mhutchinson-distributor
+  * https://github.com/WolseyBankWitness/rediffusion
+
+## GitHub Actions
 
 For the moment, we'll assume that you have a fresh GitHub repo which you'll
 dedicate to the sole use of being a distributor, although it should also work fine
 in a repo containing other files too.
-
-## GitHub Actions
 
 ### PR validation
 

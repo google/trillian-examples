@@ -33,7 +33,7 @@ import (
 	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/client/witness"
-	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
@@ -165,10 +165,9 @@ func main() {
 // It relies heavily on the components provided by the `internal/client` package
 // to accomplish this.
 type logClientTool struct {
-	Fetcher  client.Fetcher
-	Hasher   *rfc6962.Hasher
-	Verifier merkle.LogVerifier
-	Tracker  client.LogStateTracker
+	Fetcher client.Fetcher
+	Hasher  *rfc6962.Hasher
+	Tracker client.LogStateTracker
 }
 
 func newLogClientTool(ctx context.Context, logID string, logFetcher client.Fetcher, logSigV note.Verifier, witnesses []note.Verifier, distributors []client.Fetcher) (*logClientTool, error) {
@@ -203,10 +202,9 @@ func newLogClientTool(ctx context.Context, logID string, logFetcher client.Fetch
 	}
 
 	return &logClientTool{
-		Fetcher:  logFetcher,
-		Hasher:   hasher,
-		Verifier: merkle.NewLogVerifier(hasher),
-		Tracker:  tracker,
+		Fetcher: logFetcher,
+		Hasher:  hasher,
+		Tracker: tracker,
 	}, nil
 }
 
@@ -240,7 +238,7 @@ func (l *logClientTool) consistencyProof(ctx context.Context, args []string) err
 	glog.V(1).Infof("Built consistency proof: %#x", p)
 
 	if o := *outputConsistency; len(o) > 0 {
-		if err := ioutil.WriteFile(o, []byte(proof(p).Marshal()), 0644); err != nil {
+		if err := ioutil.WriteFile(o, []byte(merkleProof(p).Marshal()), 0644); err != nil {
 			return fmt.Errorf("failed to write inclusion proof to %q: %v", o, err)
 		}
 	}
@@ -286,12 +284,12 @@ func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error
 
 	glog.V(1).Infof("Built inclusion proof: %#x", p)
 
-	if err := l.Verifier.VerifyInclusion(idx, cp.Size, lh, p, cp.Hash); err != nil {
+	if err := proof.VerifyInclusion(l.Hasher, idx, cp.Size, lh, p, cp.Hash); err != nil {
 		return fmt.Errorf("failed to verify inclusion proof: %q", err)
 	}
 
 	if o := *outputInclusion; len(o) > 0 {
-		ps := []byte(proof(p).Marshal())
+		ps := []byte(merkleProof(p).Marshal())
 		if err := ioutil.WriteFile(o, ps, 0644); err != nil {
 			glog.Warningf("Failed to write inclusion proof to %q: %v", o, err)
 		}
@@ -326,7 +324,7 @@ func (l *logClientTool) updateCheckpoint(ctx context.Context, args []string) err
 	}
 
 	if o := *outputConsistency; len(o) > 0 {
-		if err := ioutil.WriteFile(o, []byte(proof(p).Marshal()), 0644); err != nil {
+		if err := ioutil.WriteFile(o, []byte(merkleProof(p).Marshal()), 0644); err != nil {
 			glog.Warningf("Failed to write consistency proof to %q: %v", o, err)
 		}
 	}
@@ -464,11 +462,11 @@ func distributors() ([]client.Fetcher, error) {
 	return distribs, nil
 }
 
-// proof represents Merkle proofs.
-type proof [][]byte
+// merkleProof represents Merkle proofs.
+type merkleProof [][]byte
 
 // Marshal returns a simple string-based representation of the proof.
-func (p proof) Marshal() string {
+func (p merkleProof) Marshal() string {
 	b := strings.Builder{}
 	for _, l := range p {
 		b.WriteString(base64.StdEncoding.EncodeToString(l))

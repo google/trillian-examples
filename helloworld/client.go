@@ -22,6 +22,7 @@ import (
 	trillian "github.com/google/trillian"
 	"github.com/google/trillian-examples/helloworld/personality"
 	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 
 	"github.com/google/trillian-examples/formats/log"
@@ -48,7 +49,7 @@ type Personality interface {
 
 // Client is a verifier that maintains a checkpoint as state.
 type Client struct {
-	v           merkle.LogVerifier
+	h           merkle.LogHasher
 	chkpt       *log.Checkpoint
 	person      Personality
 	sigVerifier note.Verifier
@@ -58,10 +59,9 @@ type Client struct {
 // personality to talk to.  In real usage, a client should persist this
 // checkpoint across different runs to ensure consistency.
 func NewClient(prsn Personality, nv note.Verifier) Client {
-	v := merkle.NewLogVerifier(rfc6962.DefaultHasher)
 	return Client{
 		person:      prsn,
-		v:           v,
+		h:           rfc6962.DefaultHasher,
 		sigVerifier: nv,
 	}
 }
@@ -69,7 +69,7 @@ func NewClient(prsn Personality, nv note.Verifier) Client {
 // VerIncl allows the client to check inclusion of a given entry.
 func (c Client) VerIncl(entry []byte, pf *trillian.Proof) bool {
 	leafHash := rfc6962.DefaultHasher.HashLeaf(entry)
-	if err := c.v.VerifyInclusion(uint64(pf.LeafIndex), c.chkpt.Size, leafHash, pf.Hashes, c.chkpt.Hash); err != nil {
+	if err := proof.VerifyInclusion(c.h, uint64(pf.LeafIndex), c.chkpt.Size, leafHash, pf.Hashes, c.chkpt.Hash); err != nil {
 		return false
 	}
 	return true
@@ -87,7 +87,7 @@ func (c *Client) UpdateChkpt(chkptNewRaw personality.SignedCheckpoint, pf *trill
 	if c.chkpt.Size != 0 {
 		// Else make sure this new checkpoint is consistent with the current one.
 		hashes := pf.GetHashes()
-		if err := c.v.VerifyConsistency(c.chkpt.Size, chkptNew.Size, c.chkpt.Hash, chkptNew.Hash, hashes); err != nil {
+		if err := proof.VerifyConsistency(c.h, c.chkpt.Size, chkptNew.Size, hashes, c.chkpt.Hash, chkptNew.Hash); err != nil {
 			return fmt.Errorf("failed to verify consistency proof: %w", err)
 		}
 	}

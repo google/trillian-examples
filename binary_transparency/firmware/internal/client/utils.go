@@ -21,14 +21,14 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"github.com/transparency-dev/merkle/proof"
+	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 // AwaitInclusion waits for the specified statement s to be included into the log and then
 // returns the checkpoint under which it was found to be present, along with valid consistency and inclusion proofs.
 func AwaitInclusion(ctx context.Context, c *ReadonlyClient, cp api.LogCheckpoint, s []byte) (api.LogCheckpoint, api.ConsistencyProof, api.InclusionProof, error) {
-	lh := verify.HashLeaf(s)
-	lv := verify.NewLogVerifier()
+	lh := rfc6962.DefaultHasher
 	for {
 		select {
 		case <-time.After(1 * time.Second):
@@ -54,7 +54,7 @@ func AwaitInclusion(ctx context.Context, c *ReadonlyClient, cp api.LogCheckpoint
 				continue
 			}
 			consistency = *cproof
-			if err := lv.VerifyConsistency(cp.Size, newCP.Size, cp.Hash, newCP.Hash, consistency.Proof); err != nil {
+			if err := proof.VerifyConsistency(lh, cp.Size, newCP.Size, consistency.Proof, cp.Hash, newCP.Hash); err != nil {
 				// Whoa Nelly, this is bad - bail!
 				glog.Warning("Invalid consistency proof received!")
 				return *newCP, consistency, api.InclusionProof{}, fmt.Errorf("invalid inclusion proof received: %w", err)
@@ -68,7 +68,7 @@ func AwaitInclusion(ctx context.Context, c *ReadonlyClient, cp api.LogCheckpoint
 			glog.Warningf("Received error while fetching inclusion proof: %q", err)
 			continue
 		}
-		if err := lv.VerifyInclusion(ip.LeafIndex, cp.Size, lh, ip.Proof, cp.Hash); err != nil {
+		if err := proof.VerifyInclusion(lh, ip.LeafIndex, cp.Size, lh.HashLeaf(s), ip.Proof, cp.Hash); err != nil {
 			// Whoa Nelly, this is bad - bail!
 			glog.Warning("Invalid inclusion proof received!")
 			return cp, consistency, ip, fmt.Errorf("invalid inclusion proof received: %w", err)

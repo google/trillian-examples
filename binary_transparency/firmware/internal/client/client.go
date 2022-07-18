@@ -28,7 +28,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/status"
 )
@@ -145,7 +145,7 @@ func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 
 // GetInclusion returns an inclusion proof for the statement under the given checkpoint.
 func (c ReadonlyClient) GetInclusion(statement []byte, cp api.LogCheckpoint) (api.InclusionProof, error) {
-	hash := verify.HashLeaf(statement)
+	hash := rfc6962.DefaultHasher.HashLeaf(statement)
 	u, err := c.LogURL.Parse(fmt.Sprintf("%s/for-leaf-hash/%s/in-tree-of/%d", api.HTTPGetInclusion, base64.URLEncoding.EncodeToString(hash), cp.Size))
 	if err != nil {
 		return api.InclusionProof{}, err

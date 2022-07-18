@@ -30,6 +30,7 @@ import (
 	"github.com/google/trillian-examples/serverless/internal/storage/fs"
 	"github.com/google/trillian-examples/serverless/pkg/log"
 	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
@@ -44,7 +45,6 @@ const (
 
 func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.Hasher, signer note.Signer) {
 	ctx := context.Background()
-	lv := merkle.NewLogVerifier(lh)
 
 	// Do a few iterations around the sequence/integrate loop;
 	const (
@@ -111,7 +111,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			if err != nil {
 				t.Fatalf("Failed to fetch inclusion proof for %d: %v", idx, err)
 			}
-			if err := lv.VerifyInclusion(idx, newCheckpoint.Size, h, ip, newCheckpoint.Hash); err != nil {
+			if err := proof.VerifyInclusion(lh, idx, newCheckpoint.Size, h, ip, newCheckpoint.Hash); err != nil {
 				t.Fatalf("Invalid inclusion proof for %d: %x", idx, ip)
 			}
 		}

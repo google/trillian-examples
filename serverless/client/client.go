@@ -162,7 +162,7 @@ func (pb *ProofBuilder) fetchNodes(ctx context.Context, nodes proof.Nodes) ([][]
 // a log of size s.
 func FetchRangeNodes(ctx context.Context, s uint64, gt GetTileFunc) ([][]byte, error) {
 	nc := newNodeCache(gt, s)
-	nIDs := compact.RangeNodes(0, s)
+	nIDs := compact.RangeNodes(0, s, nil)
 	ret := make([][]byte, len(nIDs))
 	for i, n := range nIDs {
 		h, err := nc.GetNode(ctx, n)
@@ -309,9 +309,8 @@ func GetLeaf(ctx context.Context, f Fetcher, i uint64) ([]byte, error) {
 // This tracker handles verification that updates to the tracked log state are
 // consistent with previously seen states.
 type LogStateTracker struct {
-	Hasher   merkle.LogHasher
-	Verifier merkle.LogVerifier
-	Fetcher  Fetcher
+	Hasher  merkle.LogHasher
+	Fetcher Fetcher
 	// Origin is the expected first line of checkpoints from the log.
 	Origin              string
 	ConsensusCheckpoint ConsensusCheckpointFunc
@@ -333,7 +332,6 @@ func NewLogStateTracker(ctx context.Context, f Fetcher, h merkle.LogHasher, chec
 		ConsensusCheckpoint: cc,
 		Fetcher:             f,
 		Hasher:              h,
-		Verifier:            merkle.NewLogVerifier(h),
 		LatestConsistent:    log.Checkpoint{},
 		CpSigVerifier:       nV,
 		Origin:              origin,
@@ -395,7 +393,7 @@ func (lst *LogStateTracker) Update(ctx context.Context) ([]byte, [][]byte, []byt
 			if err != nil {
 				return nil, nil, nil, err
 			}
-			if err := lst.Verifier.VerifyConsistency(lst.LatestConsistent.Size, c.Size, lst.LatestConsistent.Hash, c.Hash, p); err != nil {
+			if err := proof.VerifyConsistency(lst.Hasher, lst.LatestConsistent.Size, c.Size, p, lst.LatestConsistent.Hash, c.Hash); err != nil {
 				return nil, nil, nil, ErrInconsistency{
 					SmallerRaw: lst.LatestConsistentRaw,
 					LargerRaw:  cRaw,
@@ -423,8 +421,6 @@ func CheckConsistency(ctx context.Context, h merkle.LogHasher, f Fetcher, cp []l
 		return fmt.Errorf("failed to create proofbuilder: %v", err)
 	}
 
-	lv := merkle.NewLogVerifier(h)
-
 	// Go through list of checkpoints pairwise, checking consistency.
 	a, b := cp[0], cp[1]
 	for i := 0; i < len(cp)-1; i, a, b = i+1, cp[i], cp[i+1] {
@@ -439,7 +435,7 @@ func CheckConsistency(ctx context.Context, h merkle.LogHasher, f Fetcher, cp []l
 			if err != nil {
 				return fmt.Errorf("failed to fetch consistency between sizes %d, %d: %v", a.Size, b.Size, err)
 			}
-			if err := lv.VerifyConsistency(a.Size, b.Size, a.Hash, b.Hash, cp); err != nil {
+			if err := proof.VerifyConsistency(h, a.Size, b.Size, cp, a.Hash, b.Hash); err != nil {
 				return fmt.Errorf("invalid consistency proof between sizes %d, %d: %v", a.Size, b.Size, err)
 			}
 		}

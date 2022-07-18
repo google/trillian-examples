@@ -24,8 +24,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
-	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
 	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
+	"github.com/transparency-dev/merkle/rfc6962"
 )
 
 // ErrConsistency is returned if two logs roots are found which are inconsistent.
@@ -59,15 +60,15 @@ type LogEntry struct {
 
 // LogFollower follows a log for new data becoming available.
 type LogFollower struct {
-	c  ReadonlyClient
-	lv merkle.LogVerifier
+	c ReadonlyClient
+	h merkle.LogHasher
 }
 
 // NewLogFollower creates a LogFollower that uses the given client.
 func NewLogFollower(c ReadonlyClient) LogFollower {
 	return LogFollower{
-		c:  c,
-		lv: verify.NewLogVerifier(),
+		c: c,
+		h: rfc6962.DefaultHasher,
 	}
 }
 
@@ -118,7 +119,7 @@ func (f *LogFollower) Checkpoints(ctx context.Context, pollInterval time.Duratio
 				glog.V(1).Infof("Consistency Proof = %x", consistency.Proof)
 
 				// Verify the fetched consistency proof
-				if err := f.lv.VerifyConsistency(golden.Size, cp.Size, golden.Hash, cp.Hash, consistency.Proof); err != nil {
+				if err := proof.VerifyConsistency(f.h, golden.Size, cp.Size, consistency.Proof, golden.Hash, cp.Hash); err != nil {
 					errc <- ErrConsistency{
 						Golden: golden,
 						Latest: *cp,
@@ -146,22 +147,22 @@ func (f *LogFollower) Entries(ctx context.Context, cpc <-chan api.LogCheckpoint,
 		defer close(outc)
 		for cp := range cpc {
 			for ; head < cp.Size; head++ {
-				proof, err := f.c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{Index: head, TreeSize: cp.Size})
+				ep, err := f.c.GetManifestEntryAndProof(api.GetFirmwareManifestRequest{Index: head, TreeSize: cp.Size})
 				if err != nil {
 					glog.Warningf("Failed to fetch the Manifest: %q", err)
 					continue
 				}
-				lh := verify.HashLeaf(proof.Value)
-				if err := f.lv.VerifyInclusion(proof.LeafIndex, cp.Size, lh, proof.Proof, cp.Hash); err != nil {
+				lh := f.h.HashLeaf(ep.Value)
+				if err := proof.VerifyInclusion(f.h, ep.LeafIndex, cp.Size, lh, ep.Proof, cp.Hash); err != nil {
 					errc <- ErrInclusion{
 						Checkpoint: cp,
-						Proof:      *proof,
+						Proof:      *ep,
 					}
 					return
 				}
 				glog.V(1).Infof("Inclusion proof for leafhash 0x%x verified", lh)
 
-				statement := proof.Value
+				statement := ep.Value
 				stmt := api.SignedStatement{}
 				if err := json.NewDecoder(bytes.NewReader(statement)).Decode(&stmt); err != nil {
 					errc <- fmt.Errorf("failed to decode SignedStatement: %q", err)

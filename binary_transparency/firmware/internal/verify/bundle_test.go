@@ -25,7 +25,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
-	"github.com/transparency-dev/merkle"
+	"github.com/transparency-dev/merkle/proof"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -65,7 +65,7 @@ func TestGenerateGoldenCheckpoint(t *testing.T) {
 
 func TestBundleForUpdate(t *testing.T) {
 	var dc api.LogCheckpoint
-	proof := func(from, to uint64) ([][]byte, error) { return [][]byte{}, nil }
+	getProof := func(from, to uint64) ([][]byte, error) { return [][]byte{}, nil }
 
 	for _, test := range []struct {
 		desc    string
@@ -83,9 +83,9 @@ func TestBundleForUpdate(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			imgHash := sha512.Sum512(test.img)
-			_, _, err := verify.BundleForUpdate([]byte(goldenProofBundle), imgHash[:], dc, proof, mustGetLogSigVerifier(t))
+			_, _, err := verify.BundleForUpdate([]byte(goldenProofBundle), imgHash[:], dc, getProof, mustGetLogSigVerifier(t))
 			if (err != nil) != test.wantErr {
-				var lve merkle.RootMismatchError
+				var lve proof.RootMismatchError
 				if errors.As(err, &lve) {
 					// Printing this out allows `goldenProofBundle` to be updated if needed
 					t.Errorf("calculated root %s", base64.StdEncoding.EncodeToString(lve.CalculatedRoot))

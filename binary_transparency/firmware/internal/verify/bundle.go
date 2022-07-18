@@ -24,6 +24,8 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
+	"github.com/transparency-dev/merkle/proof"
+	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -57,8 +59,8 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 
 	// Verify the consistency proof between device and bundle checkpoint
 	if dc.Size > 0 {
-		lv := NewLogVerifier()
-		if err := lv.VerifyConsistency(dc.Size, pc.Size, dc.Hash, pc.Hash, cProof); err != nil {
+		h := rfc6962.DefaultHasher
+		if err := proof.VerifyConsistency(h, dc.Size, pc.Size, cProof, dc.Hash, pc.Hash); err != nil {
 			return proofBundle, fwMeta, fmt.Errorf("failed verification of consistency proof %w", err)
 		}
 	}
@@ -67,7 +69,6 @@ func BundleForUpdate(bundleRaw, fwHash []byte, dc api.LogCheckpoint, cpFunc Cons
 
 // BundleConsistency verifies the log checkpoint in the bundle is consistent against a given checkpoint (e.g. one fetched from a witness).
 func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc ConsistencyProofFunc, logSigVerifier note.Verifier) error {
-	lv := NewLogVerifier()
 
 	glog.V(1).Infof("Remote TreeSize=%d, Inclusion Index=%d \n", rc.Size, pb.InclusionProof.LeafIndex)
 	if rc.Size < pb.InclusionProof.LeafIndex {
@@ -87,7 +88,8 @@ func BundleConsistency(pb api.ProofBundle, rc api.LogCheckpoint, cpFunc Consiste
 	if err != nil {
 		return fmt.Errorf("cpFunc failed: %q", err)
 	}
-	if err := lv.VerifyConsistency(fromCP.Size, toCP.Size, fromCP.Hash, toCP.Hash, cProof); err != nil {
+	h := rfc6962.DefaultHasher
+	if err := proof.VerifyConsistency(h, fromCP.Size, toCP.Size, cProof, fromCP.Hash, toCP.Hash); err != nil {
 		return fmt.Errorf("failed consistency proof between remote and client checkpoint %w", err)
 	}
 	return nil
@@ -132,9 +134,9 @@ func verifyBundle(bundleRaw []byte, logSigVerifier note.Verifier) (api.ProofBund
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("expected statement type %q, but got %q", api.FirmwareMetadataType, fwStatement.Type)
 	}
 
-	lh := HashLeaf(pb.ManifestStatement)
-	lv := NewLogVerifier()
-	if err := lv.VerifyInclusion(pb.InclusionProof.LeafIndex, bundleCP.Size, lh, pb.InclusionProof.Proof, bundleCP.Hash); err != nil {
+	h := rfc6962.DefaultHasher
+	lh := h.HashLeaf(pb.ManifestStatement)
+	if err := proof.VerifyInclusion(h, pb.InclusionProof.LeafIndex, bundleCP.Size, lh, pb.InclusionProof.Proof, bundleCP.Hash); err != nil {
 		return api.ProofBundle{}, api.FirmwareMetadata{}, fmt.Errorf("invalid inclusion proof in bundle: %w", err)
 	}
 

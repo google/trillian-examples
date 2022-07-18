@@ -27,6 +27,7 @@ import (
 	"github.com/google/trillian-examples/witness/golang/internal/persistence"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/compact"
+	"github.com/transparency-dev/merkle/proof"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -117,7 +118,7 @@ func (w *Witness) GetCheckpoint(logID string) ([]byte, error) {
 // - codes.InvalidArgument for general bad requests
 // - codes.AlreadyExists if the checkpoint is smaller than the one the witness knows
 // - codes.FailedPrecondition if the checkpoint is inconsistent with the one the witness knows
-func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proof [][]byte) ([]byte, error) {
+func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, cProof [][]byte) ([]byte, error) {
 	// If we don't witness this log then no point in going further.
 	logInfo, ok := w.Logs[logID]
 	if !ok {
@@ -151,7 +152,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 				return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
 			}
 
-			if err := setInitChkptData(write, logInfo, next, signed, proof); err != nil {
+			if err := setInitChkptData(write, logInfo, next, signed, cProof); err != nil {
 				return nil, status.Errorf(codes.Internal, "couldn't set TOFU checkpoint: %v", err)
 			}
 			return signed, nil
@@ -188,7 +189,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 	// valid so we use either plain consistency proofs or compact ranges to
 	// verify, depending on the log.
 	if logInfo.UseCompact {
-		nextRange, err := verifyRange(next, prev, logInfo.Hasher, prevRange, proof)
+		nextRange, err := verifyRange(next, prev, logInfo.Hasher, prevRange, cProof)
 		if err != nil {
 			return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify compact range: %v", err)
 		}
@@ -204,8 +205,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, proo
 		return signed, nil
 	}
 	// If we're not using compact ranges then use consistency proofs.
-	logV := merkle.NewLogVerifier(logInfo.Hasher)
-	if err := logV.VerifyConsistency(prev.Size, next.Size, prev.Hash, next.Hash, proof); err != nil {
+	if err := proof.VerifyConsistency(logInfo.Hasher, prev.Size, next.Size, cProof, prev.Hash, next.Hash); err != nil {
 		// Complain if the checkpoints aren't consistent.
 		return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify consistency proof: %v", err)
 	}

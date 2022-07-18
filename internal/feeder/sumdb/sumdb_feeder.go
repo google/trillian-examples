@@ -56,7 +56,7 @@ func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client
 	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
 		broker := newTileBroker(to.Size, sdb.TileHashes)
 
-		required := compact.RangeNodes(from.Size, to.Size)
+		required := compact.RangeNodes(from.Size, to.Size, nil)
 		proof := make([][]byte, 0, len(required))
 		for _, n := range required {
 			i, r := convertToSumDBTiles(n)

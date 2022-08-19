@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,6 +29,7 @@ import (
 	"github.com/google/trillian-examples/serverless/api"
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/google/trillian-examples/serverless/pkg/log"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 
 	gcs "cloud.google.com/go/storage"
@@ -35,10 +37,11 @@ import (
 
 // Client is a serverless storage implementation which uses a GCS bucket to store tree state.
 // The naming of the objects of the GCS object is:
-//  leaves/aa/bb/cc/ddeeff...
-//  seq/aa/bb/cc/ddeeff...
-//  tile/<level>/aa/bb/ccddee...
-//  checkpoint
+//
+//	leaves/aa/bb/cc/ddeeff...
+//	seq/aa/bb/cc/ddeeff...
+//	tile/<level>/aa/bb/ccddee...
+//	checkpoint
 //
 // The functions on this struct are not thread-safe.
 type Client struct {
@@ -268,14 +271,30 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 		}
 
 		// Found the next available sequence number; write it.
-		w := bkt.Object(seqPath).NewWriter(ctx)
+		//
+		// Conditionally write only if the object does not exist yet:
+		// https://cloud.google.com/storage/docs/request-preconditions#special-case.
+		// This may exist if there is more than one instance of the sequencer
+		// writing to the same log.
+		w := bkt.Object(seqPath).If(gcs.Conditions{DoesNotExist: true}).NewWriter(ctx)
 		if _, err := w.Write(leaf); err != nil {
 			return 0, fmt.Errorf("failed to write seq file: %w", err)
 		}
 		if err := w.Close(); err != nil {
-			return 0, fmt.Errorf("couldn't close writer for object %q", seqPath)
+			var e *googleapi.Error
+			if ok := errors.As(err, &e); ok {
+				// Sequence number already in use.
+				if e.Code == http.StatusPreconditionFailed {
+					fmt.Printf("GCS writer close failed with sequence number %d: %v. Trying with number %d.\n",
+						c.nextSeq, err, c.nextSeq + 1)
+					c.nextSeq++
+					continue
+				}
+			}
+
+			return 0, fmt.Errorf("couldn't close writer for object %q: %v", seqPath, err)
 		}
-		fmt.Printf("Wrote leaf data to path %q", seqPath)
+		fmt.Printf("Wrote leaf data to path %q\n", seqPath)
 
 		// Create a leafhash file containing the assigned sequence number.
 		// This isn't infallible though, if we crash after writing the sequence

@@ -20,7 +20,7 @@ require (
 	github.com/transparency-dev/merkle v0.0.1
 	github.com/u-root/u-root v7.0.0+incompatible
 	github.com/usbarmory/imx-usbnet v0.0.0-20220317105544-a29e0d6b2167
-	github.com/usbarmory/tamago v0.0.0-20220317131509-7fbcfbeb1abb
+	github.com/usbarmory/tamago v0.0.0-20220916102621-01abb56514fc
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/mod v0.5.1
 	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f

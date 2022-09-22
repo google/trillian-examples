@@ -23,7 +23,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	usbnet "github.com/usbarmory/imx-usbnet"
-	"github.com/usbarmory/tamago/soc/imx6/usb"
+	"github.com/usbarmory/tamago/soc/nxp/usb"
 )
 
 const (

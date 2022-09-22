@@ -15,16 +15,15 @@ import (
 	"log"
 
 	"github.com/usbarmory/tamago/arm"
-	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
-	"github.com/usbarmory/tamago/soc/imx6"
-	"github.com/usbarmory/tamago/soc/imx6/rngb"
+	usbarmory "github.com/usbarmory/tamago/board/usbarmory/mk2"
+	"github.com/usbarmory/tamago/soc/nxp/imx6ul"
 )
 
 // defined in boot.s
 func exec(kernel uint32, params uint32)
 func svc()
 
-func boot(kernel uint32, params uint32) {
+func boot(kernel uint, params uint) {
 	arm.SystemExceptionHandler = func(n int) {
 		if n != arm.SUPERVISOR {
 			panic("unhandled exception")
@@ -36,13 +35,13 @@ func boot(kernel uint32, params uint32) {
 		usbarmory.LED("white", false)
 
 		// RNGB driver doesn't play well with previous initializations
-		rngb.Reset()
+		imx6ul.RNGB.Reset()
 
-		imx6.ARM.DisableInterrupts()
-		imx6.ARM.FlushDataCache()
-		imx6.ARM.DisableCache()
+		imx6ul.ARM.DisableInterrupts()
+		imx6ul.ARM.FlushDataCache()
+		imx6ul.ARM.DisableCache()
 
-		exec(kernel, params)
+		exec(uint32(kernel), uint32(params))
 	}
 
 	svc()

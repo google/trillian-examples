@@ -36,9 +36,8 @@ import (
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
 
-	_ "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
-	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
-	"github.com/usbarmory/tamago/soc/imx6/dcp"
+	usbarmory "github.com/usbarmory/tamago/board/usbarmory/mk2"
+	"github.com/usbarmory/tamago/soc/nxp/imx6ul"
 )
 
 const (
@@ -68,7 +67,7 @@ func init() {
 	debugConsole, _ := usbarmory.DetectDebugAccessory(250 * time.Millisecond)
 	<-debugConsole
 
-	dcp.Init()
+	imx6ul.DCP.Init()
 
 	if err := usbarmory.MMC.Detect(); err != nil {
 		glog.Exitf("Failed to detect MMC: %v", err)
@@ -88,7 +87,7 @@ func dcpSHA256(r io.Reader) ([32]byte, error) {
 	defer dcpSHA256Mu.Unlock()
 
 	var ret [32]byte
-	h, err := dcp.New256()
+	h, err := imx6ul.DCP.New256()
 	if err != nil {
 		return ret, fmt.Errorf("failed to create DCP hasher: %v", err)
 	}

@@ -21,7 +21,7 @@
 // using them not to overwrite existing data (e.g. the unikernel itself!)
 package storage
 
-import "github.com/usbarmory/tamago/soc/imx6/usdhc"
+import "github.com/usbarmory/tamago/soc/nxp/usdhc"
 
 var (
 	// MaxTransferBytes is the largest transfer we'll attempt.

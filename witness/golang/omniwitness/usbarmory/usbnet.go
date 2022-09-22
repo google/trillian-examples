@@ -23,7 +23,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/miekg/dns"
 	usbnet "github.com/usbarmory/imx-usbnet"
-	"github.com/usbarmory/tamago/soc/imx6/usb"
+	"github.com/usbarmory/tamago/soc/nxp/imx6ul"
 )
 
 const (
@@ -46,15 +46,15 @@ func initNetworking() error {
 
 	iface.EnableICMP()
 
-	usb.USB1.Init()
-	usb.USB1.DeviceMode()
-	usb.USB1.Reset()
+	imx6ul.USB1.Init()
+	imx6ul.USB1.DeviceMode()
+	imx6ul.USB1.Reset()
 	return nil
 }
 
 func runNetworking() error {
 	// never returns
-	usb.USB1.Start(iface.Device())
+	imx6ul.USB1.Start(iface.Device())
 
 	return nil
 }

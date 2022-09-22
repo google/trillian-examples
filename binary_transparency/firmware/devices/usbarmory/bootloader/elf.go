@@ -23,7 +23,7 @@ import (
 //
 // This function implements a _very_ simple ELF loader which is suitable for
 // loading bare-metal ELF files like those produced by TamaGo.
-func loadELF(mem uint32, kernel []byte) (addr uint32) {
+func loadELF(mem uint, kernel []byte) (addr uint) {
 	f, err := elf.NewFile(bytes.NewReader(kernel))
 
 	if err != nil {
@@ -43,9 +43,9 @@ func loadELF(mem uint32, kernel []byte) (addr uint32) {
 			panic(fmt.Sprintf("failed to read LOAD section at idx %d, %q", idx, err))
 		}
 
-		offset := uint32(prg.Paddr) - mem
+		offset := uint(prg.Paddr) - mem
 		dma.Write(mem, int(offset), b)
 	}
 
-	return uint32(f.Entry)
+	return uint(f.Entry)
 }

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/cmd/ft_personality/internal/trees"
+	"github.com/transparency-dev/merkle/rfc6962"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian"
@@ -87,7 +88,7 @@ func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeS
 
 // AddSignedStatement adds the statement to the log if it isn't already present.
 func (c *Client) AddSignedStatement(ctx context.Context, data []byte) error {
-	leafHash := c.BuildLeaf(data).MerkleLeafHash
+	leafHash := rfc6962.DefaultHasher.HashLeaf(data)
 	leaf := &trillian.LogLeaf{
 		LeafValue:      data,
 		MerkleLeafHash: leafHash,

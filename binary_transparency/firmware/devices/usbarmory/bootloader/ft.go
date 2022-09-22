@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/verify"
-	"github.com/usbarmory/tamago/soc/imx6/dcp"
+	"github.com/usbarmory/tamago/soc/nxp/imx6ul"
 	"golang.org/x/mod/sumdb/note"
 )
 
@@ -21,7 +21,7 @@ const (
 )
 
 func init() {
-	dcp.Init()
+	imx6ul.DCP.Init()
 }
 
 // verifyIntegrity checks the validity of the device state
@@ -72,7 +72,7 @@ func measureFirmware(p *Partition) ([]byte, error) {
 
 	start := time.Now()
 	go func() {
-		h, err := dcp.New256()
+		h, err := imx6ul.DCP.New256()
 		if err != nil {
 			panic(fmt.Sprintf("Failed to created hasher: %q", err))
 		}

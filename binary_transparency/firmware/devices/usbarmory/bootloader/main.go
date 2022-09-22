@@ -16,9 +16,9 @@ import (
 	"log"
 	"strconv"
 
-	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
+	usbarmory "github.com/usbarmory/tamago/board/usbarmory/mk2"
 	"github.com/usbarmory/tamago/dma"
-	"github.com/usbarmory/tamago/soc/imx6"
+	"github.com/usbarmory/tamago/soc/nxp/imx6ul"
 )
 
 var Build string
@@ -41,7 +41,7 @@ func init() {
 
 	log.SetFlags(0)
 
-	if err := imx6.SetARMFreq(900); err != nil {
+	if err := imx6ul.SetARMFreq(900); err != nil {
 		panic(fmt.Sprintf("cannot change ARM frequency, %v\n", err))
 	}
 

@@ -19,12 +19,12 @@ import (
 // mapped kernel image needs to be within the first 128MiB of RAM.
 
 //go:linkname ramStart runtime.ramStart
-var ramStart uint32 = 0x90000000
+var ramStart uint = 0x90000000
 
 //go:linkname ramSize runtime.ramSize
-var ramSize uint32 = 0x10000000
+var ramSize uint = 0x10000000
 
-var dmaStart uint32 = 0x80000000
+var dmaStart uint = 0x80000000
 var dmaSize = 0x10000000
 
 const kernelOffset = 0x0800000

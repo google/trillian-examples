@@ -17,8 +17,8 @@ import (
 	"runtime"
 	"time"
 
-	usbarmory "github.com/usbarmory/tamago/board/f-secure/usbarmory/mark-two"
-	"github.com/usbarmory/tamago/soc/imx6"
+	usbarmory "github.com/usbarmory/tamago/board/usbarmory/mk2"
+	"github.com/usbarmory/tamago/soc/nxp/imx6ul"
 )
 
 func init() {
@@ -28,7 +28,7 @@ func init() {
 	banner := fmt.Sprintf("armory-boot • %s/%s (%s) • %s %s • %s",
 		runtime.GOOS, runtime.GOARCH, runtime.Version(),
 		Revision, Build,
-		imx6.Model())
+		imx6ul.Model())
 
 	log.SetFlags(0)
 	log.Printf("%s", banner)

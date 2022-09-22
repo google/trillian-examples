@@ -20,7 +20,7 @@ import (
 
 	"github.com/dsoprea/go-ext4"
 
-	"github.com/usbarmory/tamago/soc/imx6/usdhc"
+	"github.com/usbarmory/tamago/soc/nxp/usdhc"
 )
 
 type Partition struct {

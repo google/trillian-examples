@@ -18,27 +18,42 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/google/trillian-examples/third_party/dhcp"
 	"github.com/miekg/dns"
 	usbnet "github.com/usbarmory/imx-usbnet"
 	"github.com/usbarmory/tamago/soc/nxp/imx6ul"
+	"gvisor.dev/gvisor/pkg/tcpip"
+	"gvisor.dev/gvisor/pkg/tcpip/network/ipv4"
+	"gvisor.dev/gvisor/pkg/tcpip/stack"
 )
 
 const (
-	deviceIP  = "10.0.0.1"
-	deviceMAC = "1a:55:89:a2:69:41"
-	hostMAC   = "1a:55:89:a2:69:42"
-	resolver  = "8.8.8.8:53"
+	deviceMAC       = "1a:55:89:a2:69:41"
+	hostMAC         = "1a:55:89:a2:69:42"
+	defaultResolver = "8.8.8.8:53"
+	dhcpServerPort  = 67
+	dhcpClientPort  = 68
+	nicID           = 1
 )
 
-var iface *usbnet.Interface
+var (
+	iface    *usbnet.Interface
+	resolver string = defaultResolver
+	netReady sync.WaitGroup
+)
 
-func initNetworking() error {
+// initNetworking initialises the USB network stack.
+// ip should be a string representation of the IPv4 address to assign
+// to the interface, or the empty string in which DHCP4 will be used to
+// attempt to auto-configure the interface.
+func initNetworking(ip string) error {
 	var err error
 
-	iface, err = usbnet.Init(deviceIP, deviceMAC, hostMAC, 1)
+	iface, err = usbnet.Init(ip, deviceMAC, hostMAC, 1)
 
 	if err != nil {
 		return fmt.Errorf("could not initialize USB networking, %v", err)
@@ -49,6 +64,12 @@ func initNetworking() error {
 	imx6ul.USB1.Init()
 	imx6ul.USB1.DeviceMode()
 	imx6ul.USB1.Reset()
+
+	if ip == "" {
+		netReady.Add(1)
+		glog.Info("No IP address specified for NIC, using DHCP4")
+		go runDHCP(context.Background())
+	}
 	return nil
 }
 
@@ -57,6 +78,56 @@ func runNetworking() error {
 	imx6ul.USB1.Start(iface.Device())
 
 	return nil
+}
+
+// awaitNetwork will block until the network stack is ready to be used by the
+// application.
+// Currently this will only block when we're using DHCP to configure the
+// interface, but no lease has yet been acquired.
+func awaitNetwork() {
+	// TODO(al): Replace this construction with a callback+context.
+	netReady.Wait()
+}
+
+// runDHCP starts the dhcp client.
+// Will not return until ctx is Done.
+func runDHCP(ctx context.Context) {
+	acquired := func(oldAddr, newAddr tcpip.AddressWithPrefix, cfg dhcp.Config) {
+		glog.V(1).Infof("DHCPC: lease update - old: %v, new: %v", oldAddr.String(), newAddr.String())
+		if oldAddr.Address == newAddr.Address && oldAddr.PrefixLen == newAddr.PrefixLen {
+			glog.V(1).Infof("DHCPC: existing lease on %v renewed", newAddr.String())
+			return
+		}
+		newProtoAddr := tcpip.ProtocolAddress{
+			Protocol:          ipv4.ProtocolNumber,
+			AddressWithPrefix: newAddr,
+		}
+		if !oldAddr.Address.Unspecified() {
+			glog.V(1).Infof("DHCPC: Releasing %v", oldAddr.String())
+			if err := iface.Stack.RemoveAddress(nicID, oldAddr.Address); err != nil {
+				glog.Warningf("Failed to remove expired address from stack: %v", err)
+			} else {
+				netReady.Add(1)
+			}
+		}
+
+		if !newAddr.Address.Unspecified() {
+			glog.Infof("DHCPC: Acquired %v", newAddr.String())
+			if err := iface.Stack.AddProtocolAddress(nicID, newProtoAddr, stack.AddressProperties{PEB: stack.FirstPrimaryEndpoint}); err != nil {
+				glog.Warningf("Failed to add newly acquired address to stack: %v", err)
+			} else {
+				defer netReady.Done()
+			}
+			if len(cfg.DNS) > 0 {
+				resolver = fmt.Sprintf("%s:53", cfg.DNS[0].String())
+				glog.Infof("DHCPC: Using DNS server %v", resolver)
+			}
+		} else {
+			glog.Warning("DHCPC: no address acquired")
+		}
+	}
+	c := dhcp.NewClient(iface.Stack, nicID, iface.Link.LinkAddress(), 30*time.Second, time.Second, time.Second, acquired)
+	c.Run(ctx)
 }
 
 func resolve(s string) (r *dns.Msg, rtt time.Duration, err error) {

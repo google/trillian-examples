@@ -122,8 +122,9 @@ func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, opts FeedOpts) ([]byte, error) {
 	var returnCp []byte
 
-	// Since this func will be exected by the backoff mechanism below, we'll log any error messages directly
-	// in here before returning the error, as the backoff util doesn't seem to log them itself.
+	// Since this func will be executed by the backoff mechanism below, we'll
+	// log any error messages directly in here before returning the error, as
+	// the backoff util doesn't seem to log them itself.
 	submitOp := func() error {
 		logName := opts.LogSigVerifier.Name()
 		latestCPRaw, err := opts.Witness.GetLatestCheckpoint(ctx, opts.LogID)

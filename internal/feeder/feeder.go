@@ -121,11 +121,17 @@ func Run(ctx context.Context, interval time.Duration, opts FeedOpts) error {
 // submitToWitness will keep trying to submit the checkpoint to the witness until the context is done.
 func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint, opts FeedOpts) ([]byte, error) {
 	var returnCp []byte
+
+	// Since this func will be executed by the backoff mechanism below, we'll
+	// log any error messages directly in here before returning the error, as
+	// the backoff util doesn't seem to log them itself.
 	submitOp := func() error {
 		logName := opts.LogSigVerifier.Name()
 		latestCPRaw, err := opts.Witness.GetLatestCheckpoint(ctx, opts.LogID)
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("failed to fetch latest CP from witness: %v", err)
+			e := fmt.Errorf("failed to fetch latest CP from witness: %v", err)
+			glog.Warning(e.Error())
+			return e
 		}
 
 		var conP [][]byte
@@ -133,7 +139,9 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 		if len(latestCPRaw) > 0 {
 			cp, _, _, err := log.ParseCheckpoint(latestCPRaw, opts.LogOrigin, opts.LogSigVerifier)
 			if err != nil {
-				return fmt.Errorf("failed to parse CP from witness: %v", err)
+				e := fmt.Errorf("failed to parse CP from witness: %v", err)
+				glog.Warning(e.Error())
+				return e
 			}
 			latestCP = *cp
 
@@ -153,12 +161,16 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 		// try to build one, even if the witness doesn't have a "latest" checkpoint for this log.
 		conP, err = opts.FetchProof(ctx, latestCP, cpSubmit)
 		if err != nil {
-			return fmt.Errorf("failed to fetch consistency proof: %v", err)
+			e := fmt.Errorf("failed to fetch consistency proof: %v", err)
+			glog.Warning(e.Error())
+			return e
 		}
 		glog.V(2).Infof("%q %d -> %d proof: %x", logName, latestCP.Size, cpSubmit.Size, conP)
 
 		if returnCp, err = opts.Witness.Update(ctx, opts.LogID, cpRaw, conP); err != nil {
-			return fmt.Errorf("failed to submit checkpoint to witness: %v", err)
+			e := fmt.Errorf("failed to submit checkpoint to witness: %v", err)
+			glog.Warning(e.Error())
+			return e
 		}
 		return nil
 	}

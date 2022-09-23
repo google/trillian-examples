@@ -61,6 +61,10 @@ const (
 
 	// slotSizeBytes is the size of each individual slot in the partition.
 	slotSizeBytes = 1 << 20
+
+	// deviceIP is either a string representation of the IPv4 address to use for
+	// the network interface, or the empty string in which case DHCP4 will be used.
+	deviceIP = ""
 )
 
 func init() {
@@ -113,7 +117,7 @@ func main() {
 	// happy (looking at you, glog).
 	flag.Set("stderrthreshold", "INFO")
 	flag.Set("v", "1")
-	flag.Set("vmodule", "journal=1")
+	flag.Set("vmodule", "journal=1,usbnet=1")
 	flag.Parse()
 
 	glog.Infof("Opening storage...")
@@ -135,9 +139,12 @@ func main() {
 	// This error group will be used to run all top level processes
 	g := errgroup.Group{}
 
-	if err := initNetworking(); err != nil {
+	if err := initNetworking(deviceIP); err != nil {
 		glog.Exitf("Failed to init usb networking: %v", err)
 	}
+	g.Go(runNetworking)
+
+	awaitNetwork()
 
 	// TODO(mhutchinson): add a second listener for an admin API.
 	mainListener, err := iface.ListenerTCP4(80)
@@ -145,7 +152,6 @@ func main() {
 		glog.Exitf("could not initialize HTTP listener: %v", err)
 	}
 
-	g.Go(runNetworking)
 	httpClient := getHttpClient()
 
 	signer, err := note.NewSigner(signingKey)

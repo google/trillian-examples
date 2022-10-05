@@ -1,3 +1,14 @@
+# Provenance 
+
+This directory contains a partial copy of the Fuscia DHCP package here:
+https://fuchsia.googlesource.com/fuchsia/+/4ad0d5717d65/src/connectivity/network/netstack/dhcp/
+Only the DHCP client support has been imported.
+
+Some minor fix-ups were made to the code in order to enable it to compile
+against more recent versions of the gVisor API used by this repo.
+
+Original README contents continue below.
+
 # Testing against a local DHCP server
 
 These instructions will run a DHCP server locally on your computer for testing

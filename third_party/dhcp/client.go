@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	tag                        = "DHCP"
 	defaultLeaseLength Seconds = 12 * 3600
 )
 
@@ -166,7 +165,7 @@ func (c *Client) Run(ctx context.Context) {
 	c.sem <- struct{}{}
 	defer func() { <-c.sem }()
 	defer func() {
-		glog.Warning(tag, "client is stopping, cleaning up")
+		glog.Warning("client is stopping, cleaning up")
 		c.cleanup(&info)
 		// cleanup mutates info.
 		c.info.Store(info)
@@ -402,8 +401,8 @@ func acquire(ctx context.Context, c *Client, info *Info) (Config, error) {
 			},
 		}
 		// The IPv4 unspecified/any address should never be used as a primary endpoint.
-		if err := c.stack.AddProtocolAddressWithOptions(info.NICID, protocolAddress, stack.NeverPrimaryEndpoint); err != nil {
-			panic(fmt.Sprintf("AddProtocolAddressWithOptions(%d, %+v, NeverPrimaryEndpoint): %s", info.NICID, protocolAddress, err))
+		if err := c.stack.AddProtocolAddress(info.NICID, protocolAddress, stack.AddressProperties{PEB: stack.NeverPrimaryEndpoint}); err != nil {
+			panic(fmt.Sprintf("AddProtocolAddress(%d, %+v, NeverPrimaryEndpoint): %s", info.NICID, protocolAddress, err))
 		}
 		defer func() {
 			if err := c.stack.RemoveAddress(info.NICID, protocolAddress.AddressWithPrefix.Address); err != nil {
@@ -418,16 +417,13 @@ func acquire(ctx context.Context, c *Client, info *Info) (Config, error) {
 		// endpoint. The write endpoint needs to explicitly bind to the unspecified
 		// address because it is marked as NeverPrimaryEndpoint and will not be used
 		// unless explicitly bound to.
-		var err *tcpip.Error
+		var err tcpip.Error
 		sendEP, err = c.stack.NewEndpoint(header.UDPProtocolNumber, header.IPv4ProtocolNumber, &waiter.Queue{})
 		if err != nil {
 			return Config{}, fmt.Errorf("stack.NewEndpoint(%d, %d, _): %s", header.UDPProtocolNumber, header.IPv4ProtocolNumber, err)
 		}
 		defer sendEP.Close()
-		opt := tcpip.BindToDeviceOption(info.NICID)
-		if err := sendEP.SetSockOpt(&opt); err != nil {
-			return Config{}, fmt.Errorf("send ep SetSockOpt(&%T(%d)): %s", opt, opt, err)
-		}
+		sendEP.SocketOptions().SetBindToDevice(int32(info.NICID))
 		sendBindAddress := bindAddress
 		sendBindAddress.Addr = header.IPv4Any
 		if err := sendEP.Bind(sendBindAddress); err != nil {
@@ -453,21 +449,16 @@ func acquire(ctx context.Context, c *Client, info *Info) (Config, error) {
 
 	// BindToDevice allows us to have multiple DHCP clients listening to the same
 	// IP address and port at the same time so long as the nic is unique.
-	opt := tcpip.BindToDeviceOption(info.NICID)
-	if err := ep.SetSockOpt(&opt); err != nil {
-		return Config{}, fmt.Errorf("send ep SetSockOpt(&%T(%d)): %s", opt, opt, err)
-	}
+	sendEP.SocketOptions().SetBindToDevice(int32(info.NICID))
 	if writeOpts.To.Addr == header.IPv4Broadcast {
-		if err := sendEP.SetSockOptBool(tcpip.BroadcastOption, true); err != nil {
-			return Config{}, fmt.Errorf("SetSockOptBool(BroadcastOption, true): %s", err)
-		}
+		sendEP.SocketOptions().SetBroadcast(true)
 	}
 	if err := ep.Bind(bindAddress); err != nil {
 		return Config{}, fmt.Errorf("Bind(%+v): %s", bindAddress, err)
 	}
 
-	we, ch := waiter.NewChannelEntry(nil)
-	c.wq.EventRegister(&we, waiter.EventIn)
+	we, ch := waiter.NewChannelEntry(waiter.EventIn)
+	c.wq.EventRegister(&we)
 	defer c.wq.EventUnregister(&we)
 
 	var xid [4]byte
@@ -675,21 +666,23 @@ func (c *Client) send(ctx context.Context, info *Info, ep tcpip.Endpoint, opts o
 	glog.V(1).Infof("send %s to %s:%d on NIC:%d (bcast=%t ciaddr=%t)", typ, writeOpts.To.Addr, writeOpts.To.Port, writeOpts.To.NIC, broadcast, ciaddr)
 
 	for {
-		payload := tcpip.SlicePayload(h)
-		n, resCh, err := ep.Write(payload, writeOpts)
-		if resCh != nil {
-			if err != tcpip.ErrNoLinkAddress {
-				panic(fmt.Sprintf("err=%v inconsistent with presence of resCh", err))
+		payload := bytes.NewBuffer(h)
+		n, err := ep.Write(payload, writeOpts)
+		/*
+			if resCh != nil {
+				if err != tcpip.ErrNoLinkAddress {
+					panic(fmt.Sprintf("err=%v inconsistent with presence of resCh", err))
+				}
+				select {
+				case <-resCh:
+					continue
+				case <-ctx.Done():
+					return fmt.Errorf("client address resolution: %w", ctx.Err())
+				}
 			}
-			select {
-			case <-resCh:
-				continue
-			case <-ctx.Done():
-				return fmt.Errorf("client address resolution: %w", ctx.Err())
-			}
-		}
-		if err == tcpip.ErrWouldBlock {
-			panic(fmt.Sprintf("UDP writes are nonblocking; saw %d/%d", n, len(payload)))
+		*/
+		if _, ok := err.(*tcpip.ErrWouldBlock); ok {
+			panic(fmt.Sprintf("UDP writes are nonblocking; saw %d/%d", n, payload.Len()))
 		}
 		if err != nil {
 			return fmt.Errorf("client write: %s", err)
@@ -700,9 +693,9 @@ func (c *Client) send(ctx context.Context, info *Info, ep tcpip.Endpoint, opts o
 
 func (c *Client) recv(ctx context.Context, ep tcpip.Endpoint, ch <-chan struct{}, xid []byte, timeoutCh <-chan time.Time) (tcpip.FullAddress, tcpip.Address, options, dhcpMsgType, bool, error) {
 	for {
-		var srcAddr tcpip.FullAddress
-		v, _, err := ep.Read(&srcAddr)
-		if err == tcpip.ErrWouldBlock {
+		var buf bytes.Buffer
+		rRes, err := ep.Read(&buf, tcpip.ReadOptions{NeedRemoteAddr: true})
+		if _, ok := err.(*tcpip.ErrWouldBlock); ok {
 			select {
 			case <-ch:
 				continue
@@ -716,7 +709,7 @@ func (c *Client) recv(ctx context.Context, ep tcpip.Endpoint, ch <-chan struct{}
 			return tcpip.FullAddress{}, "", nil, 0, false, fmt.Errorf("read: %s", err)
 		}
 
-		h := hdr(v)
+		h := hdr(buf.Bytes())
 
 		if !h.isValid() {
 			return tcpip.FullAddress{}, "", nil, 0, false, fmt.Errorf("invalid hdr: %x", h)
@@ -742,7 +735,7 @@ func (c *Client) recv(ctx context.Context, ep tcpip.Endpoint, ch <-chan struct{}
 				return tcpip.FullAddress{}, "", nil, 0, false, fmt.Errorf("invalid type: %w", err)
 			}
 
-			return srcAddr, tcpip.Address(h.yiaddr()), opts, typ, false, nil
+			return rRes.RemoteAddr, tcpip.Address(h.yiaddr()), opts, typ, false, nil
 		}
 	}
 }

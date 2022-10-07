@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+//go:build !lint
+// +build !lint
+
 // Package dhcp implements a DHCP client and server as described in RFC 2131.
 package dhcp
 
@@ -20,11 +23,11 @@ import (
 // RFC 2131 Section 3.3
 // https://tools.ietf.org/html/rfc2131#section-3.3
 //
-//   Throughout the protocol, times are to be represented in units of seconds.
+//	Throughout the protocol, times are to be represented in units of seconds.
 //
-//   Representing relative times in units of seconds in an unsigned 32 bit
-//   word gives a range of relative times from 0 to approximately 100 years,
-//   which is sufficient for the relative times to be measured using DHCP.
+//	Representing relative times in units of seconds in an unsigned 32 bit
+//	word gives a range of relative times from 0 to approximately 100 years,
+//	which is sufficient for the relative times to be measured using DHCP.
 type Seconds uint32
 
 func (s Seconds) String() string {

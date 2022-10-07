@@ -1,6 +1,8 @@
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 90s
+  build-tags:
+    - lint
 
 linters-settings:
   gocyclo:

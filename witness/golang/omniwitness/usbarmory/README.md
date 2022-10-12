@@ -8,7 +8,7 @@ This directory contains an experimental port of the omniwitness which can be run
 
 You will need to set the `TAMAGO` environment variable set to the location of a built [TamaGo](https://github.com/usbarmory/tamago) installation.
 
-You'll also need to have `mkimage` and `arm-none-eabi-objcopy` tools available, on Ubuntu these are provided by the `u-boot-tools` and `binutils-arm-none-eabi` packages respectively.
+You'll also need to have `mkimage` and `arm-none-eabi-objcopy` tools available. On Ubuntu these are provided by the `u-boot-tools` and `binutils-arm-none-eabi` packages respectively.
 
 ### Building the install image
 
@@ -40,7 +40,7 @@ dd if=omniwitness of=omniwitness.imx bs=1 count=4 skip=24 seek=4 conv=notrunc
 
 For development, it's useful to be able to transfer the image via the inbuilt IMX bootloader and execute it directly from RAM.
 
-This can be achieved with the `imx_usb` tool (provided by the `imx-usb-loader` package on Ubuntu):
+This can be achieved with the [`imx_usb` tool](https://github.com/boundarydevices/imx_usb_loader) (and provided by the `imx-usb-loader` package on Ubuntu):
 
 ```bash
 $ sudo imx_usb omniwitness.imx
@@ -65,7 +65,7 @@ page.
 Note that the witness software defaults to DHCP4 autoconfiguration of its IP
 stack and resolver.
 Static IP and resolver configuration is also supported, but this must be done
-at compile time by editing the main.go and usbnet.go source files.
+at compile time by editing the `main.go` and `usbnet.go` source files.
 
 ## Logging / debugging
 

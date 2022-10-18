@@ -19,7 +19,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -76,6 +75,8 @@ func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client
 	}
 
 	fetchCP := func(ctx context.Context) ([]byte, error) {
+		// Each Rekor feeder will request the same log info.
+		// TODO: Explore if it's feasible to request this once for all Rekor feeders.
 		li := logInfo{}
 		if err := getJSON(ctx, c, lURL, "api/v1/log", &li); err != nil {
 			return nil, fmt.Errorf("failed to fetch log info: %v", err)
@@ -90,7 +91,7 @@ func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client
 				return []byte(shard.SignedTreeHead), nil
 			}
 		}
-		return nil, errors.New("failed to find shard that matched log ID from config")
+		return nil, fmt.Errorf("failed to find shard that matched log ID %s from config", l.ID)
 	}
 	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
 		if from.Size == 0 {

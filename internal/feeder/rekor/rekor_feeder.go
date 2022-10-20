@@ -34,11 +34,25 @@ import (
 	i_note "github.com/google/trillian-examples/internal/note"
 )
 
-// logInfo is a partial representation of the JSON object returned by Rekór's
+// inactiveShardLogInfo is a presentation of the JSON object returned
+// by Rekor when there are inactive shards.
+type inactiveShardLogInfo struct {
+	RootHash string `json:"rootHash"`
+	// SignedTreeHead contains a Rekór checkpoint.
+	SignedTreeHead string `json:"signedTreeHead"`
+	TreeID         string `json:"treeID"`
+	TreeSize       int64  `json:"treeSize"`
+}
+
+// logInfo is a representation of the JSON object returned by Rekór's
 // api/v1/log request.
 type logInfo struct {
 	// SignedTreeHead contains a Rekór checkpoint.
-	SignedTreeHead string `json:"signedTreeHead"`
+	SignedTreeHead string                 `json:"signedTreeHead"`
+	RootHash       string                 `json:"rootHash"`
+	TreeID         string                 `json:"treeID"`
+	TreeSize       int64                  `json:"treeSize"`
+	InactiveShards []inactiveShardLogInfo `json:"inactiveShards"`
 }
 
 // proof is a partial representation of the JSON struct returned by the Rekór
@@ -61,18 +75,30 @@ func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client
 	}
 
 	fetchCP := func(ctx context.Context) ([]byte, error) {
+		// Each Rekor feeder will request the same log info.
+		// TODO: Explore if it's feasible to request this once for all Rekor feeders.
 		li := logInfo{}
 		if err := getJSON(ctx, c, lURL, "api/v1/log", &li); err != nil {
 			return nil, fmt.Errorf("failed to fetch log info: %v", err)
 		}
-		return []byte(li.SignedTreeHead), nil
+		// Active shard
+		if li.TreeID == l.ID {
+			return []byte(li.SignedTreeHead), nil
+		}
+		// Search inactive shards
+		for _, shard := range li.InactiveShards {
+			if shard.TreeID == l.ID {
+				return []byte(shard.SignedTreeHead), nil
+			}
+		}
+		return nil, fmt.Errorf("failed to find shard that matched log ID %s from config", l.ID)
 	}
 	fetchProof := func(ctx context.Context, from, to log.Checkpoint) ([][]byte, error) {
 		if from.Size == 0 {
 			return [][]byte{}, nil
 		}
 		cp := proof{}
-		if err := getJSON(ctx, c, lURL, fmt.Sprintf("api/v1/log/proof?firstSize=%d&lastSize=%d", from.Size, to.Size), &cp); err != nil {
+		if err := getJSON(ctx, c, lURL, fmt.Sprintf("api/v1/log/proof?firstSize=%d&lastSize=%d&treeID=%s", from.Size, to.Size, l.ID), &cp); err != nil {
 			return nil, fmt.Errorf("failed to fetch log info: %v", err)
 		}
 		var err error

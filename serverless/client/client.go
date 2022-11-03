@@ -50,27 +50,27 @@ type Fetcher func(ctx context.Context, path string) ([]byte, error)
 // signed by logSigV and satisfies some consensus algorithm.
 //
 // This is intended to provide a hook for adding a consensus view of a log, e.g. via witnessing.
-type ConsensusCheckpointFunc func(ctx context.Context, logSigV note.Verifier, origin string) (*log.Checkpoint, []byte, error)
+type ConsensusCheckpointFunc func(ctx context.Context, logSigV note.Verifier, origin string) (*log.Checkpoint, []byte, *note.Note, error)
 
 // UnilateralConsensus blindly trusts the source log, returning the checkpoint it provided.
 func UnilateralConsensus(f Fetcher) ConsensusCheckpointFunc {
-	return func(ctx context.Context, logSigV note.Verifier, origin string) (*log.Checkpoint, []byte, error) {
+	return func(ctx context.Context, logSigV note.Verifier, origin string) (*log.Checkpoint, []byte, *note.Note, error) {
 		return FetchCheckpoint(ctx, f, logSigV, origin)
 	}
 }
 
 // FetchCheckpoint retrieves and opens a checkpoint from the log.
 // Returns both the parsed structure and the raw serialised checkpoint.
-func FetchCheckpoint(ctx context.Context, f Fetcher, v note.Verifier, origin string) (*log.Checkpoint, []byte, error) {
+func FetchCheckpoint(ctx context.Context, f Fetcher, v note.Verifier, origin string) (*log.Checkpoint, []byte, *note.Note, error) {
 	cpRaw, err := f(ctx, layout.CheckpointPath)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	cp, _, _, err := log.ParseCheckpoint(cpRaw, origin, v)
+	cp, _, n, err := log.ParseCheckpoint(cpRaw, origin, v)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to parse Checkpoint: %v", err)
+		return nil, nil, nil, fmt.Errorf("failed to parse Checkpoint: %v", err)
 	}
-	return cp, cpRaw, nil
+	return cp, cpRaw, n, nil
 }
 
 // ProofBuilder knows how to build inclusion and consistency proofs from tiles.
@@ -321,7 +321,11 @@ type LogStateTracker struct {
 
 	// LatestConsistent is the deserialised form of LatestConsistentRaw
 	LatestConsistent log.Checkpoint
-	CpSigVerifier    note.Verifier
+
+        // The note with signatures and other metadata about the checkpoint
+        CheckpointNote *note.Note
+
+        CpSigVerifier    note.Verifier
 }
 
 // NewLogStateTracker creates a newly initialised tracker.
@@ -333,6 +337,7 @@ func NewLogStateTracker(ctx context.Context, f Fetcher, h merkle.LogHasher, chec
 		Fetcher:             f,
 		Hasher:              h,
 		LatestConsistent:    log.Checkpoint{},
+                CheckpointNote:      nil,
 		CpSigVerifier:       nV,
 		Origin:              origin,
 	}
@@ -378,7 +383,7 @@ func (e ErrInconsistency) Error() string {
 // If the LatestConsistent checkpoint is 0 sized, no consistency proof will be returned
 // since it would be meaningless to do so.
 func (lst *LogStateTracker) Update(ctx context.Context) ([]byte, [][]byte, []byte, error) {
-	c, cRaw, err := lst.ConsensusCheckpoint(ctx, lst.CpSigVerifier, lst.Origin)
+	c, cRaw, cn, err := lst.ConsensusCheckpoint(ctx, lst.CpSigVerifier, lst.Origin)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -404,7 +409,7 @@ func (lst *LogStateTracker) Update(ctx context.Context) ([]byte, [][]byte, []byt
 		}
 	}
 	oldRaw := lst.LatestConsistentRaw
-	lst.LatestConsistentRaw, lst.LatestConsistent = cRaw, *c
+	lst.LatestConsistentRaw, lst.LatestConsistent, lst.CheckpointNote = cRaw, *c, cn
 	return oldRaw, p, lst.LatestConsistentRaw, nil
 }
 

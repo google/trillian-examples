@@ -82,7 +82,7 @@ func main() {
 	}
 	f := newFetcher(u)
 
-	targetCp, rawCp, err := client.FetchCheckpoint(ctx, f, v, *origin)
+	targetCp, rawCp, _, err := client.FetchCheckpoint(ctx, f, v, *origin)
 	if err != nil {
 		glog.Exitf("Failed to get latest checkpoint from log: %v", err)
 	}

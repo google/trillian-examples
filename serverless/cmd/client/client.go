@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"encoding/base64"
+        "encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -78,6 +79,7 @@ var (
 	outputCheckpoint    = flag.String("output_checkpoint", "", "If set, the update command will write the latest verified consistent checkpoint to this file")
 	outputConsistency   = flag.String("output_consistency_proof", "", "If set, the update and consistency commands will write the verified consistency proof used to update the checkpoint to this file")
 	outputInclusion     = flag.String("output_inclusion_proof", "", "If set, the inclusion command will write the verified inclusion proof to this file")
+        outputInclusionJson = flag.String("output_inclusion_proof_json", "", "If set, the inclusion command will write all portions of the inclusion proof to this file")
 )
 
 func usage() {
@@ -295,6 +297,28 @@ func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error
 		}
 	}
 
+        if oj:= *outputInclusionJson; len(oj) > 0 {
+                pi := proofInfo{
+                        LeafIndex: idx,
+                        Hashes: merkleProof(p),
+                        LeafHash: lh,
+                        LeafValue: entry,
+                        RootHash: cp.Hash,
+                        TreeSize: cp.Size,
+                        Note: l.Tracker.CheckpointNote,
+                }               
+
+                ps, err := json.Marshal(pi)
+                if err != nil {
+                        glog.Warning("Unable to convert proof to JSON")
+                        return err
+                }
+
+                if err := ioutil.WriteFile(oj, ps, 0644); err != nil {
+			glog.Warningf("Failed to write JSON inclusion proof to %q: %v", oj, err)
+                }
+        }
+
 	glog.Infof("Inclusion verified under checkpoint:\n%s", cp.Marshal())
 	return nil
 }
@@ -464,6 +488,17 @@ func distributors() ([]client.Fetcher, error) {
 
 // merkleProof represents Merkle proofs.
 type merkleProof [][]byte
+
+// proofInfo represents a proof and the associated information needed to verify it.
+type proofInfo struct {
+        LeafIndex uint64
+        Hashes merkleProof
+        LeafHash []byte
+        LeafValue []byte
+        RootHash []byte
+        TreeSize uint64
+        Note *note.Note
+}
 
 // Marshal returns a simple string-based representation of the proof.
 func (p merkleProof) Marshal() string {

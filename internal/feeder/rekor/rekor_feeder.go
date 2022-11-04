@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -64,10 +65,17 @@ type proof struct {
 // FeedLog feeds checkpoints from the source log to the witness.
 // If interval is non-zero, this function will return when the context is done, otherwise it will perform
 // one feed cycle and return.
+//
+// Note that this feeder expects the configured URL to contain a "treeID" query parameter which contains the
+// correct Rekor log tree ID.
 func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client, interval time.Duration) error {
 	lURL, err := url.Parse(l.URL)
 	if err != nil {
 		return fmt.Errorf("invalid LogURL %q: %v", l.URL, err)
+	}
+	treeID := lURL.Query().Get("treeID")
+	if treeID == "" {
+		return errors.New("configured LogURL does not contain the required treeID query parameter")
 	}
 	logSigV, err := i_note.NewVerifier(l.PublicKeyType, l.PublicKey)
 	if err != nil {
@@ -82,12 +90,12 @@ func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client
 			return nil, fmt.Errorf("failed to fetch log info: %v", err)
 		}
 		// Active shard
-		if li.TreeID == l.ID {
+		if li.TreeID == treeID {
 			return []byte(li.SignedTreeHead), nil
 		}
 		// Search inactive shards
 		for _, shard := range li.InactiveShards {
-			if shard.TreeID == l.ID {
+			if shard.TreeID == treeID {
 				return []byte(shard.SignedTreeHead), nil
 			}
 		}
@@ -98,7 +106,7 @@ func FeedLog(ctx context.Context, l config.Log, w feeder.Witness, c *http.Client
 			return [][]byte{}, nil
 		}
 		cp := proof{}
-		if err := getJSON(ctx, c, lURL, fmt.Sprintf("api/v1/log/proof?firstSize=%d&lastSize=%d&treeID=%s", from.Size, to.Size, l.ID), &cp); err != nil {
+		if err := getJSON(ctx, c, lURL, fmt.Sprintf("api/v1/log/proof?firstSize=%d&lastSize=%d&treeID=%s", from.Size, to.Size, treeID), &cp); err != nil {
 			return nil, fmt.Errorf("failed to fetch log info: %v", err)
 		}
 		var err error

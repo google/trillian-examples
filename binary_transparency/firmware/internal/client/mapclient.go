@@ -20,7 +20,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -148,7 +148,7 @@ func (c *MapClient) fetch(path string) ([]byte, error) {
 	}
 	body := r.Body
 	defer body.Close()
-	return ioutil.ReadAll(body)
+	return io.ReadAll(body)
 }
 
 // toNode converts a MapTileLeaf into the equivalent Node for HStar3.

@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"time"
@@ -136,7 +135,7 @@ func createManifest(opts PublishOpts) (api.FirmwareMetadata, []byte, error) {
 		return api.FirmwareMetadata{}, nil, errors.New("DeviceID must be one of: 'dummy', 'armory'")
 	}
 
-	fw, err := ioutil.ReadFile(opts.BinaryPath)
+	fw, err := os.ReadFile(opts.BinaryPath)
 	if err != nil {
 		return api.FirmwareMetadata{}, nil, fmt.Errorf("failed to read %q: %w", opts.BinaryPath, err)
 	}

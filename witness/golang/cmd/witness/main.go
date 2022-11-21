@@ -20,7 +20,7 @@ package main
 import (
 	"context"
 	"flag"
-	"io/ioutil"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/witness/golang/cmd/witness/impl"
@@ -49,7 +49,7 @@ func main() {
 	if len(*configFile) == 0 {
 		glog.Exit("--config_file must not be empty")
 	}
-	fileData, err := ioutil.ReadFile(*configFile)
+	fileData, err := os.ReadFile(*configFile)
 	if err != nil {
 		glog.Exitf("Failed to read from config file: %v", err)
 	}

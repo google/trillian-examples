@@ -22,7 +22,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -161,7 +161,7 @@ func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find firmware statement in request body: %v", err)
 	}
-	rawJSON, err := ioutil.ReadAll(p)
+	rawJSON, err := io.ReadAll(p)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read body of firmware statement: %v", err)
 	}
@@ -171,7 +171,7 @@ func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find firmware image in request body: %v", err)
 	}
-	image, err := ioutil.ReadAll(p)
+	image, err := io.ReadAll(p)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read body of firmware image: %v", err)
 	}
@@ -358,7 +358,7 @@ func (s *Server) addAnnotationMalware(w http.ResponseWriter, r *http.Request) {
 	ss := api.SignedStatement{}
 
 	// Store the original bytes as statement to avoid a round-trip (de)serialization.
-	rawStmt, err := ioutil.ReadAll(r.Body)
+	rawStmt, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

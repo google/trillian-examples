@@ -21,7 +21,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -238,7 +238,7 @@ func (l *logClientTool) consistencyProof(ctx context.Context, args []string) err
 	glog.V(1).Infof("Built consistency proof: %#x", p)
 
 	if o := *outputConsistency; len(o) > 0 {
-		if err := ioutil.WriteFile(o, []byte(merkleProof(p).Marshal()), 0644); err != nil {
+		if err := os.WriteFile(o, []byte(merkleProof(p).Marshal()), 0644); err != nil {
 			return fmt.Errorf("failed to write inclusion proof to %q: %v", o, err)
 		}
 	}
@@ -249,7 +249,7 @@ func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error
 	if l := len(args); l < 1 || l > 2 {
 		return fmt.Errorf("usage: inclusion <file> [index-in-log]")
 	}
-	entry, err := ioutil.ReadFile(args[0])
+	entry, err := os.ReadFile(args[0])
 	if err != nil {
 		return fmt.Errorf("failed to read entry from %q: %w", args[0], err)
 	}
@@ -290,7 +290,7 @@ func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error
 
 	if o := *outputInclusion; len(o) > 0 {
 		ps := []byte(merkleProof(p).Marshal())
-		if err := ioutil.WriteFile(o, ps, 0644); err != nil {
+		if err := os.WriteFile(o, ps, 0644); err != nil {
 			glog.Warningf("Failed to write inclusion proof to %q: %v", o, err)
 		}
 	}
@@ -313,7 +313,7 @@ func (l *logClientTool) updateCheckpoint(ctx context.Context, args []string) err
 	}
 
 	if o := *outputCheckpoint; len(o) > 0 {
-		if err := ioutil.WriteFile(o, newCPRaw, 0644); err != nil {
+		if err := os.WriteFile(o, newCPRaw, 0644); err != nil {
 			glog.Warningf("Failed to write latest checkpint to %q: %v", o, err)
 		}
 	}
@@ -324,7 +324,7 @@ func (l *logClientTool) updateCheckpoint(ctx context.Context, args []string) err
 	}
 
 	if o := *outputConsistency; len(o) > 0 {
-		if err := ioutil.WriteFile(o, []byte(merkleProof(p).Marshal()), 0644); err != nil {
+		if err := os.WriteFile(o, []byte(merkleProof(p).Marshal()), 0644); err != nil {
 			glog.Warningf("Failed to write consistency proof to %q: %v", o, err)
 		}
 	}
@@ -354,7 +354,7 @@ var getByScheme = map[string]func(context.Context, *url.URL) ([]byte, error){
 	"http":  readHTTP,
 	"https": readHTTP,
 	"file": func(_ context.Context, u *url.URL) ([]byte, error) {
-		return ioutil.ReadFile(u.Path)
+		return os.ReadFile(u.Path)
 	},
 }
 
@@ -377,14 +377,14 @@ func readHTTP(ctx context.Context, u *url.URL) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected http status %q", resp.Status)
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }
 
 // loadLocalCheckpoint reads the serialised checkpoint for the given logID from the
 // local client cache.
 func loadLocalCheckpoint(logID string) ([]byte, error) {
 	cpPath := filepath.Join(*cacheDir, logID, "checkpoint")
-	return ioutil.ReadFile(cpPath)
+	return os.ReadFile(cpPath)
 }
 
 // storeLocalCheckpoint updates the local client cache for the specified log with
@@ -396,7 +396,7 @@ func storeLocalCheckpoint(logID string, cpRaw []byte) error {
 	}
 	cpPath := filepath.Join(cpDir, "checkpoint")
 	cpPathTmp := fmt.Sprintf("%s.tmp", cpPath)
-	if err := ioutil.WriteFile(cpPathTmp, cpRaw, 0644); err != nil {
+	if err := os.WriteFile(cpPathTmp, cpRaw, 0644); err != nil {
 		return err
 	}
 	return os.Rename(cpPathTmp, cpPath)
@@ -409,7 +409,7 @@ func logSigVerifier(f string) (note.Verifier, []byte, error) {
 	var pubKey []byte
 	var err error
 	if len(f) > 0 {
-		pubKey, err = ioutil.ReadFile(f)
+		pubKey, err = os.ReadFile(f)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to read public key from file %q: %v", f, err)
 		}
@@ -443,7 +443,7 @@ func witnessSigVerifiers(fs []string) ([]note.Verifier, error) {
 }
 
 func sigVerifierFromFile(f string) (note.Verifier, error) {
-	k, err := ioutil.ReadFile(f)
+	k, err := os.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read public key from file %q: %v", f, err)
 	}

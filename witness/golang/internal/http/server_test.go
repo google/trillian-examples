@@ -20,7 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -187,7 +187,7 @@ func TestGetLogs(t *testing.T) {
 				t.Errorf("status code got %d, want %d", got, want)
 			}
 			if len(test.wantBody) > 0 {
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Fatalf("failed to read body: %v", err)
 				}
@@ -370,11 +370,11 @@ func TestUpdate(t *testing.T) {
 				t.Errorf("error response: %v", err)
 			}
 			if got, want := resp.StatusCode, test.wantStatus; got != want {
-				body, _ := ioutil.ReadAll(resp.Body)
+				body, _ := io.ReadAll(resp.Body)
 				t.Errorf("status code got %s, want %d (%s)", resp.Status, want, body)
 			}
 			defer resp.Body.Close()
-			respBody, err := ioutil.ReadAll(resp.Body)
+			respBody, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Errorf("failed to read response body: %v", err)
 			}

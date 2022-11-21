@@ -19,7 +19,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -122,7 +121,7 @@ func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (ui
 	// If there is one, it should contain the existing leaf's sequence number,
 	// so read that back and return it.
 	leafFQ := filepath.Join(leafDir, leafFile)
-	if seqString, err := ioutil.ReadFile(leafFQ); !os.IsNotExist(err) {
+	if seqString, err := os.ReadFile(leafFQ); !os.IsNotExist(err) {
 		origSeq, err := strconv.ParseUint(string(seqString), 16, 64)
 		if err != nil {
 			return 0, err
@@ -212,7 +211,7 @@ func (fs *Storage) ScanSequenced(_ context.Context, begin uint64, f func(seq uin
 	end := begin
 	for {
 		sp := filepath.Join(layout.SeqPath(fs.rootDir, end))
-		entry, err := ioutil.ReadFile(sp)
+		entry, err := os.ReadFile(sp)
 		if errors.Is(err, os.ErrNotExist) {
 			// we're done.
 			return end - begin, nil
@@ -232,7 +231,7 @@ func (fs *Storage) ScanSequenced(_ context.Context, begin uint64, f func(seq uin
 func (fs *Storage) GetTile(_ context.Context, level, index, logSize uint64) (*api.Tile, error) {
 	tileSize := layout.PartialTileSize(level, index, logSize)
 	p := filepath.Join(layout.TilePath(fs.rootDir, level, index, tileSize))
-	t, err := ioutil.ReadFile(p)
+	t, err := os.ReadFile(p)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("failed to read tile at %q: %w", p, err)
@@ -271,7 +270,7 @@ func (fs *Storage) StoreTile(_ context.Context, level, index uint64, tile *api.T
 
 	// TODO(al): use unlinked temp file
 	temp := fmt.Sprintf("%s.temp", tPath)
-	if err := ioutil.WriteFile(temp, t, filePerm); err != nil {
+	if err := os.WriteFile(temp, t, filePerm); err != nil {
 		return fmt.Errorf("failed to write temporary tile file: %w", err)
 	}
 	if err := os.Rename(temp, tPath); err != nil {
@@ -315,5 +314,5 @@ func (fs Storage) WriteCheckpoint(_ context.Context, newCPRaw []byte) error {
 // ReadCheckpoint reads and returns the contents of the log checkpoint file.
 func ReadCheckpoint(rootDir string) ([]byte, error) {
 	s := filepath.Join(rootDir, layout.CheckpointPath)
-	return ioutil.ReadFile(s)
+	return os.ReadFile(s)
 }

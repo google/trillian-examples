@@ -18,7 +18,7 @@ package pixelbt
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -149,5 +149,5 @@ func fetch(ctx context.Context, c *http.Client, base *url.URL, path string) ([]b
 		return nil, fmt.Errorf("unexpected status fetching %q: %s", u.String(), rsp.Status)
 	}
 
-	return ioutil.ReadAll(rsp.Body)
+	return io.ReadAll(rsp.Body)
 }

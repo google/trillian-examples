@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -18,7 +17,7 @@ func magic0Hdr() [4]byte {
 }
 
 func sha256Func(r io.Reader) ([32]byte, error) {
-	b, err := ioutil.ReadAll(r)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return [32]byte{}, err
 	}

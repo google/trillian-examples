@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"os"
+	"path/filepath"
+	"text/template"
+
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/serverless/config"
 	"golang.org/x/mod/sumdb/note"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"path/filepath"
-	"text/template"
 
 	i_note "github.com/google/trillian-examples/internal/note"
 )
@@ -91,7 +92,7 @@ func main() {
 	}
 
 	outPath := filepath.Join(*storageDir, *outputFile)
-	if err := ioutil.WriteFile(outPath, md.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(outPath, md.Bytes(), 0644); err != nil {
 		glog.Exitf("Failed to write to %q: %v", outPath, err)
 	}
 }
@@ -101,7 +102,7 @@ func loadConfig(f string) (*distConfig, error) {
 		Logs      []config.Log `yaml:"Logs"`
 		Witnesses []string     `yaml:"Witnesses"`
 	}{}
-	raw, err := ioutil.ReadFile(f)
+	raw, err := os.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file %q: %v", f, err)
 	}

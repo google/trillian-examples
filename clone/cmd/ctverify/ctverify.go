@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"io/ioutil"
+	"io"
 	"os"
 
 	"github.com/golang/glog"
@@ -47,7 +47,7 @@ func main() {
 		glog.Exitf("Failed to connect to database: %q", err)
 	}
 
-	bs, err := ioutil.ReadAll(os.Stdin)
+	bs, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		glog.Exitf("Failed to read checkpoint from stdin: %q", err)
 	}

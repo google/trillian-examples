@@ -17,7 +17,7 @@ package impl
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -76,7 +76,7 @@ func TestRoot(t *testing.T) {
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("status code not OK: %v", resp.StatusCode)
 			}
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Errorf("failed to read body: %v", err)
 			}
@@ -134,7 +134,7 @@ func TestTile(t *testing.T) {
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("status code not OK: %v (%s)", resp.StatusCode, url)
 			}
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Errorf("failed to read body: %v", err)
 			}
@@ -189,7 +189,7 @@ func TestAggregation(t *testing.T) {
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("status code not OK: %v (%s)", resp.StatusCode, url)
 			}
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Errorf("failed to read body: %v", err)
 			}

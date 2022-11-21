@@ -21,7 +21,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -182,5 +182,5 @@ func readHTTP(ctx context.Context, u *url.URL) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected http status %q", resp.Status)
 	}
 	defer resp.Body.Close()
-	return ioutil.ReadAll(resp.Body)
+	return io.ReadAll(resp.Body)
 }

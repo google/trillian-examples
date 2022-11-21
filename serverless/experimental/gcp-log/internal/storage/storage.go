@@ -19,7 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -118,7 +118,7 @@ func (c *Client) ReadCheckpoint(ctx context.Context) ([]byte, error) {
 	}
 	defer r.Close()
 
-	return ioutil.ReadAll(r)
+	return io.ReadAll(r)
 }
 
 // GetTile returns the tile at the given tile-level and tile-index.
@@ -143,7 +143,7 @@ func (c *Client) GetTile(ctx context.Context, level, index, logSize uint64) (*ap
 	}
 	defer r.Close()
 
-	t, err := ioutil.ReadAll(r)
+	t, err := io.ReadAll(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read tile object %q in bucket %q: %v", objName, c.bucket, err)
 	}
@@ -179,7 +179,7 @@ func (c *Client) ScanSequenced(ctx context.Context, begin uint64, f func(seq uin
 			}
 			defer r.Close()
 
-			entry, err := ioutil.ReadAll(r)
+			entry, err := io.ReadAll(r)
 			if err != nil {
 				return false, fmt.Errorf("failed to read leafdata at index %d: %w", begin, err)
 			}
@@ -216,7 +216,7 @@ func (c *Client) GetObjectData(ctx context.Context, obj string) ([]byte, error) 
 	}
 	defer r.Close()
 
-	return ioutil.ReadAll(r)
+	return io.ReadAll(r)
 }
 
 // Sequence assigns the given leaf entry to the next available sequence number.
@@ -239,7 +239,7 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 
 		// If there is one, it should contain the existing leaf's sequence number,
 		// so read that back and return it.
-		seqString, err := ioutil.ReadAll(r)
+		seqString, err := io.ReadAll(r)
 		if err != nil {
 			return 0, err
 		}
@@ -286,7 +286,7 @@ func (c *Client) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (ui
 				// Sequence number already in use.
 				if e.Code == http.StatusPreconditionFailed {
 					fmt.Printf("GCS writer close failed with sequence number %d: %v. Trying with number %d.\n",
-						c.nextSeq, err, c.nextSeq + 1)
+						c.nextSeq, err, c.nextSeq+1)
 					c.nextSeq++
 					continue
 				}

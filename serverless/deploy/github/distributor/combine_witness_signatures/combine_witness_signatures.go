@@ -18,7 +18,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -115,7 +114,7 @@ func readState(root string) ([][]byte, [][]byte, error) {
 func readFiles(f []string) ([][]byte, error) {
 	r := make([][]byte, 0, len(f))
 	for _, p := range f {
-		b, err := ioutil.ReadFile(p)
+		b, err := os.ReadFile(p)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read %q: %v", p, err)
 		}
@@ -159,7 +158,7 @@ func loadConfig(f string) (map[string]distributor.UpdateOpts, error) {
 		Witnesses            []string     `yaml:"Witnesses"`
 		MaxWitnessSignatures uint         `yaml:"MaxWitnessSignatures"`
 	}{}
-	raw, err := ioutil.ReadFile(f)
+	raw, err := os.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file %q: %v", f, err)
 	}

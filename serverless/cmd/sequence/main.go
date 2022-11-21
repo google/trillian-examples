@@ -21,7 +21,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -48,7 +47,7 @@ func main() {
 	// Read log public key from file or environment variable
 	var pubKey string
 	if len(*pubKeyFile) > 0 {
-		k, err := ioutil.ReadFile(*pubKeyFile)
+		k, err := os.ReadFile(*pubKeyFile)
 		if err != nil {
 			glog.Exitf("failed to read public_key file: %q", err)
 		}
@@ -104,7 +103,7 @@ func main() {
 	entries := make(chan entryInfo, 100)
 	go func() {
 		for _, fp := range toAdd {
-			b, err := ioutil.ReadFile(fp)
+			b, err := os.ReadFile(fp)
 			if err != nil {
 				glog.Exitf("Failed to read entry file %q: %q", fp, err)
 			}

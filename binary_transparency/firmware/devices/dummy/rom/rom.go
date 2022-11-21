@@ -16,7 +16,7 @@ package rom
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/golang/glog"
@@ -55,12 +55,12 @@ func Reset(storagePath string) (Chain, error) {
 	fwFile := filepath.Clean(filepath.Join(storagePath, firmwarePath))
 	bundleFile := filepath.Clean(filepath.Join(storagePath, bundlePath))
 
-	bundleRaw, err := ioutil.ReadFile(bundleFile)
+	bundleRaw, err := os.ReadFile(bundleFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read transparency bundle: %w", err)
 	}
 
-	fw, err := ioutil.ReadFile(fwFile)
+	fw, err := os.ReadFile(fwFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read firmware: %w", err)
 	}

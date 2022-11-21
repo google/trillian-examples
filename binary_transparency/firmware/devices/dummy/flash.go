@@ -18,7 +18,6 @@ package dummy
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -82,12 +81,12 @@ func (d Device) ApplyUpdate(u api.UpdatePackage) error {
 	fwFile := filepath.Join(d.storage, firmwarePath)
 	bundleFile := filepath.Join(d.storage, bundlePath)
 
-	if err := ioutil.WriteFile(bundleFile, u.ProofBundle, os.ModePerm); err != nil {
+	if err := os.WriteFile(bundleFile, u.ProofBundle, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to write proof bundle to %q: %q", bundleFile, err)
 	}
 
 	fw := u.FirmwareImage
-	if err := ioutil.WriteFile(fwFile, fw, os.ModePerm); err != nil {
+	if err := os.WriteFile(fwFile, fw, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to write firmware image to %q: %q", fwFile, err)
 	}
 

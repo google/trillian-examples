@@ -15,6 +15,9 @@ options:
   - GOLANG_PROTOBUF_REGISTRATION_CONFLICT=ignore # Temporary work-around v1.proto already registered error.
   - 'DOCKER_CLI_EXPERIMENTAL=enabled'
 
+# Cloud Build logs sent to GCS bucket
+logsBucket: 'gs://trillian-cloudbuild-logs'
+
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['run', '--privileged', 'linuxkit/binfmt:v0.8']

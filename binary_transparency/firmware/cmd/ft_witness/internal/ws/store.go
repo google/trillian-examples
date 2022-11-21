@@ -17,7 +17,6 @@ package ws
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sync"
 )
@@ -84,5 +83,5 @@ func (ws *Storage) RetrieveCP() ([]byte, error) {
 
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()
-	return ioutil.ReadFile(ws.fp)
+	return os.ReadFile(ws.fp)
 }

@@ -143,6 +143,9 @@ main() {
     check_cmd golangci-lint \
       'have you installed github.com/golangci/golangci-lint?' || exit 1
 
+    # Explicitly set GOROOT before golangci-lint/issues/3107 is fixed
+    GOROOT=$(go env GOROOT)
+
     echo 'running golangci-lint'
     golangci-lint run --deadline=10m
     echo 'checking license headers'

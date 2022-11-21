@@ -29,9 +29,10 @@ import (
 // witness signatures ordered by their key hash (ascending).
 //
 // All cps:
-//  - MUST contain identical checkpoint bodies
-//  - MUST be signed by the log whose verifier is provided.
-//  - MAY be signed by one or more witnesses.
+//   - MUST contain identical checkpoint bodies
+//   - MUST be signed by the log whose verifier is provided.
+//   - MAY be signed by one or more witnesses.
+//
 // if this isn't the case an error is returned.
 func Combine(cps [][]byte, logSigV note.Verifier, witSigVs note.Verifiers) ([]byte, error) {
 	var ret *note.Note

@@ -23,7 +23,7 @@ import (
 // MemBlockSize is the number of bytes in a single memory block.
 const MemBlockSize = 512
 
-//  MemDev is a simple in-memory block device.
+// MemDev is a simple in-memory block device.
 type MemDev [][MemBlockSize]byte
 
 // BlockSize returns the block size of the underlying storage system.

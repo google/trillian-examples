@@ -44,9 +44,10 @@ func (c Checkpoint) Marshal() []byte {
 //
 // The supplied data is expected to begin with the following 3 lines of text,
 // each followed by a newline:
-//  - <ecosystem/version string>
-//  - <decimal representation of log size>
-//  - <base64 representation of root hash>
+//   - <ecosystem/version string>
+//   - <decimal representation of log size>
+//   - <base64 representation of root hash>
+//
 // Any trailing data after this will be returned.
 func (c *Checkpoint) Unmarshal(data []byte) ([]byte, error) {
 	l := bytes.SplitN(data, []byte("\n"), 4)

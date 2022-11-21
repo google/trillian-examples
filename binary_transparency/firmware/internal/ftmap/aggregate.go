@@ -37,8 +37,8 @@ func init() {
 // Aggregate will output an entry for each firmware entry in the input log, which includes the
 // firmware metadata, along with an aggregated representation of the annotations for it. The
 // rules are:
-// * AnnotationMalware: `Good` is true providing there are no malware annotations that claim the
-//                      firmware is bad.
+//   - AnnotationMalware: `Good` is true providing there are no malware annotations that claim the
+//     firmware is bad.
 func Aggregate(s beam.Scope, treeID int64, fws, annotationMalwares beam.PCollection) (beam.PCollection, beam.PCollection) {
 	keyedFws := beam.ParDo(s, func(l *firmwareLogEntry) (uint64, *firmwareLogEntry) { return uint64(l.Index), l }, fws)
 	keyedAnns := beam.ParDo(s, func(a *annotationMalwareLogEntry) (uint64, *annotationMalwareLogEntry) {

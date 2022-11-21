@@ -13,13 +13,13 @@ require (
 	github.com/google/certificate-transparency-go v1.1.4
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v39 v39.2.0
-	github.com/google/trillian v1.5.1-0.20220819043421-0a389c4bb8d9
+	github.com/google/trillian v1.5.1-0.20220920003623-a57fed5b3a2c
 	github.com/gorilla/mux v1.8.0
-	github.com/mattn/go-sqlite3 v1.14.16
+	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/miekg/dns v1.1.50
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/transparency-dev/merkle v0.0.1
-	github.com/u-root/u-root v0.10.0
+	github.com/u-root/u-root v7.0.0+incompatible
 	github.com/usbarmory/imx-usbnet v0.0.0-20221104094421-46b506d5ae9b
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
 	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
@@ -51,7 +51,6 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.5.1 // indirect
-	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/net v0.0.0-20221012135044-0b7e1fb9d458 // indirect

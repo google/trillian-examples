@@ -16,7 +16,7 @@ package http
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -65,7 +65,7 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("status code not OK: %v", resp.StatusCode)
 			}
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Errorf("failed to read body: %v", err)
 			}

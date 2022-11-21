@@ -1,6 +1,6 @@
 module github.com/google/trillian-examples/serverless/deploy/github/log/sequence_and_integrate
 
-go 1.17
+go 1.19
 
 require github.com/google/trillian-examples v0.0.0-20220216160504-f20a4a565cdf
 

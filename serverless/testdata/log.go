@@ -18,7 +18,7 @@ package testdata
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -61,7 +61,7 @@ func LogSigner(t *testing.T) note.Signer {
 func Fetcher() client.Fetcher {
 	return func(_ context.Context, p string) ([]byte, error) {
 		path := filepath.Join(testdataDir, "log", p)
-		return ioutil.ReadFile(path)
+		return os.ReadFile(path)
 	}
 }
 
@@ -75,7 +75,7 @@ func (h *HistoryFetcher) Fetcher() client.Fetcher {
 			p = fmt.Sprintf("%s.%d", layout.CheckpointPath, h)
 		}
 		path := filepath.Join(testdataDir, "log", p)
-		return ioutil.ReadFile(path)
+		return os.ReadFile(path)
 	}
 
 }
@@ -83,7 +83,7 @@ func (h *HistoryFetcher) Fetcher() client.Fetcher {
 // Checkpoint fetches a signed checkpoint for a given historical log size.
 func Checkpoint(t *testing.T, size int) []byte {
 	t.Helper()
-	r, err := ioutil.ReadFile(filepath.Join(testdataDir, "log", fmt.Sprintf("checkpoint.%d", size)))
+	r, err := os.ReadFile(filepath.Join(testdataDir, "log", fmt.Sprintf("checkpoint.%d", size)))
 	if err != nil {
 		t.Fatalf("Failed to open checkpoint.%d: %v", size, err)
 	}

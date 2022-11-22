@@ -20,7 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -152,7 +152,7 @@ func getJSON(ctx context.Context, c *http.Client, base *url.URL, path string, s 
 		return fmt.Errorf("unexpected status fetching %q: %s", u.String(), rsp.Status)
 	}
 
-	raw, err := ioutil.ReadAll(rsp.Body)
+	raw, err := io.ReadAll(rsp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read body from %q: %v", u.String(), err)
 	}

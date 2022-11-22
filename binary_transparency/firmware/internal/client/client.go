@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -135,7 +134,7 @@ func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 		return &api.LogCheckpoint{}, errFromResponse("failed to fetch checkpoint", r)
 	}
 
-	b, err := ioutil.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
@@ -231,7 +230,7 @@ func (c ReadonlyClient) GetFirmwareImage(hash []byte) ([]byte, error) {
 		return nil, errFromResponse("failed to fetch firmware image", r)
 	}
 
-	b, err := ioutil.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read firmware image from response: %w", err)
 	}
@@ -244,7 +243,7 @@ func errFromResponse(m string, r *http.Response) error {
 		return nil
 	}
 
-	b, _ := ioutil.ReadAll(r.Body) // Ignore any error, we want to ensure we return the right status code which we already know.
+	b, _ := io.ReadAll(r.Body) // Ignore any error, we want to ensure we return the right status code which we already know.
 
 	msg := fmt.Sprintf("%s: %s", m, string(b))
 	return status.New(codeFromHTTPResponse(r.StatusCode), msg).Err()

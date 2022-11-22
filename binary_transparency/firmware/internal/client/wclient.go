@@ -16,7 +16,7 @@ package client
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -47,7 +47,7 @@ func (c WitnessClient) GetWitnessCheckpoint() (*api.LogCheckpoint, error) {
 		return nil, errFromRsp("failed to fetch checkpoint", r)
 	}
 
-	b, err := ioutil.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
@@ -59,7 +59,7 @@ func errFromRsp(m string, r *http.Response) error {
 		return nil
 	}
 
-	b, _ := ioutil.ReadAll(r.Body) // Ignore any error, we want to ensure we return the right status code which we already know.
+	b, _ := io.ReadAll(r.Body) // Ignore any error, we want to ensure we return the right status code which we already know.
 
 	msg := fmt.Sprintf("%s: %s", m, string(b))
 	return status.New(codeFromHTTPResponse(r.StatusCode), msg).Err()

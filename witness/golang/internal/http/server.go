@@ -18,7 +18,7 @@ package http
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/google/trillian-examples/witness/golang/api"
@@ -46,7 +46,7 @@ func NewServer(witness *witness.Witness) *Server {
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	logID := v["logid"]
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("cannot read request body: %v", err.Error()), http.StatusBadRequest)
 		return

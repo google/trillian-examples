@@ -19,7 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -73,7 +73,7 @@ func TestRoot(t *testing.T) {
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("status code not OK: %v", resp.StatusCode)
 			}
-			body, err := ioutil.ReadAll(resp.Body)
+			body, err := io.ReadAll(resp.Body)
 			if err != nil {
 				t.Errorf("failed to read body: %v", err)
 			}
@@ -197,7 +197,7 @@ func TestAddFirmware(t *testing.T) {
 				t.Errorf("error response: %v", err)
 			}
 			if got, want := resp.StatusCode, test.wantStatus; got != want {
-				body, _ := ioutil.ReadAll(resp.Body)
+				body, _ := io.ReadAll(resp.Body)
 				t.Errorf("status code got != want (%d, %d): %q", got, want, body)
 			}
 		})
@@ -272,7 +272,7 @@ func TestGetConsistency(t *testing.T) {
 				t.Errorf("status code got != want (%d, %d)", got, want)
 			}
 			if len(test.wantBody) > 0 {
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Errorf("failed to read body: %v", err)
 				}
@@ -361,7 +361,7 @@ func TestGetManifestEntries(t *testing.T) {
 				t.Errorf("status code got != want (%d, %d)", got, want)
 			}
 			if len(test.wantBody) > 0 {
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Errorf("failed to read body: %v", err)
 				}
@@ -440,7 +440,7 @@ func TestGetInclusionProofByHash(t *testing.T) {
 			}
 			if test.wantStatus == http.StatusOK {
 				// If we're expecting a good response then check that all values got passed through ok
-				body, err := ioutil.ReadAll(resp.Body)
+				body, err := io.ReadAll(resp.Body)
 				if err != nil {
 					t.Fatalf("failed to read body: %v", err)
 				}

@@ -15,7 +15,7 @@
 package config
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -26,7 +26,7 @@ type exampleWitnessConfig struct {
 }
 
 func TestExampleWitnessConfig(t *testing.T) {
-	bs, err := ioutil.ReadFile("example_witness_config.yaml")
+	bs, err := os.ReadFile("example_witness_config.yaml")
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}

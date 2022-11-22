@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,12 +94,12 @@ func (d Device) DeviceCheckpoint() ([]byte, error) {
 //
 // TODO(al): see what can be done to make this easier to use.
 func (d Device) ApplyUpdate(u api.UpdatePackage) error {
-	if err := ioutil.WriteFile(d.bundlePath, u.ProofBundle, os.ModePerm); err != nil {
+	if err := os.WriteFile(d.bundlePath, u.ProofBundle, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to write proof bundle to %q: %w", d.bundlePath, err)
 	}
 
 	fw := u.FirmwareImage
-	if err := ioutil.WriteFile(d.fwDevPath, fw, os.ModePerm); err != nil {
+	if err := os.WriteFile(d.fwDevPath, fw, os.ModePerm); err != nil {
 		return fmt.Errorf("failed to write firmware image to %q: %w", d.fwDevPath, err)
 	}
 

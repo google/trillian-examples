@@ -27,7 +27,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"regexp"
@@ -79,7 +78,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 
 	// Initialize the checkpoint from persisted state.
 	var latestCP api.LogCheckpoint
-	if state, err := ioutil.ReadFile(opts.StateFile); err != nil {
+	if state, err := os.ReadFile(opts.StateFile); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("failed to read state: %w", err)
 		}
@@ -119,7 +118,7 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		if entry.Index == entry.Root.Size-1 {
 			// If we have processed all leaves in the current checkpoint, then persist this checkpoint
 			// so that we don't repeat work on startup.
-			ioutil.WriteFile(opts.StateFile, entry.Root.Envelope, 0o755)
+			os.WriteFile(opts.StateFile, entry.Root.Envelope, 0o755)
 		}
 	}
 }

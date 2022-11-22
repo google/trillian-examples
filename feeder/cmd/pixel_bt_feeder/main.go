@@ -19,9 +19,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/golang/glog"
@@ -72,7 +72,7 @@ func main() {
 }
 
 func readConfig(f string) (*Config, error) {
-	c, err := ioutil.ReadFile(f)
+	c, err := os.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}

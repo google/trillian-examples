@@ -22,7 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
@@ -50,7 +50,7 @@ type Claimant struct {
 
 func (c *Claimant) getPrivateKey() (*rsa.PrivateKey, error) {
 	mKey := strings.NewReader(c.priv)
-	priv, err := ioutil.ReadAll(mKey)
+	priv, err := io.ReadAll(mKey)
 	if err != nil {
 		return nil, fmt.Errorf("read failed! %s", err)
 	}
@@ -76,7 +76,7 @@ func (c *Claimant) getPrivateKey() (*rsa.PrivateKey, error) {
 
 func (c *Claimant) getPublicKey() (*rsa.PublicKey, error) {
 	mKey := strings.NewReader(c.pub)
-	pub, err := ioutil.ReadAll(mKey)
+	pub, err := io.ReadAll(mKey)
 	if err != nil {
 		return nil, fmt.Errorf("public key read failed! %s", err)
 	}

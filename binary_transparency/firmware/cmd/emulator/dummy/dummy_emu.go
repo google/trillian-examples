@@ -23,7 +23,8 @@
 // successful validation has taken place.
 //
 // Usage:
-//   go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
+//
+//	go run ./cmd/emulator/dummy --logtostderr --dummy_storage_dir=/tmp/dummy_device
 package main
 
 import (

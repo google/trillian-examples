@@ -18,7 +18,6 @@ package client
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"golang.org/x/mod/sumdb/note"
@@ -185,7 +184,7 @@ func (f *HTTPFetcher) GetData(path string) ([]byte, error) {
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("GET %v: %v", target, resp.Status)
 	}
-	data, err := ioutil.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, err
 	}

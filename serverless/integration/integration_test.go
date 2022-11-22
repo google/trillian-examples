@@ -18,10 +18,11 @@ package integration
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -142,7 +143,7 @@ func TestServerlessViaFile(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		return ioutil.ReadFile(u.Path)
+		return os.ReadFile(u.Path)
 	}
 
 	// Run test
@@ -217,7 +218,7 @@ func httpFetcher(t *testing.T, u string) client.Fetcher {
 			return nil, err
 		}
 		defer resp.Body.Close()
-		return ioutil.ReadAll(resp.Body)
+		return io.ReadAll(resp.Body)
 	}
 }
 

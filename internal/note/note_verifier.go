@@ -78,14 +78,19 @@ func (v *verifier) Verify(msg, sig []byte) bool {
 // This implementation is compatible with the signature scheme used by the Sigstore Rékor Log.
 //
 // The key is expected to be provided as a string in the following form:
-//   <key_name>+<key_hash>+<key_bytes>
+//
+//	<key_name>+<key_hash>+<key_bytes>
+//
 // Where
-//   <key_name> is a human readable identifier for the key, containing no whitespace or "+" symbols
-//   <key_bytes> is base64 encoded blob starting with a 0x02 (algECDSAWithSHA256) byte and followed
-//       by the DER encoded public key in SPKI format.
-//   <key_hash> is a 32bit hash of the key DER
+//
+//	<key_name> is a human readable identifier for the key, containing no whitespace or "+" symbols
+//	<key_bytes> is base64 encoded blob starting with a 0x02 (algECDSAWithSHA256) byte and followed
+//	    by the DER encoded public key in SPKI format.
+//	<key_hash> is a 32bit hash of the key DER
+//
 // e.g.:
-//   "rekor.sigstore.dev+12345678+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc=
+//
+//	"rekor.sigstore.dev+12345678+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc=
 func NewECDSAVerifier(key string) (sdb_note.Verifier, error) {
 	parts := strings.SplitN(key, "+", 3)
 	if got, want := len(parts), 3; got != want {

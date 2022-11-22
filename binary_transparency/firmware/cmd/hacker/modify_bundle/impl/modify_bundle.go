@@ -24,7 +24,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	dummy_common "github.com/google/trillian-examples/binary_transparency/firmware/devices/dummy/common"
@@ -47,7 +47,7 @@ func Main(opts ModifyBundleOpts) error {
 		return errors.New("must specify BinaryPath")
 	}
 
-	bundleRaw, err := ioutil.ReadFile(opts.Input)
+	bundleRaw, err := os.ReadFile(opts.Input)
 	if err != nil {
 		return fmt.Errorf("failed to read transparency bundle %q: %w", opts.Input, err)
 	}
@@ -74,7 +74,7 @@ func Main(opts ModifyBundleOpts) error {
 		return fmt.Errorf("DeviceID must be one of: 'dummy', 'armory'")
 	}
 
-	fw, err := ioutil.ReadFile(opts.BinaryPath)
+	fw, err := os.ReadFile(opts.BinaryPath)
 	if err != nil {
 		return fmt.Errorf("failed to read %q: %w", opts.BinaryPath, err)
 	}
@@ -116,7 +116,7 @@ func Main(opts ModifyBundleOpts) error {
 		return fmt.Errorf("failed to marshal ProofBundle: %w", err)
 	}
 
-	if err := ioutil.WriteFile(opts.Output, rawPB, 0x644); err != nil {
+	if err := os.WriteFile(opts.Output, rawPB, 0x644); err != nil {
 		return fmt.Errorf("failed to write modified bundle to %q: %w", opts.Output, err)
 	}
 

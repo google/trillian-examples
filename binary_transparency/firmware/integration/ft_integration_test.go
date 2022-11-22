@@ -19,7 +19,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -420,10 +419,10 @@ func runMonitor(ctx context.Context, t *testing.T, serverAddr string, pattern st
 }
 
 func copyFile(from, to string) error {
-	i, err := ioutil.ReadFile(from)
+	i, err := os.ReadFile(from)
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(to, i, 0644)
+	return os.WriteFile(to, i, 0644)
 }

@@ -20,7 +20,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/golang/glog"
@@ -133,7 +132,7 @@ func main() {
 }
 
 func getKeyFile(path string) (string, error) {
-	k, err := ioutil.ReadFile(path)
+	k, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to read key file: %w", err)
 	}

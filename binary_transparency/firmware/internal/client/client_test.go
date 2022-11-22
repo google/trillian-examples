@@ -17,7 +17,7 @@ package client_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -141,7 +141,7 @@ func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find firmware statement in request body: %v", err)
 	}
-	rawJSON, err := ioutil.ReadAll(p)
+	rawJSON, err := io.ReadAll(p)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read body of firmware statement: %v", err)
 	}
@@ -151,7 +151,7 @@ func parseAddFirmwareRequest(r *http.Request) ([]byte, []byte, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find firmware image in request body: %v", err)
 	}
-	image, err := ioutil.ReadAll(p)
+	image, err := io.ReadAll(p)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to read body of firmware image: %v", err)
 	}

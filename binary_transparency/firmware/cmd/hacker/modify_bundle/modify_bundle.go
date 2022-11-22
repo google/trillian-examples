@@ -19,12 +19,13 @@
 // to the specified output file.
 //
 // Usage:
-//   go run ./cmd/hacker/modify_bundle/ \
-//      --logtostderr \
-//      --device=[dummy,usbarmory] \
-//      --binary=/path/to/new/firmware/image \
-//      --input=/path/to/bundle.json \
-//      --output=/path/to/bundle.json
+//
+//	go run ./cmd/hacker/modify_bundle/ \
+//	   --logtostderr \
+//	   --device=[dummy,usbarmory] \
+//	   --binary=/path/to/new/firmware/image \
+//	   --input=/path/to/bundle.json \
+//	   --output=/path/to/bundle.json
 package main
 
 import (

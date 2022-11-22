@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -85,7 +85,7 @@ func TestCheckConsistency(t *testing.T) {
 
 	f := func(_ context.Context, p string) ([]byte, error) {
 		path := filepath.Join("../testdata/log", p)
-		return ioutil.ReadFile(path)
+		return os.ReadFile(path)
 	}
 	for _, test := range []struct {
 		desc    string

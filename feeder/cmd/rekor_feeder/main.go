@@ -19,9 +19,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"sync"
 	"time"
 
@@ -82,7 +82,7 @@ func main() {
 }
 
 func readConfig(f string) (*Config, error) {
-	c, err := ioutil.ReadFile(f)
+	c, err := os.ReadFile(f)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}

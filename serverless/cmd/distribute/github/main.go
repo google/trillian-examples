@@ -20,7 +20,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -189,7 +188,7 @@ func (c distributeConfig) Validate() error {
 // readConfig parses the named file into a FeedOpts structure.
 func readConfig(f string) (distributeConfig, error) {
 	cfg := distributeConfig{}
-	c, err := ioutil.ReadFile(f)
+	c, err := os.ReadFile(f)
 	if err != nil {
 		return cfg, fmt.Errorf("failed to read file: %v", err)
 	}

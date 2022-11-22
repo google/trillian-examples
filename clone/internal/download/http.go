@@ -17,7 +17,7 @@ package download
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 )
@@ -52,9 +52,9 @@ func (f HTTPFetcher) GetData(path string) ([]byte, error) {
 		return nil, fmt.Errorf("GET %v: %v", target, resp.Status)
 	}
 	// TODO(mhutchinson): Consider using io.LimitReader and making it configurable.
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("ioutil.ReadAll: %w", err)
+		return nil, fmt.Errorf("io.ReadAll: %w", err)
 	}
 	return data, nil
 }

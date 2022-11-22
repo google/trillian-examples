@@ -18,9 +18,10 @@ package serverless
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/google/trillian-examples/formats/log"
@@ -102,11 +103,11 @@ func newFetcher(c *http.Client, root *url.URL) client.Fetcher {
 				return nil, err
 			}
 			defer resp.Body.Close()
-			return ioutil.ReadAll(resp.Body)
+			return io.ReadAll(resp.Body)
 		}
 	case "file":
 		get = func(_ context.Context, u *url.URL) ([]byte, error) {
-			return ioutil.ReadFile(u.Path)
+			return os.ReadFile(u.Path)
 		}
 	default:
 		panic(fmt.Errorf("unsupported URL scheme %s", root.Scheme))

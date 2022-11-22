@@ -17,7 +17,8 @@
 // Currently, the only device is a dummy device, which simply sorts the firmware+metadata on local disk.
 //
 // Usage:
-//   go run ./cmd/flash_tool/ --logtostderr --dummy_storage_dir=/path/to/dir --update_file=/path/to/update.json
+//
+//	go run ./cmd/flash_tool/ --logtostderr --dummy_storage_dir=/path/to/dir --update_file=/path/to/update.json
 //
 // The first time you use this tool there will be no prior firmware metadata
 // stored on the device and the tool will fail.  In this case, use the --force

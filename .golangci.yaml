@@ -18,7 +18,6 @@ linters-settings:
 linters:
   disable-all: true
   enable:
-    - deadcode
     - depguard
     - gocyclo
     - gofmt
@@ -28,10 +27,19 @@ linters:
     - megacheck
     - misspell
     - revive
-    - varcheck
+    - unused
     # TODO(gbelvin): write license linter and commit to upstream.
     # ./scripts/check_license.sh is run by ./scripts/presubmit.sh
 
 issues:
   # Don't turn off any checks by default. We can do this explicitly if needed.
   exclude-use-default: false
+  # List of regexps of issue texts to exclude.
+  #
+  # But independently of this option we use default exclude patterns,
+  # it can be disabled by `exclude-use-default: false`.
+  # To list all excluded by default patterns execute `golangci-lint run --help`
+  #
+  # Default: https://golangci-lint.run/usage/false-positives/#default-exclusions
+  exclude:
+    - "package-comments: should have a package comment"

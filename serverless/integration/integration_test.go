@@ -24,6 +24,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/golang/glog"
@@ -42,6 +44,7 @@ const (
 	pubKey            = "astra+cad5a3d2+AZJqeuyE/GnknsCNh1eCtDtwdAwKBddOlS8M2eI1Jt4b"
 	privKey           = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 	integrationOrigin = "Serverless Integration Test Log"
+	keyName           = "astra"
 )
 
 func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.Hasher, signer note.Signer) {
@@ -93,6 +96,32 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			t.Fatalf("Failed to update tracked log state: %q", err)
 		}
 		newCheckpoint := lst.LatestConsistent
+		// Verify that the returned checkpoint note is as expected.
+		note := lst.CheckpointNote
+		if len(note.Sigs) == 1 {
+			if note.Sigs[0].Name != keyName {
+				t.Errorf("Wrong key name. Expected %s, got %s", keyName, note.Sigs[0].Name)
+			}
+		} else {
+			t.Errorf("Wrong number of signatures. Expected 1, got %d", len(note.Sigs))
+		}
+		components := strings.Split(note.Text, "\n")
+		if len(components) == 4 {
+			if components[0] != integrationOrigin {
+				t.Errorf("Signed text had wrong origin. Expected %s got %s", integrationOrigin, components[0])
+			}
+			size, err := strconv.Atoi(components[1])
+			if err == nil {
+				exp_size := (i + 1) * leavesPerLoop
+				if size != exp_size {
+					t.Errorf("Signature had unexpected tree size. Expected %d got %d", exp_size, size)
+				}
+			} else {
+				t.Errorf("Could not convert tree size string to integer. Bad value %s", components[1])
+			}
+		} else {
+			t.Errorf("Signed text did not have correct number of lines. Expected 3, got %d", len(components))
+		}
 		if got, want := newCheckpoint.Size-checkpoint.Size, uint64(leavesPerLoop); got != want {
 			t.Errorf("Integrate missed some entries, got %d want %d", got, want)
 		}

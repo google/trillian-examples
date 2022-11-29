@@ -44,7 +44,7 @@ func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses
 	//  - no distributor has a checkpoint.N file signed by N of the known witnesses.
 	//
 	// It's good enough for now, though.
-	return func(ctx context.Context, logSigV note.Verifier, origin string) (*fmt_log.Checkpoint, []byte, error) {
+	return func(ctx context.Context, logSigV note.Verifier, origin string) (*fmt_log.Checkpoint, []byte, *note.Note, error) {
 		type cp struct {
 			cp  *fmt_log.Checkpoint
 			n   *note.Note
@@ -84,9 +84,9 @@ func CheckpointNConsensus(logID string, distributors []client.Fetcher, witnesses
 			}
 		}
 		if bestCP.cp == nil {
-			return nil, nil, fmt.Errorf("unable to identify suitable checkpoint (fetch errs: %v)", fetchErrs)
+			return nil, nil, nil, fmt.Errorf("unable to identify suitable checkpoint (fetch errs: %v)", fetchErrs)
 		}
-		return bestCP.cp, bestCP.raw, nil
+		return bestCP.cp, bestCP.raw, bestCP.n, nil
 	}, nil
 }
 

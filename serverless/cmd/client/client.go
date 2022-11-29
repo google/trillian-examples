@@ -78,13 +78,13 @@ var (
 	outputCheckpoint    = flag.String("output_checkpoint", "", "If set, the update command will write the latest verified consistent checkpoint to this file")
 	outputConsistency   = flag.String("output_consistency_proof", "", "If set, the update and consistency commands will write the verified consistency proof used to update the checkpoint to this file")
 	outputInclusion     = flag.String("output_inclusion_proof", "", "If set, the inclusion command will write the verified inclusion proof to this file")
-	inclusionHash       = flag.Bool("inclusion_hash", false, "If set to true, inclusion will take a file hash instead of a file name")
+	inclusionHash       = flag.Bool("inclusion_hash", false, "If set to true, the inclusion command will take a base64 encoded leaf hash instead of a file name")
 )
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Please specify one of the commands and its arguments:\n")
 	fmt.Fprintf(os.Stderr, "  consistency <from-size> <to-size>\n - build consistency proof between two log sizes\n")
-	fmt.Fprintf(os.Stderr, "  inclusion <file or hash> [index-in-log]\n - verify inclusion of a file in the log\n")
+	fmt.Fprintf(os.Stderr, "  inclusion <file or leaf hash> [index-in-log]\n - verify inclusion of a file in the log\n")
 	fmt.Fprintf(os.Stderr, "  update - force the client to update its latest checkpoint\n")
 	os.Exit(-1)
 }
@@ -250,30 +250,30 @@ func (l *logClientTool) consistencyProof(ctx context.Context, args []string) err
 // hash and index.
 //
 // When the --inclusion_hash option is not provided, the first argument is taken to be the name
-// of a file that will be hashed to look up the node. The file will be read and the merkle hash
+// of a file that will be hashed to look up the entry. The file will be read and the leaf hash
 // will be computed. When the --inclusion_hash option is provided, the first argument will instead
-// be the base64-encoded merkle node hash of the node.
+// be the base64-encoded leaf hash of the node.
 //
 // The entry's index may optionally be provided as an additional argument. If the index is
-// provided, we'll use that index. The node at that index must match the provided entry's contents
-// or hash. If the index is not provided, we'll do a tree lookup to find the node's index.
+// provided, we'll use that index. The entry at that index must match the provided contents
+// or leaf hash. If the index is not provided, we'll do a tree lookup to find the entry's index.
 //
-// Returns the entry's hash, the entry's index, and an error.
-func (l *logClientTool) inclusionProofArgs(ctx context.Context, args []string) ([]byte, uint64,  error) {
+// Returns the entry's leaf hash and index, or an error.
+func (l *logClientTool) inclusionProofArgs(ctx context.Context, args []string) ([]byte, uint64, error) {
 	var lh []byte
 	var err error
-	
+
 	if l := len(args); l < 1 || l > 2 {
 		return nil, 0, fmt.Errorf("usage: inclusion <file or hash> [index-in-log]")
 	}
 
 	if *inclusionHash {
-		// We have a base-64 encoded file hash instead of the name of a file to hash.
+		// We have a base-64 encoded leaf hash instead of the name of a file to hash.
 		lh, err = base64.StdEncoding.DecodeString(args[0])
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to base64 decode entry hash: %w", err)
+			return nil, 0, fmt.Errorf("failed to base64 decode leaf hash: %w", err)
 		}
-		
+
 	} else {
 		// We have the name of a file to hash.
 		entry, err := os.ReadFile(args[0])
@@ -282,7 +282,7 @@ func (l *logClientTool) inclusionProofArgs(ctx context.Context, args []string) (
 		}
 		lh = l.Hasher.HashLeaf(entry)
 	}
-	
+
 	var idx uint64
 	if len(args) == 2 {
 		idx, err = strconv.ParseUint(args[1], 16, 64)
@@ -296,14 +296,14 @@ func (l *logClientTool) inclusionProofArgs(ctx context.Context, args []string) (
 		}
 		glog.Infof("Leaf %q found at index %d", args[0], idx)
 	}
-	
+
 	return lh, idx, nil
 }
 
 func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error {
 	lh, idx, err := l.inclusionProofArgs(ctx, args)
 	if err != nil {
-		return fmt.Errorf("Failed to decode arguments: %w", err)
+		return fmt.Errorf("failed to decode arguments: %w", err)
 	}
 
 	// TODO(al): wait for growth if necessary

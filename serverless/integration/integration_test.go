@@ -24,8 +24,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/golang/glog"
@@ -74,6 +72,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		// Sequence some leaves:
 		leaves := sequenceNLeaves(ctx, t, s, lh, i*leavesPerLoop, leavesPerLoop)
 
+		var latestCpNote *note.Note = nil
 		// Integrate those leaves
 		{
 			update, err := log.Integrate(ctx, checkpoint, s, lh)
@@ -89,39 +88,24 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			if err := s.WriteCheckpoint(ctx, cpNoteSigned); err != nil {
 				t.Fatalf("Failed to store new log checkpoint: %q", err)
 			}
+			latestCpNote = &cpNote
 		}
 
 		// State tracker will verify consistency of larger tree
-		if _, _, _, err := lst.Update(ctx); err != nil {
+		_, _, latestCpRaw, err := lst.Update(ctx)
+		if err != nil {
 			t.Fatalf("Failed to update tracked log state: %q", err)
 		}
-		newCheckpoint := lst.LatestConsistent
 		// Verify that the returned checkpoint note is as expected.
-		note := lst.CheckpointNote
-		if len(note.Sigs) == 1 {
-			if note.Sigs[0].Name != keyName {
-				t.Errorf("Wrong key name. Expected %s, got %s", keyName, note.Sigs[0].Name)
-			}
-		} else {
-			t.Errorf("Wrong number of signatures. Expected 1, got %d", len(note.Sigs))
+		updateNote, err := note.Open(latestCpRaw, note.VerifierList(v))
+		if err != nil {
+			t.Fatalf("Failed to open checkpoint note returned from Update: %q", err)
 		}
-		components := strings.Split(note.Text, "\n")
-		if len(components) == 4 {
-			if components[0] != integrationOrigin {
-				t.Errorf("Signed text had wrong origin. Expected %s got %s", integrationOrigin, components[0])
-			}
-			size, err := strconv.Atoi(components[1])
-			if err == nil {
-				exp_size := (i + 1) * leavesPerLoop
-				if size != exp_size {
-					t.Errorf("Signature had unexpected tree size. Expected %d got %d", exp_size, size)
-				}
-			} else {
-				t.Errorf("Could not convert tree size string to integer. Bad value %s", components[1])
-			}
-		} else {
-			t.Errorf("Signed text did not have correct number of lines. Expected 3, got %d", len(components))
+		if latestCpNote.Text != updateNote.Text {
+			t.Fatalf("LogStateTracker.Update() did not return correct note information. Got %v want %v",
+				lst.CheckpointNote.Text, updateNote.Text)
 		}
+		newCheckpoint := lst.LatestConsistent
 		if got, want := newCheckpoint.Size-checkpoint.Size, uint64(leavesPerLoop); got != want {
 			t.Errorf("Integrate missed some entries, got %d want %d", got, want)
 		}

@@ -89,7 +89,7 @@ func showCP(ctx context.Context, f client.Fetcher) {
 		case <-ctx.Done():
 			return
 		}
-		_, cp, err := client.FetchCheckpoint(ctx, f, logVer, origin)
+		_, cp, _, err := client.FetchCheckpoint(ctx, f, logVer, origin)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				logMsg(err.Error())
@@ -245,7 +245,7 @@ monitorLoop:
 			return
 		}
 
-		cp, _, err := client.FetchCheckpoint(ctx, f, logVer, origin)
+		cp, _, _, err := client.FetchCheckpoint(ctx, f, logVer, origin)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
 				monMsg(err.Error())

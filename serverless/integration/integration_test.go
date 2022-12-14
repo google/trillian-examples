@@ -42,7 +42,6 @@ const (
 	pubKey            = "astra+cad5a3d2+AZJqeuyE/GnknsCNh1eCtDtwdAwKBddOlS8M2eI1Jt4b"
 	privKey           = "PRIVATE+KEY+astra+cad5a3d2+ASgwwenlc0uuYcdy7kI44pQvuz1fw8cS5NqS8RkZBXoy"
 	integrationOrigin = "Serverless Integration Test Log"
-	keyName           = "astra"
 )
 
 func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.Hasher, signer note.Signer) {
@@ -72,7 +71,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		// Sequence some leaves:
 		leaves := sequenceNLeaves(ctx, t, s, lh, i*leavesPerLoop, leavesPerLoop)
 
-		var latestCpNote *note.Note = nil
+		var latestCpNote *note.Note
 		// Integrate those leaves
 		{
 			update, err := log.Integrate(ctx, checkpoint, s, lh)

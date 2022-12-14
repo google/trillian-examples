@@ -40,7 +40,7 @@ func TestExampleConfig(t *testing.T) {
 }
 
 func TestConfigOverrideID(t *testing.T) {
-	bs, err := ioutil.ReadFile("example_log_config.yaml")
+	bs, err := os.ReadFile("example_log_config.yaml")
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}

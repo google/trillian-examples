@@ -38,3 +38,15 @@ func TestExampleConfig(t *testing.T) {
 		t.Errorf("Validate: %v", err)
 	}
 }
+
+func TestConfigOverrideID(t *testing.T) {
+	bs, err := ioutil.ReadFile("example_log_config.yaml")
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	bs = append(bs, []byte("\n\tID: wibble")...)
+	config := exampleLogConfig{}
+	if err := yaml.Unmarshal(bs, &config); err == nil {
+		t.Fatal("Unmarshal expected error, but got none")
+	}
+}

@@ -28,7 +28,8 @@ import (
 // Log describes a verifiable log in a config file.
 type Log struct {
 	// ID is used to refer to the log in directory paths.
-	// ID is optional and will be defaulted to logfmt.ID() if not present.
+	// This field should not be manually set in configs, instead it will be
+	// derived automatically by logfmt.ID.
 	ID string `yaml:"ID"`
 	// PublicKey used to verify checkpoints from this log.
 	PublicKey string `yaml:"PublicKey"`
@@ -70,9 +71,11 @@ func (l *Log) UnmarshalYAML(unmarshal func(interface{}) error) error {
 		return err
 	}
 
-	if len(raw.ID) == 0 {
-		raw.ID = log.ID(raw.Origin, []byte(raw.PublicKey))
+	if len(raw.ID) > 0 {
+		return errors.New("the ID field should not be manually configured")
 	}
+	raw.ID = log.ID(raw.Origin, []byte(raw.PublicKey))
+
 	*l = Log(raw)
 	return nil
 }

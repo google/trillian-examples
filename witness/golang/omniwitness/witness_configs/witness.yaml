@@ -10,13 +10,11 @@ Logs:
   - Origin: rekor.sigstore.dev - 3904496407287907110
     PublicKeyType: ecdsa
     PublicKey: rekor.sigstore.dev+c0d23d6a+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc=
-    LogID: 3904496407287907110
     HashStrategy: default
     UseCompact: false
   - Origin: rekor.sigstore.dev - 2605736670972794746
     PublicKeyType: ecdsa
     PublicKey: rekor.sigstore.dev+c0d23d6a+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc=
-    LogID: 2605736670972794746
     HashStrategy: default
     UseCompact: false
   - Origin: DEFAULT

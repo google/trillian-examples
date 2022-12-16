@@ -142,7 +142,7 @@ func TestCheckpointNConsensus(t *testing.T) {
 			if err != nil {
 				t.Fatalf("CheckpointNConsensus() = %v", err)
 			}
-			_, raw, err := f(context.Background(), logV, testOrigin)
+			_, raw, _, err := f(context.Background(), logV, testOrigin)
 			gotErr := err != nil
 			if gotErr != test.wantErr {
 				t.Errorf("Got err: %v, want err: %v", err, test.wantErr)

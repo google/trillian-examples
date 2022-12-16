@@ -71,6 +71,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		// Sequence some leaves:
 		leaves := sequenceNLeaves(ctx, t, s, lh, i*leavesPerLoop, leavesPerLoop)
 
+		var latestCpNote *note.Note
 		// Integrate those leaves
 		{
 			update, err := log.Integrate(ctx, checkpoint, s, lh)
@@ -86,11 +87,22 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 			if err := s.WriteCheckpoint(ctx, cpNoteSigned); err != nil {
 				t.Fatalf("Failed to store new log checkpoint: %q", err)
 			}
+			latestCpNote = &cpNote
 		}
 
 		// State tracker will verify consistency of larger tree
-		if _, _, _, err := lst.Update(ctx); err != nil {
+		_, _, latestCpRaw, err := lst.Update(ctx)
+		if err != nil {
 			t.Fatalf("Failed to update tracked log state: %q", err)
+		}
+		// Verify that the returned checkpoint note is as expected.
+		updateNote, err := note.Open(latestCpRaw, note.VerifierList(v))
+		if err != nil {
+			t.Fatalf("Failed to open checkpoint note returned from Update: %q", err)
+		}
+		if latestCpNote.Text != updateNote.Text {
+			t.Fatalf("LogStateTracker.Update() did not return correct note information. Got %v want %v",
+				lst.CheckpointNote.Text, updateNote.Text)
 		}
 		newCheckpoint := lst.LatestConsistent
 		if got, want := newCheckpoint.Size-checkpoint.Size, uint64(leavesPerLoop); got != want {

@@ -264,7 +264,7 @@ func (l *logClientTool) inclusionProofArgs(ctx context.Context, args []string) (
 	var err error
 
 	if l := len(args); l < 1 || l > 2 {
-		return nil, 0, fmt.Errorf("usage: inclusion <file or hash> [index-in-log]")
+		return nil, 0, fmt.Errorf("usage: inclusion <file or leaf hash> [index-in-log]")
 	}
 
 	if *inclusionHash {

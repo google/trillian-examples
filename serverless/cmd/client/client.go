@@ -78,12 +78,13 @@ var (
 	outputCheckpoint    = flag.String("output_checkpoint", "", "If set, the update command will write the latest verified consistent checkpoint to this file")
 	outputConsistency   = flag.String("output_consistency_proof", "", "If set, the update and consistency commands will write the verified consistency proof used to update the checkpoint to this file")
 	outputInclusion     = flag.String("output_inclusion_proof", "", "If set, the inclusion command will write the verified inclusion proof to this file")
+	inclusionHash       = flag.Bool("inclusion_hash", false, "If set to true, the inclusion command will take a base64 encoded leaf hash instead of a file name")
 )
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Please specify one of the commands and its arguments:\n")
 	fmt.Fprintf(os.Stderr, "  consistency <from-size> <to-size>\n - build consistency proof between two log sizes\n")
-	fmt.Fprintf(os.Stderr, "  inclusion <file> [index-in-log]\n - verify inclusion of a file in the log\n")
+	fmt.Fprintf(os.Stderr, "  inclusion <file or leaf hash> [index-in-log]\n - verify inclusion of a file in the log\n")
 	fmt.Fprintf(os.Stderr, "  update - force the client to update its latest checkpoint\n")
 	os.Exit(-1)
 }
@@ -245,28 +246,64 @@ func (l *logClientTool) consistencyProof(ctx context.Context, args []string) err
 	return nil
 }
 
-func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error {
+// For the inclusion subcommand, parse the command-line options and arguments to get the entry's
+// hash and index.
+//
+// When the --inclusion_hash option is not provided, the first argument is taken to be the name
+// of a file that will be hashed to look up the entry. The file will be read and the leaf hash
+// will be computed. When the --inclusion_hash option is provided, the first argument will instead
+// be the base64-encoded leaf hash of the node.
+//
+// The entry's index may optionally be provided as an additional argument. If the index is
+// provided, we'll use that index. The entry at that index must match the provided contents
+// or leaf hash. If the index is not provided, we'll do a tree lookup to find the entry's index.
+//
+// Returns the entry's leaf hash and index, or an error.
+func (l *logClientTool) inclusionProofArgs(ctx context.Context, args []string) ([]byte, uint64, error) {
+	var lh []byte
+	var err error
+
 	if l := len(args); l < 1 || l > 2 {
-		return fmt.Errorf("usage: inclusion <file> [index-in-log]")
+		return nil, 0, fmt.Errorf("usage: inclusion <file or leaf hash> [index-in-log]")
 	}
-	entry, err := os.ReadFile(args[0])
-	if err != nil {
-		return fmt.Errorf("failed to read entry from %q: %w", args[0], err)
+
+	if *inclusionHash {
+		// We have a base-64 encoded leaf hash instead of the name of a file to hash.
+		lh, err = base64.StdEncoding.DecodeString(args[0])
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to base64 decode leaf hash: %w", err)
+		}
+
+	} else {
+		// We have the name of a file to hash.
+		entry, err := os.ReadFile(args[0])
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to read entry from %q: %w", args[0], err)
+		}
+		lh = l.Hasher.HashLeaf(entry)
 	}
-	lh := l.Hasher.HashLeaf(entry)
 
 	var idx uint64
 	if len(args) == 2 {
 		idx, err = strconv.ParseUint(args[1], 16, 64)
 		if err != nil {
-			return fmt.Errorf("invalid index-in-log %q: %w", args[1], err)
+			return nil, 0, fmt.Errorf("invalid index-in-log %q: %w", args[1], err)
 		}
 	} else {
 		idx, err = client.LookupIndex(ctx, l.Fetcher, lh)
 		if err != nil {
-			return fmt.Errorf("failed to lookup leaf index: %w", err)
+			return nil, 0, fmt.Errorf("failed to lookup leaf index: %w", err)
 		}
 		glog.Infof("Leaf %q found at index %d", args[0], idx)
+	}
+
+	return lh, idx, nil
+}
+
+func (l *logClientTool) inclusionProof(ctx context.Context, args []string) error {
+	lh, idx, err := l.inclusionProofArgs(ctx, args)
+	if err != nil {
+		return fmt.Errorf("failed to decode arguments: %w", err)
 	}
 
 	// TODO(al): wait for growth if necessary

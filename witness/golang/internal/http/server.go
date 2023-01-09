@@ -41,8 +41,8 @@ func NewServer(witness *witness.Witness) *Server {
 }
 
 // update handles requests to update checkpoints.
-// It expects a POSTed body containing a JSON-formatted api.UpdateRequest
-// statement and returns a JSON-formatted api.UpdateResponse statement.
+// It expects a POSTed body containing a JSON-formatted [api.UpdateRequest]
+// statement and returns a raw checkpoint.
 func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 	v := mux.Vars(r)
 	logID := v["logid"]

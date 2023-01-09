@@ -90,7 +90,12 @@ func (w *Witness) parse(chkptRaw []byte, logID string) (*log.Checkpoint, *note.N
 
 // GetLogs returns a list of all logs the witness is aware of.
 func (w *Witness) GetLogs() ([]string, error) {
-	return w.lsp.Logs()
+	// Not using lsp.Logs as that doesn't return logs without a checkpoint yet.
+	logs := make([]string, 0, len(w.Logs))
+	for log := range w.Logs {
+		logs = append(logs, log)
+	}
+	return logs, nil
 }
 
 // GetCheckpoint gets a checkpoint for a given log, which is consistent with all

@@ -19,22 +19,32 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
+	"golang.org/x/net/http2"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v2"
@@ -45,23 +55,26 @@ import (
 )
 
 var (
-	listenAddr = flag.String("listen", "localhost:8000", "address:port to listen for requests on")
-	dbFile     = flag.String("db", ":memory:", "path to a file to be used as sqlite3 storage for checkpoints")
-	configFile = flag.String("config", "example_config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
-	skFile     = flag.String("key", "example_key.txt", "private signing key for the witness")
+	listenAddr  = flag.String("listen", "localhost:8000", "address:port to listen for requests on")
+	bastionAddr = flag.String("bastion", "", "address of the bastion to reverse proxy through")
+	dbFile      = flag.String("db", ":memory:", "path to a file to be used as sqlite3 storage for checkpoints")
+	configFile  = flag.String("config", "example_config.yaml", "path to a YAML config file that specifies the logs followed by this witness")
+	skFile      = flag.String("key", "example_key.txt", "private signing key for the witness")
 )
 
 func main() {
+	flag.BoolVar(&http2.VerboseLogs, "h2v", false, "enable HTTP/2 verbose logs")
 	flag.Parse()
 
 	if *skFile == "" {
 		glog.Exit("--key must not be empty")
 	}
-	witnessSK, err := os.ReadFile(*skFile)
+	witnessSKBytes, err := os.ReadFile(*skFile)
 	if err != nil {
 		glog.Exitf("Failed to read the private key: %v", err)
 	}
-	signer, err := note.NewSigner(strings.TrimSpace(string(witnessSK)))
+	witnessSK := strings.TrimSpace(string(witnessSKBytes))
+	signer, err := note.NewSigner(witnessSK)
 	if err != nil {
 		glog.Exitf("Error forming a signer: %v", err)
 	}
@@ -131,19 +144,67 @@ func main() {
 		glog.Exitf("Error creating witness: %v", err)
 	}
 
-	glog.Infof("Starting witness server at http://%v...", *listenAddr)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
+
 	srv := NewServer(w)
-	r := mux.NewRouter()
-	srv.RegisterHandlers(r)
+	handler := mux.NewRouter()
+	srv.RegisterHandlers(handler)
 	hServer := &http.Server{
 		Addr:        *listenAddr,
-		Handler:     r,
+		Handler:     handler,
 		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
+
 	e := make(chan error, 1)
-	go func() { e <- hServer.ListenAndServe() }()
+	if *bastionAddr != "" {
+		glog.Infof("Connecting to bastion at %v...", *bastionAddr)
+		key, err := parsePrivateKey(witnessSK)
+		if err != nil {
+			glog.Fatalf("Failed to generate parse private key: %v", err)
+		}
+		cert, err := selfSignedCertificate(key)
+		if err != nil {
+			glog.Fatalf("Failed to generate self-signed certificate: %v", err)
+		}
+		dialCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		conn, err := (&tls.Dialer{
+			Config: &tls.Config{
+				Certificates: []tls.Certificate{{
+					Certificate: [][]byte{cert},
+					PrivateKey:  key,
+				}},
+				MinVersion: tls.VersionTLS13,
+				MaxVersion: tls.VersionTLS13,
+				NextProtos: []string{"bastion/0"},
+			},
+		}).DialContext(dialCtx, "tcp", *bastionAddr)
+		if err != nil {
+			glog.Fatalf("Failed to connect to bastion: %v", err)
+		}
+		glog.Infof("Connected to bastion. Serving connection...")
+		go func() {
+			(&http2.Server{
+				CountError: func(errType string) {
+					if http2.VerboseLogs {
+						glog.Errorf("HTTP/2 server error: %v", errType)
+					}
+				},
+			}).ServeConn(conn, &http2.ServeConnOpts{
+				Context:    ctx,
+				BaseConfig: hServer,
+				Handler:    handler,
+			})
+			// TODO: attempt to reconnect when connection is interrupted.
+			// For now, rely on the process being restarted.
+			e <- errors.New("connection to bastion interrupted")
+		}()
+	} else {
+		glog.Infof("Starting witness server at http://%v...", *listenAddr)
+		go func() { e <- hServer.ListenAndServe() }()
+	}
+
 	select {
 	case <-ctx.Done():
 		glog.Info("Server shutting down...")
@@ -151,6 +212,33 @@ func main() {
 	case err := <-e:
 		glog.Errorf("Server error: %v", err)
 	}
+}
+
+func parsePrivateKey(s string) (ed25519.PrivateKey, error) {
+	_, s, _ = strings.Cut(s, "+") // PRIVATE
+	_, s, _ = strings.Cut(s, "+") // KEY
+	_, s, _ = strings.Cut(s, "+") // name
+	_, s, _ = strings.Cut(s, "+") // hash
+	b, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return nil, err
+	}
+	if len(b) != 1+ed25519.SeedSize {
+		return nil, fmt.Errorf("invalid key length %d", len(b))
+	}
+	return ed25519.NewKeyFromSeed(b[1:]), nil
+}
+
+func selfSignedCertificate(key ed25519.PrivateKey) ([]byte, error) {
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "Witness"},
+		NotBefore:    time.Now().Add(-1 * time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+	}
+	return x509.CreateCertificate(rand.Reader, tmpl, tmpl, key.Public(), key)
 }
 
 type LogConfig struct {

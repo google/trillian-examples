@@ -23,16 +23,17 @@ Date: Mon, 09 Jan 2023 19:51:28 GMT
 ```
 $ http PUT http://localhost:8000/witness/v0/update Checkpoint=@<(http https://sum.golang.org/latest | base64)
 HTTP/1.1 200 OK
-Content-Length: 302
+Content-Length: 428
 Content-Type: text/plain
-Date: Mon, 09 Jan 2023 19:50:09 GMT
+Date: Tue, 10 Jan 2023 12:07:19 GMT
 
 go.sum database tree
-15067302
-gJyioq6dwR9n+NjEWORfYmH+ubeYm3kH42BBQ0bTpYI=
+15081221
+BoMMe1wd25Tco0mYGROkyqxHZWx+hcSCtMV315Lu6Lg=
 
-— sum.golang.org Az3grp1rvWOs5NKlr/xR4GLN/CDyzzakmt1o61uSxYKpK1SerqOP2ClbX/peKUZjYnyomH5Xz7GZG3TpB7OeKn4E2ww=
-— test.example.com qTGhC/xIPQ0AXKHK6Y+9ypRfuvMZWPjRXM8NiOg5M1WREn07VQXyuIXM3NRNav3ieVFLUqDRK77PWDmL6w8w84UqeAw=
+— sum.golang.org Az3grilD7vQqTrv66jRgKM84Y80KTprrSt4bKmiOPxgmS5ZVBTeCl6dUvjYnN13R+C8j0jGY1WnUADGMkok3U0m2Zgo=
+— test.example.com qTGhC3917mAr6hGh+T55tNjxaej/D/GQivJZRIj7XGdAcQOTqfMWIPgp/v/904LEduN/h2sSRtHUJXUL4b9Gm7Bz4Qc=
+— test.example.com /Pa7Y/dUvWMAAAAAQVwkQVi81ArPV7BIaQYrMIxyzY0m8a4BdeeBhSKd3PviPK4/3Sd+NKSc5N7PDTCfAkUSVniN+R2oKIggA4iiDQ==
 ```
 
 ```

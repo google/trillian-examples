@@ -50,6 +50,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/google/trillian-examples/formats/log"
+	inote "github.com/google/trillian-examples/internal/note"
 	wsql "github.com/google/trillian-examples/witness/golang/internal/persistence/sql"
 	"github.com/google/trillian-examples/witness/golang/internal/witness"
 )
@@ -74,6 +75,10 @@ func main() {
 		glog.Exitf("Failed to read the private key: %v", err)
 	}
 	witnessSK := strings.TrimSpace(string(witnessSKBytes))
+	tsigner, err := inote.NewSignerWithTimestamps(witnessSK)
+	if err != nil {
+		glog.Exitf("Error forming a signer: %v", err)
+	}
 	signer, err := note.NewSigner(witnessSK)
 	if err != nil {
 		glog.Exitf("Error forming a signer: %v", err)
@@ -137,7 +142,7 @@ func main() {
 
 	w, err := witness.New(witness.Opts{
 		Persistence: wsql.NewPersistence(db),
-		Signer:      signer,
+		Signers:     []note.Signer{signer, tsigner},
 		KnownLogs:   logMap,
 	})
 	if err != nil {

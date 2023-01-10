@@ -36,7 +36,7 @@ import (
 // Opts is the options passed to a witness.
 type Opts struct {
 	Persistence persistence.LogStatePersistence
-	Signer      note.Signer
+	Signers     []note.Signer
 	KnownLogs   map[string]LogInfo
 }
 
@@ -56,8 +56,8 @@ type LogInfo struct {
 // Witness consists of a database for storing checkpoints, a signer, and a list
 // of logs for which it stores and verifies checkpoints.
 type Witness struct {
-	lsp    persistence.LogStatePersistence
-	Signer note.Signer
+	lsp     persistence.LogStatePersistence
+	Signers []note.Signer
 	// At some point we might want to store this information in a table in
 	// the database too but as I imagine it being populated from a static
 	// config file it doesn't seem very urgent to do that.
@@ -71,9 +71,9 @@ func New(wo Opts) (*Witness, error) {
 		return nil, fmt.Errorf("Persistence.Init(): %v", err)
 	}
 	return &Witness{
-		lsp:    wo.Persistence,
-		Signer: wo.Signer,
-		Logs:   wo.KnownLogs,
+		lsp:     wo.Persistence,
+		Signers: wo.Signers,
+		Logs:    wo.KnownLogs,
 	}, nil
 }
 
@@ -227,7 +227,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, cPro
 
 // signChkpt adds the witness' signature to a checkpoint.
 func (w *Witness) signChkpt(n *note.Note) ([]byte, error) {
-	cosigned, err := note.Sign(n, w.Signer)
+	cosigned, err := note.Sign(n, w.Signers...)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't sign checkpoint: %v", err)
 	}

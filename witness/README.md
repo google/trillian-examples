@@ -32,8 +32,7 @@ making cosigned checkpoints available via some API (distributor).
 ## Generic Witness Implementation
 
 This repository provides a witness that works for any log that uses the
-[format defined in this
-repository](https://github.com/google/trillian-examples/tree/master/formats/log).
+[log checkpoint format](https://github.com/transparency-dev/formats/tree/main/log).
 Each log requires a custom feeder to provide the binding between the log and the
 witness. Such feeders are intentionally not provided here in order to maintain a
 logical separation, and to avoid this package acquiring vast numbers of code
@@ -77,10 +76,11 @@ defined above.  Currently it contains implementations in the following languages
 ## Feeders
 
 Specific feeders are listed below, however potential witness operators are advised to
-simply deploy the [Omniwitness](golang/omniwitness) which contains all of these
+simply deploy the [Omniwitness](golang/omniwitness/monolith) which contains all of these
 feeders, unless there is a compelling reason to limit the witnessed logs.
 
 * [Go SumDB](https://github.com/google/trillian-examples/tree/master/sumdbaudit/witness)
 * [Serverless](https://github.com/google/trillian-examples/tree/master/serverless/cmd/feeder)
 * [Pixel BT](https://github.com/google/trillian-examples/tree/master/feeder/cmd/pixel_bt_feeder)
 * [Rekor/SigStore](https://github.com/google/trillian-examples/tree/master/feeder/cmd/rekor_feeder)
+

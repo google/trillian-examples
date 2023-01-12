@@ -34,6 +34,9 @@ The general-purpose components are:
   checkpoints issued by a verifiable log and produces co-signed checkpoints.
   This is an important role that enables the prevention or detection of certain
   types of log misbehavior (and in particular split-view attacks).
+    * [monolith](witness/golang/omniwitness/monolith) is the entry point for
+      users looking to deploy a preconfigured witness that witnesses all known
+      logs.
 
 These examples and components are not supported per-se, but the Trillian team 
 will likely try to help where possible.  You can contact them via the channels 

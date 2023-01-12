@@ -173,6 +173,8 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogS
 		}
 
 		runDistributors(ctx, httpClient, g, distLogs, bw, operatorConfig)
+	} else {
+		glog.Info("No GitHub user specified; skipping deployment of distributors")
 	}
 
 	r := mux.NewRouter()

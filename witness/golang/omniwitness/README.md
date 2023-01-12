@@ -7,7 +7,9 @@ The OmniWitness is opinionated on which logs and distributors will be used. Depl
 of the OmniWitness implementations will perform the same witnessing and distribution, unless
 the operator changes any of the configuration files in the `*_configs` directories here.
 
-This directory contains a dockerized implementation for a micro-services style deployment;
+The recommended way to deploy the OmniWitness is using the [monolith](monolith), which is
+a single executable that bundles all of the components. Alternatively, this
+directory contains a dockerized implementation for a micro-services style deployment;
 a container will be deployed for:
   * The core witness
   * Each of the feeder types (one for each of the config files in `./feeder_configs`)

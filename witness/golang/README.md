@@ -17,6 +17,12 @@ Once up and running, the witness provides three API endpoints (as defined in
 Running the witness
 --------------------
 
+Most users wanting to run a witness will simply deploy the [OmniWitness](omniwitness/monolith),
+which is preconfigured to witness all known logs using the checkpoint format.
+
+Witnessing a custom log
+-----------------------
+
 Running the witness is as simple as running `go run main.go` (where `main.go`
 can be found in the `cmd/witness` directory), with the following flags:
 - `listen`, which specifies the address and port to listen on.

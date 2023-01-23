@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/serverless/config"
 	"github.com/google/trillian-examples/sumdbaudit/client"
+	"github.com/transparency-dev/formats/log"
 	"github.com/transparency-dev/merkle/compact"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/tlog"

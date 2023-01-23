@@ -31,7 +31,7 @@ import (
 	"github.com/gcp_serverless_module/internal/storage"
 	"github.com/google/trillian-examples/serverless/pkg/log"
 
-	fmtlog "github.com/google/trillian-examples/formats/log"
+	fmtlog "github.com/transparency-dev/formats/log"
 )
 
 func validateCommonArgs(w http.ResponseWriter, origin string) (ok bool, pubKey string) {

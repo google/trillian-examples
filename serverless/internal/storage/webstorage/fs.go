@@ -37,7 +37,7 @@ import (
 	"github.com/google/trillian-examples/serverless/api/layout"
 	"github.com/google/trillian-examples/serverless/pkg/log"
 
-	fmtlog "github.com/google/trillian-examples/formats/log"
+	fmtlog "github.com/transparency-dev/formats/log"
 )
 
 // Storage is a serverless storage implementation which uses webstorage entries to store tree state.

@@ -28,7 +28,7 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
-	fmtlog "github.com/google/trillian-examples/formats/log"
+	fmtlog "github.com/transparency-dev/formats/log"
 )
 
 var (

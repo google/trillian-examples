@@ -24,7 +24,7 @@ import (
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
 
-	fmt_log "github.com/google/trillian-examples/formats/log"
+	fmt_log "github.com/transparency-dev/formats/log"
 )
 
 // CheckpointNConsensus returns a ConsensusCheckpoint function which selects the newest checkpoint available from

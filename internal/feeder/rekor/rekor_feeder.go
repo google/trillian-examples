@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/serverless/config"
+	"github.com/transparency-dev/formats/log"
 
 	i_note "github.com/google/trillian-examples/internal/note"
 )

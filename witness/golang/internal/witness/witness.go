@@ -23,8 +23,8 @@ import (
 	"fmt"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/witness/golang/internal/persistence"
+	"github.com/transparency-dev/formats/log"
 	"github.com/transparency-dev/merkle"
 	"github.com/transparency-dev/merkle/compact"
 	"github.com/transparency-dev/merkle/proof"
@@ -165,7 +165,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, cPro
 		return nil, status.Errorf(codes.Internal, "couldn't parse stored checkpoint: %v", err)
 	}
 	// Parse the compact range if we're using one.
-	var prevRange log.Proof
+	var prevRange Proof
 	if logInfo.UseCompact {
 		if err := prevRange.Unmarshal(rangeRaw); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "couldn't unmarshal proof: %v", err)
@@ -194,7 +194,7 @@ func (w *Witness) Update(ctx context.Context, logID string, nextRaw []byte, cPro
 			return prevRaw, status.Errorf(codes.FailedPrecondition, "failed to verify compact range: %v", err)
 		}
 		// If the proof is good store nextRaw and the new range.
-		r := []byte(log.Proof(nextRange).Marshal())
+		r := []byte(Proof(nextRange).Marshal())
 		signed, err := w.signChkpt(nextNote)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "couldn't sign input checkpoint: %v", err)
@@ -280,7 +280,7 @@ func setInitChkptData(write persistence.LogStateWriteOps, logInfo LogInfo, c *lo
 		if err := verifyRangeHash(c.Hash, rng); err != nil {
 			return fmt.Errorf("input root hash doesn't verify: %v", err)
 		}
-		r := []byte(log.Proof(rngRaw).Marshal())
+		r := []byte(Proof(rngRaw).Marshal())
 		return write.Set(cRaw, r)
 	}
 	// If we're not using compact ranges no need to store one.

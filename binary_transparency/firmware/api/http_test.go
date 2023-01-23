@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/formats/log"
 )
 
 func TestLogCheckpointString(t *testing.T) {

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/formats/log"
 )
 
 // Log describes a verifiable log in a config file.

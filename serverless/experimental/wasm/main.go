@@ -45,7 +45,7 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 
-	logfmt "github.com/google/trillian-examples/formats/log"
+	logfmt "github.com/transparency-dev/formats/log"
 )
 
 const (

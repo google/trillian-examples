@@ -22,8 +22,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/trillian-examples/formats/log"
 	p "github.com/google/trillian-examples/helloworld/personality"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 )
 

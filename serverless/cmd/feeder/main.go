@@ -29,9 +29,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/internal/feeder/serverless"
 	"github.com/google/trillian-examples/serverless/config"
+	"github.com/transparency-dev/formats/log"
 
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
 	yaml "gopkg.in/yaml.v2"

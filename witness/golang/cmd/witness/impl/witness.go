@@ -86,6 +86,9 @@ func (config LogConfig) AsLogMap() (map[string]witness.LogInfo, error) {
 		if len(logID) == 0 {
 			logID = logfmt.ID(log.Origin, []byte(log.PublicKey))
 		}
+		if oldLog, found := logMap[logID]; found {
+			return nil, fmt.Errorf("colliding log configs found for key %x: %+v and %+v", logID, oldLog, logInfo)
+		}
 		logMap[logID] = logInfo
 	}
 	return logMap, nil

@@ -10,6 +10,6 @@ require (
 )
 
 require (
-	github.com/transparency-dev/formats v0.0.0-20221130180841-34660baab089 // indirect
+	github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 )

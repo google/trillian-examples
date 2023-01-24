@@ -1,16 +1,18 @@
 FROM golang:1.19-alpine AS build
 
 WORKDIR /src/
-COPY . ./
-RUN CGO_ENABLED=0 go build -o /bin/integrate github.com/google/trillian-examples/serverless/cmd/integrate
-RUN CGO_ENABLED=0 go build -o /bin/sequence github.com/google/trillian-examples/serverless/cmd/sequence
+# Note: this could be a bit surprising as folks who pinned their action to some particular version
+# will end up running the latest binaries. For now this is probably "ok", but when serverless is
+# moved out into its own repo (where releases can be done) we should fix this behaviour.
+RUN CGO_ENABLED=0 go install github.com/google/trillian-examples/serverless/cmd/integrate@HEAD
+RUN CGO_ENABLED=0 go install github.com/google/trillian-examples/serverless/cmd/sequence@HEAD
 
 FROM alpine
 
 RUN apk add --no-cache bash git
 
 COPY entrypoint.sh /entrypoint.sh
-COPY --from=build /bin/integrate /bin/integrate
-COPY --from=build /bin/sequence /bin/sequence
+COPY --from=build /go/bin/integrate /bin/integrate
+COPY --from=build /go/bin/sequence /bin/sequence
 
 ENTRYPOINT ["/entrypoint.sh"]

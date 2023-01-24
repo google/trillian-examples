@@ -33,6 +33,8 @@ require (
 	gvisor.dev/gvisor v0.0.0-20220920171436-4e7fd140e8d0
 )
 
+require github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26
+
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
 	cloud.google.com/go v0.107.0 // indirect
@@ -53,7 +55,6 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.0 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
-	github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/net v0.5.0 // indirect

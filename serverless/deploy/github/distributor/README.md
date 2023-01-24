@@ -122,24 +122,18 @@ name: Integrate Incoming Checkpoints
 on:
   push:
     branches:
-      # This is the name of the primary branch, which may be `main` for newer repos.
-      - master
-  # Enable a manual dispatch button for this workflow.
-  workflow_dispatch: 
+      - main
   # Trigger on a schedule too - sometimes GitHub Actions fails and this will help to
   # recover from that.
   schedule: 
   # This will cause this action to run once an hour at 20 minutes past the hour:
     - cron: '20 * * * *'
-  # Enable this workflow_run stanza if you set up automerge as below:
-  #workflow_run:
-  #  workflows: ["Automerge PR"]
-  #  types:
-  #    - completed
+  workflow_run:
+    workflows: ["Automerge PR"]
+  workflow_dispatch:
 
 env:
-  # Update this to the location of your distributor root directory if different:
-  DISTRIBUTOR_ROOT: "distributor"
+  DISTRIBUTOR_ROOT: ""
 
 jobs:
   combine_witness_sigs:
@@ -150,18 +144,19 @@ jobs:
     # Attempt to combine witness signatures with the log checkpoint.
     - name: Combine witness signatures
       id: combine_witness_signatures
-      uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@master
+      uses: google/trillian-examples/serverless/deploy/github/distributor/combine_witness_signatures@HEAD
       with:
           distributor_dir: '${{ env.DISTRIBUTOR_ROOT }}'
           config: 'config.yaml'
-    # Update the README.md in the `logs/` directory with a human-readable list.
+    # Update log index.
     - name: Update logs index
       id: update_logs_index
-      uses: google/trillian-examples/serverless/deploy/github/distributor/update_logs_index@master
+      uses: google/trillian-examples/serverless/deploy/github/distributor/update_logs_index@HEAD
       with:
           distributor_dir: '${{ env.DISTRIBUTOR_ROOT }}'
           config: 'config.yaml'
           output: 'logs/README.md'
+    # Commit any changes back to distributor repo.
     - uses: stefanzweifel/git-auto-commit-action@v4
       with:
         commit_user_name: Serverless Bot
@@ -229,28 +224,29 @@ jobs:
       ${{ github.event.workflow_run.event == 'pull_request' &&
           github.event.workflow_run.conclusion == 'success' }}
     steps:
-      # Fetch PR number stored by the optional step in the Serverless PR workflow above.
+        # Fetch PR number stored by the optional step in the Serverless PR workflow above.
       - name: 'Fetch PR metadata artifact'
-        uses: actions/github-script@v3.1.0
+        uses: actions/github-script@v6
         with:
           script: |
-            var artifacts = await github.actions.listWorkflowRunArtifacts({
+            let artifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
-               run_id: ${{github.event.workflow_run.id }},
+               run_id: context.payload.workflow_run.id,
             });
-            var matchArtifact = artifacts.data.artifacts.filter((artifact) => {
+            let matchArtifact = artifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "pr_metadata"
             })[0];
-            var download = await github.actions.downloadArtifact({
+            let download = await github.rest.actions.downloadArtifact({
                owner: context.repo.owner,
                repo: context.repo.repo,
                artifact_id: matchArtifact.id,
                archive_format: 'zip',
             });
-            var fs = require('fs');
-            fs.writeFileSync('${{github.workspace}}/pr_metadata.zip', Buffer.from(download.data));
-      - name: 'Grab PR number'
+            let fs = require('fs');
+            fs.writeFileSync(`${process.env.GITHUB_WORKSPACE}/pr_metadata.zip`, Buffer.from(download.data));
+            
+      - name: 'Grab PR metadata'
         id: pr_metadata
         run: |
           unzip pr_metadata.zip

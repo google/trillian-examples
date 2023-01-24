@@ -1,6 +1,9 @@
 FROM golang:1.19-alpine AS build
 
 WORKDIR /src/
+# Note: this could be a bit surprising as folks who pinned their action to some particular version
+# will end up running the latest binaries. For now this is probably "ok", but when serverless is
+# moved out into its own repo (where releases can be done) we should fix this behaviour.
 RUN CGO_ENABLED=0 go install github.com/google/trillian-examples/serverless/cmd/integrate@HEAD
 RUN CGO_ENABLED=0 go install github.com/google/trillian-examples/serverless/cmd/sequence@HEAD
 

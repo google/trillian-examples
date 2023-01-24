@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/formats/log"
 )
 
 func TestGetWitnessCheckpoint(t *testing.T) {

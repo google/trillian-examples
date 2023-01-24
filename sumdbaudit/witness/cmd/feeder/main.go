@@ -23,10 +23,10 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/internal/feeder/sumdb"
 	"github.com/google/trillian-examples/serverless/config"
 	wit_http "github.com/google/trillian-examples/witness/golang/client/http"
+	"github.com/transparency-dev/formats/log"
 )
 
 var (

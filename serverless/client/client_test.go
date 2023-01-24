@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/api"
+	"github.com/transparency-dev/formats/log"
 	"github.com/transparency-dev/merkle/compact"
 	"github.com/transparency-dev/merkle/rfc6962"
 )

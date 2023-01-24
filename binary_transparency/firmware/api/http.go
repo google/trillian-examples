@@ -20,7 +20,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 )
 

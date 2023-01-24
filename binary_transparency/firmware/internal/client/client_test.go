@@ -30,7 +30,7 @@ import (
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/client"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/crypto"
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 )
 

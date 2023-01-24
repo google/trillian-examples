@@ -24,10 +24,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/internal/feeder"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/config"
+	"github.com/transparency-dev/formats/log"
 	"github.com/transparency-dev/merkle/rfc6962"
 
 	i_note "github.com/google/trillian-examples/internal/note"

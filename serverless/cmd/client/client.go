@@ -30,9 +30,9 @@ import (
 	"strings"
 
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/serverless/client"
 	"github.com/google/trillian-examples/serverless/client/witness"
+	"github.com/transparency-dev/formats/log"
 	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"

@@ -25,7 +25,7 @@ import (
 	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 )
 

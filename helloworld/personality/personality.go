@@ -22,8 +22,8 @@ import (
 	"time"
 
 	"github.com/google/trillian"
-	"github.com/google/trillian-examples/formats/log"
 	tt "github.com/google/trillian/types"
+	"github.com/transparency-dev/formats/log"
 	"github.com/transparency-dev/merkle/rfc6962"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc"

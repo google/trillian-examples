@@ -31,7 +31,7 @@ import (
 	"github.com/google/trillian-examples/serverless/pkg/log"
 	"github.com/transparency-dev/merkle/rfc6962"
 
-	fmtlog "github.com/google/trillian-examples/formats/log"
+	fmtlog "github.com/transparency-dev/formats/log"
 )
 
 var (

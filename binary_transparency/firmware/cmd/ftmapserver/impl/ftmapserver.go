@@ -27,9 +27,9 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian-examples/binary_transparency/firmware/internal/ftmap"
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian/experimental/batchmap"
 	"github.com/google/trillian/types"
+	"github.com/transparency-dev/formats/log"
 
 	"github.com/gorilla/mux"
 

@@ -25,7 +25,7 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/golang/glog"
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 )
 

@@ -19,7 +19,7 @@ import (
 	"sort"
 
 	"github.com/google/trillian-examples/formats/checkpoints"
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 )
 

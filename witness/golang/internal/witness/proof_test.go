@@ -12,34 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package log_test
+package witness_test
 
 import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/formats/log"
+	"github.com/google/trillian-examples/witness/golang/internal/witness"
 )
 
 func TestMarshalProof(t *testing.T) {
 	for _, test := range []struct {
 		desc string
-		p    log.Proof
+		p    witness.Proof
 		want string
 	}{
 		{
 			desc: "valid",
-			p: log.Proof{
+			p: witness.Proof{
 				[]byte("one"), []byte("two"), []byte("three"),
 			},
 			want: "b25l\ndHdv\ndGhyZWU=\n",
 		}, {
 			desc: "valid empty",
-			p:    log.Proof{},
+			p:    witness.Proof{},
 			want: "",
 		}, {
 			desc: "valid default entry",
-			p: log.Proof{
+			p: witness.Proof{
 				[]byte("one"), []byte{}, []byte("three"),
 			},
 			want: "b25l\n\ndGhyZWU=\n",
@@ -58,17 +58,17 @@ func TestUnmarshalProof(t *testing.T) {
 	for _, test := range []struct {
 		desc    string
 		m       string
-		want    log.Proof
+		want    witness.Proof
 		wantErr bool
 	}{
 		{
 			desc: "valid one",
 			m:    "b25l\ndHdv\ndGhyZWU=\n",
-			want: log.Proof{[]byte("one"), []byte("two"), []byte("three")},
+			want: witness.Proof{[]byte("one"), []byte("two"), []byte("three")},
 		}, {
 			desc: "valid two",
 			m:    "Zm91cg==\nZml2ZQ==\nc2l4\nc2V2ZW4=\nZWlnaHQ=\n",
-			want: log.Proof{[]byte("four"), []byte("five"), []byte("six"), []byte("seven"), []byte("eight")},
+			want: witness.Proof{[]byte("four"), []byte("five"), []byte("six"), []byte("seven"), []byte("eight")},
 		}, {
 			desc:    "invalid - missing newline after last hash",
 			m:       "c2l4\nc2V2ZW4=\nZWlnaHQ=",
@@ -80,7 +80,7 @@ func TestUnmarshalProof(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			var got log.Proof
+			var got witness.Proof
 			if gotErr := got.Unmarshal([]byte(test.m)); (gotErr != nil) != test.wantErr {
 				t.Fatalf("Unmarshal = %q, wantErr: %T", gotErr, test.wantErr)
 			}

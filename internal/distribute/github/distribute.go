@@ -28,9 +28,9 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/google/trillian-examples/formats/log"
 	"github.com/google/trillian-examples/internal/github"
 	"github.com/google/trillian-examples/serverless/config"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 )
 

@@ -128,8 +128,11 @@ on:
   schedule: 
   # This will cause this action to run once an hour at 20 minutes past the hour:
     - cron: '20 * * * *'
-  workflow_run:
-    workflows: ["Automerge PR"]
+  # Enable this workflow_run stanza if you set up automerge as below:  
+  # workflow_run:
+  #  workflows: ["Automerge PR"]
+  #  types:
+  #    - completed
   workflow_dispatch:
 
 env:

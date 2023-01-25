@@ -81,7 +81,7 @@ func DistributeOnce(ctx context.Context, opts *DistributeOptions) error {
 
 func distributeForLog(ctx context.Context, l Log, opts *DistributeOptions) error {
 	// Ensure the branch exists for us to use to raise a PR
-	wl := strings.Map(safeBranchChars, fmt.Sprintf("%s_%s", opts.WitSigV.Name(), l.SigV.Name()))
+	wl := strings.Map(safeBranchChars, fmt.Sprintf("%s_%s", opts.WitSigV.Name(), l.Config.ID))
 	witnessBranch := fmt.Sprintf("witness_%s", wl)
 	if err := opts.Repo.CreateOrUpdateBranch(ctx, witnessBranch); err != nil {
 		return fmt.Errorf("failed to create witness branch %q: %v", witnessBranch, err)

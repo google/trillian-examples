@@ -155,9 +155,9 @@ func submitToWitness(ctx context.Context, cpRaw []byte, cpSubmit log.Checkpoint,
 			}
 		}
 
-		glog.V(1).Infof("%q grew - @%d: %x → @%d: %x", logName, latestCP.Size, latestCP.Hash, cpSubmit.Size, cpSubmit.Hash)
+		glog.V(1).Infof("\"%s: %s\" grew - @%d: %x → @%d: %x", logName, cpSubmit.Origin, latestCP.Size, latestCP.Hash, cpSubmit.Size, cpSubmit.Hash)
 
-		// The witness may be configured to expect a coct-range type proof, so we need to always
+		// The witness may be configured to expect a compact-range type proof, so we need to always
 		// try to build one, even if the witness doesn't have a "latest" checkpoint for this log.
 		conP, err = opts.FetchProof(ctx, latestCP, cpSubmit)
 		if err != nil {

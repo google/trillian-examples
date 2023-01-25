@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Handle distributor PR
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           ref: "refs/pull/${{ github.event.number }}/merge"
@@ -101,8 +101,8 @@ jobs:
           D=$(mktemp -d)/pr_metadata
           mkdir -p ${D}
           echo ${{ github.event.number }} > ${D}/NR
-          echo "::set-output name=metadata_dir::${D}"
-      - uses: actions/upload-artifact@v2
+          echo "metadata_dir=${D}" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v3
         with:
           name: pr_metadata
           path: ${{ steps.save_metadata.outputs.metadata_dir }}
@@ -140,7 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Combine witness signatures
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     # Attempt to combine witness signatures with the log checkpoint.
     - name: Combine witness signatures
       id: combine_witness_signatures

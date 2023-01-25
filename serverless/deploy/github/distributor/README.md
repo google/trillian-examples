@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Handle distributor PR
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           ref: "refs/pull/${{ github.event.number }}/merge"
@@ -101,8 +101,8 @@ jobs:
           D=$(mktemp -d)/pr_metadata
           mkdir -p ${D}
           echo ${{ github.event.number }} > ${D}/NR
-          echo "::set-output name=metadata_dir::${D}"
-      - uses: actions/upload-artifact@v2
+          echo "metadata_dir=${D}" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v3
         with:
           name: pr_metadata
           path: ${{ steps.save_metadata.outputs.metadata_dir }}
@@ -128,8 +128,11 @@ on:
   schedule: 
   # This will cause this action to run once an hour at 20 minutes past the hour:
     - cron: '20 * * * *'
-  workflow_run:
-    workflows: ["Automerge PR"]
+  # Enable this workflow_run stanza if you set up automerge as below:  
+  # workflow_run:
+  #  workflows: ["Automerge PR"]
+  #  types:
+  #    - completed
   workflow_dispatch:
 
 env:
@@ -140,7 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Combine witness signatures
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     # Attempt to combine witness signatures with the log checkpoint.
     - name: Combine witness signatures
       id: combine_witness_signatures
@@ -237,6 +240,10 @@ jobs:
             let matchArtifact = artifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "pr_metadata"
             })[0];
+            if (matchArtifact == null) {
+              core.notice("No PR metadata found.");
+              return;
+            }
             let download = await github.rest.actions.downloadArtifact({
                owner: context.repo.owner,
                repo: context.repo.repo,
@@ -252,16 +259,10 @@ jobs:
           unzip pr_metadata.zip
           echo "::set-output name=pr::$(cat NR)"
 
-      - uses: actions-ecosystem/action-add-labels@v1
-        with:
-          labels: Automerge
-          number: ${{ steps.pr_metadata.outputs.pr }}
-
       - name: automerge
-        uses: "pascalgn/automerge-action@v0.14.3"
+        uses: "pascalgn/automerge-action@v0.15.5"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          MERGE_LABELS: Automerge
           MERGE_METHOD: rebase
           MERGE_DELETE_BRANCH: true
           PULL_REQUEST: ${{ steps.pr_metadata.outputs.pr }}

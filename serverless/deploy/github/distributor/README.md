@@ -237,6 +237,10 @@ jobs:
             let matchArtifact = artifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "pr_metadata"
             })[0];
+            if (matchArtifact == null) {
+              core.notice("No PR metadata found.");
+              return;
+            }
             let download = await github.rest.actions.downloadArtifact({
                owner: context.repo.owner,
                repo: context.repo.repo,
@@ -252,16 +256,10 @@ jobs:
           unzip pr_metadata.zip
           echo "::set-output name=pr::$(cat NR)"
 
-      - uses: actions-ecosystem/action-add-labels@v1
-        with:
-          labels: Automerge
-          number: ${{ steps.pr_metadata.outputs.pr }}
-
       - name: automerge
-        uses: "pascalgn/automerge-action@v0.14.3"
+        uses: "pascalgn/automerge-action@v0.15.5"
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-          MERGE_LABELS: Automerge
           MERGE_METHOD: rebase
           MERGE_DELETE_BRANCH: true
           PULL_REQUEST: ${{ steps.pr_metadata.outputs.pr }}

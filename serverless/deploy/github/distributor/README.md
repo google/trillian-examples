@@ -85,7 +85,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0
           ref: "refs/pull/${{ github.event.number }}/merge"
       - name: Combine witness signatures (dry run)
         id: combine_witness_signatures_dry_run

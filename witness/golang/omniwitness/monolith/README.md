@@ -6,7 +6,13 @@ common configuration steps such as key generation and creating github credential
 This version uses a single `main` construct to invoke all of the sub-components needed to
 implement the OmniWitness. 
 
-## Running
+## Running in Docker
+
+1. Copy the `docker-compose.yaml` file from this directory to your local filesystem, e.g. `/etc/omniwitness/docker-compose.yaml`
+1. Create a `.env` file in the same directory, using the template described in the [parent README](../#configuration)
+1. From that directory, run `docker-compose up -d`
+
+## Running without Docker
 
 The configuration files referenced in the parent OmniWitness docs are compiled into the
 application during build. The remaining configuration is that specific to the operator,

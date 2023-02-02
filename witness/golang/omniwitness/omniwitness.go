@@ -48,6 +48,7 @@ import (
 	i_note "github.com/google/trillian-examples/internal/note"
 )
 
+type LogStatePersistence = persistence.LogStatePersistence
 type LogStateReadOps = persistence.LogStateReadOps
 type LogStateWriteOps = persistence.LogStateWriteOps
 
@@ -87,7 +88,7 @@ type OperatorConfig struct {
 
 // Main runs the omniwitness, with the witness listening using the listener, and all
 // outbound HTTP calls using the client provided.
-func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogStatePersistence, httpListener net.Listener, httpClient *http.Client) error {
+func Main(ctx context.Context, operatorConfig OperatorConfig, p LogStatePersistence, httpListener net.Listener, httpClient *http.Client) error {
 	// This error group will be used to run all top level processes.
 	// If any process dies, then all of them will be stopped via context cancellation.
 	g, ctx := errgroup.WithContext(ctx)

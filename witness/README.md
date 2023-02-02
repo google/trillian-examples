@@ -68,10 +68,13 @@ defined above.  Currently it contains implementations in the following languages
   into a larger one (for example an entity that might want to do other,
   application-specific checks).  This witness supports both methods of checking
   consistency.
-- [Solidity](ethereum) 
-  This can be deployed as a smart contract on the Ethereum blockchain.  There are 
-  two main contracts, each of which supports one of the consistency checks 
-  described above.
+
+There are two experimental deployments of the witness that have been deleted but
+are signposted here for archival reasons. Both of these tools can be retrieved
+by cloning this repository at git commit `793dcf1`:
+
+* [usbarmory witness](https://github.com/google/trillian-examples/tree/793dcf1a313b1478e30f7a7e65bdf344b10f1da4/witness/golang/omniwitness/usbarmory)
+* [ethereum witness](https://github.com/google/trillian-examples/tree/793dcf1a313b1478e30f7a7e65bdf344b10f1da4/witness/ethereum)
 
 ## Feeders
 

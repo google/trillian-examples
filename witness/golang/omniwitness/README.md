@@ -7,7 +7,7 @@ The OmniWitness is opinionated on which logs and distributors will be used. Depl
 of the OmniWitness implementations will perform the same witnessing and distribution, unless
 the operator changes any of the configuration files in the `*_configs` directories here.
 
-The recommended way to deploy the OmniWitness is using the [monolith](monolith), which is
+The recommended way to deploy the OmniWitness is using the [monolith](../cmd/monolith), which is
 a single executable that bundles all of the components. Alternatively, this
 directory contains a dockerized implementation for a micro-services style deployment;
 a container will be deployed for:
@@ -18,8 +18,7 @@ a container will be deployed for:
 Instructions for deploying this are expanded below.
 
 In addition, there are two other equivalent implementations with different deployments:
-  * [monolith](./monolith): all in one process, can be run bare or in Docker
-  * [usbarmory](./usbarmory): all in one unikernel, for specialized hardware
+  * [monolith](../cmd/monolith): all in one process, can be run bare or in Docker
 
 ## Common Configuration
 

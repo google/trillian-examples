@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// monolith is a single executable that runs all of the feeders and witness
+// omniwitness is a single executable that runs all of the feeders and witness
 // in a single process.
 package main
 

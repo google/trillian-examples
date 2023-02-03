@@ -177,7 +177,7 @@ steps:
       '--platform', '$_DOCKER_BUILDX_PLATFORMS',
       '-t', 'gcr.io/$PROJECT_ID/omniwitness-monolith:latest',
       '--cache-from', 'gcr.io/$PROJECT_ID/omniwitness-monolith:latest',
-      '-f', './witness/golang/omniwitness/monolith/Dockerfile',
+      '-f', './witness/golang/cmd/omniwitness/Dockerfile',
       '--push',
       '.'
     ]

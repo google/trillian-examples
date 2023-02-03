@@ -79,7 +79,7 @@ by cloning this repository at git commit `793dcf1`:
 ## Feeders
 
 Specific feeders are listed below, however potential witness operators are advised to
-simply deploy the [Omniwitness](golang/omniwitness/monolith) which contains all of these
+simply deploy the [Omniwitness](golang/cmd/omniwitness) which contains all of these
 feeders, unless there is a compelling reason to limit the witnessed logs.
 
 * [Go SumDB](https://github.com/google/trillian-examples/tree/master/sumdbaudit/witness)

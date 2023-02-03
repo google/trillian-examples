@@ -48,8 +48,16 @@ import (
 	i_note "github.com/google/trillian-examples/internal/note"
 )
 
+// LogStatePersistence describes functionality the omniwitness requires
+// in order to persist its view of log state.
 type LogStatePersistence = persistence.LogStatePersistence
+
+// LogStateReadOps provides read-only operations on the stored state for
+// a given log.
 type LogStateReadOps = persistence.LogStateReadOps
+
+// LogStateWriteOps provides write operations on the stored state for
+// a given log.
 type LogStateWriteOps = persistence.LogStateWriteOps
 
 const (

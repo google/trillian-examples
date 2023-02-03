@@ -31,7 +31,6 @@ import (
 	ihttp "github.com/google/trillian-examples/witness/golang/internal/http"
 	"github.com/google/trillian-examples/witness/golang/internal/persistence"
 	"github.com/google/trillian-examples/witness/golang/internal/witness"
-	"github.com/google/trillian-examples/witness/golang/omniwitness"
 	"github.com/gorilla/mux"
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/sync/errgroup"
@@ -48,6 +47,18 @@ import (
 	"github.com/google/trillian-examples/internal/github"
 	i_note "github.com/google/trillian-examples/internal/note"
 )
+
+// LogStatePersistence describes functionality the omniwitness requires
+// in order to persist its view of log state.
+type LogStatePersistence = persistence.LogStatePersistence
+
+// LogStateReadOps provides read-only operations on the stored state for
+// a given log.
+type LogStateReadOps = persistence.LogStateReadOps
+
+// LogStateWriteOps provides write operations on the stored state for
+// a given log.
+type LogStateWriteOps = persistence.LogStateWriteOps
 
 const (
 	// Interval between attempts to feed checkpoints
@@ -85,7 +96,7 @@ type OperatorConfig struct {
 
 // Main runs the omniwitness, with the witness listening using the listener, and all
 // outbound HTTP calls using the client provided.
-func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogStatePersistence, httpListener net.Listener, httpClient *http.Client) error {
+func Main(ctx context.Context, operatorConfig OperatorConfig, p LogStatePersistence, httpListener net.Listener, httpClient *http.Client) error {
 	// This error group will be used to run all top level processes.
 	// If any process dies, then all of them will be stopped via context cancellation.
 	g, ctx := errgroup.WithContext(ctx)
@@ -95,7 +106,7 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogS
 
 	// Feeder: SumDB
 	sumdbFeederConfig := multiLogFeederConfig{}
-	if err := yaml.Unmarshal(omniwitness.ConfigFeederSumDB, &sumdbFeederConfig); err != nil {
+	if err := yaml.Unmarshal(ConfigFeederSumDB, &sumdbFeederConfig); err != nil {
 		return fmt.Errorf("failed to unmarshal sumdb config: %v", err)
 	}
 	for _, l := range sumdbFeederConfig.Logs {
@@ -104,14 +115,14 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogS
 
 	// Feeder: PixelBT
 	pixelFeederConfig := singleLogFeederConfig{}
-	if err := yaml.Unmarshal(omniwitness.ConfigFeederPixel, &pixelFeederConfig); err != nil {
+	if err := yaml.Unmarshal(ConfigFeederPixel, &pixelFeederConfig); err != nil {
 		return fmt.Errorf("failed to unmarshal pixel config: %v", err)
 	}
 	feeders[pixelFeederConfig.Log] = pixelbt.FeedLog
 
 	// Feeder: Rekor
 	rekorFeederConfig := multiLogFeederConfig{}
-	if err := yaml.Unmarshal(omniwitness.ConfigFeederRekor, &rekorFeederConfig); err != nil {
+	if err := yaml.Unmarshal(ConfigFeederRekor, &rekorFeederConfig); err != nil {
 		return fmt.Errorf("failed to unmarshal rekor config: %v", err)
 	}
 	for _, l := range rekorFeederConfig.Logs {
@@ -120,7 +131,7 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogS
 
 	// Feeder: Serverless
 	serverlessFeederConfig := multiLogFeederConfig{}
-	if err := yaml.Unmarshal(omniwitness.ConfigFeederServerless, &serverlessFeederConfig); err != nil {
+	if err := yaml.Unmarshal(ConfigFeederServerless, &serverlessFeederConfig); err != nil {
 		return fmt.Errorf("failed to unmarshal serverless config: %v", err)
 	}
 	for _, l := range serverlessFeederConfig.Logs {
@@ -129,7 +140,7 @@ func Main(ctx context.Context, operatorConfig OperatorConfig, p persistence.LogS
 
 	// Witness
 	witCfg := wimpl.LogConfig{}
-	if err := yaml.Unmarshal(omniwitness.ConfigWitness, &witCfg); err != nil {
+	if err := yaml.Unmarshal(ConfigWitness, &witCfg); err != nil {
 		return fmt.Errorf("failed to unmarshal witness config: %v", err)
 	}
 	knownLogs, err := witCfg.AsLogMap()

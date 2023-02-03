@@ -7,7 +7,7 @@ The OmniWitness is opinionated on which logs and distributors will be used. Depl
 of the OmniWitness implementations will perform the same witnessing and distribution, unless
 the operator changes any of the configuration files in the `*_configs` directories here.
 
-The recommended way to deploy the OmniWitness is using the [monolith](../cmd/monolith), which is
+The recommended way to deploy the OmniWitness is using the [omniwitness binary](../cmd/omniwitness), which is
 a single executable that bundles all of the components. Alternatively, this
 directory contains a dockerized implementation for a micro-services style deployment;
 a container will be deployed for:
@@ -16,9 +16,6 @@ a container will be deployed for:
   * Each of the distributors ([mhutchinson-distributor](https://github.com/mhutchinson/mhutchinson-distributor) and [WolseyBankWitness](https://github.com/WolseyBankWitness/rediffusion))
 
 Instructions for deploying this are expanded below.
-
-In addition, there are two other equivalent implementations with different deployments:
-  * [monolith](../cmd/monolith): all in one process, can be run bare or in Docker
 
 ## Common Configuration
 

@@ -1,4 +1,4 @@
-# OmniWitness: Monolith
+# OmniWitness
 
 See the [parent directory](../) for an introduction to what the OmniWitness is, and for
 common configuration steps such as key generation and creating github credentials.
@@ -23,7 +23,7 @@ but the witnessed checkpoints will not be distributed and can only be disovered 
 witness HTTP endpoints (see parent directories for documentation on these):
 
 ```
-go run github.com/google/trillian-examples/witness/golang/omniwitness/monolith@master --alsologtostderr --v=1 \
+go run github.com/google/trillian-examples/witness/golang/cmd/omniwitness@master --alsologtostderr --v=1 \
   --private_key PRIVATE+KEY+my.witness+67890abc+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   --public_key my.witness+67890abc+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   --db_file ~/witness.db
@@ -36,7 +36,7 @@ and your witness key adding to the configuration files for the distributors. Thi
 configuration is detailed in the parent directories.
 
 ```
-go run github.com/google/trillian-examples/witness/golang/omniwitness/monolith@master --alsologtostderr --v=1 \
+go run github.com/google/trillian-examples/witness/golang/cmd/omniwitness@master --alsologtostderr --v=1 \
   --private_key PRIVATE+KEY+my.witness+67890abc+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   --public_key my.witness+67890abc+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \
   --gh_user my-github-user \

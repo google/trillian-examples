@@ -21,7 +21,7 @@ require (
 	github.com/u-root/u-root v7.0.0+incompatible
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
 	golang.org/x/crypto v0.6.0
-	golang.org/x/mod v0.7.0
+	golang.org/x/mod v0.8.0
 	golang.org/x/oauth2 v0.4.0
 	golang.org/x/sync v0.1.0
 	google.golang.org/grpc v1.53.0

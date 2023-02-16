@@ -3,8 +3,8 @@ module github.com/google/trillian-examples
 go 1.19
 
 require (
-	cloud.google.com/go/storage v1.28.0 // indirect
-	github.com/apache/beam/sdks/v2 v2.44.0
+	cloud.google.com/go/storage v1.28.1 // indirect
+	github.com/apache/beam/sdks/v2 v2.45.0
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/go-sql-driver/mysql v1.7.0
@@ -39,9 +39,9 @@ require (
 	cloud.google.com/go/compute v1.15.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v0.8.0 // indirect
-	cloud.google.com/go/profiler v0.3.0 // indirect
+	cloud.google.com/go/profiler v0.3.1 // indirect
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
-	github.com/dustin/go-humanize v1.0.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-errors/errors v1.0.2 // indirect
 	github.com/go-interpreter/wagon v0.6.0 // indirect
 	github.com/go-logr/logr v1.2.0 // indirect
@@ -49,10 +49,11 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/google/pprof v0.0.0-20220412212628-83db2b799d1f // indirect
+	github.com/google/pprof v0.0.0-20221103000818-d260c55eee4c // indirect
 	github.com/google/uuid v1.3.0 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.2.0 // indirect
+	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/net v0.6.0 // indirect
@@ -60,7 +61,7 @@ require (
 	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	google.golang.org/api v0.104.0 // indirect
+	google.golang.org/api v0.107.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect

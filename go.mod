@@ -3,8 +3,8 @@ module github.com/google/trillian-examples
 go 1.19
 
 require (
-	cloud.google.com/go/storage v1.28.1 // indirect
-	github.com/apache/beam/sdks/v2 v2.45.0
+	cloud.google.com/go/storage v1.29.0 // indirect
+	github.com/apache/beam/sdks/v2 v2.46.0
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/go-sql-driver/mysql v1.7.0
@@ -53,7 +53,6 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.7.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
@@ -61,8 +60,9 @@ require (
 	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
-	google.golang.org/api v0.107.0 // indirect
+	google.golang.org/api v0.109.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
+	gopkg.in/retry.v1 v1.0.3 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect
 )

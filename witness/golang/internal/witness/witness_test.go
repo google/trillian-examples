@@ -92,7 +92,7 @@ func newWitness(t *testing.T, logs []logOpts) *Witness {
 	}
 	opts := Opts{
 		Persistence: inmemory.NewPersistence(),
-		Signer:      ns,
+		Signers:     []note.Signer{ns},
 		KnownLogs:   logMap,
 	}
 	// Create the witness

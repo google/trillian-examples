@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package note provides note-compatible signature verifiers.
+// Package note provides note-compatible signature verifiers and signers.
 package note
 
 import (
@@ -25,7 +25,7 @@ import (
 	"strconv"
 	"strings"
 
-	sdb_note "golang.org/x/mod/sumdb/note"
+	"golang.org/x/mod/sumdb/note"
 )
 
 const (
@@ -41,12 +41,12 @@ const (
 )
 
 // NewVerifier returns a verifier for the given key type and key.
-func NewVerifier(keyType, key string) (sdb_note.Verifier, error) {
+func NewVerifier(keyType, key string) (note.Verifier, error) {
 	switch keyType {
 	case ECDSA:
 		return NewECDSAVerifier(key)
 	case Note:
-		return sdb_note.NewVerifier(key)
+		return note.NewVerifier(key)
 	default:
 		return nil, fmt.Errorf("unknown key type %q", keyType)
 	}
@@ -91,7 +91,7 @@ func (v *verifier) Verify(msg, sig []byte) bool {
 // e.g.:
 //
 //	"rekor.sigstore.dev+12345678+AjBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNhtmPtrWm3U1eQXBogSMdGvXwBcK5AW5i0hrZLOC96l+smGNM7nwZ4QvFK/4sueRoVj//QP22Ni4Qt9DPfkWLc=
-func NewECDSAVerifier(key string) (sdb_note.Verifier, error) {
+func NewECDSAVerifier(key string) (note.Verifier, error) {
 	parts := strings.SplitN(key, "+", 3)
 	if got, want := len(parts), 3; got != want {
 		return nil, fmt.Errorf("key has %d parts, expected %d: %q", got, want, key)
@@ -107,7 +107,7 @@ func NewECDSAVerifier(key string) (sdb_note.Verifier, error) {
 		return nil, fmt.Errorf("key has incorrect type %d", keyBytes[0])
 	}
 	der := keyBytes[1:]
-	kh := keyHash(der)
+	kh := keyHashECDSA(der)
 
 	khProvided, err := strconv.ParseUint(parts[1], 16, 32)
 	if err != nil {
@@ -136,7 +136,7 @@ func NewECDSAVerifier(key string) (sdb_note.Verifier, error) {
 	}, nil
 }
 
-func keyHash(i []byte) uint32 {
+func keyHashECDSA(i []byte) uint32 {
 	h := sha256.Sum256(i)
 	return binary.BigEndian.Uint32(h[:])
 }

@@ -57,8 +57,8 @@ type ServerOpts struct {
 	ListenAddr string
 	// The file for sqlite3 storage.
 	DBFile string
-	// The signer for the witness.
-	Signer note.Signer
+	// The signer(s) for the witness.
+	Signers []note.Signer
 	// The log configuration information.
 	Config LogConfig
 }
@@ -116,7 +116,7 @@ func Main(ctx context.Context, opts ServerOpts) error {
 
 	w, err := witness.New(witness.Opts{
 		Persistence: wsql.NewPersistence(db),
-		Signer:      opts.Signer,
+		Signers:     opts.Signers,
 		KnownLogs:   logMap,
 	})
 	if err != nil {

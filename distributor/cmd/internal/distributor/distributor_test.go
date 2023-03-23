@@ -86,15 +86,17 @@ func TestGetLogs(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			sqlitedb, err := sql.Open("sqlite3", ":memory:")
 			if err != nil {
 				t.Fatalf("failed to open temporary in-memory DB: %v", err)
 			}
-			d := distributor.NewDistributor(ws, tC.logs, sqlitedb)
-			if err := d.Init(); err != nil {
-				t.Fatalf("Init(): %v", err)
+			d, err := distributor.NewDistributor(ws, tC.logs, sqlitedb)
+			if err != nil {
+				t.Fatalf("NewDistributor(): %v", err)
 			}
-			got, err := d.GetLogs(context.Background())
+			got, err := d.GetLogs(ctx)
 			if err != nil {
 				t.Errorf("GetLogs(): %v", err)
 			}
@@ -181,17 +183,19 @@ func TestDistributeLogAndWitnessMustMatchCheckpoint(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			sqlitedb, err := sql.Open("sqlite3", ":memory:")
 			if err != nil {
 				t.Fatalf("failed to open temporary in-memory DB: %v", err)
 			}
-			d := distributor.NewDistributor(ws, ls, sqlitedb)
-			if err := d.Init(); err != nil {
-				t.Fatalf("Init(): %v", err)
+			d, err := distributor.NewDistributor(ws, ls, sqlitedb)
+			if err != nil {
+				t.Fatalf("NewDistributor(): %v", err)
 			}
 
 			logCP16 := tC.log.checkpoint(16, "16", tC.wit.signer)
-			err = d.Distribute(context.Background(), tC.reqLogID, tC.reqWitID, logCP16)
+			err = d.Distribute(ctx, tC.reqLogID, tC.reqWitID, logCP16)
 			if (err != nil) != tC.wantErr {
 				t.Errorf("unexpected error output (wantErr: %t): %v", tC.wantErr, err)
 			}
@@ -285,20 +289,22 @@ func TestDistributeEvolution(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			sqlitedb, err := sql.Open("sqlite3", ":memory:")
 			if err != nil {
 				t.Fatalf("failed to open temporary in-memory DB: %v", err)
 			}
-			d := distributor.NewDistributor(ws, ls, sqlitedb)
-			if err := d.Init(); err != nil {
-				t.Fatalf("Init(): %v", err)
+			d, err := distributor.NewDistributor(ws, ls, sqlitedb)
+			if err != nil {
+				t.Fatalf("NewDistributor(): %v", err)
 			}
-			err = d.Distribute(context.Background(), "FooLog", "Whittle", logFoo.checkpoint(16, "16", witWhittle.signer))
+			err = d.Distribute(ctx, "FooLog", "Whittle", logFoo.checkpoint(16, "16", witWhittle.signer))
 			if err != nil {
 				t.Fatalf("Distribute(): %v", err)
 			}
 
-			err = d.Distribute(context.Background(), tC.log.Verifier.Name(), tC.wit.verifier.Name(), tC.log.checkpoint(tC.size, tC.hashSeed, tC.wit.signer))
+			err = d.Distribute(ctx, tC.log.Verifier.Name(), tC.wit.verifier.Name(), tC.log.checkpoint(tC.size, tC.hashSeed, tC.wit.signer))
 			if (err != nil) != tC.wantErr {
 				t.Errorf("unexpected error output (wantErr: %t): %v", tC.wantErr, err)
 			}
@@ -350,21 +356,23 @@ func TestGetCheckpointWitness(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			sqlitedb, err := sql.Open("sqlite3", ":memory:")
 			if err != nil {
 				t.Fatalf("failed to open temporary in-memory DB: %v", err)
 			}
-			d := distributor.NewDistributor(ws, ls, sqlitedb)
-			if err := d.Init(); err != nil {
-				t.Fatalf("Init(): %v", err)
+			d, err := distributor.NewDistributor(ws, ls, sqlitedb)
+			if err != nil {
+				t.Fatalf("NewDistributor(): %v", err)
 			}
 			writeCP := logFoo.checkpoint(16, "16", witWhittle.signer)
-			err = d.Distribute(context.Background(), "FooLog", "Whittle", writeCP)
+			err = d.Distribute(ctx, "FooLog", "Whittle", writeCP)
 			if err != nil {
 				t.Fatalf("Distribute(): %v", err)
 			}
 
-			readCP, err := d.GetCheckpointWitness(context.Background(), tC.log.Verifier.Name(), tC.wit.verifier.Name())
+			readCP, err := d.GetCheckpointWitness(ctx, tC.log.Verifier.Name(), tC.wit.verifier.Name())
 			if (err != nil) != tC.wantErr {
 				t.Errorf("unexpected error output (wantErr: %t): %v", tC.wantErr, err)
 			}
@@ -477,26 +485,28 @@ func TestGetCheckpointN(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			sqlitedb, err := sql.Open("sqlite3", ":memory:")
 			if err != nil {
 				t.Fatalf("failed to open temporary in-memory DB: %v", err)
 			}
-			d := distributor.NewDistributor(ws, ls, sqlitedb)
-			if err := d.Init(); err != nil {
-				t.Fatalf("Init(): %v", err)
+			d, err := distributor.NewDistributor(ws, ls, sqlitedb)
+			if err != nil {
+				t.Fatalf("NewDistributor(): %v", err)
 			}
-			if err := d.Distribute(context.Background(), "FooLog", "Whittle", logFoo.checkpoint(16, "16", witWhittle.signer)); err != nil {
+			if err := d.Distribute(ctx, "FooLog", "Whittle", logFoo.checkpoint(16, "16", witWhittle.signer)); err != nil {
 				t.Fatal(err)
 			}
-			if err := d.Distribute(context.Background(), "FooLog", "Waffle", logFoo.checkpoint(14, "14", witWaffle.signer)); err != nil {
-				t.Fatal(err)
-			}
-
-			if err := d.Distribute(context.Background(), tC.distLog.Verifier.Name(), tC.distWit.verifier.Name(), tC.distLog.checkpoint(tC.distSize, fmt.Sprintf("%d", tC.distSize), tC.distWit.signer)); err != nil {
+			if err := d.Distribute(ctx, "FooLog", "Waffle", logFoo.checkpoint(14, "14", witWaffle.signer)); err != nil {
 				t.Fatal(err)
 			}
 
-			cpRaw, err := d.GetCheckpointN(context.Background(), tC.reqLog, tC.reqN)
+			if err := d.Distribute(ctx, tC.distLog.Verifier.Name(), tC.distWit.verifier.Name(), tC.distLog.checkpoint(tC.distSize, fmt.Sprintf("%d", tC.distSize), tC.distWit.signer)); err != nil {
+				t.Fatal(err)
+			}
+
+			cpRaw, err := d.GetCheckpointN(ctx, tC.reqLog, tC.reqN)
 			if (err != nil) != tC.wantErr {
 				t.Fatalf("unexpected error output (wantErr: %t): %v", tC.wantErr, err)
 			}

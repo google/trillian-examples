@@ -42,12 +42,15 @@ type LogInfo struct {
 // NewDistributor returns a distributor that will accept checkpoints from
 // the given witnesses, for the given logs, and persist its state in the
 // database provided. Callers must call Init() on the returned distributor.
-func NewDistributor(ws map[string]note.Verifier, ls map[string]LogInfo, db *sql.DB) *Distributor {
-	return &Distributor{
+// `ws` is a map from witness ID (verifier key name) to the note verifier.
+// `ls` is a map from log ID (github.com/transparency-dev/formats/log.ID) to log info.
+func NewDistributor(ws map[string]note.Verifier, ls map[string]LogInfo, db *sql.DB) (*Distributor, error) {
+	d := &Distributor{
 		ws: ws,
 		ls: ls,
 		db: db,
 	}
+	return d, d.init()
 }
 
 // Distributor persists witnessed checkpoints and allows querying of them.
@@ -55,22 +58,6 @@ type Distributor struct {
 	ws map[string]note.Verifier
 	ls map[string]LogInfo
 	db *sql.DB
-}
-
-// Init ensures that the database is in good order. This must be called before
-// any other method on this object. It is safe to call on subsequent runs of
-// the application as it is idempotent.
-func (d *Distributor) Init() error {
-	if _, err := d.db.Exec(`CREATE TABLE IF NOT EXISTS chkpts (
-		logID BLOB,
-		witID BLOB,
-		treeSize INTEGER,
-		chkpt BLOB,
-		PRIMARY KEY (logID, witID)
-		)`); err != nil {
-		return err
-	}
-	return nil
 }
 
 // GetLogs returns a list of all log IDs the distributor is aware of, sorted
@@ -90,7 +77,7 @@ func (d *Distributor) GetCheckpointN(ctx context.Context, logID string, n uint32
 	if !ok {
 		return nil, fmt.Errorf("unknown log ID %q", logID)
 	}
-	tx, err := d.db.BeginTx(ctx, nil)
+	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %v", err)
 	}
@@ -135,7 +122,7 @@ func (d *Distributor) GetCheckpointN(ctx context.Context, logID string, n uint32
 
 // GetCheckpointWitness gets the largest checkpoint for the log that was witnessed by the given witness.
 func (d *Distributor) GetCheckpointWitness(ctx context.Context, logID, witID string) ([]byte, error) {
-	tx, err := d.db.BeginTx(ctx, nil)
+	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %v", err)
 	}
@@ -165,7 +152,7 @@ func (d *Distributor) Distribute(ctx context.Context, logID, witID string, nextR
 	// This is a valid checkpoint for this log for this witness
 	// Now find the previous checkpoint if one exists.
 
-	tx, err := d.db.BeginTx(ctx, nil)
+	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: false})
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %v", err)
 	}
@@ -208,6 +195,22 @@ func (d *Distributor) Distribute(ctx context.Context, logID, witID string, nextR
 		return nil
 	}
 	return saveCheckpointFn()
+}
+
+// init ensures that the database is in good order. This must be called before
+// any other method on this object. It is safe to call on subsequent runs of
+// the application as it is idempotent.
+func (d *Distributor) init() error {
+	if _, err := d.db.Exec(`CREATE TABLE IF NOT EXISTS chkpts (
+		logID BLOB,
+		witID BLOB,
+		treeSize INTEGER,
+		chkpt BLOB,
+		PRIMARY KEY (logID, witID)
+		)`); err != nil {
+		return err
+	}
+	return nil
 }
 
 // getLatestCheckpoint returns the latest checkpoint for the given log and witness pair.

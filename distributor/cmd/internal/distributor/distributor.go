@@ -183,7 +183,7 @@ func (d *Distributor) Distribute(ctx context.Context, logID, witID string, nextR
 	if err != nil {
 		// This really shouldn't ever happen unless the DB is corrupted or the config
 		// for the log or verifier has changed.
-		return err
+		return fmt.Errorf("failed to parse checkpoint: %v", err)
 	}
 	if newCP.Size < oldCP.Size {
 		return fmt.Errorf("checkpoint for log %q and witness %q is for size %d, cannot update to size %d", logID, witID, oldCP.Size, newCP.Size)

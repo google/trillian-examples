@@ -171,7 +171,7 @@ func TestDistributeLogAndWitnessMustMatchCheckpoint(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			desc:     "Correct log unkown witness",
+			desc:     "Correct log unknown witness",
 			reqLogID: "FooLog",
 			reqWitID: "WhatAWally",
 			log:      logFoo,

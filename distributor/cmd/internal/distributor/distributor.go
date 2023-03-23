@@ -85,6 +85,7 @@ func (d *Distributor) GetCheckpointN(ctx context.Context, logID string, n uint32
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %v", err)
 	}
+	defer rows.Close()
 	var currentSize uint64
 	var witsAtSize []note.Verifier
 	var cpsAtSize [][]byte
@@ -102,6 +103,7 @@ func (d *Distributor) GetCheckpointN(ctx context.Context, logID string, n uint32
 				break
 			}
 			cpsAtSize = make([][]byte, 0)
+			witsAtSize = make([]note.Verifier, 0)
 			currentSize = size
 		}
 		witsAtSize = append(witsAtSize, d.ws[witID])

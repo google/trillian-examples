@@ -230,7 +230,7 @@ func getLatestCheckpoint(ctx context.Context, tx *sql.Tx, logID, witID string) (
 	var chkpt []byte
 	if err := row.Scan(&chkpt); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, status.Errorf(codes.NotFound, "no checkpoint for log %q", logID)
+			return nil, status.Errorf(codes.NotFound, "no checkpoint for log %q from witness %q", logID, witID)
 		}
 		return nil, err
 	}

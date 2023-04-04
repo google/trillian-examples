@@ -18,21 +18,21 @@ go run ./clone/cmd/sumdbclone --alsologtostderr --v=1 --mysql_uri 'clonetool:let
 The `docker-compose` scripts in this directory allow for deployment of the `sumdbclone` tool in a single command:
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-If you're running this on a Raspberry Pi, then you will want to use the following instead:
+For Raspberry Pi users, there is a slight change in order to override the DB:
 
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.rpi.yml up -d
+docker compose -f docker-compose.yaml -f docker-compose.rpi.yaml up -d
 ```
 
-This will bring up two containers: `sumdbclone_db_1` and `sumdbclone_clone_1`.
+This will bring up two containers: `sumdbclone-db-1` and `sumdbclone-clone-1`.
 The clone tool will initially run in a batch mode to download all of the entries.
 To see the status of this, use the following command:
 
 ```bash
-docker logs sumdbclone_clone_1 -f
+docker logs sumdbclone-clone-1 -f
 
 I0404 10:23:13.018137       1 clone.go:177] 18636.3 leaves/s, last leaf=4700160 (remaining: 12130037, ETA: 10m50s), time working=97.1%
 ```
@@ -42,7 +42,7 @@ At this time, it is reasonable to start making queries of the database.
 It is expected that users will write their own tools to query the DB, but the following command demonstrates the leaves being queried from the command line:
 
 ```bash
-docker exec -i sumdbclone_db_1 /usr/bin/mysql -usumdb -pletmein -Dsumdb <<< "select * from leaves where id < 5;"
+docker exec -i sumdbclone-db-1 /usr/bin/mysql -usumdb -pletmein -Dsumdb <<< "select * from leaves where id < 5;"
 ```
 
 ### External SQL DB

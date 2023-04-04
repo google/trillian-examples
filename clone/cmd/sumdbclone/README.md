@@ -21,6 +21,12 @@ The `docker-compose` scripts in this directory allow for deployment of the `sumd
 docker-compose up -d
 ```
 
+If you're running this on a Raspberry Pi, then you will want to use the following instead:
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.rpi.yml up -d
+```
+
 This will bring up two containers: `sumdbclone_db_1` and `sumdbclone_clone_1`.
 The clone tool will initially run in a batch mode to download all of the entries.
 To see the status of this, use the following command:

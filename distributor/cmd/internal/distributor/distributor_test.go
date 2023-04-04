@@ -25,6 +25,8 @@ import (
 	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -399,24 +401,26 @@ func TestGetCheckpointN(t *testing.T) {
 		"BarLog": logBar.LogInfo,
 	}
 	testCases := []struct {
-		desc     string
-		distWit  fakeWitness
-		distLog  fakeLog
-		distSize uint64
-		reqLog   string
-		reqN     uint32
-		wantErr  bool
-		wantSize uint64
-		wantWits []note.Verifier
+		desc        string
+		distWit     fakeWitness
+		distLog     fakeLog
+		distSize    uint64
+		reqLog      string
+		reqN        uint32
+		wantErr     bool
+		wantErrCode codes.Code
+		wantSize    uint64
+		wantWits    []note.Verifier
 	}{
 		{
-			desc:     "unknown log is error",
-			distWit:  witWattle,
-			distLog:  logFoo,
-			distSize: 10,
-			reqLog:   "ThisIsNotTheLogYouAreLookingFor",
-			reqN:     1,
-			wantErr:  true,
+			desc:        "unknown log is error",
+			distWit:     witWattle,
+			distLog:     logFoo,
+			distSize:    10,
+			reqLog:      "ThisIsNotTheLogYouAreLookingFor",
+			reqN:        1,
+			wantErr:     true,
+			wantErrCode: codes.InvalidArgument,
 		},
 		{
 			desc:     "smaller checkpoint doesn't win",
@@ -474,13 +478,14 @@ func TestGetCheckpointN(t *testing.T) {
 			wantWits: []note.Verifier{witWattle.verifier, witWhittle.verifier},
 		},
 		{
-			desc:     "error returned if not enough sigs",
-			distWit:  witWattle,
-			distLog:  logFoo,
-			distSize: 16,
-			reqLog:   "FooLog",
-			reqN:     3,
-			wantErr:  true,
+			desc:        "error returned if not enough sigs",
+			distWit:     witWattle,
+			distLog:     logFoo,
+			distSize:    16,
+			reqLog:      "FooLog",
+			reqN:        3,
+			wantErr:     true,
+			wantErrCode: codes.NotFound,
 		},
 	}
 	for _, tC := range testCases {
@@ -520,6 +525,10 @@ func TestGetCheckpointN(t *testing.T) {
 				}
 				if cp.Size != tC.wantSize {
 					t.Errorf("expected tree size of %d but got %d", tC.wantSize, cp.Size)
+				}
+			} else {
+				if got, want := status.Code(err), tC.wantErrCode; got != want {
+					t.Errorf("error code got != want: %v != %v", got, want)
 				}
 			}
 		})

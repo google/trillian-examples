@@ -75,7 +75,7 @@ func (d *Distributor) GetLogs(ctx context.Context) ([]string, error) {
 func (d *Distributor) GetCheckpointN(ctx context.Context, logID string, n uint32) ([]byte, error) {
 	l, ok := d.ls[logID]
 	if !ok {
-		return nil, fmt.Errorf("unknown log ID %q", logID)
+		return nil, status.Errorf(codes.InvalidArgument, "unknown log ID %q", logID)
 	}
 	tx, err := d.db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -119,7 +119,7 @@ func (d *Distributor) GetCheckpointN(ctx context.Context, logID string, n uint32
 		}
 		return cp, nil
 	}
-	return nil, fmt.Errorf("no checkpoint with %d signatures found", n)
+	return nil, status.Errorf(codes.NotFound, "no checkpoint with %d signatures found", n)
 }
 
 // GetCheckpointWitness gets the largest checkpoint for the log that was witnessed by the given witness.

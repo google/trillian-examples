@@ -208,8 +208,8 @@ func (d *Distributor) Distribute(ctx context.Context, logID, witID string, nextR
 // the application as it is idempotent.
 func (d *Distributor) init() error {
 	if _, err := d.db.Exec(`CREATE TABLE IF NOT EXISTS chkpts (
-		logID BLOB,
-		witID BLOB,
+		logID VARCHAR(200),
+		witID VARCHAR(200),
 		treeSize INTEGER,
 		chkpt BLOB,
 		PRIMARY KEY (logID, witID)

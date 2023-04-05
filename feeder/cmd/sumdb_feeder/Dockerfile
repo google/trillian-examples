@@ -16,7 +16,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN go build -o /build/bin/feeder ./sumdbaudit/witness/cmd/feeder
+RUN go build -o /build/bin/feeder ./feeder/cmd/sumdb_feeder
 
 # Build release image
 FROM alpine

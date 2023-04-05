@@ -22,11 +22,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/distributor/cmd/internal/distributor"
-	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
 )
 
 var (

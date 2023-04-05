@@ -69,7 +69,7 @@ steps:
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --coverage --no-linters --no-actions --no-docker --no-serverless-wasm
+      ./scripts/presubmit.sh --cloud-build --coverage --no-linters --no-actions --no-docker --no-serverless-wasm
       # Check re-generation didn't change anything.
       echo "Checking that generated files are the same as checked-in versions."
       git diff --  --exit-code
@@ -82,7 +82,7 @@ steps:
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --no-build --no-generate --no-actions --no-docker --no-serverless-wasm
+      ./scripts/presubmit.sh --cloud-build --no-build --no-generate --no-actions --no-docker --no-serverless-wasm
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Build serverless actions
@@ -92,7 +92,7 @@ steps:
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --no-build --no-linters --no-generate --no-docker --no-serverless-wasm
+      ./scripts/presubmit.sh --cloud-build --no-build --no-linters --no-generate --no-docker --no-serverless-wasm
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Build serverless wasm
@@ -102,7 +102,7 @@ steps:
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --no-build --no-linters --no-generate --no-docker --no-actions
+      ./scripts/presubmit.sh --cloud-build --no-build --no-linters --no-generate --no-docker --no-actions
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Build docker images
@@ -112,7 +112,7 @@ steps:
   args:
     - '-exc'
     - |
-      ./scripts/presubmit.sh --no-build --no-linters --no-generate --no-actions --no-serverless-wasm
+      ./scripts/presubmit.sh --cloud-build --no-build --no-linters --no-generate --no-actions --no-serverless-wasm
   waitFor: ['go-get-proto', 'go-get-proto-gen']
 
 # Test the USB Armory code as best we can

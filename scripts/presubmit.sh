@@ -26,12 +26,13 @@ check_cmd() {
 }
 
 usage() {
-  echo "$0 [--coverage] [--fix] [--no-build] [--no-linters] [--no-generate] [--no-actions] [--no-docker] [--no-serverless-wasm]"
+  echo "$0 [--coverage] [--fix] [--no-build] [--no-linters] [--no-generate] [--no-actions] [--no-docker] [--no-serverless-wasm] [--cloud-build]"
 }
 
 main() {
   local coverage=0
   local fix=0
+  local flag_cloud_build=0
   local run_build=1
   local build_actions=1
   local build_docker=1
@@ -68,6 +69,9 @@ main() {
       --no-serverless-wasm)
         build_serverless_wasm=0
         ;;
+      --cloud-build)
+        flag_cloud_build=1
+        ;;
       *)
         usage
         exit 1
@@ -97,9 +101,14 @@ main() {
     goimports -w ${go_srcs}
   fi
 
+  local tags=""
+  if [[ "${flag_cloud_build}" -eq 1 ]]; then
+      tags="--tags cloudbuild"
+  fi
+
   if [[ "${run_build}" -eq 1 ]]; then
     echo 'running go build'
-    go build ./...
+    go build ${tags} ./...
 
     local coverflags=""
     if [[ ${coverage} -eq 1 ]]; then
@@ -111,6 +120,7 @@ main() {
         -short \
         -timeout=${GO_TEST_TIMEOUT:-5m} \
         ${coverflags} \
+        ${tags} \
         ./...
   fi
 

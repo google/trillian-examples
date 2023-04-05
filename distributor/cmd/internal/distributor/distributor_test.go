@@ -17,17 +17,24 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"flag"
 	"fmt"
+	"os"
 	"testing"
+	"time"
 
+	"github.com/cenkalti/backoff"
+	"github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/trillian-examples/distributor/cmd/internal/distributor"
+	docktest "github.com/google/trillian-examples/internal/testonly/docker"
+	"github.com/ory/dockertest/v3"
 	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	_ "github.com/mattn/go-sqlite3" // Load drivers for sqlite3
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var (
@@ -58,6 +65,98 @@ var (
 		signer:   signerOrDie("PRIVATE+KEY+Waffle+2d9257ba+AXcvT+ZS66Y1otACNcq2s6LxHfgY+j340rqpf2aF1/zH"),
 	}
 )
+
+var helper dbHelper
+
+type dbHelper struct {
+	address string
+	nextDB  uint32
+}
+
+func (h *dbHelper) connect() (*sql.DB, error) {
+	connectString := fmt.Sprintf("root:secret@(%s)/mysql", h.address)
+	return sql.Open("mysql", connectString)
+}
+
+func (h *dbHelper) create(testName string) (*sql.DB, error) {
+	db, err := h.connect()
+	if err != nil {
+		return db, err
+	}
+	dbName := fmt.Sprintf("%s_%d", testName, h.nextDB)
+	h.nextDB++
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName))
+	if err != nil {
+		return nil, err
+	}
+	connectString := fmt.Sprintf("root:secret@(%s)/%s", h.address, dbName)
+	return sql.Open("mysql", connectString)
+}
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
+	pool, err := dockertest.NewPool("")
+	if err != nil {
+		glog.Fatalf("Could not construct pool: %s", err)
+	}
+
+	// uses pool to try to connect to Docker
+	err = pool.Client.Ping()
+	if err != nil {
+		glog.Fatalf("Could not connect to Docker: %s", err)
+	}
+	// pulls an image, creates a container based on it and runs it
+	resource, err := pool.RunWithOptions(
+		&dockertest.RunOptions{
+			Repository: "mariadb",
+			Tag:        "10.11.2",
+			Env:        []string{"MYSQL_ROOT_PASSWORD=secret"},
+		},
+		docktest.ConfigureHost)
+	if err != nil {
+		glog.Fatalf("Could not start resource: %s", err)
+	}
+	resource.Expire(180) // Tell docker to hard kill the container in 180 seconds
+
+	helper = dbHelper{
+		address: docktest.GetAddress(resource),
+	}
+	// exponential backoff-retry, because the application in the container might not be ready to accept connections yet
+	if err := retry(func() error {
+		var err error
+		db, err := helper.connect()
+		if err != nil {
+			return err
+		}
+		return db.Ping()
+	}); err != nil {
+		glog.Fatalf("Could not connect to database: %s", err)
+	}
+
+	code := m.Run()
+
+	// You can't defer this because os.Exit doesn't care for defer
+	if err := pool.Purge(resource); err != nil {
+		glog.Fatalf("Could not purge resource: %s", err)
+	}
+
+	os.Exit(code)
+}
+
+func retry(op func() error) error {
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxInterval = time.Second * 5
+	bo.MaxElapsedTime = time.Minute
+	if err := backoff.Retry(op, bo); err != nil {
+		if bo.NextBackOff() == backoff.Stop {
+			return fmt.Errorf("reached retry deadline (last error: %v)", err)
+		}
+
+		return err
+	}
+	return nil
+}
 
 func TestGetLogs(t *testing.T) {
 	ws := map[string]note.Verifier{}
@@ -91,11 +190,11 @@ func TestGetLogs(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			sqlitedb, err := sql.Open("sqlite3", ":memory:")
+			db, err := helper.create("TestGetLogs")
 			if err != nil {
-				t.Fatalf("failed to open temporary in-memory DB: %v", err)
+				t.Fatalf("helper.create(): %v", err)
 			}
-			d, err := distributor.NewDistributor(ws, tC.logs, sqlitedb)
+			d, err := distributor.NewDistributor(ws, tC.logs, db)
 			if err != nil {
 				t.Fatalf("NewDistributor(): %v", err)
 			}
@@ -188,11 +287,11 @@ func TestDistributeLogAndWitnessMustMatchCheckpoint(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			sqlitedb, err := sql.Open("sqlite3", ":memory:")
+			db, err := helper.create("TestDistributeLogAndWitnessMustMatchCheckpoint")
 			if err != nil {
-				t.Fatalf("failed to open temporary in-memory DB: %v", err)
+				t.Fatalf("helper.create(): %v", err)
 			}
-			d, err := distributor.NewDistributor(ws, ls, sqlitedb)
+			d, err := distributor.NewDistributor(ws, ls, db)
 			if err != nil {
 				t.Fatalf("NewDistributor(): %v", err)
 			}
@@ -294,11 +393,11 @@ func TestDistributeEvolution(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			sqlitedb, err := sql.Open("sqlite3", ":memory:")
+			db, err := helper.create("TestDistributeEvolution")
 			if err != nil {
-				t.Fatalf("failed to open temporary in-memory DB: %v", err)
+				t.Fatalf("helper.create(): %v", err)
 			}
-			d, err := distributor.NewDistributor(ws, ls, sqlitedb)
+			d, err := distributor.NewDistributor(ws, ls, db)
 			if err != nil {
 				t.Fatalf("NewDistributor(): %v", err)
 			}
@@ -361,11 +460,11 @@ func TestGetCheckpointWitness(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			sqlitedb, err := sql.Open("sqlite3", ":memory:")
+			db, err := helper.create("TestGetCheckpointWitness")
 			if err != nil {
-				t.Fatalf("failed to open temporary in-memory DB: %v", err)
+				t.Fatalf("helper.create(): %v", err)
 			}
-			d, err := distributor.NewDistributor(ws, ls, sqlitedb)
+			d, err := distributor.NewDistributor(ws, ls, db)
 			if err != nil {
 				t.Fatalf("NewDistributor(): %v", err)
 			}
@@ -493,11 +592,11 @@ func TestGetCheckpointN(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			sqlitedb, err := sql.Open("sqlite3", ":memory:")
+			db, err := helper.create("TestGetCheckpointN")
 			if err != nil {
-				t.Fatalf("failed to open temporary in-memory DB: %v", err)
+				t.Fatalf("helper.create(): %v", err)
 			}
-			d, err := distributor.NewDistributor(ws, ls, sqlitedb)
+			d, err := distributor.NewDistributor(ws, ls, db)
 			if err != nil {
 				t.Fatalf("NewDistributor(): %v", err)
 			}

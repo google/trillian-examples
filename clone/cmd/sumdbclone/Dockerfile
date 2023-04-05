@@ -1,4 +1,4 @@
-FROM golang:buster AS builder
+FROM golang:1.19-alpine AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./clone/cmd/sumdbclone
 
 # Build release image
-FROM golang:buster
+FROM alpine
 
 COPY --from=builder /build/sumdbclone /bin/sumdbclone
 ENTRYPOINT ["/bin/sumdbclone"]

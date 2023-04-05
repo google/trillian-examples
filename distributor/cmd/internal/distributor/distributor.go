@@ -158,21 +158,18 @@ func (d *Distributor) Distribute(ctx context.Context, logID, witID string, nextR
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %v", err)
 	}
-	saveCheckpointFn := func() error {
-		_, err := tx.ExecContext(ctx, `INSERT OR REPLACE INTO chkpts (logID, witID, treeSize, chkpt) VALUES (?, ?, ?, ?)`, logID, witID, newCP.Size, nextRaw)
-		if err != nil {
-			return fmt.Errorf("Exec(): %v", err)
-		}
-		if err := tx.Commit(); err != nil {
-			return err
-		}
-		return nil
-	}
 	oldBs, err := getLatestCheckpoint(ctx, tx, logID, witID)
 	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			// If this is the first checkpoint for this witness then just save and exit
-			return saveCheckpointFn()
+			_, err := tx.ExecContext(ctx, `INSERT INTO chkpts (logID, witID, treeSize, chkpt) VALUES (?, ?, ?, ?)`, logID, witID, newCP.Size, nextRaw)
+			if err != nil {
+				return fmt.Errorf("Exec(): %v", err)
+			}
+			if err := tx.Commit(); err != nil {
+				return err
+			}
+			return nil
 		}
 		return err
 	}
@@ -196,7 +193,14 @@ func (d *Distributor) Distribute(ctx context.Context, logID, witID string, nextR
 		// Nothing to do; checkpoint is equivalent to the old one so avoid DB writes.
 		return nil
 	}
-	return saveCheckpointFn()
+	_, err = tx.ExecContext(ctx, `REPLACE INTO chkpts (logID, witID, treeSize, chkpt) VALUES (?, ?, ?, ?)`, logID, witID, newCP.Size, nextRaw)
+	if err != nil {
+		return fmt.Errorf("Exec(): %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // init ensures that the database is in good order. This must be called before
@@ -204,8 +208,8 @@ func (d *Distributor) Distribute(ctx context.Context, logID, witID string, nextR
 // the application as it is idempotent.
 func (d *Distributor) init() error {
 	if _, err := d.db.Exec(`CREATE TABLE IF NOT EXISTS chkpts (
-		logID BLOB,
-		witID BLOB,
+		logID VARCHAR(200),
+		witID VARCHAR(200),
 		treeSize INTEGER,
 		chkpt BLOB,
 		PRIMARY KEY (logID, witID)

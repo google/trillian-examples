@@ -101,21 +101,17 @@ main() {
     echo 'running go build'
     go build ./...
 
-    echo 'running go test'
+    local coverflags=""
     if [[ ${coverage} -eq 1 ]]; then
-        local coverflags="-covermode=atomic -coverprofile=coverage.txt"
+        coverflags="-covermode=atomic -coverprofile=coverage.txt"
+    fi
 
-        go test \
-            -short \
-            -timeout=${GO_TEST_TIMEOUT:-5m} \
-            ${coverflags} \
-            ./...
-    else
-      go test \
+    echo "running go test"
+    go test \
         -short \
         -timeout=${GO_TEST_TIMEOUT:-5m} \
+        ${coverflags} \
         ./...
-    fi
   fi
 
   if [[ "${build_actions}" -eq 1 ]]; then

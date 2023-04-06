@@ -82,7 +82,7 @@ Specific feeders are listed below, however potential witness operators are advis
 simply deploy the [Omniwitness](golang/cmd/omniwitness) which contains all of these
 feeders, unless there is a compelling reason to limit the witnessed logs.
 
-* [Go SumDB](https://github.com/google/trillian-examples/tree/master/sumdbaudit/witness)
+* [Go SumDB](https://github.com/google/trillian-examples/tree/master/feeder/cmd/sumdb_feeder)
 * [Serverless](https://github.com/google/trillian-examples/tree/master/serverless/cmd/feeder)
 * [Pixel BT](https://github.com/google/trillian-examples/tree/master/feeder/cmd/pixel_bt_feeder)
 * [Rekor/SigStore](https://github.com/google/trillian-examples/tree/master/feeder/cmd/rekor_feeder)

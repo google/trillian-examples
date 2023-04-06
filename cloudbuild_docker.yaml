@@ -107,7 +107,7 @@ steps:
       '--platform', '$_DOCKER_BUILDX_PLATFORMS',
       '-t', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
       '--cache-from', 'gcr.io/$PROJECT_ID/sumdb-feeder:latest',
-      '-f', './sumdbaudit/witness/cmd/feeder/Dockerfile',
+      '-f', './feeder/cmd/sumdb_feeder/Dockerfile',
       '--push',
       '.'
     ]

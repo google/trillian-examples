@@ -16,9 +16,9 @@ package helloworld
 
 import (
 	"context"
+	"crypto/rand"
 	"flag"
 	"fmt"
-	"math/rand"
 	"testing"
 	"time"
 
@@ -89,7 +89,6 @@ func TestAppend(t *testing.T) {
 		chkptOld := mustOpenCheckpoint(t, chkptOldRaw)
 		// Add a random entry so we can be sure it's new.
 		entry := make([]byte, 10)
-		rand.Seed(time.Now().UnixNano())
 		rand.Read(entry)
 		chkptNewRaw, err := personality.Append(ctx, entry)
 		if err != nil {
@@ -124,7 +123,6 @@ func TestUpdate(t *testing.T) {
 		}
 		client.chkpt = mustOpenCheckpoint(t, chkptRaw)
 		entry := make([]byte, 10)
-		rand.Seed(time.Now().UnixNano())
 		rand.Read(entry)
 		personality.Append(ctx, entry)
 		chkptNewRaw, pf, err := personality.UpdateChkpt(ctx, client.chkpt.Size)

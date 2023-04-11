@@ -101,10 +101,10 @@ func convertToSumDBTiles(n compact.NodeID) (tileIndex, compact.NodeID) {
 	// The last leaf that n commits to.
 	lastLeaf := (1<<n.Level)*(n.Index+1) - 1
 	// How many proper leaves are committed to by a tile at sdbLevel.
-	tileLeaves := 1 << ((1 + sdbLevel) * tileHeight)
+	tileLeaves := uint64(1) << ((1 + sdbLevel) * tileHeight)
 
-	sdbOffset := lastLeaf / uint64(tileLeaves)
-	rLeaves := lastLeaf % uint64(tileLeaves)
+	sdbOffset := lastLeaf / tileLeaves
+	rLeaves := lastLeaf % tileLeaves
 	rIndex := rLeaves / (1 << n.Level)
 
 	return tileIndex{

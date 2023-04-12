@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/distributor/api"
 	"github.com/google/trillian-examples/distributor/cmd/internal/distributor"
 	"github.com/gorilla/mux"
@@ -52,7 +53,8 @@ func (s *Server) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.d.Distribute(r.Context(), logID, witID, body); err != nil {
-		http.Error(w, fmt.Sprintf("failed to update to new checkpoint: %v", err), httpForCode(status.Code(err)))
+		glog.Warningf("failed to update to new checkpoint: %v", err)
+		http.Error(w, "failed to update to new checkpoint", httpForCode(status.Code(err)))
 		return
 	}
 }
@@ -69,7 +71,8 @@ func (s *Server) getCheckpointN(w http.ResponseWriter, r *http.Request) {
 	// Get the signed checkpoint from the witness.
 	chkpt, err := s.d.GetCheckpointN(r.Context(), logID, uint32(numSigs))
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get checkpoint: %v", err), httpForCode(status.Code(err)))
+		glog.Warningf("failed to get checkpoint: %v", err)
+		http.Error(w, "failed to get checkpoint", httpForCode(status.Code(err)))
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
@@ -85,7 +88,8 @@ func (s *Server) getCheckpointWitness(w http.ResponseWriter, r *http.Request) {
 	// Get the signed checkpoint from the witness.
 	chkpt, err := s.d.GetCheckpointWitness(r.Context(), logID, witID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get checkpoint: %v", err), httpForCode(status.Code(err)))
+		glog.Warningf("failed to get checkpoint: %v", err)
+		http.Error(w, "failed to get checkpoint", httpForCode(status.Code(err)))
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")

@@ -2,7 +2,6 @@ FROM golang:1.19-alpine AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
-ENV GO111MODULE=on
 
 # Move to working directory /build
 WORKDIR /build

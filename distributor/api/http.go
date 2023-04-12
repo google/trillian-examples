@@ -16,7 +16,7 @@
 package api
 
 const (
-	// HTTPGetCheckpoint is the path of the URL to get a checkpoint with
+	// HTTPGetCheckpointN is the path of the URL to get a checkpoint with
 	// at least N signatures.  The placeholders are:
 	//  * first position is for the logID (an alphanumeric string)
 	//  * second position is the number of signatures required

@@ -101,14 +101,13 @@ main() {
     goimports -w ${go_srcs}
   fi
 
-  local tags=""
   if [[ "${flag_cloud_build}" -eq 1 ]]; then
-      tags="--tags cloudbuild"
+      export GO_TEST_DOCKER_INTEGRATION="cloudbuild"
   fi
 
   if [[ "${run_build}" -eq 1 ]]; then
     echo 'running go build'
-    go build ${tags} ./...
+    go build ./...
 
     local coverflags=""
     if [[ ${coverage} -eq 1 ]]; then
@@ -120,7 +119,6 @@ main() {
         -short \
         -timeout=${GO_TEST_TIMEOUT:-5m} \
         ${coverflags} \
-        ${tags} \
         ./...
   fi
 

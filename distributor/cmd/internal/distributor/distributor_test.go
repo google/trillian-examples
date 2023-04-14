@@ -587,6 +587,26 @@ func TestGetCheckpointN(t *testing.T) {
 			wantErr:     true,
 			wantErrCode: codes.NotFound,
 		},
+		{
+			desc:        "zero invalid",
+			distWit:     witWattle,
+			distLog:     logFoo,
+			distSize:    16,
+			reqLog:      "FooLog",
+			reqN:        0,
+			wantErr:     true,
+			wantErrCode: codes.InvalidArgument,
+		},
+		{
+			desc:        "huge number invalid",
+			distWit:     witWattle,
+			distLog:     logFoo,
+			distSize:    16,
+			reqLog:      "FooLog",
+			reqN:        999,
+			wantErr:     true,
+			wantErrCode: codes.InvalidArgument,
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

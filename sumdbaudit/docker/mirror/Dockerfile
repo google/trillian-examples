@@ -1,4 +1,4 @@
-FROM golang:buster AS builder
+FROM golang:1.20.3-buster AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./sumdbaudit/cli/mirror
 
 # Build release image
-FROM golang:buster
+FROM golang:1.20.3-buster
 
 COPY --from=builder /build/mirror /bin/mirror
 ENTRYPOINT ["/bin/mirror"]

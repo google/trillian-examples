@@ -1,10 +1,10 @@
-FROM golang:1.19-alpine AS build
+FROM golang:1.19-alpine3.17 AS build
 
 WORKDIR /src/
 COPY . ./
 RUN CGO_ENABLED=0 go build -o /bin/combine_witness_signatures .
 
-FROM alpine
+FROM alpine:3.17.3
 
 RUN apk add --no-cache bash git
 

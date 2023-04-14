@@ -60,7 +60,7 @@ func main() {
 	g, ctx := errgroup.WithContext(ctx)
 	httpListener, err := net.Listen("tcp", *addr)
 	if err != nil {
-		glog.Exitf("failed to listen on %q", *addr)
+		glog.Exitf("Failed to listen on %q", *addr)
 	}
 
 	witCfg := witnessConfig{}

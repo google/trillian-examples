@@ -115,7 +115,7 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 // RegisterHandlers registers HTTP handlers for witness endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
 	logStr := "{logid:[a-zA-Z0-9-]+}"
-	witStr := "{witid:[a-zA-Z0-9-.]+}"
+	witStr := "{witid:[a-zA-Z0-9-\\.]+}"
 	r.HandleFunc(fmt.Sprintf(api.HTTPGetCheckpointN, logStr, "{numsigs:\\d+}"), s.getCheckpointN).Methods("GET")
 	r.HandleFunc(fmt.Sprintf(api.HTTPCheckpointByWitness, logStr, witStr), s.update).Methods("PUT")
 	r.HandleFunc(fmt.Sprintf(api.HTTPCheckpointByWitness, logStr, witStr), s.getCheckpointWitness).Methods("GET")

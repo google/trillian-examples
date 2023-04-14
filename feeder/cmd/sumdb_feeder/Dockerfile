@@ -19,7 +19,7 @@ COPY . .
 RUN go build -o /build/bin/feeder ./feeder/cmd/sumdb_feeder
 
 # Build release image
-FROM alpine
+FROM alpine:3.17.3
 
 COPY --from=builder /build/bin/feeder /bin/feeder
 ENTRYPOINT ["/bin/feeder"]

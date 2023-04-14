@@ -19,7 +19,7 @@ COPY . .
 RUN go build -o /build/bin/rekor_feeder ./feeder/cmd/rekor_feeder
 
 # Build release image
-FROM alpine
+FROM alpine:3.17.3
 
 COPY --from=builder /build/bin/rekor_feeder /bin/rekor_feeder
 ENTRYPOINT ["/bin/rekor_feeder"]

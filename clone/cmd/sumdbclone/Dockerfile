@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./clone/cmd/sumdbclone
 
 # Build release image
-FROM alpine
+FROM alpine:3.17.3
 
 COPY --from=builder /build/sumdbclone /bin/sumdbclone
 ENTRYPOINT ["/bin/sumdbclone"]

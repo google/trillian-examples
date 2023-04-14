@@ -20,7 +20,7 @@ COPY . .
 RUN go build -o omniwitness ./witness/golang/cmd/omniwitness
 
 # Build release image
-FROM alpine
+FROM alpine:3.17.3
 
 COPY --from=builder /build/omniwitness /bin/omniwitness
 ENTRYPOINT ["/bin/omniwitness"]

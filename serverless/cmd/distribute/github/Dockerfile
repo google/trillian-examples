@@ -19,7 +19,7 @@ COPY . .
 RUN go build -o /build/bin/distribute ./serverless/cmd/distribute/github
 
 # Build release image
-FROM alpine
+FROM alpine:3.17.3
 
 COPY --from=builder /build/bin/distribute /bin/distribute
 ENTRYPOINT ["/bin/distribute"]

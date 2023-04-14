@@ -83,6 +83,7 @@ func (h *dbHelper) create(testName string) (*sql.DB, error) {
 	if err != nil {
 		return db, err
 	}
+	defer db.Close()
 	dbName := fmt.Sprintf("%s_%d", testName, h.nextDB)
 	h.nextDB++
 	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName))
@@ -102,8 +103,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// uses pool to try to connect to Docker
-	err = pool.Client.Ping()
-	if err != nil {
+	if err := pool.Client.Ping(); err != nil {
 		glog.Fatalf("Could not connect to Docker: %s", err)
 	}
 	// pulls an image, creates a container based on it and runs it

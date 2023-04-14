@@ -16,6 +16,7 @@
 package http
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,19 +25,33 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/distributor/api"
-	"github.com/google/trillian-examples/distributor/cmd/internal/distributor"
 	"github.com/gorilla/mux"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
+// Distributor persists witnessed checkpoints and allows querying of them.
+type Distributor interface {
+	// GetLogs returns a list of all log IDs the distributor is aware of, sorted
+	// by the ID.
+	GetLogs(ctx context.Context) ([]string, error)
+	// GetCheckpointN gets the largest checkpoint for a given log that has at least `n` signatures.
+	GetCheckpointN(ctx context.Context, logID string, n uint32) ([]byte, error)
+	// GetCheckpointWitness gets the largest checkpoint for the log that was witnessed by the given witness.
+	GetCheckpointWitness(ctx context.Context, logID, witID string) ([]byte, error)
+	// Distribute adds a new witnessed checkpoint to be distributed. This checkpoint must be signed
+	// by both the log and the witness specified, and be larger than any previous checkpoint distributed
+	// for this pair.
+	Distribute(ctx context.Context, logID, witID string, nextRaw []byte) error
+}
+
 // Server is the core handler implementation of the witness.
 type Server struct {
-	d *distributor.Distributor
+	d Distributor
 }
 
 // NewServer creates a new server.
-func NewServer(d *distributor.Distributor) *Server {
+func NewServer(d Distributor) *Server {
 	return &Server{
 		d: d,
 	}
@@ -115,7 +130,7 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 // RegisterHandlers registers HTTP handlers for witness endpoints.
 func (s *Server) RegisterHandlers(r *mux.Router) {
 	logStr := "{logid:[a-zA-Z0-9-]+}"
-	witStr := "{witid:[a-zA-Z0-9-\\.]+}"
+	witStr := "{witid:[^ +]+}"
 	r.HandleFunc(fmt.Sprintf(api.HTTPGetCheckpointN, logStr, "{numsigs:\\d+}"), s.getCheckpointN).Methods("GET")
 	r.HandleFunc(fmt.Sprintf(api.HTTPCheckpointByWitness, logStr, witStr), s.update).Methods("PUT")
 	r.HandleFunc(fmt.Sprintf(api.HTTPCheckpointByWitness, logStr, witStr), s.getCheckpointWitness).Methods("GET")

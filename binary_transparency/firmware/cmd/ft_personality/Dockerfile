@@ -1,4 +1,4 @@
-FROM golang:buster AS builder
+FROM golang:1.20.3-buster AS builder
 LABEL stage=builder
 
 ARG GOFLAGS=""
@@ -20,7 +20,7 @@ COPY . .
 RUN go build ./binary_transparency/firmware/cmd/ft_personality
 
 # Build release image
-FROM golang:buster
+FROM golang:1.20.3-buster
 
 COPY --from=builder /build/ft_personality /bin/ft_personality
 ENTRYPOINT ["/bin/ft_personality"]

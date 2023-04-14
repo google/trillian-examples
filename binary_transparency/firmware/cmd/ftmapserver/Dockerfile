@@ -1,4 +1,4 @@
-FROM golang:buster AS builder
+FROM golang:1.20.3-buster AS builder
 LABEL stage=builder
 
 ARG GOFLAGS=""
@@ -20,7 +20,7 @@ COPY . .
 RUN go build ./binary_transparency/firmware/cmd/ftmapserver
 
 # Build release image
-FROM golang:buster
+FROM golang:1.20.3-buster
 
 COPY --from=builder /build/ftmapserver /bin/ftmapserver
 ENTRYPOINT ["/bin/ftmapserver"]

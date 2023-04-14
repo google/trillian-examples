@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine AS build
+FROM golang:1.19-alpine3.17 AS build
 
 WORKDIR /src/
 COPY . ./

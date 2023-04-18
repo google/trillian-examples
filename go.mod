@@ -33,7 +33,7 @@ require (
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/ory/dockertest/v3 v3.9.1
+	github.com/ory/dockertest/v3 v3.10.0
 	github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26
 )
 

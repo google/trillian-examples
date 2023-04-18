@@ -32,6 +32,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// maxSigs is the maximum number of sigs that can be requested.
+const maxSigs = 100
+
 // LogInfo contains the information that the distributor needs to know about
 // a log, other than its ID.
 type LogInfo struct {
@@ -73,6 +76,9 @@ func (d *Distributor) GetLogs(ctx context.Context) ([]string, error) {
 
 // GetCheckpointN gets the largest checkpoint for a given log that has at least `n` signatures.
 func (d *Distributor) GetCheckpointN(ctx context.Context, logID string, n uint32) ([]byte, error) {
+	if n == 0 || n > maxSigs {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid N %d", n)
+	}
 	l, ok := d.ls[logID]
 	if !ok {
 		return nil, status.Errorf(codes.InvalidArgument, "unknown log ID %q", logID)

@@ -58,7 +58,11 @@ func Main(ctx context.Context, opts WitnessOpts) error {
 	r := mux.NewRouter()
 	witness.RegisterHandlers(r)
 
-	go witness.Poll(ctx)
+	go func() {
+		if err := witness.Poll(ctx); err != nil {
+			glog.Errorf("witness.Poll(): %v", err)
+		}
+	}()
 
 	hServer := &http.Server{
 		Addr:    opts.ListenAddr,
@@ -71,6 +75,8 @@ func Main(ctx context.Context, opts WitnessOpts) error {
 	}()
 	<-ctx.Done()
 	glog.Info("Server shutting down")
-	hServer.Shutdown(ctx)
+	if err := hServer.Shutdown(ctx); err != nil {
+		glog.Errorf("server.Shutdown(): %v", err)
+	}
 	return <-e
 }

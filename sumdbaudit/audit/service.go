@@ -457,7 +457,9 @@ func (s *Service) checkCheckpoint(cp *client.Checkpoint, getStragglers func(stra
 			// Calculate this tile as a standalone subtree
 			tcr := s.rf.NewEmptyRange(0)
 			for _, t := range tHashes {
-				tcr.Append(t, nil)
+				if err := tcr.Append(t, nil); err != nil {
+					return fmt.Errorf("tcr.Append(): %v", err)
+				}
 			}
 			// Now use the range as what it really is; a commitment to a larger number of leaves
 			treeRange, err := s.rf.NewRange(uint64(offset)*tileLeafCount, uint64(offset+1)*tileLeafCount, tcr.Hashes())
@@ -465,7 +467,9 @@ func (s *Service) checkCheckpoint(cp *client.Checkpoint, getStragglers func(stra
 				return fmt.Errorf("failed to create range for tile L=%d, O=%d: %v", level, offset, err)
 			}
 			// Append this into the running log range.
-			logRange.AppendRange(treeRange, nil)
+			if err := logRange.AppendRange(treeRange, nil); err != nil {
+				return fmt.Errorf("logRange.AppendRange(): %v", err)
+			}
 		}
 	}
 
@@ -477,7 +481,9 @@ func (s *Service) checkCheckpoint(cp *client.Checkpoint, getStragglers func(stra
 			return fmt.Errorf("failed to get stragglers: %w", err)
 		}
 		for i := 0; i < stragglersCount; i++ {
-			logRange.Append(stragglers[i], nil)
+			if err := logRange.Append(stragglers[i], nil); err != nil {
+				return fmt.Errorf("logRange.Append(): %v", err)
+			}
 		}
 	}
 
@@ -508,7 +514,9 @@ func (s *Service) hashLeafLevel(tileCount int, roots chan<- *compact.Range) erro
 		}
 		cr := s.rf.NewEmptyRange(uint64(offset) * 1 << s.height)
 		for _, h := range hashes {
-			cr.Append(h, nil)
+			if err := cr.Append(h, nil); err != nil {
+				return fmt.Errorf("cr.Append(): %v", err)
+			}
 		}
 		if got, want := len(cr.Hashes()), 1; got != want {
 			return fmt.Errorf("expected single root hash but got %d", got)
@@ -567,7 +575,9 @@ func (s *Service) hashUpperLevel(level, tileCount int, in <-chan *compact.Range,
 		}
 		cr := s.rf.NewEmptyRange(uint64(offset * tileWidth))
 		for _, h := range inHashes {
-			cr.Append(h, nil)
+			if err := cr.Append(h, nil); err != nil {
+				return fmt.Errorf("cr.Append(): %v", err)
+			}
 		}
 		if got, want := len(cr.Hashes()), 1; got != want {
 			return fmt.Errorf("expected single root hash but got %d", got)

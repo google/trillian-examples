@@ -135,7 +135,9 @@ func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (ui
 		return 0, fmt.Errorf("unable to write temporary file: %w", err)
 	}
 	defer func() {
-		os.Remove(tmp)
+		if err := os.Remove(tmp); err != nil {
+			glog.Errorf("os.Remove(): %v", err)
+		}
 	}()
 
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
@@ -170,7 +172,11 @@ func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (ui
 		if err := createExclusive(leafTmp, []byte(strconv.FormatUint(seq, 16))); err != nil {
 			return 0, fmt.Errorf("couldn't create temporary leafhash file: %w", err)
 		}
-		defer os.Remove(leafTmp)
+		defer func() {
+			if err := os.Remove(leafTmp); err != nil {
+				glog.Errorf("os.Remove(): %v", err)
+			}
+		}()
 		// Link the temporary file in place, if it already exists we likely crashed after
 		//creating the tmp file above.
 		if err := os.Link(leafTmp, leafFQ); err != nil && !errors.Is(err, os.ErrExist) {

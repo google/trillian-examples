@@ -222,7 +222,9 @@ func (s *Server) getConsistency(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	if _, err := w.Write(js); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // getInclusionByHash returns an inclusion proof for the entry with the specified hash (if it exists).
@@ -264,7 +266,9 @@ func (s *Server) getInclusionByHash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	if _, err := w.Write(js); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // getManifestEntryAndProof returns a tree leaf and corresponding inclusion proof.
@@ -308,7 +312,9 @@ func (s *Server) getManifestEntryAndProof(w http.ResponseWriter, r *http.Request
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	if _, err := w.Write(js); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // getRoot returns a recent tree root.
@@ -331,7 +337,9 @@ func (s *Server) getRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write(b)
+	if _, err := w.Write(b); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // getFirmwareImage returns a firmware image stored in the CAS.
@@ -350,7 +358,9 @@ func (s *Server) getFirmwareImage(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/binary")
 	w.Header().Set("Content-Length", strconv.Itoa(len(image)))
-	w.Write(image)
+	if _, err := w.Write(image); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // addAnnotationMalware handles requests to annotate a logged firmware with a malware annotation.

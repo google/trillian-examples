@@ -84,11 +84,11 @@ func TestClone(t *testing.T) {
 	}
 }
 
-func newInMemoryDatabase() (*logdb.Database, func() error, error) {
+func newInMemoryDatabase() (*logdb.Database, func(), error) {
 	sqlitedb, err := sql.Open("sqlite3", ":memory:")
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open temporary in-memory DB: %v", err)
 	}
 	db, err := logdb.NewDatabaseDirect(sqlitedb)
-	return db, sqlitedb.Close, err
+	return db, func() { _ = sqlitedb.Close }, err
 }

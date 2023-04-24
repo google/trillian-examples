@@ -45,7 +45,11 @@ func TestRoundTrip(t *testing.T) {
 			if err != nil {
 				t.Error("failed to open temporary in-memory DB", err)
 			}
-			defer db.Close()
+			defer func() {
+				if err := db.Close(); err != nil {
+					t.Errorf("db.Close(): %v", err)
+				}
+			}()
 
 			store, err := NewBinaryStorage(db)
 			if err != nil {
@@ -75,7 +79,11 @@ func TestUnknownHash(t *testing.T) {
 	if err != nil {
 		t.Error("failed to open temporary in-memory DB", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("db.Close(): %v", err)
+		}
+	}()
 
 	store, err := NewBinaryStorage(db)
 	if err != nil {

@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/golang/glog"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"golang.org/x/mod/sumdb/note"
 	"google.golang.org/grpc/status"
@@ -42,7 +43,11 @@ func (c WitnessClient) GetWitnessCheckpoint() (*api.LogCheckpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			glog.Errorf("r.Body.Close(): %v", err)
+		}
+	}()
 	if r.StatusCode != 200 {
 		return nil, errFromRsp("failed to fetch checkpoint", r)
 	}

@@ -22,6 +22,8 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+
+	"github.com/golang/glog"
 )
 
 // ErrNoDataFound is returned when the DB appears valid but has no data in it.
@@ -75,23 +77,31 @@ func (d *Database) WriteCheckpoint(ctx context.Context, size uint64, checkpoint 
 	var max uint64
 	if err := row.Scan(&max); err != nil {
 		if err != sql.ErrNoRows {
-			tx.Rollback()
+			if err := tx.Rollback(); err != nil {
+				glog.Errorf("tx.Rollback(): %v", err)
+			}
 			return fmt.Errorf("Scan(): %v", err)
 		}
 	}
 
 	if size <= max {
-		tx.Rollback()
+		if err := tx.Rollback(); err != nil {
+			glog.Errorf("tx.Rollback(): %v", err)
+		}
 		return nil
 	}
 
 	var srs bytes.Buffer
 	enc := gob.NewEncoder(&srs)
 	if err := enc.Encode(compactRange); err != nil {
-		tx.Rollback()
+		if err := tx.Rollback(); err != nil {
+			glog.Errorf("tx.Rollback(): %v", err)
+		}
 		return fmt.Errorf("Encode(): %v", err)
 	}
-	tx.ExecContext(ctx, "INSERT INTO checkpoints (size, data, compactRange) VALUES (?, ?, ?)", size, checkpoint, srs.Bytes())
+	if _, err := tx.ExecContext(ctx, "INSERT INTO checkpoints (size, data, compactRange) VALUES (?, ?, ?)", size, checkpoint, srs.Bytes()); err != nil {
+		glog.Errorf("tx.ExecContext(): %v", err)
+	}
 	return tx.Commit()
 }
 
@@ -121,7 +131,9 @@ func (d *Database) WriteLeaves(ctx context.Context, start uint64, leaves [][]byt
 	}
 	for li, l := range leaves {
 		lidx := uint64(li) + start
-		tx.Exec("INSERT INTO leaves (id, data) VALUES (?, ?)", lidx, l)
+		if _, err := tx.Exec("INSERT INTO leaves (id, data) VALUES (?, ?)", lidx, l); err != nil {
+			glog.Errorf("tx.Exec(): %v", err)
+		}
 	}
 	return tx.Commit()
 }
@@ -135,7 +147,11 @@ func (d *Database) StreamLeaves(start, end uint64, out chan []byte, errc chan er
 		errc <- err
 		return
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			glog.Errorf("rows.Close(): %v", err)
+		}
+	}()
 	for rows.Next() {
 		var data []byte
 		if err := rows.Scan(&data); err != nil {

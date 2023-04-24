@@ -114,7 +114,11 @@ func Main(ctx context.Context, opts PublishOpts) error {
 		if err != nil {
 			return fmt.Errorf("failed to create output package file %q: %w", opts.OutputPath, err)
 		}
-		defer f.Close()
+		defer func() {
+			if err := f.Close(); err != nil {
+				glog.Errorf("f.Close(): %v", err)
+			}
+		}()
 
 		if err := json.NewEncoder(f).Encode(bundle); err != nil {
 			return fmt.Errorf("failed to encode output package JSON: %w", err)

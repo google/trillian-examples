@@ -67,7 +67,9 @@ func (fn *moduleLogHashFn) ProcessElement(log *api.DeviceReleaseLog) (*batchmap.
 		bs := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bs, v)
 		h := RecordHash(bs)
-		logRange.Append(h[:], nil)
+		if err := logRange.Append(h[:], nil); err != nil {
+			return nil, err
+		}
 	}
 	logRoot, err := logRange.GetRootHash(nil)
 	if err != nil {

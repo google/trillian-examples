@@ -80,7 +80,11 @@ func NewClient(ctx context.Context, timeout time.Duration, logAddr string, treeS
 		logID:       tree.TreeId,
 		client:      log,
 		golden:      golden,
-		done:        func() { conn.Close() },
+		done: func() {
+			if err := conn.Close(); err != nil {
+				glog.Errorf("conn.Close(): %v", err)
+			}
+		},
 	}
 
 	return client, nil

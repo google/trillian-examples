@@ -20,6 +20,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/golang/glog"
 	"golang.org/x/mod/sumdb/note"
 	"golang.org/x/mod/sumdb/tlog"
 )
@@ -180,7 +181,11 @@ func (f *HTTPFetcher) GetData(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			glog.Errorf("resp.Body.Close(): %v", err)
+		}
+	}()
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("GET %v: %v", target, resp.Status)
 	}

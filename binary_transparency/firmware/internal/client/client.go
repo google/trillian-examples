@@ -129,7 +129,11 @@ func (c ReadonlyClient) GetCheckpoint() (*api.LogCheckpoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			glog.Errorf("r.Body.Close(): %v", err)
+		}
+	}()
 	if r.StatusCode != 200 {
 		return &api.LogCheckpoint{}, errFromResponse("failed to fetch checkpoint", r)
 	}

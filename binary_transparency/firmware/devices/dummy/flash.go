@@ -63,7 +63,9 @@ func New(storage string) (*Device, error) {
 		}
 		return d, fmt.Errorf("failed to read bundle file %q: %w", fPath, err)
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	err = json.NewDecoder(f).Decode(&d.bundle)
 	return d, err

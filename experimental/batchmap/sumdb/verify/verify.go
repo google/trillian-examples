@@ -68,7 +68,11 @@ func main() {
 	if err != nil {
 		glog.Exitf("failed to read file %q: %q", *sumFile, err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			glog.Errorf("file.Close(): %v", err)
+		}
+	}()
 	scanner := bufio.NewScanner(file)
 
 	var root []byte

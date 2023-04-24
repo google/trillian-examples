@@ -146,7 +146,11 @@ func readUpdateFile(path string) (api.UpdatePackage, error) {
 	if err != nil {
 		glog.Exitf("Failed to open update package file %q: %q", path, err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			glog.Errorf("f.Close(): %v", err)
+		}
+	}()
 
 	var up api.UpdatePackage
 	if err := json.NewDecoder(f).Decode(&up); err != nil {

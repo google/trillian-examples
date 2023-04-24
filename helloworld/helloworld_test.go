@@ -89,7 +89,9 @@ func TestAppend(t *testing.T) {
 		chkptOld := mustOpenCheckpoint(t, chkptOldRaw)
 		// Add a random entry so we can be sure it's new.
 		entry := make([]byte, 10)
-		rand.Read(entry)
+		if _, err := rand.Read(entry); err != nil {
+			t.Error(err)
+		}
 		chkptNewRaw, err := personality.Append(ctx, entry)
 		if err != nil {
 			t.Fatalf(err.Error())
@@ -123,8 +125,12 @@ func TestUpdate(t *testing.T) {
 		}
 		client.chkpt = mustOpenCheckpoint(t, chkptRaw)
 		entry := make([]byte, 10)
-		rand.Read(entry)
-		personality.Append(ctx, entry)
+		if _, err := rand.Read(entry); err != nil {
+			t.Error(err)
+		}
+		if _, err := personality.Append(ctx, entry); err != nil {
+			t.Error(err)
+		}
 		chkptNewRaw, pf, err := personality.UpdateChkpt(ctx, client.chkpt.Size)
 		if err != nil {
 			t.Fatalf(err.Error())

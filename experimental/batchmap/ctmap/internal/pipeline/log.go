@@ -65,7 +65,9 @@ func (fn *moduleLogHashFn) ProcessElement(log *DomainCertIndexLog) (*batchmap.En
 		bs := make([]byte, 8)
 		binary.LittleEndian.PutUint64(bs, v)
 		h := RecordHash(bs)
-		logRange.Append(h[:], nil)
+		if err := logRange.Append(h[:], nil); err != nil {
+			return nil, fmt.Errorf("logRange.Append(): %v", err)
+		}
 	}
 	logRoot, err := logRange.GetRootHash(nil)
 	if err != nil {

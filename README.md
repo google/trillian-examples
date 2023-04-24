@@ -30,13 +30,9 @@ The general-purpose components are:
    transparency logs whose state is entirely composed of on-disk files, along
    with examples of how to use GitHub/GitHub Actions to host & publicly serve
    the log.
-* [witness](witness): A witness, which verifies the consistency of the evolving
-  checkpoints issued by a verifiable log and produces co-signed checkpoints.
-  This is an important role that enables the prevention or detection of certain
-  types of log misbehavior (and in particular split-view attacks).
-    * [omniwitness](witness/golang/cmd/omniwitness) is the entry point for
-      users looking to deploy a preconfigured witness that witnesses all known
-      logs.
+
+The Go implementation of the Witness has graduated from this repository and now
+lives at https://github.com/transparency-dev/witness
 
 There are two experimental deployments of the witness that have been deleted but
 are signposted here for archival reasons. Both of these tools can be retrieved

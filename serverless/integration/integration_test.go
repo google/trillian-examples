@@ -190,7 +190,7 @@ func TestServerlessViaHTTP(t *testing.T) {
 		}
 	}()
 	go func() {
-		if err := srv.Serve(listener); err != nil {
+		if err := srv.Serve(listener); err != http.ErrServerClosed {
 			t.Error(err)
 		}
 	}()

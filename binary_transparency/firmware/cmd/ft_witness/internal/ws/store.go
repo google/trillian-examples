@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package ws contains a Witness Store
+// Package ws contains a Witness Store backed by a file.
 package ws
 
 import (
@@ -25,14 +25,14 @@ const (
 	fileMask = 0755
 )
 
-// Storage is a Witness Storage intended for storing witness checkpoints
+// Storage is a Witness Storage intended for storing witness checkpoints.
 // Currently a simple file is used as a storage mechanism
 type Storage struct {
 	fp        string
 	storeLock sync.Mutex
 }
 
-// NewStorage creates a new WS that uses the given file as DB backend
+// NewStorage creates a new WS that uses the given file as DB backend.
 // The DB will be initialized if needed.
 func NewStorage(fp string) (*Storage, error) {
 	ws := &Storage{
@@ -56,30 +56,14 @@ func (ws *Storage) init() error {
 
 // StoreCP saves the given checkpoint into DB.
 func (ws *Storage) StoreCP(wcp []byte) error {
-
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()
 
-	// Check if file exists, open for write and store the checkpoint
-	f, err := os.OpenFile(ws.fp, os.O_RDWR, fileMask)
-	if err != nil {
-		_ = f.Close()
-		return fmt.Errorf("failed to open file: %w", err)
-	}
-
-	if _, err := f.Write(wcp); err != nil {
-		_ = f.Close()
-		return fmt.Errorf("failed to write data to witness db file: %w", err)
-	}
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("failed to close file: %w", err)
-	}
-	return nil
+	return os.WriteFile(ws.fp, wcp, fileMask)
 }
 
 // RetrieveCP gets the checkpoint previously stored.
 func (ws *Storage) RetrieveCP() ([]byte, error) {
-
 	ws.storeLock.Lock()
 	defer ws.storeLock.Unlock()
 	return os.ReadFile(ws.fp)

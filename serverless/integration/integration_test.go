@@ -184,9 +184,15 @@ func TestServerlessViaHTTP(t *testing.T) {
 	srv := http.Server{
 		Handler: http.FileServer(http.Dir(root)),
 	}
-	defer srv.Close()
+	defer func() {
+		if err := srv.Close(); err != nil {
+			t.Errorf("srv.Close(): %v", err)
+		}
+	}()
 	go func() {
-		srv.Serve(listener)
+		if err := srv.Serve(listener); err != http.ErrServerClosed {
+			t.Error(err)
+		}
 	}()
 
 	// Create fetcher
@@ -229,7 +235,11 @@ func httpFetcher(t *testing.T, u string) client.Fetcher {
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				t.Errorf("resp.Body.Close(): %v", err)
+			}
+		}()
 		return io.ReadAll(resp.Body)
 	}
 }

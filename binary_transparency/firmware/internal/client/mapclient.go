@@ -147,7 +147,11 @@ func (c *MapClient) fetch(path string) ([]byte, error) {
 		return nil, errFromResponse(fmt.Sprintf("failed to fetch %s", path), r)
 	}
 	body := r.Body
-	defer body.Close()
+	defer func() {
+		if err := body.Close(); err != nil {
+			glog.Errorf("body.Close(): %v", err)
+		}
+	}()
 	return io.ReadAll(body)
 }
 

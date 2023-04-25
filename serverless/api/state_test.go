@@ -83,7 +83,9 @@ func TestMarshalTileRoundtrip(t *testing.T) {
 					tile.Nodes = append(tile.Nodes, emptyHashes(idx-l+1)...)
 				}
 				// Fill in the leaf index
-				rand.Read(tile.Nodes[idx])
+				if _, err := rand.Read(tile.Nodes[idx]); err != nil {
+					t.Error(err)
+				}
 			}
 
 			raw, err := tile.MarshalText()

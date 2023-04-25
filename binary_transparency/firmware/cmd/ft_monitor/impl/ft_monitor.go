@@ -118,7 +118,9 @@ func Main(ctx context.Context, opts MonitorOpts) error {
 		if entry.Index == entry.Root.Size-1 {
 			// If we have processed all leaves in the current checkpoint, then persist this checkpoint
 			// so that we don't repeat work on startup.
-			os.WriteFile(opts.StateFile, entry.Root.Envelope, 0o755)
+			if err := os.WriteFile(opts.StateFile, entry.Root.Envelope, 0o755); err != nil {
+				glog.Errorf("os.WriteFile(): %v", err)
+			}
 		}
 	}
 }

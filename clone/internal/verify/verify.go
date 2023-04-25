@@ -74,7 +74,9 @@ func (v LogVerifier) MerkleRoot(ctx context.Context, size uint64) ([]byte, [][]b
 			return nil, nil, fmt.Errorf("failed to get leaves from DB: %w", err)
 		default:
 		}
-		cr.Append(v.lh(index, leaf), nil)
+		if err := cr.Append(v.lh(index, leaf), nil); err != nil {
+			glog.Errorf("cr.Append(): %v", err)
+		}
 		index++
 	}
 	if index != size {

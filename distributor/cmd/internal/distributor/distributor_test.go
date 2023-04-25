@@ -83,7 +83,11 @@ func (h *dbHelper) create(testName string) (*sql.DB, error) {
 	if err != nil {
 		return db, err
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			glog.Errorf("db.Close(): %v", err)
+		}
+	}()
 	dbName := fmt.Sprintf("%s_%d", testName, h.nextDB)
 	h.nextDB++
 	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbName))
@@ -117,7 +121,10 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		glog.Fatalf("Could not start resource: %s", err)
 	}
-	resource.Expire(180) // Tell docker to hard kill the container in 180 seconds
+	// Tell docker to hard kill the container in 180 seconds
+	if err := resource.Expire(180); err != nil {
+		glog.Errorf("resource.Expire(): %v", err)
+	}
 
 	helper = dbHelper{
 		address: docktest.GetAddress(resource),

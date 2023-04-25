@@ -53,7 +53,9 @@ func (s *server) getGolden(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; charset=UTF-8")
 	w.Header().Set("Content-Length", strconv.Itoa(len(golden.Raw)))
-	w.Write(golden.Raw)
+	if _, err := w.Write(golden.Raw); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // checkConsistency validates whether the provided checkpoint is consistent

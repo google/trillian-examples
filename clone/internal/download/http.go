@@ -20,6 +20,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+
+	"github.com/golang/glog"
 )
 
 // NewHTTPFetcher returns an HTTPFetcher that gets paths appended to the given prefix.
@@ -46,7 +48,11 @@ func (f HTTPFetcher) GetData(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("http.Get: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			glog.Errorf("resp.Body.Close(): %v", err)
+		}
+	}()
 	if resp.StatusCode != 200 {
 		// Could be worth returning a special error when we've been explicitly told to back off.
 		return nil, fmt.Errorf("GET %v: %v", target, resp.Status)

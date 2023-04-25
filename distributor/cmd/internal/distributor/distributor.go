@@ -91,7 +91,11 @@ func (d *Distributor) GetCheckpointN(ctx context.Context, logID string, n uint32
 	if err != nil {
 		return nil, fmt.Errorf("query failed: %v", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			glog.Errorf("rows.Close(): %v", err)
+		}
+	}()
 	var currentSize uint64
 	var witsAtSize []note.Verifier
 	var cpsAtSize [][]byte

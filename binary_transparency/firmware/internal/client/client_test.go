@@ -439,7 +439,9 @@ func TestGetFirmwareImage(t *testing.T) {
 					http.Error(w, "unknown", http.StatusNotFound)
 					return
 				}
-				w.Write(test.body)
+				if _, err := w.Write(test.body); err != nil {
+					t.Errorf("w.Write(): %v", err)
+				}
 			}))
 			defer ts.Close()
 

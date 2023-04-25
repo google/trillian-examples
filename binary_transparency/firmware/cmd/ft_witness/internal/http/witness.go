@@ -79,7 +79,9 @@ func NewWitness(ws WitnessStore, logURL string, logSigVerifier note.Verifier, po
 func (s *Witness) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 	s.witnessLock.Lock()
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write(s.gcp.Envelope)
+	if _, err := w.Write(s.gcp.Envelope); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // RegisterHandlers registers HTTP handlers for firmware transparency endpoints.

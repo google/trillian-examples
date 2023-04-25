@@ -102,6 +102,8 @@ func Main(ctx context.Context, opts PersonalityOpts) error {
 	}()
 	<-ctx.Done()
 	glog.Info("Server shutting down")
-	hServer.Shutdown(ctx)
+	if err := hServer.Shutdown(ctx); err != nil {
+		glog.Errorf("server.Shutdown(): %v", err)
+	}
 	return <-e
 }

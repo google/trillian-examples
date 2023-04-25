@@ -78,7 +78,9 @@ func main() {
 	logRange := rf.NewEmptyRange(0)
 	for _, v := range versions {
 		h := tlog.RecordHash([]byte(v))
-		logRange.Append(h[:], nil)
+		if err := logRange.Append(h[:], nil); err != nil {
+			glog.Exitf("logRange.Append(): %v", err)
+		}
 	}
 	logRoot, err := logRange.GetRootHash(nil)
 	if err != nil {

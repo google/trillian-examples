@@ -79,7 +79,9 @@ func Main(ctx context.Context, opts MapServerOpts) error {
 	}()
 	<-ctx.Done()
 	glog.Info("Server shutting down")
-	hServer.Shutdown(ctx)
+	if err := hServer.Shutdown(ctx); err != nil {
+		glog.Errorf("server.Shutdown(): %v", err)
+	}
 	return <-e
 }
 
@@ -122,7 +124,9 @@ func (s *Server) getCheckpoint(w http.ResponseWriter, r *http.Request) {
 
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	if _, err := w.Write(js); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // getTile returns the tile at the given revision & path.
@@ -159,7 +163,9 @@ func (s *Server) getTile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	if _, err := w.Write(js); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // getAggregation returns the aggregation for the firware at the given log index.
@@ -186,7 +192,9 @@ func (s *Server) getAggregation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(js)
+	if _, err := w.Write(js); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // RegisterHandlers registers HTTP handlers for the endpoints.

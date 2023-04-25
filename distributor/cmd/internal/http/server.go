@@ -91,7 +91,9 @@ func (s *Server) getCheckpointN(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write(chkpt)
+	if _, err := w.Write(chkpt); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // getCheckpointWitness returns the latest checkpoint stored for a given log by the given witness.
@@ -108,7 +110,9 @@ func (s *Server) getCheckpointWitness(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-	w.Write(chkpt)
+	if _, err := w.Write(chkpt); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // getLogs returns a list of all logs the witness is aware of.
@@ -124,7 +128,9 @@ func (s *Server) getLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/json")
-	w.Write(logList)
+	if _, err := w.Write(logList); err != nil {
+		glog.Errorf("w.Write(): %v", err)
+	}
 }
 
 // RegisterHandlers registers HTTP handlers for witness endpoints.

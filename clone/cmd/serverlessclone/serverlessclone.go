@@ -181,6 +181,10 @@ func readHTTP(ctx context.Context, u *url.URL) ([]byte, error) {
 	default:
 		return nil, fmt.Errorf("unexpected http status %q", resp.Status)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			glog.Errorf("resp.Body.Close(): %v", err)
+		}
+	}()
 	return io.ReadAll(resp.Body)
 }

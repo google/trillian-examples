@@ -159,7 +159,11 @@ func (w *writeTileFn) ProcessElement(ctx context.Context, t *batchmap.Tile) erro
 	if err != nil {
 		return err
 	}
-	defer fs.Close()
+	defer func() {
+		if err := fs.Close(); err != nil {
+			glog.Errorf("fs.Close(): %v", err)
+		}
+	}()
 
 	fd, err := fs.OpenWrite(ctx, filename)
 	if err != nil {
@@ -207,15 +211,23 @@ func (w *writeCheckpointFn) ProcessElement(ctx context.Context, t *batchmap.Tile
 	if err != nil {
 		return err
 	}
-	defer fs.Close()
+	defer func() {
+		if err := fs.Close(); err != nil {
+			glog.Errorf("fs.Close(): %v", err)
+		}
+	}()
 
 	fd, err := fs.OpenWrite(ctx, filename)
 	if err != nil {
 		return err
 	}
 
-	fd.Write([]byte(fmt.Sprintf("%d\n%x\n", w.EntryCount, root)))
-	fd.Write(w.LogCheckpoint)
+	if _, err := fd.Write([]byte(fmt.Sprintf("%d\n%x\n", w.EntryCount, root))); err != nil {
+		return err
+	}
+	if _, err := fd.Write(w.LogCheckpoint); err != nil {
+		return err
+	}
 
 	// TODO(mhutchinson): Add signature to the map root.
 

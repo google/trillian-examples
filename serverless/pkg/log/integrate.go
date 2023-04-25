@@ -95,7 +95,9 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
 			// Update range and set nodes
-			newRange.Append(lh, tc.Visit)
+			if err := newRange.Append(lh, tc.Visit); err != nil {
+				return fmt.Errorf("newRange.Append(): %v", err)
+			}
 			return nil
 		})
 	if err != nil {

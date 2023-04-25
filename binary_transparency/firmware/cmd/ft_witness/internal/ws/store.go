@@ -48,7 +48,6 @@ func (ws *Storage) init() error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer f.Close()
 	if err := f.Close(); err != nil {
 		return fmt.Errorf("failed to close file: %w", err)
 	}
@@ -64,12 +63,12 @@ func (ws *Storage) StoreCP(wcp []byte) error {
 	// Check if file exists, open for write and store the checkpoint
 	f, err := os.OpenFile(ws.fp, os.O_RDWR, fileMask)
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		return fmt.Errorf("failed to open file: %w", err)
 	}
 
 	if _, err := f.Write(wcp); err != nil {
-		f.Close()
+		_ = f.Close()
 		return fmt.Errorf("failed to write data to witness db file: %w", err)
 	}
 	if err := f.Close(); err != nil {

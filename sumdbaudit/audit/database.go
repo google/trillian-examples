@@ -155,7 +155,9 @@ func (d *Database) WriteLeaves(ctx context.Context, start int64, leaves [][]byte
 	}
 	for li, l := range leaves {
 		lidx := int64(li) + start
-		tx.Exec("INSERT INTO leaves (id, data) VALUES (?, ?)", lidx, l)
+		if _, err := tx.Exec("INSERT INTO leaves (id, data) VALUES (?, ?)", lidx, l); err != nil {
+			return fmt.Errorf("tx.Exec(): %v", err)
+		}
 	}
 	return tx.Commit()
 }
@@ -167,10 +169,16 @@ func (d *Database) Leaves(start int64, count int) ([][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			glog.Errorf("rows.Close(): %v", err)
+		}
+	}()
 	for rows.Next() {
 		var data []byte
-		rows.Scan(&data)
+		if err := rows.Scan(&data); err != nil {
+			return nil, fmt.Errorf("rows.Scan(): %v", err)
+		}
 		res = append(res, data)
 	}
 	if len(res) != count {
@@ -188,7 +196,9 @@ func (d *Database) SetLeafMetadata(ctx context.Context, start int64, metadata []
 	}
 	for mi, m := range metadata {
 		midx := int64(mi) + start
-		tx.Exec("INSERT INTO leafMetadata (id, module, version, repohash, modhash) VALUES (?, ?, ?, ?, ?)", midx, m.module, m.version, m.repoHash, m.modHash)
+		if _, err := tx.Exec("INSERT INTO leafMetadata (id, module, version, repohash, modhash) VALUES (?, ?, ?, ?, ?)", midx, m.module, m.version, m.repoHash, m.modHash); err != nil {
+			return fmt.Errorf("tx.Exec(): %v", err)
+		}
 	}
 	return tx.Commit()
 }
@@ -240,11 +250,17 @@ func (d *Database) Duplicates() ([]Duplicate, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			glog.Errorf("rows.Close(): %v", err)
+		}
+	}()
 	for rows.Next() {
 		var module, version string
 		var count int
-		rows.Scan(&module, &version, &count)
+		if err := rows.Scan(&module, &version, &count); err != nil {
+			return nil, fmt.Errorf("rows.Scan(): %v", err)
+		}
 		res = append(res, Duplicate{
 			Module:  module,
 			Version: version,

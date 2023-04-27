@@ -1,0 +1,55 @@
+version: "3.1"
+
+services:
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=zaphod
+      - MYSQL_DATABASE=test
+      - MYSQL_USER=test
+      - MYSQL_PASSWORD=zaphod
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: mysql --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --silent --execute "SHOW DATABASES;"
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+  trillian-log-server:
+    image: gcr.io/trillian-opensource-ci/log_server
+    command: [
+      "--storage_system=mysql",
+      "--mysql_uri=test:zaphod@tcp(db:3306)/test",
+      "--rpc_endpoint=0.0.0.0:50054",
+      "--http_endpoint=0.0.0.0:50055",
+      "--alsologtostderr",
+    ]
+    restart: always
+    ports:
+      - "50054:50054"
+      - "50055:50055"
+    depends_on:
+      - db
+
+  trillian-log-signer:
+    image: gcr.io/trillian-opensource-ci/log_signer
+    command: [
+      "--storage_system=mysql",
+      "--mysql_uri=test:zaphod@tcp(db:3306)/test",
+      "--sequencer_interval=1s",
+      "--batch_size=500",
+      "--num_sequencers=1",
+      "--force_master",
+      "--rpc_endpoint=0.0.0.0:8090",
+      "--http_endpoint=0.0.0.0:8091",
+      "--alsologtostderr",
+    ]
+    restart: always
+    ports:
+      - "8092:8091"
+    depends_on:
+      - db
+      - trillian-log-server
+

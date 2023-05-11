@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	cloud.google.com/go/storage v1.29.0 // indirect
-	github.com/apache/beam/sdks/v2 v2.47.0-RC3
+	github.com/apache/beam/sdks/v2 v2.47.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/go-sql-driver/mysql v1.7.1

@@ -10,7 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/golang/glog v1.1.1
 	github.com/golang/mock v1.6.0
-	github.com/google/certificate-transparency-go v1.1.5
+	github.com/google/certificate-transparency-go v1.1.6
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.5.2

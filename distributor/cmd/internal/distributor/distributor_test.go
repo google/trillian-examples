@@ -103,12 +103,15 @@ func TestMain(m *testing.M) {
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
 	if err != nil {
-		glog.Fatalf("Could not construct pool: %s", err)
+		glog.Errorf("Distributor Tests skipped: Could not construct pool: %s", err)
+		os.Exit(1)
 	}
 
 	// uses pool to try to connect to Docker
 	if err := pool.Client.Ping(); err != nil {
-		glog.Fatalf("Could not connect to Docker: %s", err)
+		// These tests rely on the host machine running docker to host the database instance.
+		glog.Errorf("Distributor Tests skipped: Could not connect to Docker: %s", err)
+		os.Exit(1)
 	}
 	// pulls an image, creates a container based on it and runs it
 	resource, err := pool.RunWithOptions(
@@ -119,7 +122,8 @@ func TestMain(m *testing.M) {
 		},
 		docktest.ConfigureHost)
 	if err != nil {
-		glog.Fatalf("Could not start resource: %s", err)
+		glog.Errorf("Distributor Tests skipped: Could not start resource: %s", err)
+		os.Exit(1)
 	}
 	// Tell docker to hard kill the container in 180 seconds
 	if err := resource.Expire(180); err != nil {
@@ -138,14 +142,15 @@ func TestMain(m *testing.M) {
 		}
 		return db.Ping()
 	}); err != nil {
-		glog.Fatalf("Could not connect to database: %s", err)
+		glog.Errorf("Could not connect to database: %s", err)
+		os.Exit(1)
 	}
 
 	code := m.Run()
 
 	// You can't defer this because os.Exit doesn't care for defer
 	if err := pool.Purge(resource); err != nil {
-		glog.Fatalf("Could not purge resource: %s", err)
+		glog.Errorf("Could not purge resource: %s", err)
 	}
 
 	os.Exit(code)

@@ -36,7 +36,7 @@ export TREE_ID=$(go run github.com/google/trillian/cmd/createtree --admin_server
 ```bash
 docker compose up -d
 # Wait a second for MySQL to start up between these commands
-curl https://raw.githubusercontent.com/google/trillian/master/storage/mysql/schema/storage.sql | docker exec -i helloworld_db_1 mysql -pzaphod -Dtest
+curl https://raw.githubusercontent.com/google/trillian/master/storage/mysql/schema/storage.sql | docker exec -i helloworld-db-1 mysql -pzaphod -Dtest
 ```
 
 # Running the tests

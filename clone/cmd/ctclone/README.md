@@ -17,6 +17,33 @@ In addition the general tuning flags (`workers` and `write_batch_size`) mentione
 
 ## Docker
 
+### Docker Compose
+
+`docker-compose.yaml` is provided as an example that will clone a log into a database hosted in a local container.
+The benefit of this is that it can be run as a single command:
+
+```bash
+docker compose up -d
+```
+
+For Raspberry Pi users, there is a slight change in order to override the DB:
+
+```bash
+docker compose -f docker-compose.yaml -f docker-compose.rpi.yaml up -d
+```
+
+This will bring up two containers: `ctclone-db-1` and `ctclone-clone-xenon2022-1`.
+It is expected that users will write their own tools to query the DB, but the following command demonstrates the leaves being queried from the command line:
+
+```bash
+docker exec -i ctclone-db-1 /usr/bin/mysql -uctclone -pletmein -Dxenon2022 <<< "select * from leaves where id < 5;"
+```
+
+The sample files here clone xenon2022, though this can be changed to another log by updating the `docker-compose.yaml` and the `.env` file.
+For users that would like to clone multiple logs doing this, creating multiple databases inside the db container is possible but [more complicated](https://stackoverflow.com/questions/39204142/docker-compose-with-multiple-databases).
+
+### Direct
+
 To build a docker image, run the following from the `trillian-examples` root directory:
 
 ```

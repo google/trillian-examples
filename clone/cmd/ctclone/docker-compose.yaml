@@ -1,0 +1,33 @@
+version: "3.1"
+
+services:
+  db:
+    image: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    healthcheck:
+      test: mysql --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --silent --execute "SHOW DATABASES;"
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+  clone-xenon2022:
+    build:
+      context: ../../..
+      dockerfile: ./clone/cmd/ctclone/Dockerfile
+    command: [
+      "--alsologtostderr",
+      "--v=2",
+      "--mysql_uri=${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(db:3306)/${MYSQL_DATABASE}",
+      "--write_batch_size=1024",
+      "--workers=4",
+      "--log_url=https://ct.googleapis.com/logs/xenon2022/",
+    ]
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy

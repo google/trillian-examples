@@ -25,11 +25,14 @@ services:
       "--alsologtostderr",
       "--v=2",
       "--mysql_uri=distributor:letmein@tcp(db:3306)/distributor",
-      "--listen=:8080"
+      "--witness_config_file=/var/config/witnesses.yaml",
+      "--listen=:8081"
     ]
     ports:
-     - "8080:8080"
+     - "8081:8081"
     restart: always
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./cmd/witnesses.yaml:/var/config/witnesses.yaml

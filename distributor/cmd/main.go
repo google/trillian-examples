@@ -22,6 +22,7 @@ import (
 	"flag"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/distributor/cmd/internal/distributor"
@@ -42,19 +43,21 @@ var (
 	addr     = flag.String("listen", ":8080", "Address to listen on")
 	mysqlURI = flag.String("mysql_uri", "", "URI for MySQL DB")
 
+	witnessConfigFile = flag.String("witness_config_file", "", "Path to a file containing the public keys of allowed witnesses")
+
 	// configLogs is the config for the logs this distributor will accept.
 	//go:embed logs.yaml
 	configLogs []byte
-
-	// configWitnesses is the config for the witnesses this distributor will accept.
-	//go:embed witnesses.yaml
-	configWitnesses []byte
 )
 
 func main() {
 	flag.Parse()
 	ctx := context.Background()
 
+	configWitnesses, err := os.ReadFile(*witnessConfigFile)
+	if err != nil {
+		glog.Exitf("Failed to read witness_config_file (%q): %v", *witnessConfigFile, err)
+	}
 	// This error group will be used to run all top level processes.
 	// If any process dies, then all of them will be stopped via context cancellation.
 	g, ctx := errgroup.WithContext(ctx)

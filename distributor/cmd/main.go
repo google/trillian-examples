@@ -20,9 +20,9 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/distributor/cmd/internal/distributor"
@@ -54,7 +54,7 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	configWitnesses, err := ioutil.ReadFile(*witnessConfigFile)
+	configWitnesses, err := os.ReadFile(*witnessConfigFile)
 	if err != nil {
 		glog.Exitf("Failed to read witness_config_file (%q): %v", *witnessConfigFile, err)
 	}

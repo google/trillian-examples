@@ -223,6 +223,8 @@ github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26 h1:CVoO2X
 github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26/go.mod h1:fd1larYQvguClA6Lzz0QQZr1hk+xNW5Mdrs5ubO/q1M=
 github.com/transparency-dev/merkle v0.0.2 h1:Q9nBoQcZcgPamMkGn7ghV8XiTZ/kRxn1yCG81+twTK4=
 github.com/transparency-dev/merkle v0.0.2/go.mod h1:pqSy+OXefQ1EDUVmAJ8MUhHB9TXGuzVAT58PqBoHz1A=
+github.com/transparency-dev/witness v0.0.0-20230607113817-0b70a97dae5f h1:0XvcmcjPU4kF67/ExSCN5mUPB3e5UYnzw/BZu4QJIAw=
+github.com/transparency-dev/witness v0.0.0-20230607113817-0b70a97dae5f/go.mod h1:lTrWJdOAx9Ler8DcL8PmrNfMEBDNE3qQUAGItNZtDsY=
 github.com/twitchyliquid64/golang-asm v0.0.0-20190126203739-365674df15fc h1:RTUQlKzoZZVG3umWNzOYeFecQLIh+dbxXvJp1zPQJTI=
 github.com/twitchyliquid64/golang-asm v0.0.0-20190126203739-365674df15fc/go.mod h1:NoCfSFWosfqMqmmD7hApkirIK9ozpHjxRnRxs1l413A=
 github.com/u-root/u-root v7.0.0+incompatible h1:u+KSS04pSxJGI5E7WE4Bs9+Zd75QjFv+REkjy/aoAc8=

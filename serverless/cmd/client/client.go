@@ -93,13 +93,13 @@ func main() {
 	flag.Parse()
 	ctx := context.Background()
 
-	logSigV, pubK, err := logSigVerifier(*logPubKeyFile)
+	logSigV, _, err := logSigVerifier(*logPubKeyFile)
 	if err != nil {
 		glog.Exitf("failed to read log public key: %v", err)
 	}
 	logID := *logID
 	if logID == "" {
-		logID = log.ID(*origin, pubK)
+		logID = log.ID(*origin)
 	}
 
 	u := *logURL

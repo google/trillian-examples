@@ -221,6 +221,8 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635/go.mod h1:hkRG7XYTFWNJGYcbNJQlaLq0fg1yr4J4t/NcTQtrfww=
 github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26 h1:CVoO2X5LdS4DMgC2UeRx9VzJvTV3BNuxldzvSkC9QlQ=
 github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26/go.mod h1:fd1larYQvguClA6Lzz0QQZr1hk+xNW5Mdrs5ubO/q1M=
+github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6 h1:Mjc7czQhATVAWBRZecClSQlWFMiW/42AZdYzp4qRnqQ=
+github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6/go.mod h1:Nb+V5XS9fhtScBd8Zb7BmCywNSu1eGQvJqGXodST9cw=
 github.com/transparency-dev/merkle v0.0.2 h1:Q9nBoQcZcgPamMkGn7ghV8XiTZ/kRxn1yCG81+twTK4=
 github.com/transparency-dev/merkle v0.0.2/go.mod h1:pqSy+OXefQ1EDUVmAJ8MUhHB9TXGuzVAT58PqBoHz1A=
 github.com/twitchyliquid64/golang-asm v0.0.0-20190126203739-365674df15fc h1:RTUQlKzoZZVG3umWNzOYeFecQLIh+dbxXvJp1zPQJTI=

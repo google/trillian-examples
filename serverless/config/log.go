@@ -74,7 +74,7 @@ func (l *Log) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	if len(raw.ID) > 0 {
 		return errors.New("the ID field should not be manually configured")
 	}
-	raw.ID = log.ID(raw.Origin, []byte(raw.PublicKey))
+	raw.ID = log.ID(raw.Origin)
 
 	*l = Log(raw)
 	return nil

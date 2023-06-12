@@ -5,8 +5,8 @@ go 1.19
 require (
 	github.com/golang/glog v1.0.0
 	github.com/google/trillian-examples v0.0.0-20230124141742-06aa7c2079f7
-	github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26
-	golang.org/x/mod v0.7.0
+	github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6
+	golang.org/x/mod v0.10.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 

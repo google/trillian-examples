@@ -6,9 +6,9 @@ require (
 	cloud.google.com/go/storage v1.29.0
 	github.com/golang/glog v1.0.0
 	github.com/google/trillian-examples v0.0.0-20230219005537-aea1ea3419e5
-	github.com/transparency-dev/formats v0.0.0-20230124125735-2da9e2580a26
+	github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6
 	github.com/transparency-dev/merkle v0.0.1
-	golang.org/x/mod v0.8.0
+	golang.org/x/mod v0.10.0
 	google.golang.org/api v0.110.0
 )
 

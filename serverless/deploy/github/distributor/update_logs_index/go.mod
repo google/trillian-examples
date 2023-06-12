@@ -9,7 +9,4 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-require (
-	github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6 // indirect
-	golang.org/x/crypto v0.5.0 // indirect
-)
+require github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6 // indirect

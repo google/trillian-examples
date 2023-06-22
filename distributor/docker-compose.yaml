@@ -5,14 +5,14 @@ services:
     image: mariadb:10.6
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: example
-      MYSQL_DATABASE: distributor
-      MYSQL_USER: distributor
-      MYSQL_PASSWORD: letmein
+      MARIADB_ROOT_PASSWORD: example
+      MARIADB_DATABASE: distributor
+      MARIADB_USER: distributor
+      MARIADB_PASSWORD: letmein
     ports:
       - 3306:3306
     healthcheck:
-      test: mariadb --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --silent --execute "SHOW DATABASES;"
+      test: mariadb --user=$$MARIADB_USER --password=$$MARIADB_PASSWORD --silent --execute "SHOW DATABASES;"
       interval: 3s
       timeout: 2s
       retries: 5

@@ -5,10 +5,10 @@ services:
     image: mariadb
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: example
-      MYSQL_DATABASE: sumdb
-      MYSQL_USER: sumdb
-      MYSQL_PASSWORD: letmein
+      MARIADB_ROOT_PASSWORD: example
+      MARIADB_DATABASE: sumdb
+      MARIADB_USER: sumdb
+      MARIADB_PASSWORD: letmein
 
   mirror:
     build: 

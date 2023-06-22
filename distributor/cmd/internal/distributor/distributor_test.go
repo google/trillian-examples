@@ -118,7 +118,7 @@ func TestMain(m *testing.M) {
 		&dockertest.RunOptions{
 			Repository: "mariadb",
 			Tag:        "10.11.2",
-			Env:        []string{"MYSQL_ROOT_PASSWORD=secret"},
+			Env:        []string{"MARIADB_ROOT_PASSWORD=secret"},
 		},
 		docktest.ConfigureHost)
 	if err != nil {

@@ -2,17 +2,17 @@ version: "3.1"
 
 services:
   db:
-    image: mariadb
+    image: mariadb:10.6
     restart: always
     environment:
-      - MYSQL_ROOT_PASSWORD=zaphod
-      - MYSQL_DATABASE=test
-      - MYSQL_USER=test
-      - MYSQL_PASSWORD=zaphod
+      - MARIADB_ROOT_PASSWORD=zaphod
+      - MARIADB_DATABASE=test
+      - MARIADB_USER=test
+      - MARIADB_PASSWORD=zaphod
     ports:
       - "3306:3306"
     healthcheck:
-      test: mysql --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --silent --execute "SHOW DATABASES;"
+      test: mariadb --user=$$MARIADB_USER --password=$$MARIADB_PASSWORD --silent --execute "SHOW DATABASES;"
       interval: 3s
       timeout: 2s
       retries: 5

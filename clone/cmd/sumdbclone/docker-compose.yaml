@@ -5,12 +5,12 @@ services:
     image: mariadb:10.6
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
     healthcheck:
-      test: mariadb --user=$$MYSQL_USER --password=$$MYSQL_PASSWORD --silent --execute "SHOW DATABASES;"
+      test: mariadb --user=$$MARIADB_USER --password=$$MARIADB_PASSWORD --silent --execute "SHOW DATABASES;"
       interval: 3s
       timeout: 2s
       retries: 5
@@ -22,7 +22,7 @@ services:
     command: [
       "--alsologtostderr",
       "--v=2",
-      "--mysql_uri=${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(db:3306)/${MYSQL_DATABASE}",
+      "--mysql_uri=${MARIADB_USER}:${MARIADB_PASSWORD}@tcp(db:3306)/${MARIADB_DATABASE}",
       "--write_batch_size=1024",
       "--workers=4",
     ]

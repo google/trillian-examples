@@ -667,6 +667,137 @@ func TestGetCheckpointN(t *testing.T) {
 	}
 }
 
+func TestGetCheckpointNHistoric(t *testing.T) {
+	ws := map[string]note.Verifier{
+		"Whittle": witWhittle.verifier,
+		"Wattle":  witWattle.verifier,
+		"Waffle":  witWaffle.verifier,
+	}
+	ls := map[string]distributor.LogInfo{
+		"FooLog": logFoo.LogInfo,
+	}
+	type witnessAndSize struct {
+		wit  fakeWitness
+		size uint64
+	}
+	testCases := []struct {
+		desc        string
+		order       []witnessAndSize
+		reqN        uint32
+		wantErr     bool
+		wantErrCode codes.Code
+		wantSize    uint64
+		wantWits    []note.Verifier
+	}{
+		{
+			desc: "N=1 gets latest version",
+			order: []witnessAndSize{
+				{
+					witWaffle,
+					10,
+				},
+				{
+					witWattle,
+					10,
+				},
+				{
+					witWaffle,
+					22,
+				},
+			},
+			reqN:     1,
+			wantErr:  false,
+			wantSize: 22,
+		},
+		{
+			desc: "TODO: N=2 can get historic version where both were in sync together",
+			order: []witnessAndSize{
+				{
+					witWaffle,
+					10,
+				},
+				{
+					witWattle,
+					10,
+				},
+				{
+					witWaffle,
+					22,
+				},
+			},
+			reqN:        2,
+			wantErr:     true,
+			wantErrCode: codes.NotFound,
+			// TODO(mhutchinson): this case should work with the following assertions
+			// wantErr: false,
+			// wantSize: 10,
+		},
+		{
+			desc: "TODO: N=2 can get historic version where both have been seen but not at same time",
+			order: []witnessAndSize{
+				{
+					witWaffle,
+					10,
+				},
+				{
+					witWaffle,
+					22,
+				},
+				{
+					witWattle,
+					10,
+				},
+			},
+			reqN:        2,
+			wantErr:     true,
+			wantErrCode: codes.NotFound,
+			// TODO(mhutchinson): this case should work with the following assertions
+			// wantErr: false,
+			// wantSize: 10,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			db, err := helper.create("TestGetCheckpointN")
+			if err != nil {
+				t.Fatalf("helper.create(): %v", err)
+			}
+			d, err := distributor.NewDistributor(ws, ls, db)
+			if err != nil {
+				t.Fatalf("NewDistributor(): %v", err)
+			}
+			for _, was := range tC.order {
+				if err := d.Distribute(ctx, "FooLog", was.wit.verifier.Name(), logFoo.checkpoint(was.size, fmt.Sprintf("%d", was.size), was.wit.signer)); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			cpRaw, err := d.GetCheckpointN(ctx, "FooLog", tC.reqN)
+			if (err != nil) != tC.wantErr {
+				t.Fatalf("unexpected error output (wantErr: %t): %v", tC.wantErr, err)
+			}
+			if !tC.wantErr {
+				cp, _, n, err := log.ParseCheckpoint(cpRaw, logFoo.Origin, logFoo.Verifier, tC.wantWits...)
+				if err != nil {
+					t.Error(err)
+				}
+				if got, want := len(n.Sigs), 1+len(tC.wantWits); got != want {
+					t.Errorf("expected %d sigs, got %d", want, got)
+				}
+				if cp.Size != tC.wantSize {
+					t.Errorf("expected tree size of %d but got %d", tC.wantSize, cp.Size)
+				}
+			} else {
+				if got, want := status.Code(err), tC.wantErrCode; got != want {
+					t.Errorf("error code got != want: %v != %v", got, want)
+				}
+			}
+		})
+	}
+}
+
 func verifierOrDie(vkey string) note.Verifier {
 	v, err := note.NewVerifier(vkey)
 	if err != nil {

@@ -52,17 +52,17 @@ var (
 		},
 		signer: signerOrDie("PRIVATE+KEY+BarLog+74e9e60a+AckT6UKhbEXLxB57ZoqJNWRFsUJ+T6hnZrDd7G+SfZ5h"),
 	}
-	witWhittle = fakeWitness{
-		verifier: verifierOrDie("Whittle+0fc7a204+AVcy4ozqLddii0hxKZNAmBiUIv7yFolUC+fUB/O44GLI"),
-		signer:   signerOrDie("PRIVATE+KEY+Whittle+0fc7a204+AfzcRAGTc9Lrim47fDQ+elRKfflP92RXAkPqAojYkcaJ"),
+	witAardvark = fakeWitness{
+		verifier: verifierOrDie("Aardvark+871d50e2+AWvETn8gle8a0w19eLk7A9bj8INCAXa+LCJ8Om3jwYsD"),
+		signer:   signerOrDie("PRIVATE+KEY+Aardvark+871d50e2+Ad/vysEZw5Etl39nPqMjSyJ74QPxkj6W5aBEpLiJWAf2"),
 	}
-	witWattle = fakeWitness{
-		verifier: verifierOrDie("Wattle+1c75450a+AYHI4pLRIKv6LEnH+LiozE2HeMUxGXJRVHrg3Nm5UgfY"),
-		signer:   signerOrDie("PRIVATE+KEY+Wattle+1c75450a+ASVbnzJKChp9hp1lUGX9ybsUDQK2WQOnLAefGzahraTg"),
+	witBadger = fakeWitness{
+		verifier: verifierOrDie("Badger+63e95ca6+AX4eM3zESdetFIvQzQ+oDf8Mw9abaSxoQv4/de28C6M6"),
+		signer:   signerOrDie("PRIVATE+KEY+Badger+63e95ca6+AcHsxVBBvaa3ACdsuqc6qfqsAkk977TlUZhnG9lOHBly"),
 	}
-	witWaffle = fakeWitness{
-		verifier: verifierOrDie("Waffle+2d9257ba+ATjKQkTEZBrM4IWzhhiBiEqCKkbmgm+JwElTDfiwEKpD"),
-		signer:   signerOrDie("PRIVATE+KEY+Waffle+2d9257ba+AXcvT+ZS66Y1otACNcq2s6LxHfgY+j340rqpf2aF1/zH"),
+	witChameleon = fakeWitness{
+		verifier: verifierOrDie("Chameleon+186bccfa+AaN3zsNcOKQuCbvH+IYe01qnvqk6hksIG9jtnsHw7O18"),
+		signer:   signerOrDie("PRIVATE+KEY+Chameleon+186bccfa+AbA2/ZLbaJDLieWGoz/UbVXlrE6ZaBBCWykVnFo5/pYM"),
 	}
 )
 
@@ -223,8 +223,8 @@ func TestGetLogs(t *testing.T) {
 
 func TestDistributeLogAndWitnessMustMatchCheckpoint(t *testing.T) {
 	ws := map[string]note.Verifier{
-		"Whittle": witWhittle.verifier,
-		"Wattle":  witWattle.verifier,
+		"Aardvark": witAardvark.verifier,
+		"Badger":   witBadger.verifier,
 	}
 	ls := map[string]distributor.LogInfo{
 		"FooLog": logFoo.LogInfo,
@@ -241,49 +241,49 @@ func TestDistributeLogAndWitnessMustMatchCheckpoint(t *testing.T) {
 		{
 			desc:     "Correct log and witness: foo and whittle",
 			reqLogID: "FooLog",
-			reqWitID: "Whittle",
+			reqWitID: "Aardvark",
 			log:      logFoo,
-			wit:      witWhittle,
+			wit:      witAardvark,
 			wantErr:  false,
 		},
 		{
 			desc:     "Correct log and witness: bar and wattle",
 			reqLogID: "BarLog",
-			reqWitID: "Wattle",
+			reqWitID: "Badger",
 			log:      logBar,
-			wit:      witWattle,
+			wit:      witBadger,
 			wantErr:  false,
 		},
 		{
 			desc:     "Correct log wrong witness",
 			reqLogID: "FooLog",
-			reqWitID: "Whittle",
+			reqWitID: "Aardvark",
 			log:      logFoo,
-			wit:      witWattle,
+			wit:      witBadger,
 			wantErr:  true,
 		},
 		{
 			desc:     "Wrong log correct witness",
 			reqLogID: "BarLog",
-			reqWitID: "Whittle",
+			reqWitID: "Aardvark",
 			log:      logFoo,
-			wit:      witWhittle,
+			wit:      witAardvark,
 			wantErr:  true,
 		},
 		{
 			desc:     "Wrong log wrong witness",
 			reqLogID: "BarLog",
-			reqWitID: "Whittle",
+			reqWitID: "Aardvark",
 			log:      logFoo,
-			wit:      witWattle,
+			wit:      witBadger,
 			wantErr:  true,
 		},
 		{
 			desc:     "Unknown log known witness",
 			reqLogID: "DogNotLog",
-			reqWitID: "Wattle",
+			reqWitID: "Badger",
 			log:      logFoo,
-			wit:      witWattle,
+			wit:      witBadger,
 			wantErr:  true,
 		},
 		{
@@ -291,7 +291,7 @@ func TestDistributeLogAndWitnessMustMatchCheckpoint(t *testing.T) {
 			reqLogID: "FooLog",
 			reqWitID: "WhatAWally",
 			log:      logFoo,
-			wit:      witWattle,
+			wit:      witBadger,
 			wantErr:  true,
 		},
 	}
@@ -321,8 +321,8 @@ func TestDistributeEvolution(t *testing.T) {
 	// The base case for this test is that a single checkpoint has already
 	// been registered for log foo, by whittle, at tree size 16, with root hash H("16").
 	ws := map[string]note.Verifier{
-		"Whittle": witWhittle.verifier,
-		"Wattle":  witWattle.verifier,
+		"Aardvark": witAardvark.verifier,
+		"Badger":   witBadger.verifier,
 	}
 	ls := map[string]distributor.LogInfo{
 		"FooLog": logFoo.LogInfo,
@@ -339,7 +339,7 @@ func TestDistributeEvolution(t *testing.T) {
 		{
 			desc:     "whittle a bit bigger",
 			log:      logFoo,
-			wit:      witWhittle,
+			wit:      witAardvark,
 			size:     18,
 			hashSeed: "18",
 			wantErr:  false,
@@ -347,7 +347,7 @@ func TestDistributeEvolution(t *testing.T) {
 		{
 			desc:     "whittle smaller",
 			log:      logFoo,
-			wit:      witWhittle,
+			wit:      witAardvark,
 			size:     11,
 			hashSeed: "11",
 			wantErr:  true,
@@ -355,7 +355,7 @@ func TestDistributeEvolution(t *testing.T) {
 		{
 			desc:     "whittle same",
 			log:      logFoo,
-			wit:      witWhittle,
+			wit:      witAardvark,
 			size:     16,
 			hashSeed: "16",
 			wantErr:  false,
@@ -363,7 +363,7 @@ func TestDistributeEvolution(t *testing.T) {
 		{
 			desc:     "whittle same size but different hash",
 			log:      logFoo,
-			wit:      witWhittle,
+			wit:      witAardvark,
 			size:     16,
 			hashSeed: "not 16",
 			wantErr:  true,
@@ -371,7 +371,7 @@ func TestDistributeEvolution(t *testing.T) {
 		{
 			desc:     "whittle smaller different log",
 			log:      logBar,
-			wit:      witWhittle,
+			wit:      witAardvark,
 			size:     11,
 			hashSeed: "11",
 			wantErr:  false,
@@ -379,7 +379,7 @@ func TestDistributeEvolution(t *testing.T) {
 		{
 			desc:     "wattle smaller",
 			log:      logFoo,
-			wit:      witWattle,
+			wit:      witBadger,
 			size:     11,
 			hashSeed: "11",
 			wantErr:  false,
@@ -387,7 +387,7 @@ func TestDistributeEvolution(t *testing.T) {
 		{
 			desc:     "wattle same size",
 			log:      logFoo,
-			wit:      witWattle,
+			wit:      witBadger,
 			size:     16,
 			hashSeed: "16",
 			wantErr:  false,
@@ -395,7 +395,7 @@ func TestDistributeEvolution(t *testing.T) {
 		{
 			desc:     "wattle same size but different hash",
 			log:      logFoo,
-			wit:      witWattle,
+			wit:      witBadger,
 			size:     16,
 			hashSeed: "not 16",
 			wantErr:  false, // We don't check consistency with all witnesses on write
@@ -413,7 +413,7 @@ func TestDistributeEvolution(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewDistributor(): %v", err)
 			}
-			err = d.Distribute(ctx, "FooLog", "Whittle", logFoo.checkpoint(16, "16", witWhittle.signer))
+			err = d.Distribute(ctx, "FooLog", "Aardvark", logFoo.checkpoint(16, "16", witAardvark.signer))
 			if err != nil {
 				t.Fatalf("Distribute(): %v", err)
 			}
@@ -430,8 +430,8 @@ func TestGetCheckpointWitness(t *testing.T) {
 	// The base case for this test is that a single checkpoint has already
 	// been registered for log foo, by whittle, at tree size 16, with root hash H("16").
 	ws := map[string]note.Verifier{
-		"Whittle": witWhittle.verifier,
-		"Wattle":  witWattle.verifier,
+		"Aardvark": witAardvark.verifier,
+		"Badger":   witBadger.verifier,
 	}
 	ls := map[string]distributor.LogInfo{
 		"FooLog": logFoo.LogInfo,
@@ -446,25 +446,25 @@ func TestGetCheckpointWitness(t *testing.T) {
 		{
 			desc:    "read back same cp",
 			log:     logFoo,
-			wit:     witWhittle,
+			wit:     witAardvark,
 			wantErr: false,
 		},
 		{
 			desc:    "same log, different witness",
 			log:     logFoo,
-			wit:     witWattle,
+			wit:     witBadger,
 			wantErr: true,
 		},
 		{
 			desc:    "different log, same witness",
 			log:     logBar,
-			wit:     witWhittle,
+			wit:     witAardvark,
 			wantErr: true,
 		},
 		{
 			desc:    "different log, different witness",
 			log:     logBar,
-			wit:     witWattle,
+			wit:     witBadger,
 			wantErr: true,
 		},
 	}
@@ -480,8 +480,8 @@ func TestGetCheckpointWitness(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewDistributor(): %v", err)
 			}
-			writeCP := logFoo.checkpoint(16, "16", witWhittle.signer)
-			err = d.Distribute(ctx, "FooLog", "Whittle", writeCP)
+			writeCP := logFoo.checkpoint(16, "16", witAardvark.signer)
+			err = d.Distribute(ctx, "FooLog", "Aardvark", writeCP)
 			if err != nil {
 				t.Fatalf("Distribute(): %v", err)
 			}
@@ -504,9 +504,9 @@ func TestGetCheckpointN(t *testing.T) {
 	//  - whittle, at tree size 16
 	//  - waffle, at tree size 14
 	ws := map[string]note.Verifier{
-		"Whittle": witWhittle.verifier,
-		"Wattle":  witWattle.verifier,
-		"Waffle":  witWaffle.verifier,
+		"Aardvark":  witAardvark.verifier,
+		"Badger":    witBadger.verifier,
+		"Chameleon": witChameleon.verifier,
 	}
 	ls := map[string]distributor.LogInfo{
 		"FooLog": logFoo.LogInfo,
@@ -526,7 +526,7 @@ func TestGetCheckpointN(t *testing.T) {
 	}{
 		{
 			desc:        "unknown log is error",
-			distWit:     witWattle,
+			distWit:     witBadger,
 			distLog:     logFoo,
 			distSize:    10,
 			reqLog:      "ThisIsNotTheLogYouAreLookingFor",
@@ -536,62 +536,62 @@ func TestGetCheckpointN(t *testing.T) {
 		},
 		{
 			desc:     "smaller checkpoint doesn't win",
-			distWit:  witWattle,
+			distWit:  witBadger,
 			distLog:  logFoo,
 			distSize: 10,
 			reqLog:   "FooLog",
 			reqN:     1,
 			wantErr:  false,
 			wantSize: 16,
-			wantWits: []note.Verifier{witWhittle.verifier},
+			wantWits: []note.Verifier{witAardvark.verifier},
 		},
 		{
 			desc:     "larger checkpoint wins",
-			distWit:  witWattle,
+			distWit:  witBadger,
 			distLog:  logFoo,
 			distSize: 20,
 			reqLog:   "FooLog",
 			reqN:     1,
 			wantErr:  false,
 			wantSize: 20,
-			wantWits: []note.Verifier{witWattle.verifier},
+			wantWits: []note.Verifier{witBadger.verifier},
 		},
 		{
 			desc:     "same size checkpoint merges",
-			distWit:  witWattle,
+			distWit:  witBadger,
 			distLog:  logFoo,
 			distSize: 16,
 			reqLog:   "FooLog",
 			reqN:     2,
 			wantErr:  false,
 			wantSize: 16,
-			wantWits: []note.Verifier{witWattle.verifier, witWhittle.verifier},
+			wantWits: []note.Verifier{witBadger.verifier, witAardvark.verifier},
 		},
 		{
 			desc:     "merge with smaller checkpoint",
-			distWit:  witWattle,
+			distWit:  witBadger,
 			distLog:  logFoo,
 			distSize: 14,
 			reqLog:   "FooLog",
 			reqN:     2,
 			wantErr:  false,
 			wantSize: 14,
-			wantWits: []note.Verifier{witWattle.verifier, witWaffle.verifier},
+			wantWits: []note.Verifier{witBadger.verifier, witChameleon.verifier},
 		},
 		{
 			desc:     "more sigs can be returned than needed",
-			distWit:  witWattle,
+			distWit:  witBadger,
 			distLog:  logFoo,
 			distSize: 16,
 			reqLog:   "FooLog",
 			reqN:     1,
 			wantErr:  false,
 			wantSize: 16,
-			wantWits: []note.Verifier{witWattle.verifier, witWhittle.verifier},
+			wantWits: []note.Verifier{witBadger.verifier, witAardvark.verifier},
 		},
 		{
 			desc:        "error returned if not enough sigs",
-			distWit:     witWattle,
+			distWit:     witBadger,
 			distLog:     logFoo,
 			distSize:    16,
 			reqLog:      "FooLog",
@@ -601,7 +601,7 @@ func TestGetCheckpointN(t *testing.T) {
 		},
 		{
 			desc:        "zero invalid",
-			distWit:     witWattle,
+			distWit:     witBadger,
 			distLog:     logFoo,
 			distSize:    16,
 			reqLog:      "FooLog",
@@ -611,7 +611,7 @@ func TestGetCheckpointN(t *testing.T) {
 		},
 		{
 			desc:        "huge number invalid",
-			distWit:     witWattle,
+			distWit:     witBadger,
 			distLog:     logFoo,
 			distSize:    16,
 			reqLog:      "FooLog",
@@ -632,10 +632,10 @@ func TestGetCheckpointN(t *testing.T) {
 			if err != nil {
 				t.Fatalf("NewDistributor(): %v", err)
 			}
-			if err := d.Distribute(ctx, "FooLog", "Whittle", logFoo.checkpoint(16, "16", witWhittle.signer)); err != nil {
+			if err := d.Distribute(ctx, "FooLog", "Aardvark", logFoo.checkpoint(16, "16", witAardvark.signer)); err != nil {
 				t.Fatal(err)
 			}
-			if err := d.Distribute(ctx, "FooLog", "Waffle", logFoo.checkpoint(14, "14", witWaffle.signer)); err != nil {
+			if err := d.Distribute(ctx, "FooLog", "Chameleon", logFoo.checkpoint(14, "14", witChameleon.signer)); err != nil {
 				t.Fatal(err)
 			}
 
@@ -649,6 +649,137 @@ func TestGetCheckpointN(t *testing.T) {
 			}
 			if !tC.wantErr {
 				cp, _, n, err := log.ParseCheckpoint(cpRaw, tC.distLog.Origin, tC.distLog.Verifier, tC.wantWits...)
+				if err != nil {
+					t.Error(err)
+				}
+				if got, want := len(n.Sigs), 1+len(tC.wantWits); got != want {
+					t.Errorf("expected %d sigs, got %d", want, got)
+				}
+				if cp.Size != tC.wantSize {
+					t.Errorf("expected tree size of %d but got %d", tC.wantSize, cp.Size)
+				}
+			} else {
+				if got, want := status.Code(err), tC.wantErrCode; got != want {
+					t.Errorf("error code got != want: %v != %v", got, want)
+				}
+			}
+		})
+	}
+}
+
+func TestGetCheckpointNHistoric(t *testing.T) {
+	ws := map[string]note.Verifier{
+		"Aardvark":  witAardvark.verifier,
+		"Badger":    witBadger.verifier,
+		"Chameleon": witChameleon.verifier,
+	}
+	ls := map[string]distributor.LogInfo{
+		"FooLog": logFoo.LogInfo,
+	}
+	type witnessAndSize struct {
+		wit  fakeWitness
+		size uint64
+	}
+	testCases := []struct {
+		desc        string
+		order       []witnessAndSize
+		reqN        uint32
+		wantErr     bool
+		wantErrCode codes.Code
+		wantSize    uint64
+		wantWits    []note.Verifier
+	}{
+		{
+			desc: "N=1 gets latest version",
+			order: []witnessAndSize{
+				{
+					witChameleon,
+					10,
+				},
+				{
+					witBadger,
+					10,
+				},
+				{
+					witChameleon,
+					22,
+				},
+			},
+			reqN:     1,
+			wantErr:  false,
+			wantSize: 22,
+		},
+		{
+			desc: "TODO: N=2 can get historic version where both were in sync together",
+			order: []witnessAndSize{
+				{
+					witChameleon,
+					10,
+				},
+				{
+					witBadger,
+					10,
+				},
+				{
+					witChameleon,
+					22,
+				},
+			},
+			reqN:        2,
+			wantErr:     true,
+			wantErrCode: codes.NotFound,
+			// TODO(mhutchinson): this case should work with the following assertions
+			// wantErr: false,
+			// wantSize: 10,
+		},
+		{
+			desc: "TODO: N=2 can get historic version where both have been seen but not at same time",
+			order: []witnessAndSize{
+				{
+					witChameleon,
+					10,
+				},
+				{
+					witChameleon,
+					22,
+				},
+				{
+					witBadger,
+					10,
+				},
+			},
+			reqN:        2,
+			wantErr:     true,
+			wantErrCode: codes.NotFound,
+			// TODO(mhutchinson): this case should work with the following assertions
+			// wantErr: false,
+			// wantSize: 10,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			db, err := helper.create("TestGetCheckpointN")
+			if err != nil {
+				t.Fatalf("helper.create(): %v", err)
+			}
+			d, err := distributor.NewDistributor(ws, ls, db)
+			if err != nil {
+				t.Fatalf("NewDistributor(): %v", err)
+			}
+			for _, was := range tC.order {
+				if err := d.Distribute(ctx, "FooLog", was.wit.verifier.Name(), logFoo.checkpoint(was.size, fmt.Sprintf("%d", was.size), was.wit.signer)); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			cpRaw, err := d.GetCheckpointN(ctx, "FooLog", tC.reqN)
+			if (err != nil) != tC.wantErr {
+				t.Fatalf("unexpected error output (wantErr: %t): %v", tC.wantErr, err)
+			}
+			if !tC.wantErr {
+				cp, _, n, err := log.ParseCheckpoint(cpRaw, logFoo.Origin, logFoo.Verifier, tC.wantWits...)
 				if err != nil {
 					t.Error(err)
 				}

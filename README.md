@@ -31,8 +31,10 @@ The general-purpose components are:
    with examples of how to use GitHub/GitHub Actions to host & publicly serve
    the log.
 
-The Go implementation of the Witness has graduated from this repository and now
-lives at https://github.com/transparency-dev/witness
+Notable projects that have graduated from this repository to their own top-level repositories:
+
+* [witness](https://github.com/transparency-dev/witness)
+* [distributor](https://github.com/transparency-dev/distributor)
 
 There are two experimental deployments of the witness that have been deleted but
 are signposted here for archival reasons. Both of these tools can be retrieved

@@ -256,7 +256,7 @@ jobs:
         id: pr_metadata
         run: |
           unzip pr_metadata.zip
-          echo "::set-output name=pr::$(cat NR)"
+          echo "pr=$(cat NR)" >> $GITHUB_OUTPUT
 
       - name: automerge
         uses: "pascalgn/automerge-action@v0.15.5"

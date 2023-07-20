@@ -140,9 +140,9 @@ func (d *Database) WriteLeaves(ctx context.Context, start uint64, leaves [][]byt
 
 // StreamLeaves streams leaves in order starting at the given index, putting the leaf preimage
 // values on the `out` channel.
-func (d *Database) StreamLeaves(start, end uint64, out chan []byte, errc chan error) {
+func (d *Database) StreamLeaves(ctx context.Context, start, end uint64, out chan []byte, errc chan error) {
 	defer close(out)
-	rows, err := d.db.Query("SELECT data FROM leaves WHERE id>=? AND id < ? ORDER BY id", start, end)
+	rows, err := d.db.QueryContext(ctx, "SELECT data FROM leaves WHERE id>=? AND id < ? ORDER BY id", start, end)
 	if err != nil {
 		errc <- err
 		return

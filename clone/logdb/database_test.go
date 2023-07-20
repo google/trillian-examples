@@ -119,7 +119,7 @@ func TestRoundTrip(t *testing.T) {
 
 			lc := make(chan []byte, 1)
 			errc := make(chan error)
-			go db.StreamLeaves(test.start, test.end, lc, errc)
+			go db.StreamLeaves(context.Background(), test.start, test.end, lc, errc)
 
 			got := make([][]byte, 0)
 		Receive:

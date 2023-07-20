@@ -65,7 +65,7 @@ func (v LogVerifier) MerkleRoot(ctx context.Context, size uint64) ([]byte, [][]b
 	leaves := make(chan []byte, 1)
 	errc := make(chan error)
 	glog.V(1).Infof("Streaming leaves [%d, %d)", from, size)
-	go v.db.StreamLeaves(from, size, leaves, errc)
+	go v.db.StreamLeaves(ctx, from, size, leaves, errc)
 
 	index := from
 	for leaf := range leaves {

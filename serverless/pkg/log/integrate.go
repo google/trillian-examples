@@ -65,14 +65,14 @@ var (
 	ErrSeqAlreadyAssigned = errors.New("sequence number already assigned")
 )
 
-// Integrate adds all sequenced entries greater than checkpoint.Size into the tree.
+// Integrate adds all sequenced entries greater than fromSize into the tree.
 // Returns an updated Checkpoint, or an error.
-func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h merkle.LogHasher) (*log.Checkpoint, error) {
+func Integrate(ctx context.Context, fromSize uint64, st Storage, h merkle.LogHasher) (*log.Checkpoint, error) {
 	getTile := func(l, i uint64) (*api.Tile, error) {
-		return st.GetTile(ctx, l, i, checkpoint.Size)
+		return st.GetTile(ctx, l, i, fromSize)
 	}
 
-	hashes, err := client.FetchRangeNodes(ctx, checkpoint.Size, func(_ context.Context, l, i uint64) (*api.Tile, error) {
+	hashes, err := client.FetchRangeNodes(ctx, fromSize, func(_ context.Context, l, i uint64) (*api.Tile, error) {
 		return getTile(l, i)
 	})
 	if err != nil {
@@ -80,7 +80,7 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 	}
 
 	rf := compact.RangeFactory{Hash: h.HashChildren}
-	baseRange, err := rf.NewRange(0, checkpoint.Size, hashes)
+	baseRange, err := rf.NewRange(0, fromSize, hashes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create range covering existing log: %w", err)
 	}
@@ -94,10 +94,10 @@ func Integrate(ctx context.Context, checkpoint log.Checkpoint, st Storage, h mer
 	glog.Infof("Loaded state with roothash %x", r)
 
 	// Create a new compact range which represents the update to the tree
-	newRange := rf.NewEmptyRange(checkpoint.Size)
+	newRange := rf.NewEmptyRange(fromSize)
 	tc := tileCache{m: make(map[tileKey]*api.Tile), getTile: getTile}
 	n, err := st.ScanSequenced(ctx,
-		checkpoint.Size,
+		fromSize,
 		func(seq uint64, entry []byte) error {
 			lh := h.HashLeaf(entry)
 			// Update range and set nodes
@@ -198,7 +198,7 @@ func (tc tileCache) Visit(id compact.NodeID, hash []byte) {
 				Nodes: make([][]byte, 0, 256*2),
 			}
 		}
-		glog.V(1).Infof("GetTile: %v new: %v", tileKey, created)
+		glog.V(2).Infof("GetTile: %v new: %v", tileKey, created)
 		tc.m[tileKey] = tile
 	}
 	// Update the tile with the new node hash.

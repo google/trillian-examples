@@ -74,7 +74,7 @@ func RunIntegration(t *testing.T, s log.Storage, f client.Fetcher, lh *rfc6962.H
 		var latestCpNote *note.Note
 		// Integrate those leaves
 		{
-			update, err := log.Integrate(ctx, checkpoint, s, lh)
+			update, err := log.Integrate(ctx, checkpoint.Size, s, lh)
 			if err != nil {
 				t.Fatalf("Integrate = %v", err)
 			}

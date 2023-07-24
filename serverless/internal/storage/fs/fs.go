@@ -17,6 +17,7 @@ package fs
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"os"
@@ -106,7 +107,7 @@ func Create(rootDir string) (*Storage, error) {
 // be guaranteed that no duplicate entries will exist.
 // Returns the sequence number assigned to this leaf (if the leaf has already
 // been sequenced it will return the original sequence number and ErrDupeLeaf).
-func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (uint64, error) {
+func (fs *Storage) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (uint64, error) {
 	// 1. Check for dupe leafhash
 	// 2. Write temp file
 	// 3. Hard link temp -> seq file
@@ -129,32 +130,12 @@ func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (ui
 		return origSeq, log.ErrDupeLeaf
 	}
 
-	// Write a temp file with the leaf data
-	tmp := filepath.Join(fs.rootDir, fmt.Sprintf(leavesPendingPathFmt, leafhash))
-	if err := createExclusive(tmp, leaf); err != nil {
-		return 0, fmt.Errorf("unable to write temporary file: %w", err)
-	}
-	defer func() {
-		if err := os.Remove(tmp); err != nil {
-			glog.Errorf("os.Remove(): %v", err)
-		}
-	}()
-
 	// Now try to sequence it, we may have to scan over some newly sequenced entries
 	// if Sequence has been called since the last time an Integrate/WriteCheckpoint
 	// was called.
 	for {
 		seq := fs.nextSeq
-
-		// Ensure the sequencing directory structure is present:
-		seqDir, seqFile := layout.SeqPath(fs.rootDir, seq)
-		if err := os.MkdirAll(seqDir, dirPerm); err != nil {
-			return 0, fmt.Errorf("failed to make seq directory structure: %w", err)
-		}
-
-		// Hardlink the sequence file to the temporary file
-		seqPath := filepath.Join(seqDir, seqFile)
-		if err := os.Link(tmp, seqPath); errors.Is(err, os.ErrExist) {
+		if err := fs.Assign(ctx, seq, leaf); errors.Is(err, os.ErrExist) {
 			// That sequence number is in use, try the next one
 			fs.nextSeq++
 			continue
@@ -186,6 +167,37 @@ func (fs *Storage) Sequence(_ context.Context, leafhash []byte, leaf []byte) (ui
 		// All done!
 		return seq, nil
 	}
+}
+
+// Assign directly associates the given leaf data with the provided sequence number.
+// It is an error to attempt to assign data to a previously assigned sequence number,
+// even if the data is identical.
+func (fs *Storage) Assign(_ context.Context, seq uint64, leaf []byte) (err error) {
+	// Ensure the sequencing directory structure is present:
+	seqDir, seqFile := layout.SeqPath(fs.rootDir, seq)
+	if err := os.MkdirAll(seqDir, dirPerm); err != nil {
+		return fmt.Errorf("failed to make seq directory structure: %w", err)
+	}
+
+	// Write a temp file with the leaf data
+	tmp := filepath.Join(fs.rootDir, fmt.Sprintf(leavesPendingPathFmt, sha256.Sum256(leaf)))
+	if err := createExclusive(tmp, leaf); err != nil {
+		return fmt.Errorf("unable to write temporary file: %w", err)
+	}
+	defer func() {
+		if err := os.Remove(tmp); err != nil {
+			glog.Errorf("os.Remove(): %v", err)
+		}
+	}()
+
+	// Hardlink the sequence file to the temporary file
+	seqPath := filepath.Join(seqDir, seqFile)
+	if err := os.Link(tmp, seqPath); errors.Is(err, os.ErrExist) {
+		return fmt.Errorf("sequence number %d is already assigned: %w", seq, err)
+	} else if err != nil {
+		return fmt.Errorf("failed to link seq file: %w", err)
+	}
+	return nil
 }
 
 // createExclusive creates the named file before writing the data in d to it.

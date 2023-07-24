@@ -214,11 +214,11 @@ func (l *logClientTool) consistencyProof(ctx context.Context, args []string) err
 		return fmt.Errorf("usage: consistency <from-size> <to-size>")
 	}
 
-	from, err := strconv.ParseUint(args[0], 10, 64)
+	from, err := strconv.ParseUint(args[0], 0, 64)
 	if err != nil {
 		return fmt.Errorf("invalid from-size %q: %w", args[1], err)
 	}
-	to, err := strconv.ParseUint(args[1], 10, 64)
+	to, err := strconv.ParseUint(args[1], 0, 64)
 	if err != nil {
 		return fmt.Errorf("invalid to-size %q: %w", args[1], err)
 	}
@@ -285,7 +285,7 @@ func (l *logClientTool) inclusionProofArgs(ctx context.Context, args []string) (
 
 	var idx uint64
 	if len(args) == 2 {
-		idx, err = strconv.ParseUint(args[1], 16, 64)
+		idx, err = strconv.ParseUint(args[1], 0, 64)
 		if err != nil {
 			return nil, 0, fmt.Errorf("invalid index-in-log %q: %w", args[1], err)
 		}

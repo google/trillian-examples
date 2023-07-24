@@ -43,3 +43,40 @@ Both functions are HTTP-triggered and run when their respective endpoints are re
     --source=./serverless/experimental/gcp-log \
     --max-instances 1
     ```
+1. Grant GCF service account GCS access:
+    ```
+    gcloud projects add-iam-policy-binding serverless-log \
+    --member=serviceAccount:serverless-log@appspot.gserviceaccount.com \
+    --role=roles/storage.admin \
+    --condition=None
+    ```
+
+### Write to log:
+Set up a log and write to the log via GCF invocation.
+
+1.  Initialize a log:
+    ```
+    gcloud functions call integrate \
+    --data '{
+        "initialise": true,
+        "origin": "${ORIGIN}",
+        "bucket": "${LOG_NAME}"
+    }'
+    ```
+1.  Add entries to the bucket:
+1.  Sequence entries:
+    ```
+    gcloud functions call sequence --data '{
+        "entriesDir": "${ENTRIES_BUCKET}",
+        "origin": "${ORIGIN}",
+        "bucket": "${LOG_NAME}"
+    }'
+    ```
+1.  Integrate entries:
+    ```
+    gcloud functions call integrate \
+    --data '{
+        "origin": "${ORIGIN}",
+        "bucket": "${LOG_NAME}"
+    }'
+    ```

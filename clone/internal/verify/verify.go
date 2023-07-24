@@ -62,19 +62,16 @@ func (v LogVerifier) MerkleRoot(ctx context.Context, size uint64) ([]byte, [][]b
 		}
 	}
 
-	leaves := make(chan []byte, 1)
-	errc := make(chan error)
+	results := make(chan logdb.StreamResult, 1)
 	glog.V(1).Infof("Streaming leaves [%d, %d)", from, size)
-	go v.db.StreamLeaves(from, size, leaves, errc)
+	go v.db.StreamLeaves(ctx, from, size, results)
 
 	index := from
-	for leaf := range leaves {
-		select {
-		case err := <-errc:
-			return nil, nil, fmt.Errorf("failed to get leaves from DB: %w", err)
-		default:
+	for result := range results {
+		if result.Err != nil {
+			return nil, nil, fmt.Errorf("failed to get leaves from DB: %w", result.Err)
 		}
-		if err := cr.Append(v.lh(index, leaf), nil); err != nil {
+		if err := cr.Append(v.lh(index, result.Leaf), nil); err != nil {
 			glog.Errorf("cr.Append(): %v", err)
 		}
 		index++

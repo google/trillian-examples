@@ -71,16 +71,36 @@ func NewClient(ctx context.Context, projectID, bucket string) (*Client, error) {
 	}, nil
 }
 
+func (c *Client) bucketExists(ctx context.Context, bucket string) (bool, error) {
+	it := c.gcsClient.Buckets(ctx, c.projectID)
+	for {
+		bAttrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+		if bAttrs.Name == bucket {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // Create creates a new GCS bucket and returns an error on failure.
 func (c *Client) Create(ctx context.Context, bucket string) error {
-	bkt := c.gcsClient.Bucket(bucket)
-
-	// If bucket has not been created, this returns error.
-	if _, err := bkt.Attrs(ctx); !errors.Is(err, gcs.ErrBucketNotExist) {
-		return fmt.Errorf("expected bucket %q to not be created yet (bucket attribute retrieval succeeded, expected error)",
-			bucket)
+	// Check if the bucket already exists.
+	exists, err := c.bucketExists(ctx, bucket)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return fmt.Errorf("expected bucket %q to not be created yet)", bucket)
 	}
 
+	// Create the bucket.
+	bkt := c.gcsClient.Bucket(bucket)
 	if err := bkt.Create(ctx, c.projectID, nil); err != nil {
 		return fmt.Errorf("failed to create bucket %q in project %s: %w", bucket, c.projectID, err)
 	}

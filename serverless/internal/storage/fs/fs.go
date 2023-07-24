@@ -172,7 +172,7 @@ func (fs *Storage) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (
 // Assign directly associates the given leaf data with the provided sequence number.
 // It is an error to attempt to assign data to a previously assigned sequence number,
 // even if the data is identical.
-func (fs *Storage) Assign(_ context.Context, seq uint64, leaf []byte) (err error) {
+func (fs *Storage) Assign(_ context.Context, seq uint64, leaf []byte) error {
 	// Ensure the sequencing directory structure is present:
 	seqDir, seqFile := layout.SeqPath(fs.rootDir, seq)
 	if err := os.MkdirAll(seqDir, dirPerm); err != nil {

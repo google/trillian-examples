@@ -131,5 +131,81 @@ func TestSequence(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAssign(t *testing.T) {
+	ctx := context.Background()
+
+	type leafSeq struct {
+		leaf    []byte
+		seq     uint64
+		wantErr bool
+	}
+	for _, test := range []struct {
+		desc   string
+		leaves []leafSeq
+	}{
+		{
+			desc: "assigns ok",
+			leaves: []leafSeq{
+				{
+					leaf: []byte{0x00},
+					seq:  0,
+				}, {
+					leaf: []byte{0x01},
+					seq:  1,
+				}, {
+					leaf: []byte{0x02},
+					seq:  2,
+				},
+			},
+		}, {
+			desc: "assigns non-sequential ok",
+			leaves: []leafSeq{
+				{
+					leaf: []byte{0x00},
+					seq:  1,
+				}, {
+					leaf: []byte{0x01},
+					seq:  0,
+				}, {
+					leaf: []byte{0x02},
+					seq:  2,
+				},
+			},
+		}, {
+			desc: "duplicate seq",
+			leaves: []leafSeq{
+				{
+					leaf: []byte{0x00},
+					seq:  0,
+				}, {
+					leaf: []byte{0x01},
+					seq:  1,
+				}, {
+					leaf:    []byte{0x02},
+					seq:     1, // duplicate
+					wantErr: true,
+				},
+			},
+		},
+	} {
+		t.Run(test.desc, func(t *testing.T) {
+			d := filepath.Join(t.TempDir(), "storage")
+			s, err := Create(d)
+			if err != nil {
+				t.Fatalf("Create = %v", err)
+			}
+			for _, ls := range test.leaves {
+				err := s.Assign(ctx, ls.seq, ls.leaf)
+				if err != nil {
+					t.Logf("Assign(%d, ...) = %v", ls.seq, err)
+				}
+				if gotErr := err != nil; gotErr != ls.wantErr {
+					t.Errorf("Got unexpected error %v, want no error", err)
+				}
+			}
+		})
+	}
 
 }

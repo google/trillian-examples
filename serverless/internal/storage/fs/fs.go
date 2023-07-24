@@ -135,7 +135,7 @@ func (fs *Storage) Sequence(ctx context.Context, leafhash []byte, leaf []byte) (
 	// was called.
 	for {
 		seq := fs.nextSeq
-		if err := fs.Assign(ctx, seq, leaf); errors.Is(err, os.ErrExist) {
+		if err := fs.Assign(ctx, seq, leaf); err == log.ErrSeqAlreadyAssigned {
 			// That sequence number is in use, try the next one
 			fs.nextSeq++
 			continue
@@ -193,7 +193,7 @@ func (fs *Storage) Assign(_ context.Context, seq uint64, leaf []byte) (err error
 	// Hardlink the sequence file to the temporary file
 	seqPath := filepath.Join(seqDir, seqFile)
 	if err := os.Link(tmp, seqPath); errors.Is(err, os.ErrExist) {
-		return fmt.Errorf("sequence number %d is already assigned: %w", seq, err)
+		return log.ErrSeqAlreadyAssigned
 	} else if err != nil {
 		return fmt.Errorf("failed to link seq file: %w", err)
 	}

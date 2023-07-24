@@ -3,6 +3,13 @@
 This tool create a [tile-based log](https://research.swtch.com/tlog#tiling_a_log) on the local filesystem.
 The log data is read from a MySQL database that has been populated using one of the [clone tools](../../../clone/cmd/).
 
+`clone2serverless` will not output the hash-to-index mapping in the `leaves` directory, which is a notable difference from the tlog generated using the [sequence](../sequence/) and [integrate](../integrate/).
+This choice was made with the following considerations in mind:
+
+* to reduce the impact on the filesystem for large logs (enabling this feature creates 3x the number of files/directories)
+* deduplication needs to be disabled for cloned/mirrored logs (if the input log has duplicates, they need to be present in the mirror)
+* the mapping from hash-to-index is an ancillary feature of logs that is not verifiable (logs can claim that a hash is not present in the log when it is, and this can't be _efficiently_ disproved)
+
 ## Setup
 
 It is strongly recommended to create a virtual filesystem for any sizeable log.
@@ -42,6 +49,9 @@ go run ./serverless/cmd/clone2serverless \
   --log_origin="go.sum database tree" \
   --alsologtostderr --v=1
 ```
+
+This may take a while to complete.
+Once it is complete you can inspect the new filesystem at `/mnt/sumdb_tlog/fs`.
 
 ## Verifying
 

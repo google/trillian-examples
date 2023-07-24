@@ -117,19 +117,16 @@ func TestRoundTrip(t *testing.T) {
 				t.Fatal("failed to write leaves", err)
 			}
 
-			lc := make(chan []byte, 1)
-			errc := make(chan error)
-			go db.StreamLeaves(context.Background(), test.start, test.end, lc, errc)
+			results := make(chan StreamResult, 1)
+			go db.StreamLeaves(context.Background(), test.start, test.end, results)
 
 			got := make([][]byte, 0)
 		Receive:
-			for l := range lc {
-				select {
-				case err = <-errc:
+			for result := range results {
+				if result.Err != nil {
 					break Receive
-				default:
 				}
-				got = append(got, l)
+				got = append(got, result.Leaf)
 			}
 
 			if err != nil {

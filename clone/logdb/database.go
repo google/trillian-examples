@@ -139,12 +139,13 @@ func (d *Database) WriteLeaves(ctx context.Context, start uint64, leaves [][]byt
 }
 
 // StreamLeaves streams leaves in order starting at the given index, putting the leaf preimage
-// values on the `out` channel.
-func (d *Database) StreamLeaves(ctx context.Context, start, end uint64, out chan []byte, errc chan error) {
+// values on the `out` channel. This takes ownership of the out channel and closes it when no
+// more data will be returned.
+func (d *Database) StreamLeaves(ctx context.Context, start, end uint64, out chan<- StreamResult) {
 	defer close(out)
 	rows, err := d.db.QueryContext(ctx, "SELECT data FROM leaves WHERE id>=? AND id < ? ORDER BY id", start, end)
 	if err != nil {
-		errc <- err
+		out <- StreamResult{Err: err}
 		return
 	}
 	defer func() {
@@ -155,10 +156,10 @@ func (d *Database) StreamLeaves(ctx context.Context, start, end uint64, out chan
 	for rows.Next() {
 		var data []byte
 		if err := rows.Scan(&data); err != nil {
-			errc <- err
+			out <- StreamResult{Err: err}
 			return
 		}
-		out <- data
+		out <- StreamResult{Leaf: data}
 	}
 }
 
@@ -175,4 +176,12 @@ func (d *Database) Head() (int64, error) {
 		return head.Int64, nil
 	}
 	return 0, ErrNoDataFound
+}
+
+// StreamResult is the return type for StreamLeaves. It allows the leaves to
+// be returned in the same channel as any errors. Only one of Leaf or Err will
+// be populated in any StreamResult.
+type StreamResult struct {
+	Leaf []byte
+	Err  error
 }

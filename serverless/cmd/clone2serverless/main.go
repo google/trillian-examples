@@ -118,9 +118,13 @@ func main() {
 	rCtxCancel()
 
 	glog.V(1).Infof("Integrating leaves [%d, %d)", fromSize, toSize)
-	log.Integrate(ctx, fromSize, logRoot, rfc6962.DefaultHasher)
+	if _, err := log.Integrate(ctx, fromSize, logRoot, rfc6962.DefaultHasher); err != nil {
+		glog.Exitf("Failed to integrate leaves: %v", err)
+	}
 	glog.V(1).Info("Writing checkpoint")
-	logRoot.WriteCheckpoint(ctx, inputCheckpointRaw)
+	if err := logRoot.WriteCheckpoint(ctx, inputCheckpointRaw); err != nil {
+		glog.Exitf("Failed to write checkpoint: %v", err)
+	}
 	glog.V(1).Infof("Successfully created tlog with %d leaves at %q", toSize, *outputRoot)
 }
 

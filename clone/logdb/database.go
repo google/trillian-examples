@@ -161,6 +161,9 @@ func (d *Database) StreamLeaves(ctx context.Context, start, end uint64, out chan
 		}
 		out <- StreamResult{Leaf: data}
 	}
+	if err := rows.Err(); err != nil {
+		out <- StreamResult{Err: err}
+	}
 }
 
 // Head returns the largest leaf index written.

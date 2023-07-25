@@ -117,7 +117,7 @@ func main() {
 	}
 
 	// Integrate new entries
-	newCp, err := log.Integrate(ctx, *cp, st, h)
+	newCp, err := log.Integrate(ctx, cp.Size, st, h)
 	if err != nil {
 		glog.Exitf("Failed to integrate: %q", err)
 	}

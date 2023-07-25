@@ -126,7 +126,7 @@ func integrate() js.Func {
 		}
 
 		ctx := context.Background()
-		newCp, err := log.Integrate(ctx, *&cp.Size, logStorage, rfc6962.DefaultHasher)
+		newCp, err := log.Integrate(ctx, cp.Size, logStorage, rfc6962.DefaultHasher)
 		if err != nil {
 			logMsg(fmt.Sprintf("Failed to integrate: %q", err))
 			panic(err)

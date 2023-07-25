@@ -140,6 +140,8 @@ func initStorage(logVerifier note.Verifier, outputRoot string) (*fs.Storage, uin
 			return nil, 0, fmt.Errorf("failed to create log root filesystem: %v", err)
 		}
 		glog.Infof("Created new log root filesystem at %q", outputRoot)
+	} else if err != nil {
+		return nil, 0, fmt.Errorf("failed to stat %q: %v", outputRoot, err)
 	} else if !fstat.IsDir() {
 		return nil, 0, fmt.Errorf("output root is not a directory: %v", outputRoot)
 	} else {

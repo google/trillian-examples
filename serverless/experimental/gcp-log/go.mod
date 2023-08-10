@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	cloud.google.com/go/storage v1.31.0
-	github.com/golang/glog v1.1.1
+	github.com/golang/glog v1.1.2
 	github.com/google/trillian-examples v0.0.0-20230612102034-f5649fd8da9c
 	github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6
 	github.com/transparency-dev/merkle v0.0.2

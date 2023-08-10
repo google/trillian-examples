@@ -23,19 +23,3 @@ services:
     depends_on:
       - db
 
-  witness:
-    build: 
-      context: ../..
-      dockerfile: ./sumdbaudit/docker/witness/Dockerfile
-    command: [
-      "--alsologtostderr",
-      "--v=2",
-      "--mysql_uri=sumdb:letmein@tcp(db:3306)/sumdb?parseTime=true",
-      "--listen=:8080"
-    ]
-    ports:
-     - "8080:8080"
-    restart: always
-    depends_on:
-      - db
-      - mirror

@@ -5,9 +5,6 @@ This directory contains tools for verifiably creating a local copy of the
 database.
  * `cli/clone` is a one-shot tool to clone the Log at its current size
  * `cli/mirror` is a service which continually clones the Log
- * `cli/witness` is an HTTP service that uses a local clone of the Log to provide
-   checkpoint validation for other clients. This is a very lightweight way of
-   providing some Gossip solution to detect split views.
 
 ## Background
 This is a quick summary of https://blog.golang.org/module-mirror-launch but is not
@@ -122,58 +119,6 @@ In the `ExecStart` line above, add `-unpack` and then restart the `sumdbmirror` 
 When it next updates tiles this table will be populated.
 This will use more CPU and around 60% more disk.
 
-## Setting up a `witness` service
-This requires a local clone of the SumDB Log to be available. For this to be of any
-real value, it should be running against a database which is regularly being updated
-by the `mirror` service described above.
-
-> :warning: The witness is missing features (outlined below) in order to be used in an
-> untrusted environment. This witness implementation is useful only in a trusted domain
-> where the correct operation of the witness is implicit. This precludes being run as
-> a general service on the Web, but is still useful within a household or organization.
-
-A client which successfully checks its checkpoints with a witness can ensure that if
-there is a "split view" of the SumDB Log, then it is on the same side of the split as
-the witness. If this witness is also verifying the claims of the log, then the client
-is safe in relying on the data within (providing it trusts the verifer!).
-
-The service can be started with the command (assuming `~/sum.db` is the database):
-```bash
-go run ./sumdbaudit/cli/witness -listen :8080 -sqlite_file ~/sum.db -v=1 -alsologtostderr
-```
-
-This can be set up as a Linux service in much the same way as the `mirror` above.
-
-Once running, the server will be available for GET requests at the listen address
-given as a commandline parameter.
-
-Some example requests that can be made:
-```bash
-# Simply get the latest golden checkpoint
-curl -i http://localhost:8080/golden
-
-# Validate that the witness is consistent with the Checkpoint your go build tools are using
-curl -i http://localhost:8080/checkConsistency/`base64 -i ~/go/pkg/sumdb/sum.golang.org/latest`
-
-# Validate that the witness is consistent with the latest Checkpoint from the real Log
-curl -i http://localhost:8080/checkConsistency/`curl https://sum.golang.org/latest | base64`
-```
-
-### Using Docker
-
-The witness can be started along with the mirror using `docker-compose`.
-The following command will mirror the log and provide a witness on port `8080` when the initial
-sync completes:
-```bash
-docker-compose -f sumdbaudit/docker/docker-compose.yml up -d
-```
-
-If using a Raspberry Pi, the above command will fail because no suitable MariaDB image can be
-installed. Instead, use this command to install an image that works:
-```bash
-docker-compose -f sumdbaudit/docker/docker-compose.yml -f sumdbaudit/docker/docker-compose.rpi.yml up -d
-```
-
 ### Using a client/server database
 
 The instructions above are for setting this up using sqlite with its storage on the local filesystem.
@@ -208,6 +153,3 @@ sqlite3 ~/sum.db 'SELECT module, COUNT(*) cnt FROM leafMetadata GROUP BY module 
 * This only downloads complete tiles, which means that at any point there could
   be up to 2^height leaves missing from the database.
   These stragglers should be stored if the root hash checks out.
-* Witness should return detailed responses
-  * In the event of an inconsistency, both Checkpoints notes should be serialized and returned
-  * Consistency should return a proof that the tree is consistent with the witnesses Golden Checkpoint

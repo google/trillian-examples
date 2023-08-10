@@ -1,4 +1,4 @@
-FROM golang:1.20.3-buster AS builder
+FROM golang:1.20.3-buster@sha256:73c225bc5e2353f20dbe0466819b70a51a114a93bfe4af035a3bb9e1ecdd4107 AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -19,7 +19,7 @@ COPY . .
 RUN go build -o sumdbwitness ./sumdbaudit/cli/witness
 
 # Build release image
-FROM golang:1.20.3-buster
+FROM golang:1.20.3-buster@sha256:73c225bc5e2353f20dbe0466819b70a51a114a93bfe4af035a3bb9e1ecdd4107
 
 COPY --from=builder /build/sumdbwitness /bin/witness
 ENTRYPOINT ["/bin/witness"]

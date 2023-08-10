@@ -1,4 +1,4 @@
-FROM golang:1.20.3-buster@sha256:73c225bc5e2353f20dbe0466819b70a51a114a93bfe4af035a3bb9e1ecdd4107 AS builder
+FROM golang:1.20.5-buster@sha256:eb3f9ac805435c1b2c965d63ce460988e1000058e1f67881324746362baf9572 AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./sumdbaudit/cli/mirror
 
 # Build release image
-FROM golang:1.20.3-buster@sha256:73c225bc5e2353f20dbe0466819b70a51a114a93bfe4af035a3bb9e1ecdd4107
+FROM golang:1.20.5-buster@sha256:eb3f9ac805435c1b2c965d63ce460988e1000058e1f67881324746362baf9572
 
 COPY --from=builder /build/mirror /bin/mirror
 ENTRYPOINT ["/bin/mirror"]

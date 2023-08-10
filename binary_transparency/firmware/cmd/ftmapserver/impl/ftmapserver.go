@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -136,6 +137,11 @@ func (s *Server) getTile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if rev > math.MaxInt {
+		// TODO(mhutchinson): Revision probably ought to be uint64 as negative revisions are weird.
+		http.Error(w, "revision is too large", http.StatusBadRequest)
+		return
+	}
 	path, err := parseBase64Param(r, "path")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -173,6 +179,11 @@ func (s *Server) getAggregation(w http.ResponseWriter, r *http.Request) {
 	rev, err := parseUintParam(r, "revision")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if rev > math.MaxInt {
+		// TODO(mhutchinson): Revision probably ought to be uint64 as negative revisions are weird.
+		http.Error(w, "revision is too large", http.StatusBadRequest)
 		return
 	}
 	fwIndex, err := parseUintParam(r, "fwIndex")

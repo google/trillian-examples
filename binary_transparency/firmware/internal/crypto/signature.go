@@ -21,6 +21,7 @@ import (
 	"crypto/sha512"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -102,6 +103,9 @@ func (c *Claimant) getPublicKey() (*rsa.PublicKey, error) {
 
 // SignMessage is used to sign the Statement
 func (c *Claimant) SignMessage(stype api.StatementType, msg []byte) ([]byte, error) {
+	if len(msg) > 64*1024*1024 {
+		return nil, errors.New("msg too large")
+	}
 	bs := make([]byte, len(msg)+1)
 	bs[0] = byte(stype)
 	copy(bs[1:], msg)

@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./clone/cmd/ctverify
 
 # Build release image
-FROM alpine:3.17.3@sha256:124c7d2707904eea7431fffe91522a01e5a861a624ee31d03372cc1d138a3126
+FROM alpine:3.18.3@sha256:7144f7bab3d4c2648d7e59409f15ec52a18006a128c733fcff20d3a4a54ba44a
 
 COPY --from=builder /build/ctverify /bin/ctverify
 ENTRYPOINT ["/bin/ctverify"]

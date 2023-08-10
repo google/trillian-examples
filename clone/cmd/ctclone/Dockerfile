@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine3.17 AS builder
+FROM golang:1.19-alpine3.17@sha256:504f0b9b177aef633965cb55d00f37e062e9374914b4047f2e0cd260d2752791 AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./clone/cmd/ctclone
 
 # Build release image
-FROM alpine:3.17.3
+FROM alpine:3.17.3@sha256:124c7d2707904eea7431fffe91522a01e5a861a624ee31d03372cc1d138a3126
 
 COPY --from=builder /build/ctclone /bin/ctclone
 ENTRYPOINT ["/bin/ctclone"]

@@ -1,5 +1,5 @@
 # This Dockerfile builds a base image for the CloudBuild integration testing.
-FROM golang:1.19-buster as testbase
+FROM golang:1.19-buster@sha256:46bab7f043402231a9ed12ef2a4b0a9d090e3abc005297de920160a76bc71da3 as testbase
 
 WORKDIR /testbase
 

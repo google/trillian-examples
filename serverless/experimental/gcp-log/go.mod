@@ -8,7 +8,7 @@ require (
 	github.com/google/trillian-examples v0.0.0-20230612102034-f5649fd8da9c
 	github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6
 	github.com/transparency-dev/merkle v0.0.2
-	golang.org/x/mod v0.10.0
+	golang.org/x/mod v0.12.0
 	google.golang.org/api v0.136.0
 )
 

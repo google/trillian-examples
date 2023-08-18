@@ -9,7 +9,7 @@ require (
 	github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6
 	github.com/transparency-dev/merkle v0.0.2
 	golang.org/x/mod v0.12.0
-	google.golang.org/api v0.137.0
+	google.golang.org/api v0.138.0
 )
 
 require (

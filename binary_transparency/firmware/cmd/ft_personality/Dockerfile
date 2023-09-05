@@ -3,7 +3,6 @@ LABEL stage=builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
-ENV GO111MODULE=on
 
 # Move to working directory /build
 WORKDIR /build

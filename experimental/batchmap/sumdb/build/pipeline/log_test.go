@@ -19,12 +19,18 @@ import (
 	"testing"
 
 	"github.com/apache/beam/sdks/v2/go/pkg/beam"
+	"github.com/apache/beam/sdks/v2/go/pkg/beam/register"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/testing/passert"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/testing/ptest"
 	"github.com/google/trillian/experimental/batchmap"
 )
 
 const treeID = 12345
+
+func init() {
+	register.Function1x1(testEntryHashToStringFn)
+	register.Function1x1(testModuleVersionsFn)
+}
 
 func TestMakeVersionLogs(t *testing.T) {
 	tests := []struct {
@@ -113,11 +119,11 @@ func TestMakeVersionLogs(t *testing.T) {
 			passert.Count(s, entries, "entries", test.wantCount)
 			passert.Count(s, logs, "logs", test.wantCount)
 			if len(test.wantRoot) > 0 {
-				roots := beam.ParDo(s, func(e *batchmap.Entry) string { return fmt.Sprintf("%x", e.HashValue) }, entries)
+				roots := beam.ParDo(s, testEntryHashToStringFn, entries)
 				passert.Equals(s, roots, test.wantRoot)
 			}
 			if len(test.wantVersions) > 0 {
-				versions := beam.ParDo(s, func(l *ModuleVersionLog) []string { return l.Versions }, logs)
+				versions := beam.ParDo(s, testModuleVersionsFn, logs)
 				passert.Equals(s, versions, test.wantVersions)
 			}
 			err := ptest.Run(p)
@@ -127,3 +133,6 @@ func TestMakeVersionLogs(t *testing.T) {
 		})
 	}
 }
+
+func testEntryHashToStringFn(e *batchmap.Entry) string  { return fmt.Sprintf("%x", e.HashValue) }
+func testModuleVersionsFn(l *ModuleVersionLog) []string { return l.Versions }

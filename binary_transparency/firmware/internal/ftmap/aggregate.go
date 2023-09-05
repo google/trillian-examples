@@ -30,6 +30,8 @@ import (
 
 func init() {
 	beam.RegisterFunction(aggregationFn)
+	beam.RegisterFunction(annotationLogIndexFn)
+	beam.RegisterFunction(logEntryIndexFn)
 	beam.RegisterType(reflect.TypeOf((*api.AggregatedFirmware)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*aggregatedFirmwareHashFn)(nil)).Elem())
 }
@@ -40,12 +42,16 @@ func init() {
 //   - AnnotationMalware: `Good` is true providing there are no malware annotations that claim the
 //     firmware is bad.
 func Aggregate(s beam.Scope, treeID int64, fws, annotationMalwares beam.PCollection) (beam.PCollection, beam.PCollection) {
-	keyedFws := beam.ParDo(s, func(l *firmwareLogEntry) (uint64, *firmwareLogEntry) { return uint64(l.Index), l }, fws)
-	keyedAnns := beam.ParDo(s, func(a *annotationMalwareLogEntry) (uint64, *annotationMalwareLogEntry) {
-		return a.Annotation.FirmwareID.LogIndex, a
-	}, annotationMalwares)
+	keyedFws := beam.ParDo(s, logEntryIndexFn, fws)
+	keyedAnns := beam.ParDo(s, annotationLogIndexFn, annotationMalwares)
 	annotations := beam.ParDo(s, aggregationFn, beam.CoGroupByKey(s, keyedFws, keyedAnns))
 	return beam.ParDo(s, &aggregatedFirmwareHashFn{treeID}, annotations), annotations
+}
+
+func logEntryIndexFn(l *firmwareLogEntry) (uint64, *firmwareLogEntry) { return uint64(l.Index), l }
+
+func annotationLogIndexFn(a *annotationMalwareLogEntry) (uint64, *annotationMalwareLogEntry) {
+	return a.Annotation.FirmwareID.LogIndex, a
 }
 
 func aggregationFn(fwIndex uint64, fwit func(**firmwareLogEntry) bool, amit func(**annotationMalwareLogEntry) bool) (*api.AggregatedFirmware, error) {

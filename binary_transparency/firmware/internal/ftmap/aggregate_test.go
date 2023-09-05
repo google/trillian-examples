@@ -19,10 +19,19 @@ import (
 	"testing"
 
 	"github.com/apache/beam/sdks/v2/go/pkg/beam"
+	"github.com/apache/beam/sdks/v2/go/pkg/beam/register"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/testing/passert"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/testing/ptest"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 )
+
+func init() {
+	register.Function1x1(testAggregationToStringFn)
+}
+
+func TestMain(m *testing.M) {
+	ptest.Main(m)
+}
 
 func TestAggregate(t *testing.T) {
 	fwEntries := []*firmwareLogEntry{
@@ -104,8 +113,7 @@ func TestAggregate(t *testing.T) {
 			passert.Count(s, entries, "entries", len(fwEntries))
 			passert.Count(s, aggs, "aggs", len(fwEntries))
 
-			aggregationToString := func(a *api.AggregatedFirmware) string { return fmt.Sprintf("%d: %t", a.Index, a.Good) }
-			passert.Equals(s, beam.ParDo(s, aggregationToString, aggs), beam.CreateList(s, test.wantGood))
+			passert.Equals(s, beam.ParDo(s, testAggregationToStringFn, aggs), beam.CreateList(s, test.wantGood))
 
 			err := ptest.Run(p)
 			if err != nil {
@@ -113,4 +121,8 @@ func TestAggregate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func testAggregationToStringFn(a *api.AggregatedFirmware) string {
+	return fmt.Sprintf("%d: %t", a.Index, a.Good)
 }

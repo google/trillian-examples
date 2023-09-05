@@ -32,6 +32,7 @@ import (
 func init() {
 	beam.RegisterFunction(makeModuleVersionLogFn)
 	beam.RegisterType(reflect.TypeOf((*moduleLogHashFn)(nil)).Elem())
+	beam.RegisterFunction(metadataKeyFn)
 }
 
 // ModuleVersionLog represents the versions found for a single
@@ -49,10 +50,12 @@ type ModuleVersionLog struct {
 // and is the key/value data to include in the map, the second is of type
 // ModuleVersionLog.
 func MakeVersionLogs(s beam.Scope, treeID int64, metadata beam.PCollection) (beam.PCollection, beam.PCollection) {
-	keyed := beam.ParDo(s, func(m Metadata) (string, Metadata) { return m.Module, m }, metadata)
+	keyed := beam.ParDo(s, metadataKeyFn, metadata)
 	logs := beam.ParDo(s, makeModuleVersionLogFn, beam.GroupByKey(s, keyed))
 	return beam.ParDo(s, &moduleLogHashFn{TreeID: treeID}, logs), logs
 }
+
+func metadataKeyFn(m Metadata) (string, Metadata) { return m.Module, m }
 
 type moduleLogHashFn struct {
 	TreeID int64

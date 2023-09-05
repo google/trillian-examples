@@ -1,6 +1,6 @@
 module github.com/google/trillian-examples/serverless/deploy/github/distributor/update_logs_index
 
-go 1.19
+go 1.20
 
 require (
 	github.com/golang/glog v1.1.2

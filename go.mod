@@ -1,6 +1,6 @@
 module github.com/google/trillian-examples
 
-go 1.19
+go 1.20
 
 require (
 	github.com/apache/beam/sdks/v2 v2.49.0

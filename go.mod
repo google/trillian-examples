@@ -12,7 +12,7 @@ require (
 	github.com/google/certificate-transparency-go v1.1.6
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-github/v39 v39.2.0
-	github.com/google/trillian v1.5.2
+	github.com/google/trillian v1.5.3-0.20230905124449-3343c9596737
 	github.com/gorilla/mux v1.8.0
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
@@ -55,7 +55,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea // indirect
 	golang.org/x/net v0.14.0 // indirect
-	golang.org/x/sys v0.11.0 // indirect
+	golang.org/x/sys v0.12.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.129.0 // indirect

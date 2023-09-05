@@ -20,10 +20,17 @@ import (
 	"testing"
 
 	"github.com/apache/beam/sdks/v2/go/pkg/beam"
+	"github.com/apache/beam/sdks/v2/go/pkg/beam/register"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/testing/passert"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/testing/ptest"
 	"github.com/google/trillian/experimental/batchmap"
 )
+
+func init() {
+	register.Function1x1(rootToString)
+}
+
+func rootToString(t *batchmap.Tile) string { return fmt.Sprintf("%x", t.RootHash) }
 
 func TestCreateAndUpdateEquivalence(t *testing.T) {
 	tests := []struct {
@@ -83,7 +90,6 @@ func TestCreateAndUpdateEquivalence(t *testing.T) {
 				t.Errorf("create != update (%v != %v", createMetadata, updateMetadata)
 			}
 
-			rootToString := func(t *batchmap.Tile) string { return fmt.Sprintf("%x", t.RootHash) }
 			passert.Equals(s, beam.ParDo(s, rootToString, createTiles), test.wantRoot)
 			passert.Equals(s, beam.ParDo(s, rootToString, updateTiles), test.wantRoot)
 

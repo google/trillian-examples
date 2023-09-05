@@ -5,7 +5,6 @@ WORKDIR /testbase
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
-ENV GO111MODULE=on
 
 RUN echo "deb http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list
 RUN apt-get update && apt-get -y install curl docker-compose lsof netcat unzip wget xxd

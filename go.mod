@@ -20,7 +20,7 @@ require (
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/u-root/u-root v7.0.0+incompatible
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
-	golang.org/x/crypto v0.12.0
+	golang.org/x/crypto v0.13.0
 	golang.org/x/mod v0.12.0
 	golang.org/x/oauth2 v0.11.0
 	golang.org/x/sync v0.3.0
@@ -56,7 +56,7 @@ require (
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea // indirect
 	golang.org/x/net v0.14.0 // indirect
 	golang.org/x/sys v0.12.0 // indirect
-	golang.org/x/text v0.12.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.129.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

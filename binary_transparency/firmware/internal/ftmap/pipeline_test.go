@@ -21,11 +21,17 @@ import (
 	"testing"
 
 	"github.com/apache/beam/sdks/v2/go/pkg/beam"
+	"github.com/apache/beam/sdks/v2/go/pkg/beam/register"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/testing/passert"
 	"github.com/apache/beam/sdks/v2/go/pkg/beam/testing/ptest"
 	"github.com/google/trillian-examples/binary_transparency/firmware/api"
 	"github.com/google/trillian/experimental/batchmap"
 )
+
+func init() {
+	register.Function1x1(testLogToStringFn)
+	register.Function1x1(testRootToStringFn)
+}
 
 func TestCreate(t *testing.T) {
 	tests := []struct {
@@ -74,11 +80,9 @@ func TestCreate(t *testing.T) {
 				t.Fatalf("failed to Create(): %v", err)
 			}
 
-			rootToString := func(t *batchmap.Tile) string { return fmt.Sprintf("%x", t.RootHash) }
-			passert.Equals(s, beam.ParDo(s, rootToString, result.MapTiles), test.wantRoot)
+			passert.Equals(s, beam.ParDo(s, testRootToStringFn, result.MapTiles), test.wantRoot)
 
-			logToString := func(l *api.DeviceReleaseLog) string { return fmt.Sprintf("%s: %v", l.DeviceID, l.Revisions) }
-			passert.Equals(s, beam.ParDo(s, logToString, result.DeviceLogs), beam.CreateList(s, test.wantLogs))
+			passert.Equals(s, beam.ParDo(s, testLogToStringFn, result.DeviceLogs), beam.CreateList(s, test.wantLogs))
 
 			err = ptest.Run(p)
 			if err != nil {
@@ -86,6 +90,10 @@ func TestCreate(t *testing.T) {
 			}
 		})
 	}
+}
+func testRootToStringFn(t *batchmap.Tile) string { return fmt.Sprintf("%x", t.RootHash) }
+func testLogToStringFn(l *api.DeviceReleaseLog) string {
+	return fmt.Sprintf("%s: %v", l.DeviceID, l.Revisions)
 }
 
 func createFW(device string, revision uint64) api.FirmwareMetadata {

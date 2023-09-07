@@ -32,6 +32,7 @@ import (
 )
 
 func init() {
+	beam.RegisterFunction(logEntryDeviceIDFn)
 	beam.RegisterFunction(makeDeviceReleaseLogFn)
 	beam.RegisterType(reflect.TypeOf((*moduleLogHashFn)(nil)).Elem())
 	beam.RegisterType(reflect.TypeOf((*api.DeviceReleaseLog)(nil)).Elem())
@@ -44,9 +45,13 @@ func init() {
 // 1. the first is of type Entry; the key/value data to include in the map
 // 2. the second is of type DeviceReleaseLog.
 func MakeReleaseLogs(s beam.Scope, treeID int64, logEntries beam.PCollection) (beam.PCollection, beam.PCollection) {
-	keyed := beam.ParDo(s, func(l *firmwareLogEntry) (string, *firmwareLogEntry) { return l.Firmware.DeviceID, l }, logEntries)
+	keyed := beam.ParDo(s, logEntryDeviceIDFn, logEntries)
 	logs := beam.ParDo(s, makeDeviceReleaseLogFn, beam.GroupByKey(s, keyed))
 	return beam.ParDo(s, &moduleLogHashFn{TreeID: treeID}, logs), logs
+}
+
+func logEntryDeviceIDFn(l *firmwareLogEntry) (string, *firmwareLogEntry) {
+	return l.Firmware.DeviceID, l
 }
 
 type moduleLogHashFn struct {

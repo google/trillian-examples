@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine3.17@sha256:6467daf26aec6b82c750be4ca9b6aaf3a6a07ed22e1d4ff72dbdda9a93bb39bf AS build
+FROM golang:1.21-alpine3.17@sha256:ecaab0e81d070800a399d2e805f0fcc22806e130166a2f880456abeb04e401b0 AS build
 
 WORKDIR /src/
 # Note: this could be a bit surprising as folks who pinned their action to some particular version

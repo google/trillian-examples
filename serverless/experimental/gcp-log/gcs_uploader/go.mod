@@ -2,7 +2,7 @@ module github.com/gcp_serverless_example_module
 
 go 1.20
 
-require cloud.google.com/go/storage v1.32.0
+require cloud.google.com/go/storage v1.33.0
 
 require (
 	cloud.google.com/go v0.110.4 // indirect

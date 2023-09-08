@@ -3,7 +3,7 @@ module github.com/gcp_serverless_module
 go 1.20
 
 require (
-	cloud.google.com/go/storage v1.32.0
+	cloud.google.com/go/storage v1.33.0
 	github.com/golang/glog v1.1.2
 	github.com/google/trillian-examples v0.0.0-20230612102034-f5649fd8da9c
 	github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6

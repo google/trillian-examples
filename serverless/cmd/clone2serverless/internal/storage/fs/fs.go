@@ -25,9 +25,9 @@ import (
 	"strconv"
 
 	"github.com/golang/glog"
-	"github.com/transparency-dev/serverless/api"
-	"github.com/transparency-dev/serverless/api/layout"
-	"github.com/transparency-dev/serverless/pkg/log"
+	"github.com/transparency-dev/serverless-log/api"
+	"github.com/transparency-dev/serverless-log/api/layout"
+	"github.com/transparency-dev/serverless-log/pkg/log"
 )
 
 const (

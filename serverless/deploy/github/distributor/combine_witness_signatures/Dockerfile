@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine3.17@sha256:ecaab0e81d070800a399d2e805f0fcc22806e130166a2f880456abeb04e401b0 AS build
+FROM golang:1.21-alpine3.17@sha256:46bc9c7c1a34efd4885c06fe2cf1a92ebc0aad683731c74f8fd453da3a632483 AS build
 
 WORKDIR /src/
 COPY . ./

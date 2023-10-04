@@ -18,7 +18,7 @@ require (
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6
 	github.com/transparency-dev/merkle v0.0.2
-	github.com/u-root/u-root v7.0.0+incompatible
+	github.com/u-root/u-root v0.11.0
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
 	golang.org/x/crypto v0.13.0
 	golang.org/x/mod v0.12.0
@@ -46,17 +46,24 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/goterm v0.0.0-20200907032337-555d40f16ae2 // indirect
 	github.com/google/pprof v0.0.0-20221103000818-d260c55eee4c // indirect
 	github.com/google/s2a-go v0.1.4 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.2.5 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
+	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/pierrec/lz4/v4 v4.1.15 // indirect
+	github.com/u-root/gobusybox/src v0.0.0-20221229083637-46b2883a7f90 // indirect
+	github.com/u-root/uio v0.0.0-20220204230159-dac05f7d2cb4 // indirect
 	github.com/vmihailenco/msgpack v4.0.4+incompatible // indirect
 	go.opencensus.io v0.24.0 // indirect
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea // indirect
 	golang.org/x/net v0.15.0 // indirect
 	golang.org/x/sys v0.12.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/tools v0.12.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/api v0.135.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect

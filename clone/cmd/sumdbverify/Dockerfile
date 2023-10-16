@@ -20,5 +20,5 @@ RUN go build ./clone/cmd/sumdbverify
 # Build release image
 FROM alpine:3.18.4@sha256:eece025e432126ce23f223450a0326fbebde39cdf496a85d8c016293fc851978
 
-COPY --from=builder /build/verify /bin/verify
+COPY --from=builder /build/sumdbverify /bin/verify
 ENTRYPOINT ["/bin/verify"]

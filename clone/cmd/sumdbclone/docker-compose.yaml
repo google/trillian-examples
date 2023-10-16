@@ -25,6 +25,7 @@ services:
       "--mysql_uri=${MARIADB_USER}:${MARIADB_PASSWORD}@tcp(db:3306)/${MARIADB_DATABASE}",
       "--write_batch_size=1024",
       "--workers=4",
+      "--poll_interval=15m",
     ]
     restart: always
     depends_on:

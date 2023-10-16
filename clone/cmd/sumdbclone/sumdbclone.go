@@ -41,6 +41,7 @@ var (
 	writeBatchSize = flag.Uint("write_batch_size", 1024, "The number of leaves to write in each DB transaction.")
 	workers        = flag.Uint("workers", 4, "The number of worker threads to run in parallel to fetch entries.")
 	timeout        = flag.Duration("timeout", 10*time.Second, "Maximum time to wait for http connections to complete.")
+	pollInterval   = flag.Duration("poll_interval", 0, "How often to poll the log for new checkpoints once all entries have been downloaded. Set to 0 to exit after download.")
 )
 
 const (
@@ -63,6 +64,24 @@ func main() {
 	client := sdbclient.NewSumDB(tileHeight, *vkey, *url, &http.Client{
 		Timeout: *timeout,
 	})
+	cloneAndVerify(ctx, client, db)
+	if *pollInterval == 0 {
+		return
+	}
+	ticker := time.NewTicker(*pollInterval)
+	for {
+		select {
+		case <-ticker.C:
+			// Wait until the next tick.
+		case <-ctx.Done():
+			glog.Exit(ctx.Err())
+		}
+		cloneAndVerify(ctx, client, db)
+	}
+}
+
+// cloneAndVerify verifies the downloaded leaves with the target checkpoint, and if it verifies, persists the checkpoint.
+func cloneAndVerify(ctx context.Context, client *sdbclient.SumDBClient, db *logdb.Database) {
 	targetCp, err := client.LatestCheckpoint()
 	if err != nil {
 		glog.Exitf("Failed to get latest checkpoint from log: %v", err)
@@ -73,7 +92,6 @@ func main() {
 		glog.Exitf("Failed to clone log: %v", err)
 	}
 
-	// Verify the downloaded leaves with the target checkpoint, and if it verifies, persist the checkpoint.
 	h := rfc6962.DefaultHasher
 	lh := func(_ uint64, preimage []byte) []byte {
 		return h.HashLeaf(preimage)

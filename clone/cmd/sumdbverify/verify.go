@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/google/trillian-examples/clone/logdb"
+	"k8s.io/klog/v2"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -41,18 +41,18 @@ func main() {
 	ctx := context.Background()
 
 	if len(*mysqlURI) == 0 {
-		glog.Exit("Missing required parameter 'mysql_uri'")
+		klog.Exit("Missing required parameter 'mysql_uri'")
 	}
 	db, err := logdb.NewDatabase(*mysqlURI)
 	if err != nil {
-		glog.Exitf("Failed to connect to database: %q", err)
+		klog.Exitf("Failed to connect to database: %q", err)
 	}
 
 	size, err := verifyLeaves(ctx, db)
 	if err != nil {
-		glog.Exitf("Failed verification: %v", err)
+		klog.Exitf("Failed verification: %v", err)
 	}
-	glog.Infof("No conflicting hashes found after verifying %d leaves", size)
+	klog.Infof("No conflicting hashes found after verifying %d leaves", size)
 }
 
 func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
@@ -77,23 +77,23 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 		// golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 		//
 		lines := strings.Split(string(data), "\n")
-		tokens := strings.Split(lines[0], " ")
-		module, version, repoHash := tokens[0], tokens[1], tokens[2]
+		line0 := strings.Split(lines[0], " ")
+		module, version, repoHash := line0[0], line0[1], line0[2]
 
-		tokens = strings.Split(lines[1], " ")
-		if got, want := tokens[0], module; got != want {
+		line1 := strings.Split(lines[1], " ")
+		if got, want := line1[0], module; got != want {
 			return 0, fmt.Errorf("mismatched module names at %d: (%s, %s)", index, got, want)
 		}
-		if got, want := tokens[1][:len(version)], version; got != want {
+		if got, want := line1[1][:len(version)], version; got != want {
 			return 0, fmt.Errorf("mismatched version names at %d: (%s, %s)", index, got, want)
 		}
-		modHash := tokens[2]
+		modHash := line1[2]
 
 		modVer := fmt.Sprintf("%s %s", module, version)
 		hashes := fmt.Sprintf("%s %s", repoHash, modHash)
 
 		if existing, found := modVerToHashes[modVer]; found {
-			glog.V(1).Infof("Found existing hash for %q", modVer)
+			klog.V(1).Infof("Found existing hash for %q", modVer)
 			if existing != hashes {
 				return 0, fmt.Errorf("module and version %q has conflicting hashes!\n%q != %q", modVer, existing, hashes)
 			}

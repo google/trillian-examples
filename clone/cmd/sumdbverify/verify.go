@@ -28,7 +28,7 @@ import (
 )
 
 var (
-	mysqlURI = flag.String("mysql_uri", "", "URL of the MySQL database containing the log.")
+	mysqlURI = flag.String("mysql_uri", "", "URI of the MySQL database containing the log.")
 )
 
 type dataSource interface {

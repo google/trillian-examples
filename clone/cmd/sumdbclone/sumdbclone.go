@@ -72,11 +72,10 @@ func main() {
 	for {
 		select {
 		case <-ticker.C:
-			// Wait until the next tick.
+			cloneAndVerify(ctx, client, db)
 		case <-ctx.Done():
 			glog.Exit(ctx.Err())
 		}
-		cloneAndVerify(ctx, client, db)
 	}
 }
 

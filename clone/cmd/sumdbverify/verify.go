@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC. All Rights Reserved.
+// Copyright 2023 Google LLC. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,11 @@ var (
 	mysqlURI = flag.String("mysql_uri", "", "URL of the MySQL database containing the log.")
 )
 
+type dataSource interface {
+	GetLatestCheckpoint(ctx context.Context) (size uint64, checkpoint []byte, compactRange [][]byte, err error)
+	StreamLeaves(ctx context.Context, start, end uint64, out chan<- logdb.StreamResult)
+}
+
 func main() {
 	flag.Parse()
 	ctx := context.Background()
@@ -43,10 +48,18 @@ func main() {
 		glog.Exitf("Failed to connect to database: %q", err)
 	}
 
+	size, err := verifyLeaves(ctx, db)
+	if err != nil {
+		glog.Exitf("Failed verification: %v", err)
+	}
+	glog.Infof("No conflicting hashes found after verifying %d leaves", size)
+}
+
+func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 	leaves := make(chan logdb.StreamResult, 1)
 	size, _, _, err := db.GetLatestCheckpoint(ctx)
 	if err != nil {
-		glog.Exitf("GetLatestCheckpoint(): %v", err)
+		return 0, fmt.Errorf("GetLatestCheckpoint(): %v", err)
 	}
 	go db.StreamLeaves(ctx, 0, size, leaves)
 
@@ -55,7 +68,7 @@ func main() {
 	var index uint64
 	for leaf := range leaves {
 		if leaf.Err != nil {
-			glog.Exitf("Failed to get leaves from DB: %w", leaf.Err)
+			return 0, fmt.Errorf("failed to get leaves from DB: %w", leaf.Err)
 		}
 		data := leaf.Leaf
 
@@ -63,17 +76,16 @@ func main() {
 		// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 		// golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 		//
-
 		lines := strings.Split(string(data), "\n")
 		tokens := strings.Split(lines[0], " ")
 		module, version, repoHash := tokens[0], tokens[1], tokens[2]
 
 		tokens = strings.Split(lines[1], " ")
 		if got, want := tokens[0], module; got != want {
-			glog.Exitf("Mismatched module names at %d: (%s, %s)", index, got, want)
+			return 0, fmt.Errorf("mismatched module names at %d: (%s, %s)", index, got, want)
 		}
 		if got, want := tokens[1][:len(version)], version; got != want {
-			glog.Exitf("Mismatched version names at %d: (%s, %s)", index, got, want)
+			return 0, fmt.Errorf("mismatched version names at %d: (%s, %s)", index, got, want)
 		}
 		modHash := tokens[2]
 
@@ -83,11 +95,11 @@ func main() {
 		if existing, found := modVerToHashes[modVer]; found {
 			glog.V(1).Infof("Found existing hash for %q", modVer)
 			if existing != hashes {
-				glog.Exitf("Module and version %q has conflicting hashes!\n%q != %q", existing, hashes)
+				return 0, fmt.Errorf("module and version %q has conflicting hashes!\n%q != %q", modVer, existing, hashes)
 			}
 		}
 		modVerToHashes[modVer] = hashes
 		index++
 	}
-	glog.Infof("No conflicting hashes found after verifying %d leaves", index)
+	return index, nil
 }

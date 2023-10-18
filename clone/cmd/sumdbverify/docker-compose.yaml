@@ -1,0 +1,46 @@
+version: "3.1"
+
+services:
+  db:
+    image: mariadb:10.6
+    restart: always
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+    healthcheck:
+      test: mariadb --user=$$MARIADB_USER --password=$$MARIADB_PASSWORD --silent --execute "SHOW DATABASES;"
+      interval: 3s
+      timeout: 2s
+      retries: 5
+
+  clone:
+    build:
+      context: ../../..
+      dockerfile: ./clone/cmd/sumdbclone/Dockerfile
+    command: [
+      "--alsologtostderr",
+      "--v=2",
+      "--mysql_uri=${MARIADB_USER}:${MARIADB_PASSWORD}@tcp(db:3306)/${MARIADB_DATABASE}",
+      "--write_batch_size=1024",
+      "--workers=4",
+      "--poll_interval=15m",
+    ]
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+
+  verify:
+    build:
+      context: ../../..
+      dockerfile: ./clone/cmd/sumdbverify/Dockerfile
+    command: [
+      "--alsologtostderr",
+      "--mysql_uri=${MARIADB_USER}:${MARIADB_PASSWORD}@tcp(db:3306)/${MARIADB_DATABASE}",
+      "--poll_interval=15m",
+    ]
+    restart: always
+    depends_on:
+      - clone

@@ -107,6 +107,10 @@ func (v sumdbVerifier) verifyLeaves(ctx context.Context) (uint64, error) {
 	// Get the raw data representing the latest checkpoint from the database.
 	_, cpRaw, _, err := v.db.GetLatestCheckpoint(ctx)
 	if err != nil {
+		if err == logdb.ErrNoDataFound {
+			klog.Warning("No checkpoint found in the log. Try again when the clone tool has completed.")
+			return 0, nil
+		}
 		return 0, fmt.Errorf("GetLatestCheckpoint(): %v", err)
 	}
 	// Parse the checkpoint to ensure it is from the expected log.

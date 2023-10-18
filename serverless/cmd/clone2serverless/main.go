@@ -26,10 +26,10 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/google/trillian-examples/serverless/internal/storage/fs"
-	"github.com/google/trillian-examples/serverless/pkg/log"
+	"github.com/google/trillian-examples/serverless/cmd/clone2serverless/internal/storage/fs"
 	fmtlog "github.com/transparency-dev/formats/log"
 	"github.com/transparency-dev/merkle/rfc6962"
+	"github.com/transparency-dev/serverless-log/pkg/log"
 	"golang.org/x/mod/sumdb/note"
 
 	_ "github.com/go-sql-driver/mysql"

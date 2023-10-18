@@ -36,7 +36,6 @@ main() {
   local run_build=1
   local build_actions=1
   local build_docker=1
-  local build_serverless_wasm=1
   local run_lint=1
   local run_generate=1
   while [[ $# -gt 0 ]]; do
@@ -65,9 +64,6 @@ main() {
         ;;
       --no-docker)
         build_docker=0
-        ;;
-      --no-serverless-wasm)
-        build_serverless_wasm=0
         ;;
       --cloud-build)
         flag_cloud_build=1
@@ -136,11 +132,6 @@ main() {
       echo "Building ${i} ------------------------------------------------"
       docker build -f "${i}" .
     done
-  fi
-
-  if [[ "${build_serverless_wasm}" -eq 1 ]]; then
-    echo "Building serverless wasm ===================="
-    GOOS=js GOARCH=wasm go build -o /tmp/main.wasm -tags wasm ./serverless/experimental/wasm/
   fi
 
   if [[ "${run_lint}" -eq 1 ]]; then

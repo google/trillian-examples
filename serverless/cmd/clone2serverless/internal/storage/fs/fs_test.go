@@ -23,7 +23,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/trillian-examples/serverless/pkg/log"
+	"github.com/transparency-dev/serverless-log/pkg/log"
 )
 
 func TestCreate(t *testing.T) {

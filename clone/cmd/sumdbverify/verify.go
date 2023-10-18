@@ -64,7 +64,7 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 	}
 	go db.StreamLeaves(ctx, 0, size, leaves)
 
-	modVerToHashes := make(map[string]string)
+	modVerToHashes := make(map[string]hashesAtIndex)
 
 	var index uint64
 	for leaf := range leaves {
@@ -95,11 +95,15 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 		}
 
 		modVer := fmt.Sprintf("%s %s", line0Module, line0Version)
-		hashes := fmt.Sprintf("%s %s", line0Hash, line1Hash)
+		hashes := hashesAtIndex{
+			line0Hash: line0Hash,
+			line1Hash: line1Hash,
+			index:     index,
+		}
 
 		if existing, found := modVerToHashes[modVer]; found {
 			klog.V(1).Infof("Found existing hash for %q", modVer)
-			if existing != hashes {
+			if !existing.hashEq(hashes) {
 				return 0, fmt.Errorf("module and version %q has conflicting hashes!\n%q != %q", modVer, existing, hashes)
 			}
 		}
@@ -107,4 +111,18 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 		index++
 	}
 	return index, nil
+}
+
+type hashesAtIndex struct {
+	line0Hash string
+	line1Hash string
+	index     uint64
+}
+
+func (h hashesAtIndex) String() string {
+	return fmt.Sprintf("index=%d, line0Hash=%s line1Hash=%s", h.index, h.line0Hash, h.line1Hash)
+}
+
+func (h hashesAtIndex) hashEq(other hashesAtIndex) bool {
+	return h.line0Hash == other.line0Hash && h.line1Hash == other.line1Hash
 }

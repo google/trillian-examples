@@ -30,6 +30,13 @@ import (
 
 var (
 	mysqlURI = flag.String("mysql_uri", "", "URI of the MySQL database containing the log.")
+
+	// Example leaf:
+	// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
+	// golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+	//
+	line0RE = regexp.MustCompile(`(.*) (.*) h1:(.*)`)
+	line1RE = regexp.MustCompile(`(.*) (.*)/go.mod h1:(.*)`)
 )
 
 type dataSource interface {
@@ -74,12 +81,6 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 		}
 		data := leaf.Leaf
 
-		// Example leaf:
-		// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
-		// golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
-		//
-		line0RE := regexp.MustCompile(`(.*) (.*) h1:(.*)`)
-		line1RE := regexp.MustCompile(`(.*) (.*)/go.mod h1:(.*)`)
 		lines := strings.Split(string(data), "\n")
 
 		line0Parts := line0RE.FindStringSubmatch(lines[0])

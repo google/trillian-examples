@@ -37,24 +37,24 @@ func TestVerifyLeaves(t *testing.T) {
 		{
 			desc: "good",
 			leaves: [][]byte{
-				makeGood("a", "v1.0.0", "salt"),
-				makeGood("b", "v1.1.0", "salt"),
+				makeLeaf("apple", "v1.0.0", "salt"),
+				makeLeaf("ban/a/na", "v1.1.0", "salt"),
 			},
 		},
 		{
 			desc: "duplicate with same hash",
 			leaves: [][]byte{
-				makeGood("a", "v1.0.0", "salt"),
-				makeGood("b", "v1.1.0", "salt"),
-				makeGood("a", "v1.0.0", "salt"),
+				makeLeaf("a", "v1.0.0", "salt"),
+				makeLeaf("b", "v1.1.0", "salt"),
+				makeLeaf("a", "v1.0.0", "salt"),
 			},
 		},
 		{
 			desc: "duplicate with different hash",
 			leaves: [][]byte{
-				makeGood("a", "v1.0.0", "salt"),
-				makeGood("b", "v1.1.0", "salt"),
-				makeGood("a", "v1.0.0", "spice"),
+				makeLeaf("a", "v1.0.0", "salt"),
+				makeLeaf("b", "v1.1.0", "salt"),
+				makeLeaf("a", "v1.0.0", "spice"),
 			},
 			wantErr: true,
 		},
@@ -80,7 +80,7 @@ func TestVerifyLeaves(t *testing.T) {
 	}
 }
 
-func makeGood(mod, ver, salt string) []byte {
+func makeLeaf(mod, ver, salt string) []byte {
 	// repoHash and modHash are deterministically derived from {mod, version, salt} such
 	// that they are different from each other, but unique for any given input tuple.
 	repoHash := sha256.Sum256([]byte(mod + ver + salt))

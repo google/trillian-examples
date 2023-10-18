@@ -19,6 +19,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/trillian-examples/clone/logdb"
@@ -76,21 +77,25 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 		// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
 		// golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 		//
+		line0RE := regexp.MustCompile(`(.*) (.*) h1:(.*)`)
+		line1RE := regexp.MustCompile(`(.*) (.*)/go.mod h1:(.*)`)
 		lines := strings.Split(string(data), "\n")
-		line0 := strings.Split(lines[0], " ")
-		module, version, repoHash := line0[0], line0[1], line0[2]
 
-		line1 := strings.Split(lines[1], " ")
-		if got, want := line1[0], module; got != want {
-			return 0, fmt.Errorf("mismatched module names at %d: (%s, %s)", index, got, want)
-		}
-		if got, want := line1[1][:len(version)], version; got != want {
-			return 0, fmt.Errorf("mismatched version names at %d: (%s, %s)", index, got, want)
-		}
-		modHash := line1[2]
+		line0Parts := line0RE.FindStringSubmatch(lines[0])
+		line0Module, line0Version, line0Hash := line0Parts[1], line0Parts[2], line0Parts[3]
 
-		modVer := fmt.Sprintf("%s %s", module, version)
-		hashes := fmt.Sprintf("%s %s", repoHash, modHash)
+		line1Parts := line1RE.FindStringSubmatch(lines[1])
+		line1Module, line1Version, line1Hash := line1Parts[1], line1Parts[2], line1Parts[3]
+
+		if line0Module != line1Module {
+			return 0, fmt.Errorf("mismatched module names at %d: (%s, %s)", index, line0Module, line1Module)
+		}
+		if line0Version != line1Version {
+			return 0, fmt.Errorf("mismatched version names at %d: (%s, %s)", index, line0Version, line1Version)
+		}
+
+		modVer := fmt.Sprintf("%s %s", line0Module, line0Version)
+		hashes := fmt.Sprintf("%s %s", line0Hash, line1Hash)
 
 		if existing, found := modVerToHashes[modVer]; found {
 			klog.V(1).Infof("Found existing hash for %q", modVer)

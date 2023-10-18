@@ -104,23 +104,39 @@ type sumdbVerifier struct {
 func (v sumdbVerifier) verifyLeaves(ctx context.Context) (uint64, error) {
 	leaves := make(chan logdb.StreamResult, 1)
 
+	// Get the raw data representing the latest checkpoint from the database.
 	_, cpRaw, _, err := v.db.GetLatestCheckpoint(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("GetLatestCheckpoint(): %v", err)
 	}
+	// Parse the checkpoint to ensure it is from the expected log.
 	cp, _, _, err := log.ParseCheckpoint(cpRaw, v.origin, v.verifier)
 	if err != nil {
 		return 0, fmt.Errorf("ParseCheckpoint(): %v", err)
 	}
 
+	// Start streaming the leaves from the database, in order, from the beginning.
 	go v.db.StreamLeaves(ctx, 0, cp.Size, leaves)
 
+	// modVerToHashes is a map used to perform the core claim verification.
+	// Two entries in the log being mapped to the same key means that the log has
+	// the same module+version occurring more than once. This is only OK if both of
+	// the leaf entries commit to the same hashes for this key.
 	modVerToHashes := make(map[string]hashesAtIndex)
 
+	// Construct a compact range, which is essentially an efficient in-memory Merkle Tree
+	// calculator as we use it here. Every time we process a leaf we will append it to the
+	// compact range, and then at the end we must check that the calculated Merkle Tree
+	// root hash is the same as that in the checkpoint we parsed above.
 	rf := compact.RangeFactory{
 		Hash: rfc6962.DefaultHasher.HashChildren,
 	}
 	cr := rf.NewEmptyRange(0)
+
+	// Now loop over each of the leaves, checking:
+	// 1. Each leaf is correctly formatted (syntax)
+	// 2. Each leaf is semantically valid in isolation
+	// 3. That any previous declaration for the module+version is consistent with this leaf
 	var resErr error
 	var index uint64
 	for leaf := range leaves {
@@ -167,6 +183,8 @@ func (v sumdbVerifier) verifyLeaves(ctx context.Context) (uint64, error) {
 	if resErr != nil {
 		return 0, resErr
 	}
+
+	// Use the compact range to calculate the root hash and ensure it matches the checkpoint
 	rootHash, err := cr.GetRootHash(nil)
 	if err != nil {
 		return 0, fmt.Errorf("GetRootHash(): %v", err)

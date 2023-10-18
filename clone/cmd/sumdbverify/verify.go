@@ -66,6 +66,7 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 
 	modVerToHashes := make(map[string]hashesAtIndex)
 
+	var resErr error
 	var index uint64
 	for leaf := range leaves {
 		if leaf.Err != nil {
@@ -104,13 +105,14 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 		if existing, found := modVerToHashes[modVer]; found {
 			klog.V(1).Infof("Found existing hash for %q", modVer)
 			if !existing.hashEq(hashes) {
-				return 0, fmt.Errorf("module and version %q has conflicting hashes!\n%q != %q", modVer, existing, hashes)
+				resErr = fmt.Errorf("module and version %q has conflicting hashes!\n%q != %q", modVer, existing, hashes)
+				klog.Error(resErr)
 			}
 		}
 		modVerToHashes[modVer] = hashes
 		index++
 	}
-	return index, nil
+	return index, resErr
 }
 
 type hashesAtIndex struct {

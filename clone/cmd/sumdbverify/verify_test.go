@@ -22,13 +22,22 @@ import (
 	"testing"
 
 	"github.com/google/trillian-examples/clone/logdb"
+	"github.com/transparency-dev/formats/log"
+	"github.com/transparency-dev/merkle/compact"
+	"github.com/transparency-dev/merkle/rfc6962"
+	"golang.org/x/mod/sumdb/note"
 )
 
-// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
-// golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
-const leafFormat = "%s %s h1:%s\n%s %s/go.mod h1:%s\n"
+const (
+	testOrigin = "test log"
+	// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
+	// golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+	leafFormat = "%s %s h1:%s\n%s %s/go.mod h1:%s\n"
+)
 
 func TestVerifyLeaves(t *testing.T) {
+	signer, verifier := genKeyPair(t, "testlog")
+
 	testCases := []struct {
 		desc    string
 		leaves  [][]byte
@@ -61,9 +70,19 @@ func TestVerifyLeaves(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			source := leafSource{leaves: tC.leaves}
+			cp := newCP(t, tC.leaves, signer)
 
-			size, err := verifyLeaves(context.Background(), source)
+			source := leafSource{
+				checkpoint: cp,
+				leaves:     tC.leaves,
+			}
+			verifier := sumdbVerifier{
+				db:       source,
+				origin:   testOrigin,
+				verifier: verifier,
+			}
+
+			size, err := verifier.verifyLeaves(context.Background())
 			switch {
 			case err != nil && !tC.wantErr:
 				t.Fatalf("Got unexpected error %q", err)
@@ -93,11 +112,12 @@ func makeLeaf(mod, ver, salt string) []byte {
 }
 
 type leafSource struct {
-	leaves [][]byte
+	checkpoint []byte
+	leaves     [][]byte
 }
 
 func (s leafSource) GetLatestCheckpoint(ctx context.Context) (size uint64, checkpoint []byte, compactRange [][]byte, err error) {
-	return uint64(len(s.leaves)), nil, nil, nil
+	return uint64(len(s.leaves)), s.checkpoint, nil, nil
 }
 
 func (s leafSource) StreamLeaves(ctx context.Context, start, end uint64, out chan<- logdb.StreamResult) {
@@ -107,4 +127,48 @@ func (s leafSource) StreamLeaves(ctx context.Context, start, end uint64, out cha
 		}
 	}
 	close(out)
+}
+
+func newCP(t *testing.T, leaves [][]byte, sig note.Signer) []byte {
+	t.Helper()
+	rf := compact.RangeFactory{
+		Hash: rfc6962.DefaultHasher.HashChildren,
+	}
+	cr := rf.NewEmptyRange(0)
+	for _, l := range leaves {
+		if err := cr.Append(rfc6962.DefaultHasher.HashLeaf(l), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rootHash, err := cr.GetRootHash(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cp := log.Checkpoint{
+		Origin: testOrigin,
+		Size:   uint64(len(leaves)),
+		Hash:   rootHash,
+	}
+	ret, err := note.Sign(&note.Note{Text: string(cp.Marshal())}, sig)
+	if err != nil {
+		t.Fatalf("Failed to sign note: %v", err)
+	}
+	return ret
+}
+
+func genKeyPair(t *testing.T, name string) (note.Signer, note.Verifier) {
+	t.Helper()
+	sKey, vKey, err := note.GenerateKey(nil, name)
+	if err != nil {
+		t.Fatalf("Failed to generate key %q: %v", name, err)
+	}
+	s, err := note.NewSigner(sKey)
+	if err != nil {
+		t.Fatalf("Failed to create signer %q: %v", name, err)
+	}
+	v, err := note.NewVerifier(vKey)
+	if err != nil {
+		t.Fatalf("Failed to create verifier %q: %v", name, err)
+	}
+	return s, v
 }

@@ -16,20 +16,27 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/trillian-examples/clone/logdb"
+	"github.com/transparency-dev/formats/log"
+	"github.com/transparency-dev/merkle/compact"
+	"github.com/transparency-dev/merkle/rfc6962"
+	"golang.org/x/mod/sumdb/note"
 	"k8s.io/klog/v2"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 var (
-	mysqlURI = flag.String("mysql_uri", "", "URI of the MySQL database containing the log.")
+	mysqlURI     = flag.String("mysql_uri", "", "URI of the MySQL database containing the log.")
+	pollInterval = flag.Duration("poll_interval", 0, "How often to re-verify the contents of the DB. Set to 0 to exit after first verification.")
 
 	// Example leaf:
 	// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
@@ -56,23 +63,64 @@ func main() {
 		klog.Exitf("Failed to connect to database: %q", err)
 	}
 
-	size, err := verifyLeaves(ctx, db)
+	verifier, err := note.NewVerifier("sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8")
 	if err != nil {
-		klog.Exitf("Failed verification: %v", err)
+		klog.Exitf("Failed to construct verifier: %v", err)
 	}
-	klog.Infof("No conflicting hashes found after verifying %d leaves", size)
+
+	logVerifier := sumdbVerifier{
+		db:       db,
+		origin:   "go.sum database tree",
+		verifier: verifier,
+	}
+	doit := func() {
+		size, err := logVerifier.verifyLeaves(ctx)
+		if err != nil {
+			klog.Exitf("Failed verification: %v", err)
+		}
+		klog.Infof("No conflicting hashes found after verifying %d leaves", size)
+	}
+	doit()
+	if *pollInterval == 0 {
+		return
+	}
+	ticker := time.NewTicker(*pollInterval)
+	for {
+		select {
+		case <-ticker.C:
+			doit()
+		case <-ctx.Done():
+			klog.Exit(ctx.Err())
+		}
+	}
 }
 
-func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
+type sumdbVerifier struct {
+	db       dataSource
+	origin   string
+	verifier note.Verifier
+}
+
+func (v sumdbVerifier) verifyLeaves(ctx context.Context) (uint64, error) {
 	leaves := make(chan logdb.StreamResult, 1)
-	size, _, _, err := db.GetLatestCheckpoint(ctx)
+
+	_, cpRaw, _, err := v.db.GetLatestCheckpoint(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("GetLatestCheckpoint(): %v", err)
 	}
-	go db.StreamLeaves(ctx, 0, size, leaves)
+	cp, _, _, err := log.ParseCheckpoint(cpRaw, v.origin, v.verifier)
+	if err != nil {
+		return 0, fmt.Errorf("ParseCheckpoint(): %v", err)
+	}
+
+	go v.db.StreamLeaves(ctx, 0, cp.Size, leaves)
 
 	modVerToHashes := make(map[string]hashesAtIndex)
 
+	rf := compact.RangeFactory{
+		Hash: rfc6962.DefaultHasher.HashChildren,
+	}
+	cr := rf.NewEmptyRange(0)
 	var resErr error
 	var index uint64
 	for leaf := range leaves {
@@ -80,6 +128,9 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 			return 0, fmt.Errorf("failed to get leaves from DB: %w", leaf.Err)
 		}
 		data := leaf.Leaf
+		if err := cr.Append(rfc6962.DefaultHasher.HashLeaf(data), nil); err != nil {
+			return 0, err
+		}
 
 		lines := strings.Split(string(data), "\n")
 
@@ -113,7 +164,17 @@ func verifyLeaves(ctx context.Context, db dataSource) (uint64, error) {
 		modVerToHashes[modVer] = hashes
 		index++
 	}
-	return index, resErr
+	if resErr != nil {
+		return 0, resErr
+	}
+	rootHash, err := cr.GetRootHash(nil)
+	if err != nil {
+		return 0, fmt.Errorf("GetRootHash(): %v", err)
+	}
+	if !bytes.Equal(rootHash, cp.Hash) {
+		return 0, fmt.Errorf("Data corruption: checkpoint from DB has hash %x but calculated hash %x from leaves", cp.Hash, rootHash)
+	}
+	return index, nil
 }
 
 type hashesAtIndex struct {

@@ -16,7 +16,6 @@ package client
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -43,8 +42,6 @@ kn9DgqDhXzoZMM8828SQsbuovr/WRn7QfFd5Qe1rpwA=
 
 — sum.golang.org Az3grunuggF5mKymPJeK/l9Pq71lOg/rAVkQVCzGkWRJcnS3ZFunzveHr9PAH8LFsuhpcCWzGDNrn9FFDyXm/66tBg8=
 `
-
-	tileHashData = `d7b9018cbad2a2fa3950dcd60411cd67ef9d8c1074043c0e033953ec510fd68413f83190fb460efeb65670f9298b4249b8b5fd2492a6cd486f1fe14bfa3eb545590ac0de6fc0f9b016875ba518353cc57654df733f2fa1d1f0dad66f84b66d9ea2744fc0a64bb00d9f286c52838284b4b76bcbe895854d4709c55df1c266b681`
 )
 
 func TestLeavesAtOffset(t *testing.T) {
@@ -97,27 +94,6 @@ func TestLatestCheckpoint(t *testing.T) {
 	}
 	if got, want := checkpoint.N, int64(1514086); got != want {
 		t.Errorf("unexpected tree size. got, want = %d, %d", got, want)
-	}
-}
-
-func TestTileHashes(t *testing.T) {
-	hashData, err := hex.DecodeString(tileHashData)
-	if err != nil {
-		t.Fatalf("failed to decode hash data: %v", err)
-	}
-	sumdb := &SumDBClient{
-		vkey:   "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8",
-		height: 2,
-		fetcher: &FakeFetcher{
-			values: map[string]string{"/tile/2/0/000": string(hashData)},
-		},
-	}
-	hashes, err := sumdb.TileHashes(0, 0, 0)
-	if err != nil {
-		t.Fatalf("failed to get hashes: %v", err)
-	}
-	if got, want := len(hashes), 4; got != want {
-		t.Errorf("got, want = %d, %d", got, want)
 	}
 }
 

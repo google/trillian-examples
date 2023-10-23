@@ -25,10 +25,10 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/golang/glog"
+	sdbclient "github.com/google/trillian-examples/clone/cmd/sumdbclone/internal/client"
 	"github.com/google/trillian-examples/clone/internal/cloner"
 	"github.com/google/trillian-examples/clone/internal/verify"
 	"github.com/google/trillian-examples/clone/logdb"
-	sdbclient "github.com/google/trillian-examples/sumdbaudit/client"
 	"github.com/transparency-dev/merkle/rfc6962"
 
 	_ "github.com/go-sql-driver/mysql"

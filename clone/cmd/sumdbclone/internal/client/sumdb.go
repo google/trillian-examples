@@ -16,6 +16,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -72,11 +73,6 @@ func (c *SumDBClient) LatestCheckpoint() (*Checkpoint, error) {
 		return nil, fmt.Errorf("failed to get /latest Checkpoint; %w", err)
 	}
 
-	return c.ParseCheckpointNote(checkpoint)
-}
-
-// ParseCheckpointNote parses a previously acquired raw checkpoint note data.
-func (c *SumDBClient) ParseCheckpointNote(checkpoint []byte) (*Checkpoint, error) {
 	verifier, err := note.NewVerifier(c.vkey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create verifier: %w", err)
@@ -126,46 +122,11 @@ func (c *SumDBClient) tilePath(offset int) string {
 }
 
 func dataToLeaves(data []byte) [][]byte {
-	result := make([][]byte, 0)
-	start := 0
-	for i, b := range data {
-		if b == '\n' {
-			if i > start && data[i-1] == '\n' {
-				result = append(result, data[start:i])
-				start = i + 1
-			}
-		}
+	leaves := bytes.Split(data, []byte{'\n', '\n'})
+	for i, l := range leaves {
+		leaves[i] = append(l, '\n')
 	}
-	result = append(result, data[start:])
-	return result
-}
-
-// TileHashes gets the hashes at the given level and offset.
-// If partial > 0 then a partial tile will be fetched with the number of hashes.
-// TODO(mhutchinson): Add better tests for this.
-func (c *SumDBClient) TileHashes(level, offset, partial int) ([]tlog.Hash, error) {
-	url := fmt.Sprintf("/tile/%d/%d/%s", c.height, level, c.tilePath(offset))
-	if partial > 0 {
-		url = fmt.Sprintf("%s.p/%d", url, partial)
-	}
-	data, err := c.fetcher.GetData(url)
-	if err != nil {
-		return nil, err
-	}
-	expectedHashes := 1 << c.height
-	if partial > 0 {
-		expectedHashes = partial
-	}
-	if got, want := len(data), HashLenBytes*expectedHashes; got != want {
-		return nil, fmt.Errorf("got %d bytes, expected %d", got, want)
-	}
-	hashes := make([]tlog.Hash, expectedHashes)
-	for i := 0; i < cap(hashes); i++ {
-		var h tlog.Hash
-		copy(h[:], data[HashLenBytes*i:HashLenBytes*(i+1)])
-		hashes[i] = h
-	}
-	return hashes, nil
+	return leaves
 }
 
 // HTTPFetcher gets the data over HTTP(S).
@@ -189,9 +150,5 @@ func (f *HTTPFetcher) GetData(path string) ([]byte, error) {
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("GET %v: %v", target, resp.Status)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	return io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 }

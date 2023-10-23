@@ -16,6 +16,7 @@
 package client
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -121,18 +122,11 @@ func (c *SumDBClient) tilePath(offset int) string {
 }
 
 func dataToLeaves(data []byte) [][]byte {
-	result := make([][]byte, 0)
-	start := 0
-	for i, b := range data {
-		if b == '\n' {
-			if i > start && data[i-1] == '\n' {
-				result = append(result, data[start:i])
-				start = i + 1
-			}
-		}
+	leaves := bytes.Split(data, []byte{'\n', '\n'})
+	for i, l := range leaves {
+		leaves[i] = append(l, '\n')
 	}
-	result = append(result, data[start:])
-	return result
+	return leaves
 }
 
 // HTTPFetcher gets the data over HTTP(S).
@@ -156,9 +150,5 @@ func (f *HTTPFetcher) GetData(path string) ([]byte, error) {
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("GET %v: %v", target, resp.Status)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	return io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 }

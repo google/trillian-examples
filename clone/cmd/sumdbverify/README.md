@@ -4,6 +4,34 @@ This tool clones the log for sum.golang.org and ensures that:
  1. The cloned data matches the commitments made in the log checkpoint
  2. That no module + version is declared with different hashes in the log
 
+## Background
+
+This is a quick summary of https://blog.golang.org/module-mirror-launch but is not
+intended to replace this introduction.
+If you have no context on Go SumDB, read that intro first :-)
+
+Go SumDB is a Verifiable Log based on Trillian, which contains entries of the form:
+```
+github.com/google/trillian v1.3.11 h1:pPzJPkK06mvXId1LHEAJxIegGgHzzp/FUnycPYfoCMI=
+github.com/google/trillian v1.3.11/go.mod h1:0tPraVHrSDkA3BO6vKX67zgLXs6SsOAbHEivX+9mPgw=
+```
+Every module & version used in the Go ecosystem will have such an entry in this log,
+and the values are hashes which commit to the state of the repository and its `go.mod`
+file at that particular version.
+
+Clients can be assured that they have downloaded the same version of a module as
+everybody else provided all of the following are true:
+ 1. The hash of what they have downloaded matches an entry in the SumDB Log
+ 2. There is only one entry in the Log for the `module@version`
+ 3. Entries in the Log are immutable / the Log is append-only
+ 4. Everyone else sees the same Log as this user
+
+Verification of these is performed by different parties:
+ 1. The client checks an inclusion proof for their {module, version, hashes} in the Log
+ 2. This `sumdbverify` tool verifies there are no conflicting versions
+ 3. A [witness](https://github.com/transparency-dev/witness) verifies the log is append-only
+ 4. A [distributor](https://github.com/transparency-dev/distributor) aggregates multiple witness confirmations to verify consensus
+
 ## Running in Docker
 
 The `docker-compose` scripts in this directory allow for deployment of the `sumdbclone` tool in a single command:

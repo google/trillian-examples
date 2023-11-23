@@ -1,6 +1,6 @@
-github.com/golang/glog v1.1.2 h1:DVjP2PbBOzHyzA+dn3WhHIq4NdVu3Q+pvivFICf/7fo=
-github.com/golang/glog v1.1.2/go.mod h1:zR+okUeTbrL6EL3xHUDxZuEtGv04p5shwip1+mL/rLQ=
-github.com/google/go-cmp v0.5.9 h1:O2Tfq5qg4qc4AmwVlvv0oLiVAGB7enBSJ2x2DqQFi38=
+github.com/golang/glog v1.2.0 h1:uCdmnmatrKCgMBlM4rMuJZWOkPDqdbZPnrMXDY4gI68=
+github.com/golang/glog v1.2.0/go.mod h1:6AhwSGph0fcJtXVM/PEHPqZlFeoLxhs7/t5UDAwmO+w=
+github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/trillian-examples v0.0.0-20230612102034-f5649fd8da9c h1:1qzAw8S9oyfa8vLNTF36lXMXafKbWyQo4XEIxjFa+vM=
 github.com/google/trillian-examples v0.0.0-20230612102034-f5649fd8da9c/go.mod h1:kGOthhwcHsdJJC5gpS6kgXglpXvX2K4W5khPeGbGZ80=
 github.com/transparency-dev/formats v0.0.0-20230607101544-c064fae4cff6 h1:Mjc7czQhATVAWBRZecClSQlWFMiW/42AZdYzp4qRnqQ=

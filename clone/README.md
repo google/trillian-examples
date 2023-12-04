@@ -3,25 +3,48 @@
 This directory contains a library, database, and tools for cloning transparency logs.
 The core library and database is log-agnostic, and each tool tailors this generic library to a specific log.
 
+## Design Considerations
+
 The core library attempts to balance optimization of the following goals:
   1. Downloading as quickly as possible
   2. Backing off when requested by the log (i.e. not DoSing the log)
   3. Simple local state / recovery
+  4. Reusability across all verifiable logs
 
 This is achieved by:
   1. Downloading batches of leaves in parallel
   2. Using exponential backoff on transient failures
   3. Writing leaves to the local database strictly in sequence
      1. This ensures there are no missing ranges, which keeps state tracking easier
+  4. Treating all leaf data as binary blobs, with no attempt to parse them
 
-These tools are written to clone the log at a point in time.
-The first step is to download a checkpoint from the log, and then attempt to download all the leaves committed to by that checkpoint.
-Once all the leaves have been downloaded, the Merkle tree is computed for the downloaded leaves and compared against the checkpoint.
-If this verification succeeds, the checkpoint is persisted to a table in the database along with a compact range.
-The compact range allows further runs of the tool to quickly synthesize the Merkle structure of the existing leaves, which makes incremental verification much faster.
+## How it Works
 
-This is designed such that downstream tooling can be written that reads from this local mirror of the log.
-Such tooling should only trust leaves that are committed to by a checkpoint; checkpoints are only written after verification, where leaves are written blindly and verified afterwards.
+The goal is to download data as quickly as possible from the log, and then persist verified data locally.
+A single download session looks like this:
+
+1. Get a checkpoint from the log and store this _in memory_
+   1. We will refer to the size of this checkpoint (i.e. the number of leaves it commits to) as `N`
+2. Read the last checkpoint persisted in the local database in order to determine `M`
+   1. If no previous checkpoint is stored then `M` is 0
+3. Download all leaves in the range `[M, N)`  from the log
+   1. Leaves are fetched in batches, in parallel, and stored in memory temporarily
+   2. Leaves are written to the `leaves` table of the database from this memory pool, strictly _in order_ of their index
+4. Once `N` leaves have been written to the database, calculate the Merkle root of all of these leaves
+5. If, and only if, the Merkle root matches the checkpoint downloaded in (1), write this checkpoint to the `checkpoints` table of the database
+   1. A compact expression of the Merkle tree is also stored along with this checkpoint in the form of a [compact range](https://github.com/transparency-dev/merkle/tree/main/compact)
+
+Note that this means that until a download session completes successfully, the database may contain unverified leaves with an index greater than that stored in the latest checkpoint.
+
+## Custom Processing
+
+The design of this library is that it forms the first part of a local data pipeline, i.e. downstream tooling can be written that reads from this local mirror of the log.
+Such tooling MUST only trust leaves that are committed to by a checkpoint.
+Reading leaves with an index greater than the current checkpoint size is possible, but such data is unverified and using this defeats the purpose of using verifiable data structures.
+
+The `leaves` table records the leaf data as blobs.
+This accurately reflects what the log has committed to, but does not enable efficient SQL queries into the data.
+A common usage pattern for a specific log ecosystem would be to have the first stage of the local pipeline parse the leaf data and break out the contents into a table with an appropriate schema for the parsed data.
 
 ## Database Setup
 

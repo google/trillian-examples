@@ -16,7 +16,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -27,9 +26,7 @@ import (
 	"github.com/golang/glog"
 	sdbclient "github.com/google/trillian-examples/clone/cmd/sumdbclone/internal/client"
 	"github.com/google/trillian-examples/clone/internal/cloner"
-	"github.com/google/trillian-examples/clone/internal/verify"
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/transparency-dev/merkle/rfc6962"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -90,23 +87,6 @@ func cloneAndVerify(ctx context.Context, client *sdbclient.SumDBClient, db *logd
 	if err := clone(ctx, db, client, targetCp); err != nil {
 		glog.Exitf("Failed to clone log: %v", err)
 	}
-
-	h := rfc6962.DefaultHasher
-	lh := func(_ uint64, preimage []byte) []byte {
-		return h.HashLeaf(preimage)
-	}
-	v := verify.NewLogVerifier(db, lh, h.HashChildren)
-	root, crs, err := v.MerkleRoot(ctx, uint64(targetCp.N))
-	if err != nil {
-		glog.Exitf("Failed to compute root: %q", err)
-	}
-	if !bytes.Equal(targetCp.Hash[:], root) {
-		glog.Exitf("Computed root %x != provided checkpoint %x for tree size %d", root, targetCp.Hash, targetCp.N)
-	}
-	glog.Infof("Got matching roots for tree size %d: %x", targetCp.N, root)
-	if err := db.WriteCheckpoint(ctx, uint64(targetCp.N), targetCp.Raw, crs); err != nil {
-		glog.Exitf("Failed to update database with new checkpoint: %v", err)
-	}
 }
 
 func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClient, targetCp *sdbclient.Checkpoint) error {
@@ -162,10 +142,15 @@ func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClien
 		}
 	}
 
+	cp := cloner.UnwrappedCheckpoint{
+		Size: uint64(targetCp.N),
+		Hash: targetCp.Hash[:],
+		Raw:  targetCp.Raw,
+	}
 	// The database must now contain only complete tiles, or else be matched with
 	// the targetCp. Either way, the preconditions for the cloner configuration are met.
-	if err := cl.Clone(ctx, uint64(targetCp.N), batchFetch); err != nil {
-		return fmt.Errorf("failed to clone log: %v", err)
+	if err := cl.CloneAndVerify(ctx, batchFetch, cp); err != nil {
+		return fmt.Errorf("failed to clone and verify log: %v", err)
 	}
 	return nil
 }

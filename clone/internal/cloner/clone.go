@@ -17,6 +17,7 @@
 package cloner
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"sync"
@@ -24,8 +25,21 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/clone/internal/download"
+	"github.com/google/trillian-examples/clone/internal/verify"
 	"github.com/google/trillian-examples/clone/logdb"
+	"github.com/transparency-dev/merkle/rfc6962"
 )
+
+// UnwrappedCheckpoint is a parsed log checkpoint along with the raw data it was
+// parsed from. This allows it to be queried, but also to be stored in the DB for
+// future use in its original form.
+// This is detached from github.com/transparency-dev/formats checkpoint in order to
+// support CT as a client.
+type UnwrappedCheckpoint struct {
+	Size uint64
+	Hash []byte
+	Raw  []byte
+}
 
 // Cloner is configured with the desired performance parameters, and then performs
 // work when Clone is called.
@@ -34,21 +48,51 @@ type Cloner struct {
 	fetchBatchSize uint
 	writeBatchSize uint
 
-	db *logdb.Database
+	verifier verify.LogVerifier
+	db       *logdb.Database
 }
 
 // New creates a new Cloner with the given performance parameters and database.
+// It will use rfc6962 hashing to determine the root hash. This configuration can
+// be exposed in the future if needed to support logs that use a different hasher.
 func New(wokers, fetchBatchSize, writeBatchSize uint, db *logdb.Database) Cloner {
+	h := rfc6962.DefaultHasher
+	lh := func(_ uint64, preimage []byte) []byte {
+		return h.HashLeaf(preimage)
+	}
+	v := verify.NewLogVerifier(db, lh, h.HashChildren)
 	return Cloner{
 		workers:        wokers,
 		fetchBatchSize: fetchBatchSize,
 		writeBatchSize: writeBatchSize,
 		db:             db,
+		verifier:       v,
 	}
 }
 
+// CloneAndVerify downloads all of the leaves that the checkpoint commits to, verifies that
+// the local data matches the commitment, and if so, stores the checkpoint in the log to
+// indicate that these leaves have been verified.
+func (c Cloner) CloneAndVerify(ctx context.Context, fetcher download.BatchFetch, cp UnwrappedCheckpoint) error {
+	if err := c.clone(ctx, cp.Size, fetcher); err != nil {
+		return err
+	}
+	root, crs, err := c.verifier.MerkleRoot(ctx, cp.Size)
+	if err != nil {
+		return fmt.Errorf("failed to compute root: %q", err)
+	}
+	if !bytes.Equal(cp.Hash, root) {
+		return fmt.Errorf("computed root %x != provided checkpoint %x for tree size %d", root, cp.Hash, cp.Size)
+	}
+	glog.Infof("Got matching roots for tree size %d: %x", cp.Size, root)
+	if err := c.db.WriteCheckpoint(ctx, cp.Size, cp.Raw, crs); err != nil {
+		return fmt.Errorf("failed to update database with new checkpoint: %v", err)
+	}
+	return nil
+}
+
 // Clone downloads all the leaves up to the given treeSize, or returns an error if not possible.
-func (c Cloner) Clone(ctx context.Context, treeSize uint64, fetcher download.BatchFetch) error {
+func (c Cloner) clone(ctx context.Context, treeSize uint64, fetcher download.BatchFetch) error {
 	next, err := c.Next()
 	if err != nil {
 		return fmt.Errorf("couldn't determine first leaf: %v", err)

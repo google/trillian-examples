@@ -71,7 +71,7 @@ func TestClone(t *testing.T) {
 				}
 				return nil
 			}
-			if err := cloner.Clone(context.Background(), test.treeSize, fetcher); err != nil {
+			if err := cloner.clone(context.Background(), test.treeSize, fetcher); err != nil {
 				t.Fatalf("Clone(): %v", err)
 			}
 

@@ -16,7 +16,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
@@ -27,9 +26,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/clone/internal/cloner"
 	"github.com/google/trillian-examples/clone/internal/download"
-	"github.com/google/trillian-examples/clone/internal/verify"
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/transparency-dev/merkle/rfc6962"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -69,29 +66,15 @@ func main() {
 		glog.Exitf("Failed to get latest checkpoint from log: %v", err)
 	}
 
-	cl := cloner.New(*workers, *fetchBatchSize, *writeBatchSize, db)
-	if err := cl.Clone(ctx, targetCp.TreeSize, fetcher.Batch); err != nil {
-		glog.Exitf("Failed to clone log: %v", err)
+	cp := cloner.UnwrappedCheckpoint{
+		Size: targetCp.TreeSize,
+		Hash: targetCp.RootHash,
+		Raw:  targetCp.raw,
 	}
 
-	glog.Info("Verifying leaves")
-	// Verify the downloaded leaves with the target checkpoint, and if it verifies, persist the checkpoint.
-	// TODO(mhutchinson): Verify in parallel with downloading.
-	h := rfc6962.DefaultHasher
-	lh := func(_ uint64, preimage []byte) []byte {
-		return h.HashLeaf(preimage)
-	}
-	v := verify.NewLogVerifier(db, lh, h.HashChildren)
-	root, crs, err := v.MerkleRoot(ctx, targetCp.TreeSize)
-	if err != nil {
-		glog.Exitf("Failed to compute root: %q", err)
-	}
-	if !bytes.Equal(targetCp.RootHash, root) {
-		glog.Exitf("Computed root %x != provided checkpoint %x for tree size %d", root, targetCp.RootHash, targetCp.TreeSize)
-	}
-	glog.Infof("Got matching roots for tree size %d: %x", targetCp.TreeSize, root)
-	if err := db.WriteCheckpoint(ctx, targetCp.TreeSize, targetCp.raw, crs); err != nil {
-		glog.Exitf("Failed to update database with new checkpoint: %v", err)
+	cl := cloner.New(*workers, *fetchBatchSize, *writeBatchSize, db)
+	if err := cl.CloneAndVerify(ctx, fetcher.Batch, cp); err != nil {
+		glog.Exitf("Failed to clone and verify log: %v", err)
 	}
 }
 

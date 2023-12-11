@@ -118,17 +118,9 @@ main() {
         ./...
   fi
 
-  if [[ "${build_actions}" -eq 1 ]]; then
-    echo "Building serverless actions =================================="
-    for i in $(find serverless/deploy/github -name Dockerfile); do
-      echo "Building ${i} ------------------------------------------------"
-      docker build -f "${i}" "$(dirname ${i})"
-    done
-  fi
-
   if [[ "${build_docker}" -eq 1 ]]; then
     echo "Building non-serverless-action dockerfiles ===================="
-    for i in $(find . -name Dockerfile -not -path './serverless/deploy/github/*' ); do
+    for i in $(find . -name Dockerfile ); do
       echo "Building ${i} ------------------------------------------------"
       docker build -f "${i}" .
     done

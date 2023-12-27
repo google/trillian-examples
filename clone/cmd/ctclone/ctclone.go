@@ -106,7 +106,7 @@ type ctFetcher struct {
 }
 
 // Batch provides a mechanism to fetch a range of leaves.
-// Enough leaves are fetched to fully fill `leaves`, or an error is returned.
+// Enough leaves are fetched to fully fill `leaves`, or an error is returned, unless the page is coerced.
 // This implements batch.BatchFetch.
 func (cf ctFetcher) Batch(start uint64, leaves [][]byte) error {
 	// CT API gets [start, end] not [start, end).
@@ -119,12 +119,21 @@ func (cf ctFetcher) Batch(start uint64, leaves [][]byte) error {
 	if err := json.Unmarshal(data, &r); err != nil {
 		return fmt.Errorf("json.Unmarshal of %d bytes: %w", len(data), err)
 	}
-	if got, want := len(r.Leaves), len(leaves); got != want {
+
+	isCoercedPage := ((start+uint64(len(r.Leaves)))%uint64(len(leaves)) == 0)
+	if got, want := len(r.Leaves), len(leaves); got > want || (got < want && !isCoercedPage) {
 		return fmt.Errorf("wanted %d leaves but got %d", want, got)
 	}
 	for i, l := range r.Leaves {
 		leaves[i] = l.Data
 	}
+	// If we got a coerced page, we need rest of slice needs to be filled with nils.
+	if isCoercedPage {
+		for i := len(r.Leaves); i < len(leaves); i++ {
+			leaves[i] = nil
+		}
+	}
+
 	return nil
 }
 

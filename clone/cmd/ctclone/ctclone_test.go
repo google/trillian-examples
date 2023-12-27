@@ -58,6 +58,13 @@ func TestCertLeafFetcher(t *testing.T) {
 			urls:    map[string]string{"ct/v1/get-entries?start=42&end=43": `{"entries":[{"leaf_input": "b25l"}]}`},
 			wantErr: true,
 		},
+		{
+			name:  "returned coerced page",
+			start: 43,
+			count: 2,
+			urls:  map[string]string{"ct/v1/get-entries?start=43&end=44": `{"entries":[{"leaf_input": "b25lIG9oIG9uZQ=="}]}`},
+			want:  []string{"one oh one", ""},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			clf := ctFetcher{&fakeFetcher{test.urls}}

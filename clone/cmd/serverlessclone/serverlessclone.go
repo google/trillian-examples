@@ -101,6 +101,8 @@ func clone(ctx context.Context, db *logdb.Database, f client.Fetcher, targetCp c
 	if err != nil {
 		return fmt.Errorf("couldn't determine first leaf to fetch: %v", err)
 	}
+	// TODO(mhutchinson): other implementations don't have this check. Is this redundant,
+	// OR can it be moved deeper into the call stack?
 	if next >= uint64(targetCp.Size) {
 		glog.Infof("No work to do. Local tree size = %d, latest log tree size = %d", next, targetCp.Size)
 		return nil

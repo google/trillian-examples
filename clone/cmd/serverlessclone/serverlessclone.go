@@ -17,7 +17,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -29,10 +28,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/google/trillian-examples/clone/internal/cloner"
-	"github.com/google/trillian-examples/clone/internal/verify"
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/transparency-dev/formats/log"
-	"github.com/transparency-dev/merkle/rfc6962"
 	"github.com/transparency-dev/serverless-log/client"
 	"golang.org/x/mod/sumdb/note"
 
@@ -88,37 +84,25 @@ func main() {
 	}
 	glog.Infof("Target checkpoint is for tree size %d", targetCp.Size)
 
-	if err := clone(ctx, db, f, targetCp); err != nil {
+	cp := cloner.UnwrappedCheckpoint{
+		Size: targetCp.Size,
+		Hash: targetCp.Hash,
+		Raw:  rawCp,
+	}
+	if err := clone(ctx, db, f, cp); err != nil {
 		glog.Exitf("Failed to clone: %v", err)
-	}
-
-	// Verify the downloaded leaves with the target checkpoint, and if it verifies, persist the checkpoint.
-	h := rfc6962.DefaultHasher
-	lh := func(_ uint64, preimage []byte) []byte {
-		return h.HashLeaf(preimage)
-	}
-
-	lv := verify.NewLogVerifier(db, lh, h.HashChildren)
-	root, crs, err := lv.MerkleRoot(ctx, uint64(targetCp.Size))
-	if err != nil {
-		glog.Exitf("Failed to compute root: %q", err)
-	}
-	if !bytes.Equal(targetCp.Hash[:], root) {
-		glog.Exitf("Computed root %x != provided checkpoint %x for tree size %d", root, targetCp.Hash, targetCp.Size)
-	}
-	glog.Infof("Got matching roots for tree size %d: %x", targetCp.Size, root)
-	if err := db.WriteCheckpoint(ctx, uint64(targetCp.Size), rawCp, crs); err != nil {
-		glog.Exitf("Failed to update database with new checkpoint: %v", err)
 	}
 }
 
-func clone(ctx context.Context, db *logdb.Database, f client.Fetcher, targetCp *log.Checkpoint) error {
+func clone(ctx context.Context, db *logdb.Database, f client.Fetcher, targetCp cloner.UnwrappedCheckpoint) error {
 	cl := cloner.New(*workers, 1, *writeBatchSize, db)
 
 	next, err := cl.Next()
 	if err != nil {
 		return fmt.Errorf("couldn't determine first leaf to fetch: %v", err)
 	}
+	// TODO(mhutchinson): other implementations don't have this check. Is this redundant,
+	// OR can it be moved deeper into the call stack?
 	if next >= uint64(targetCp.Size) {
 		glog.Infof("No work to do. Local tree size = %d, latest log tree size = %d", next, targetCp.Size)
 		return nil
@@ -133,8 +117,8 @@ func clone(ctx context.Context, db *logdb.Database, f client.Fetcher, targetCp *
 		return err
 	}
 
-	if err := cl.Clone(ctx, uint64(targetCp.Size), batchFetch); err != nil {
-		return fmt.Errorf("failed to clone log: %v", err)
+	if err := cl.CloneAndVerify(ctx, batchFetch, targetCp); err != nil {
+		return fmt.Errorf("failed to clone and verify log: %v", err)
 	}
 	return nil
 }

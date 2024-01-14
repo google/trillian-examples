@@ -47,18 +47,26 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 	rangeChans := make([]chan workerResult, workers)
 
 	increment := workers * batchSize
+
+	waitCh := make(chan struct{})
 	for i := uint(0); i < workers; i++ {
 		rangeChans[i] = make(chan workerResult)
 		start := first + uint64(i*batchSize)
-		go fetchWorker{
-			label:      fmt.Sprintf("worker %d", i),
-			start:      start,
-			treeSize:   treeSize,
-			count:      batchSize,
-			increment:  uint64(increment),
-			out:        rangeChans[i],
-			batchFetch: batchFetch,
-		}.run(ctx)
+		go func(i uint, start uint64) {
+			if i != 0 {
+				// Wait for the first worker to finish its alignment request.
+				<-waitCh
+			}
+			fetchWorker{
+				label:      fmt.Sprintf("worker %d", i),
+				start:      start,
+				treeSize:   treeSize,
+				count:      batchSize,
+				increment:  uint64(increment),
+				out:        rangeChans[i],
+				batchFetch: batchFetch,
+			}.run(ctx)
+		}(i, start)
 	}
 
 	var lastStart uint64
@@ -66,6 +74,7 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 		lastStart = treeSize - uint64(batchSize)
 	}
 	var r workerResult
+	alignmentDone := false
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {
 		select {
@@ -77,18 +86,30 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 			return
 		case r = <-rangeChans[i]:
 		}
-		if r.err != nil {
-			rc <- BulkResult{
-				Leaf: nil,
-				Err:  r.err,
+
+		if i == 0 && !alignmentDone && r.err == nil {
+			// The first worker is special because it also makes the "alignment" request. Aligning is necessary when CT log uses coerced responses. If the number of leaves is equal to requested batch size, then the alignment request is not necessary.
+			if r.fetched != uint64(batchSize) {
+				for _, l := range r.leaves {
+					rc <- BulkResult{
+						Leaf: l,
+						Err:  r.err,
+					}
+				}
+				return
 			}
-			return
+			close(waitCh)
+			alignmentDone = true
 		}
+
 		for _, l := range r.leaves {
 			rc <- BulkResult{
 				Leaf: l,
-				Err:  nil,
+				Err:  r.err,
 			}
+		}
+		if r.err != nil {
+			return
 		}
 		if r.start >= lastStart {
 			return
@@ -97,9 +118,10 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 }
 
 type workerResult struct {
-	start  uint64
-	leaves [][]byte
-	err    error
+	start   uint64
+	leaves  [][]byte
+	fetched uint64
+	err     error
 }
 
 type fetchWorker struct {
@@ -128,14 +150,18 @@ func (w fetchWorker) run(ctx context.Context) {
 		leaves := make([][]byte, count)
 		var c workerResult
 		operation := func() error {
-			_, err := w.batchFetch(w.start, leaves)
+			fetched, err := w.batchFetch(w.start, leaves)
 			if err != nil {
 				return fmt.Errorf("LeafFetcher.Batch(%d, %d): %w", w.start, w.count, err)
 			}
 			c = workerResult{
-				start:  w.start,
-				leaves: leaves,
-				err:    nil,
+				start:   w.start,
+				leaves:  leaves,
+				fetched: fetched,
+				err:     nil,
+			}
+			if fetched != uint64(len(leaves)) {
+				return backoff.Permanent(fmt.Errorf("LeafFetcher.Batch(%d, %d): wanted %d leaves but got %d", w.start, w.count, len(leaves), fetched))
 			}
 			return nil
 		}
@@ -146,6 +172,9 @@ func (w fetchWorker) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case w.out <- c:
+		}
+		if c.err != nil {
+			return
 		}
 		w.start += w.increment
 	}

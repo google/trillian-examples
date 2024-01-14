@@ -24,43 +24,61 @@ import (
 	"time"
 )
 
+func getFakeFetch(fetchOnly uint64) func(start uint64, leaves [][]byte) (uint64, error) {
+	return func(start uint64, leaves [][]byte) (uint64, error) {
+		for i := range leaves {
+			if uint64(i) == fetchOnly {
+				return uint64(i), nil
+			}
+			leaves[i] = []byte(strconv.Itoa(int(start) + i))
+		}
+		return uint64(len(leaves)), nil
+	}
+}
+
+type testCase struct {
+	name            string
+	first, treeSize uint64
+	batchSize       uint
+	workers         uint
+	wantErr         bool
+	fakeFetch       func(start uint64, leaves [][]byte) (uint64, error)
+}
+
 func TestFetchWorkerRun(t *testing.T) {
-	for _, test := range []struct {
-		name            string
-		first, treeSize uint64
-		batchSize       uint
-	}{
+	for _, test := range []testCase{
 		{
 			name:      "smallest batch",
 			first:     0,
 			treeSize:  10,
 			batchSize: 1,
+			fakeFetch: getFakeFetch(1),
 		},
 		{
 			name:      "larger batch",
 			first:     0,
 			treeSize:  110,
 			batchSize: 10,
+			fakeFetch: getFakeFetch(10),
 		},
 		{
 			name:      "bigger batch than tree",
 			first:     0,
 			treeSize:  9,
 			batchSize: 10,
+			fakeFetch: getFakeFetch(10),
 		},
 		{
 			name:      "batch size non-divisor of range",
 			first:     0,
 			treeSize:  107,
 			batchSize: 10,
+			fakeFetch: getFakeFetch(10),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			wrc := make(chan workerResult)
 
-			fakeFetch := func(start uint64, leaves [][]byte) (uint64, error) {
-				return 0, nil
-			}
 			fw := fetchWorker{
 				label:      test.name,
 				start:      test.first,
@@ -68,7 +86,7 @@ func TestFetchWorkerRun(t *testing.T) {
 				increment:  uint64(test.batchSize),
 				count:      test.batchSize,
 				out:        wrc,
-				batchFetch: fakeFetch,
+				batchFetch: test.fakeFetch,
 			}
 
 			go fw.run(context.Background())
@@ -92,18 +110,14 @@ func TestFetchWorkerRun(t *testing.T) {
 }
 
 func TestBulk(t *testing.T) {
-	for _, test := range []struct {
-		name            string
-		first, treeSize uint64
-		batchSize       uint
-		workers         uint
-	}{
+	for _, test := range []testCase{
 		{
 			name:      "smallest batch",
 			first:     0,
 			treeSize:  10,
 			batchSize: 1,
 			workers:   1,
+			fakeFetch: getFakeFetch(1),
 		},
 		{
 			name:      "larger batch",
@@ -111,6 +125,7 @@ func TestBulk(t *testing.T) {
 			treeSize:  110,
 			batchSize: 10,
 			workers:   4,
+			fakeFetch: getFakeFetch(10),
 		},
 		{
 			name:      "bigger batch than tree",
@@ -118,6 +133,7 @@ func TestBulk(t *testing.T) {
 			treeSize:  9,
 			batchSize: 10,
 			workers:   1,
+			fakeFetch: getFakeFetch(10),
 		},
 		{
 			name:      "batch size equals tree size",
@@ -125,6 +141,7 @@ func TestBulk(t *testing.T) {
 			treeSize:  10,
 			batchSize: 10,
 			workers:   1,
+			fakeFetch: getFakeFetch(10),
 		},
 		{
 			name:      "batch size non-divisor of range",
@@ -132,17 +149,13 @@ func TestBulk(t *testing.T) {
 			treeSize:  107,
 			batchSize: 10,
 			workers:   4,
+			fakeFetch: getFakeFetch(10),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			brc := make(chan BulkResult)
-			fakeFetch := func(start uint64, leaves [][]byte) (uint64, error) {
-				for i := range leaves {
-					leaves[i] = []byte(strconv.Itoa(int(start) + i))
-				}
-				return 0, nil
-			}
-			go Bulk(context.Background(), test.first, test.treeSize, fakeFetch, test.workers, test.batchSize, brc)
+
+			go Bulk(context.Background(), test.first, test.treeSize, test.fakeFetch, test.workers, test.batchSize, brc)
 
 			i := 0
 			for br := range brc {
@@ -168,9 +181,7 @@ func TestBulkCancelled(t *testing.T) {
 	var workers uint = 4
 	var batchSize uint = 10
 
-	fakeFetch := func(start uint64, leaves [][]byte) (uint64, error) {
-		return 0, nil
-	}
+	fakeFetch := getFakeFetch(10)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -189,6 +200,97 @@ func TestBulkCancelled(t *testing.T) {
 	}
 	if seen == int(treeSize) {
 		t.Error("Expected cancellation to prevent all leaves being read")
+	}
+}
+
+func TestBulkIncomplete(t *testing.T) {
+	for _, test := range []testCase{
+		{
+			name:      "incomplete first batch",
+			first:     0,
+			treeSize:  100,
+			batchSize: 10,
+			workers:   4,
+			wantErr:   true,
+			fakeFetch: func(start uint64, leaves [][]byte) (uint64, error) {
+				fetched := uint64(len(leaves))
+				for i := range leaves {
+					leaves[i] = []byte(strconv.Itoa(int(start) + i))
+					if start == 0 && i == 4 {
+						fetched = 5
+						break
+					}
+				}
+				return fetched, nil
+			},
+		},
+		{
+			name:      "incomplete last batch",
+			first:     0,
+			treeSize:  100,
+			batchSize: 10,
+			workers:   4,
+			wantErr:   true,
+			fakeFetch: func(start uint64, leaves [][]byte) (uint64, error) {
+				fetched := uint64(len(leaves))
+				for i := range leaves {
+					leaves[i] = []byte(strconv.Itoa(int(start) + i))
+					if start == 90 && i == 4 {
+						fetched = 5
+						break
+					}
+				}
+				return fetched, nil
+			},
+		},
+		{
+			name:      "incomplete middle batch",
+			first:     0,
+			treeSize:  100,
+			batchSize: 10,
+			workers:   4,
+			wantErr:   true,
+			fakeFetch: func(start uint64, leaves [][]byte) (uint64, error) {
+				fetched := uint64(len(leaves))
+				for i := range leaves {
+					leaves[i] = []byte(strconv.Itoa(int(start) + i))
+					if start == 50 && i == 4 {
+						fetched = 5
+						break
+					}
+				}
+				return fetched, nil
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			brc := make(chan BulkResult)
+			go Bulk(context.Background(), test.first, test.treeSize, test.fakeFetch, test.workers, test.batchSize, brc)
+
+			i := 0
+			var err error
+			for br := range brc {
+				if br.Err != nil && !test.wantErr {
+					t.Fatal(br.Err)
+				}
+				if br.Err != nil && test.wantErr {
+					err = br.Err
+				}
+				if got, want := string(br.Leaf), strconv.Itoa(i); got != want && err == nil {
+					t.Fatalf("%d got != want (%q != %q)", i, got, want)
+				}
+				i++
+			}
+			if err == nil && test.wantErr {
+				t.Errorf("expected error, got none")
+			}
+			if err != nil && !test.wantErr {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if i != int(test.treeSize) && !test.wantErr {
+				t.Errorf("expected %d leaves, got %d", test.treeSize, i)
+			}
+		})
 	}
 }
 

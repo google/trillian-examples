@@ -36,9 +36,8 @@ type BulkResult struct {
 
 // Bulk keeps downloading leaves starting from `first`, using the given leaf fetcher.
 // The number of workers and the batch size to use for each of the fetch requests are also specified.
-// The resulting leaves are returned in order over `leafChan`, and any terminal errors are returned via `errc`.
+// The resulting leaves or terminal errors are returned in order over `rc`. Bulk takes ownership of `rc` and will close it when no more values will be written.
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
-// Bulk takes ownership of `rc` and will close it when no more values will be written.
 func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, workers, batchSize uint, rc chan<- BulkResult) {
 	defer close(rc)
 	ctx, cancel := context.WithCancel(ctx)

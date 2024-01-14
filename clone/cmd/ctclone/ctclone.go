@@ -91,24 +91,24 @@ type ctFetcher struct {
 // Batch provides a mechanism to fetch a range of leaves.
 // Enough leaves are fetched to fully fill `leaves`, or an error is returned.
 // This implements batch.BatchFetch.
-func (cf ctFetcher) Batch(start uint64, leaves [][]byte) error {
+func (cf ctFetcher) Batch(start uint64, leaves [][]byte) (uint64, error) {
 	// CT API gets [start, end] not [start, end).
 	last := start + uint64(len(leaves)) - 1
 	data, err := cf.f.GetData(fmt.Sprintf("ct/v1/get-entries?start=%d&end=%d", start, last))
 	if err != nil {
-		return fmt.Errorf("fetcher.GetData: %w", err)
+		return 0, fmt.Errorf("fetcher.GetData: %w", err)
 	}
 	var r getEntriesResponse
 	if err := json.Unmarshal(data, &r); err != nil {
-		return fmt.Errorf("json.Unmarshal of %d bytes: %w", len(data), err)
+		return 0, fmt.Errorf("json.Unmarshal of %d bytes: %w", len(data), err)
 	}
 	if got, want := len(r.Leaves), len(leaves); got != want {
-		return fmt.Errorf("wanted %d leaves but got %d", want, got)
+		return uint64(len(r.Leaves)), fmt.Errorf("wanted %d leaves but got %d", want, got)
 	}
 	for i, l := range r.Leaves {
 		leaves[i] = l.Data
 	}
-	return nil
+	return uint64(len(r.Leaves)), nil
 }
 
 func (cf ctFetcher) latestCheckpoint() (CTCheckpointResponse, error) {

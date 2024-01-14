@@ -108,13 +108,13 @@ func clone(ctx context.Context, db *logdb.Database, f client.Fetcher, targetCp c
 		return nil
 	}
 
-	batchFetch := func(start uint64, leaves [][]byte) error {
+	batchFetch := func(start uint64, leaves [][]byte) (uint64, error) {
 		if len(leaves) != 1 {
-			return fmt.Errorf("true batch fetching not supported")
+			return 0, fmt.Errorf("true batch fetching not supported")
 		}
 		leaf, err := client.GetLeaf(ctx, f, start)
 		leaves[0] = leaf
-		return err
+		return 1, err
 	}
 
 	if err := cl.CloneAndVerify(ctx, batchFetch, targetCp); err != nil {

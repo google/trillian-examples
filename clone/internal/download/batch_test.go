@@ -58,8 +58,8 @@ func TestFetchWorkerRun(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			wrc := make(chan workerResult)
 
-			fakeFetch := func(start uint64, leaves [][]byte) error {
-				return nil
+			fakeFetch := func(start uint64, leaves [][]byte) (uint64, error) {
+				return 0, nil
 			}
 			fw := fetchWorker{
 				label:      test.name,
@@ -136,11 +136,11 @@ func TestBulk(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			brc := make(chan BulkResult)
-			fakeFetch := func(start uint64, leaves [][]byte) error {
+			fakeFetch := func(start uint64, leaves [][]byte) (uint64, error) {
 				for i := range leaves {
 					leaves[i] = []byte(strconv.Itoa(int(start) + i))
 				}
-				return nil
+				return 0, nil
 			}
 			go Bulk(context.Background(), test.first, test.treeSize, fakeFetch, test.workers, test.batchSize, brc)
 
@@ -168,8 +168,8 @@ func TestBulkCancelled(t *testing.T) {
 	var workers uint = 4
 	var batchSize uint = 10
 
-	fakeFetch := func(start uint64, leaves [][]byte) error {
-		return nil
+	fakeFetch := func(start uint64, leaves [][]byte) (uint64, error) {
+		return 0, nil
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -243,17 +243,17 @@ func BenchmarkBulk(b *testing.B) {
 				take = th.take
 			}
 
-			fakeFetch := func(start uint64, leaves [][]byte) error {
+			fakeFetch := func(start uint64, leaves [][]byte) (uint64, error) {
 				time.Sleep(test.fetchDelay)
 				if err := take(len(leaves)); err != nil {
-					return err
+					return 0, err
 				}
 				for i := range leaves {
 					// Allocate a non-trivial amount of memory for the leaf.
 					leaf := make([]byte, 1024)
 					leaves[i] = leaf
 				}
-				return nil
+				return uint64(len(leaves)), nil
 			}
 
 			const consumeSize = 1000

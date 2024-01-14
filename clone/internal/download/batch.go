@@ -25,8 +25,8 @@ import (
 )
 
 // BatchFetch should be implemented to provide a mechanism to fetch a range of leaves.
-// Enough leaves should be fetched to fully fill `leaves`, or an error should be returned.
-type BatchFetch func(start uint64, leaves [][]byte) error
+// It should return the number of leaves fetched, or an error if the fetch failed.
+type BatchFetch func(start uint64, leaves [][]byte) (uint64, error)
 
 // BulkResult combines a downloaded leaf, or the error found when trying to obtain the leaf.
 type BulkResult struct {
@@ -128,7 +128,7 @@ func (w fetchWorker) run(ctx context.Context) {
 		leaves := make([][]byte, count)
 		var c workerResult
 		operation := func() error {
-			err := w.batchFetch(w.start, leaves)
+			_, err := w.batchFetch(w.start, leaves)
 			if err != nil {
 				return fmt.Errorf("LeafFetcher.Batch(%d, %d): %w", w.start, w.count, err)
 			}

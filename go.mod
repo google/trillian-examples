@@ -14,7 +14,7 @@ require (
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.6.0
 	github.com/gorilla/mux v1.8.1
-	github.com/mattn/go-sqlite3 v1.14.21
+	github.com/mattn/go-sqlite3 v1.14.22
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/transparency-dev/formats v0.0.0-20230914071414-5732692f1e50
 	github.com/transparency-dev/merkle v0.0.2

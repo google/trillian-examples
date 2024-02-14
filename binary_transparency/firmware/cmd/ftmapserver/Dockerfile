@@ -1,4 +1,4 @@
-FROM golang:1.22.0-bullseye@sha256:84825c0ec01d277311cfbad14321338166fc7ffa73202db3a2debfeb89e8ddd5 AS builder
+FROM golang:1.22.0-bullseye@sha256:0c099cf97c6162ceab8c9494c4ce8c2a19a73b852f334ec1876a42d05eb5f90b AS builder
 LABEL stage=builder
 
 ARG GOFLAGS=""
@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./binary_transparency/firmware/cmd/ftmapserver
 
 # Build release image
-FROM golang:1.22.0-bullseye@sha256:84825c0ec01d277311cfbad14321338166fc7ffa73202db3a2debfeb89e8ddd5
+FROM golang:1.22.0-bullseye@sha256:0c099cf97c6162ceab8c9494c4ce8c2a19a73b852f334ec1876a42d05eb5f90b
 
 COPY --from=builder /build/ftmapserver /bin/ftmapserver
 ENTRYPOINT ["/bin/ftmapserver"]

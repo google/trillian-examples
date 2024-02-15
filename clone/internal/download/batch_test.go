@@ -211,7 +211,7 @@ func TestBulkIncomplete(t *testing.T) {
 			treeSize:  100,
 			batchSize: 10,
 			workers:   4,
-			wantErr:   true,
+			wantErr:   false,
 			fakeFetch: func(start uint64, leaves [][]byte) (uint64, error) {
 				fetched := uint64(len(leaves))
 				for i := range leaves {

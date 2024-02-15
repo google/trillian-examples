@@ -17,6 +17,7 @@ package download
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -45,18 +46,54 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 	// Each worker gets its own unbuffered channel to make sure it can only be at most one ahead.
 	// This prevents lots of wasted work happening if one shard gets stuck.
 	rangeChans := make([]chan workerResult, workers)
-
 	increment := workers * batchSize
 
-	waitCh := make(chan struct{})
+	badAlignErr := errors.New("not aligned")
+	align := func() (uint64, error) {
+		if left := treeSize - first; left < uint64(batchSize) {
+			batchSize = uint(left)
+		}
+		glog.Infof("Attempting to align by making request [%d, %d)", first, first+uint64(batchSize))
+		leaves := make([][]byte, batchSize)
+		fetched, err := batchFetch(first, leaves)
+		if err != nil {
+			glog.Warningf("Failed to fetch batch: %v", err)
+			return 0, err
+		}
+		for i := 0; i < int(fetched); i++ {
+			rc <- BulkResult{
+				Leaf: leaves[i],
+				Err:  nil,
+			}
+		}
+		first += fetched
+		if fetched != uint64(batchSize) {
+			glog.Warningf("Received partial batch (expected %d, got %d)", batchSize, fetched)
+			return first, badAlignErr
+		}
+		glog.Infof("Received full batch (expected %d, got %d)", batchSize, fetched)
+		return first, nil
+	}
+
+	var err error
+	if first, err = align(); err != nil {
+		if err != badAlignErr {
+			glog.Errorf("Failed to align: %v", err)
+			return
+		}
+		// We failed to align once, but let's try a second time. If this works then
+		// we're aligned with how the log wants to server chunks of entries. If it
+		// fails then we can guess that the desired batch size is not configured well.
+		if first, err = align(); err != nil {
+			glog.Errorf("Failed to align after two attempts, consider a different batch size? %v", err)
+			return
+		}
+	}
+
 	for i := uint(0); i < workers; i++ {
 		rangeChans[i] = make(chan workerResult)
 		start := first + uint64(i*batchSize)
 		go func(i uint, start uint64) {
-			if i != 0 {
-				// Wait for the first worker to finish its alignment request.
-				<-waitCh
-			}
 			fetchWorker{
 				label:      fmt.Sprintf("worker %d", i),
 				start:      start,
@@ -74,7 +111,6 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 		lastStart = treeSize - uint64(batchSize)
 	}
 	var r workerResult
-	alignmentDone := false
 	// Perpetually round-robin through the sharded ranges.
 	for i := 0; ; i = (i + 1) % int(workers) {
 		select {
@@ -86,30 +122,18 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 			return
 		case r = <-rangeChans[i]:
 		}
-
-		if i == 0 && !alignmentDone && r.err == nil {
-			// The first worker is special because it also makes the "alignment" request. Aligning is necessary when CT log uses coerced responses. If the number of leaves is equal to requested batch size, then the alignment request is not necessary.
-			if r.fetched != uint64(batchSize) {
-				for _, l := range r.leaves {
-					rc <- BulkResult{
-						Leaf: l,
-						Err:  r.err,
-					}
-				}
-				return
+		if r.err != nil {
+			rc <- BulkResult{
+				Leaf: nil,
+				Err:  r.err,
 			}
-			close(waitCh)
-			alignmentDone = true
+			return
 		}
-
 		for _, l := range r.leaves {
 			rc <- BulkResult{
 				Leaf: l,
-				Err:  r.err,
+				Err:  nil,
 			}
-		}
-		if r.err != nil {
-			return
 		}
 		if r.start >= lastStart {
 			return

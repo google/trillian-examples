@@ -21,7 +21,7 @@ require (
 	github.com/transparency-dev/serverless-log v0.0.0-20230914155322-9b6f31f76f1f
 	github.com/u-root/u-root v0.13.1
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
-	golang.org/x/crypto v0.19.0
+	golang.org/x/crypto v0.20.0
 	golang.org/x/mod v0.15.0
 	golang.org/x/oauth2 v0.17.0
 	golang.org/x/sync v0.6.0

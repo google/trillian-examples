@@ -6,7 +6,7 @@ require (
 	github.com/apache/beam/sdks/v2 v2.54.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
-	github.com/go-sql-driver/mysql v1.7.1
+	github.com/go-sql-driver/mysql v1.8.0
 	github.com/golang/glog v1.2.0
 	github.com/golang/mock v1.6.0
 	github.com/google/certificate-transparency-go v1.1.7
@@ -38,6 +38,7 @@ require (
 	cloud.google.com/go/iam v1.1.5 // indirect
 	cloud.google.com/go/profiler v0.4.0 // indirect
 	cloud.google.com/go/storage v1.36.0 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect

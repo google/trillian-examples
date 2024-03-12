@@ -9,7 +9,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.0
 	github.com/golang/glog v1.2.0
 	github.com/golang/mock v1.6.0
-	github.com/google/certificate-transparency-go v1.1.7
+	github.com/google/certificate-transparency-go v1.1.8
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.6.0
@@ -55,7 +55,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20231023181126-ff6d637d2a7b // indirect
 	github.com/google/s2a-go v0.1.7 // indirect

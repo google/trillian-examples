@@ -104,9 +104,9 @@ func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClien
 
 	// batchFetch gets full or partial tiles depending on the number of leaves requested.
 	// start must always be the first index within a tile or it is being used wrong.
-	batchFetch := func(start uint64, leaves [][]byte) error {
+	batchFetch := func(start uint64, leaves [][]byte) (uint64, error) {
 		if start%uint64(fullTileSize) > 0 {
-			return backoff.Permanent(fmt.Errorf("%d is not the first leaf in a tile", start))
+			return 0, backoff.Permanent(fmt.Errorf("%d is not the first leaf in a tile", start))
 		}
 		offset := int(start >> tileHeight)
 
@@ -118,10 +118,10 @@ func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClien
 			got, err = client.PartialLeavesAtOffset(offset, len(leaves))
 		}
 		if err != nil {
-			return fmt.Errorf("failed to get leaves at offset %d: %v", offset, err)
+			return 0, fmt.Errorf("failed to get leaves at offset %d: %v", offset, err)
 		}
 		copy(leaves, got)
-		return nil
+		return uint64(len(leaves)), nil
 	}
 
 	// Download any remainder of a previous partial tile before calling Clone,
@@ -134,7 +134,7 @@ func clone(ctx context.Context, db *logdb.Database, client *sdbclient.SumDBClien
 		}
 		leaves := make([][]byte, needed)
 		glog.Infof("Next=%d does not align with tile boundary; prefetching tile [%d, %d)", next, tileStart, tileStart+uint64(len(leaves)))
-		if err := batchFetch(tileStart, leaves); err != nil {
+		if _, err := batchFetch(tileStart, leaves); err != nil {
 			return err
 		}
 		if err := db.WriteLeaves(ctx, next, leaves[rem:]); err != nil {

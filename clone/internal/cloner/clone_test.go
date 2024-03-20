@@ -65,11 +65,11 @@ func TestClone(t *testing.T) {
 			defer close()
 
 			cloner := New(test.workers, test.fetchBatchSize, test.writeBatchSize, db)
-			fetcher := func(start uint64, leaves [][]byte) error {
+			fetcher := func(start uint64, leaves [][]byte) (uint64, error) {
 				for i := range leaves {
 					leaves[i] = []byte(fmt.Sprintf("leaf %d", start+1))
 				}
-				return nil
+				return uint64(len(leaves)), nil
 			}
 			if err := cloner.clone(context.Background(), test.treeSize, fetcher); err != nil {
 				t.Fatalf("Clone(): %v", err)

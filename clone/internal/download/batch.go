@@ -17,6 +17,7 @@ package download
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -25,8 +26,8 @@ import (
 )
 
 // BatchFetch should be implemented to provide a mechanism to fetch a range of leaves.
-// Enough leaves should be fetched to fully fill `leaves`, or an error should be returned.
-type BatchFetch func(start uint64, leaves [][]byte) error
+// It should return the number of leaves fetched, or an error if the fetch failed.
+type BatchFetch func(start uint64, leaves [][]byte) (uint64, error)
 
 // BulkResult combines a downloaded leaf, or the error found when trying to obtain the leaf.
 type BulkResult struct {
@@ -36,9 +37,8 @@ type BulkResult struct {
 
 // Bulk keeps downloading leaves starting from `first`, using the given leaf fetcher.
 // The number of workers and the batch size to use for each of the fetch requests are also specified.
-// The resulting leaves are returned in order over `leafChan`, and any terminal errors are returned via `errc`.
+// The resulting leaves or terminal errors are returned in order over `rc`. Bulk takes ownership of `rc` and will close it when no more values will be written.
 // Internally this uses exponential backoff on the workers to download as fast as possible, but no faster.
-// Bulk takes ownership of `rc` and will close it when no more values will be written.
 func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, workers, batchSize uint, rc chan<- BulkResult) {
 	defer close(rc)
 	ctx, cancel := context.WithCancel(ctx)
@@ -46,20 +46,64 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 	// Each worker gets its own unbuffered channel to make sure it can only be at most one ahead.
 	// This prevents lots of wasted work happening if one shard gets stuck.
 	rangeChans := make([]chan workerResult, workers)
-
 	increment := workers * batchSize
+
+	badAlignErr := errors.New("not aligned")
+	align := func() (uint64, error) {
+		if left := treeSize - first; left < uint64(batchSize) {
+			batchSize = uint(left)
+		}
+		glog.Infof("Attempting to align by making request [%d, %d)", first, first+uint64(batchSize))
+		leaves := make([][]byte, batchSize)
+		fetched, err := batchFetch(first, leaves)
+		if err != nil {
+			glog.Warningf("Failed to fetch batch: %v", err)
+			return 0, err
+		}
+		for i := 0; i < int(fetched); i++ {
+			rc <- BulkResult{
+				Leaf: leaves[i],
+				Err:  nil,
+			}
+		}
+		first += fetched
+		if fetched != uint64(batchSize) {
+			glog.Warningf("Received partial batch (expected %d, got %d)", batchSize, fetched)
+			return first, badAlignErr
+		}
+		glog.Infof("Received full batch (expected %d, got %d)", batchSize, fetched)
+		return first, nil
+	}
+
+	var err error
+	if first, err = align(); err != nil {
+		if err != badAlignErr {
+			glog.Errorf("Failed to align: %v", err)
+			return
+		}
+		// We failed to align once, but let's try a second time. If this works then
+		// we're aligned with how the log wants to server chunks of entries. If it
+		// fails then we can guess that the desired batch size is not configured well.
+		if first, err = align(); err != nil {
+			glog.Errorf("Failed to align after two attempts, consider a different batch size? %v", err)
+			return
+		}
+	}
+
 	for i := uint(0); i < workers; i++ {
 		rangeChans[i] = make(chan workerResult)
 		start := first + uint64(i*batchSize)
-		go fetchWorker{
-			label:      fmt.Sprintf("worker %d", i),
-			start:      start,
-			treeSize:   treeSize,
-			count:      batchSize,
-			increment:  uint64(increment),
-			out:        rangeChans[i],
-			batchFetch: batchFetch,
-		}.run(ctx)
+		go func(i uint, start uint64) {
+			fetchWorker{
+				label:      fmt.Sprintf("worker %d", i),
+				start:      start,
+				treeSize:   treeSize,
+				count:      batchSize,
+				increment:  uint64(increment),
+				out:        rangeChans[i],
+				batchFetch: batchFetch,
+			}.run(ctx)
+		}(i, start)
 	}
 
 	var lastStart uint64
@@ -98,9 +142,10 @@ func Bulk(ctx context.Context, first, treeSize uint64, batchFetch BatchFetch, wo
 }
 
 type workerResult struct {
-	start  uint64
-	leaves [][]byte
-	err    error
+	start   uint64
+	leaves  [][]byte
+	fetched uint64
+	err     error
 }
 
 type fetchWorker struct {
@@ -129,14 +174,18 @@ func (w fetchWorker) run(ctx context.Context) {
 		leaves := make([][]byte, count)
 		var c workerResult
 		operation := func() error {
-			err := w.batchFetch(w.start, leaves)
+			fetched, err := w.batchFetch(w.start, leaves)
 			if err != nil {
 				return fmt.Errorf("LeafFetcher.Batch(%d, %d): %w", w.start, w.count, err)
 			}
 			c = workerResult{
-				start:  w.start,
-				leaves: leaves,
-				err:    nil,
+				start:   w.start,
+				leaves:  leaves,
+				fetched: fetched,
+				err:     nil,
+			}
+			if fetched != uint64(len(leaves)) {
+				return backoff.Permanent(fmt.Errorf("LeafFetcher.Batch(%d, %d): wanted %d leaves but got %d", w.start, w.count, len(leaves), fetched))
 			}
 			return nil
 		}
@@ -147,6 +196,9 @@ func (w fetchWorker) run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case w.out <- c:
+		}
+		if c.err != nil {
+			return
 		}
 		w.start += w.increment
 	}

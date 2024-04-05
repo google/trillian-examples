@@ -7,7 +7,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/go-sql-driver/mysql v1.8.1
-	github.com/golang/glog v1.2.0
+	github.com/golang/glog v1.2.1
 	github.com/golang/mock v1.6.0
 	github.com/google/certificate-transparency-go v1.1.8
 	github.com/google/go-cmp v0.6.0

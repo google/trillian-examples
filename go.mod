@@ -25,7 +25,7 @@ require (
 	golang.org/x/mod v0.17.0
 	golang.org/x/oauth2 v0.19.0
 	golang.org/x/sync v0.6.0
-	google.golang.org/grpc v1.62.1
+	google.golang.org/grpc v1.63.0
 	google.golang.org/protobuf v1.33.0
 	k8s.io/klog/v2 v2.120.1
 )
@@ -84,9 +84,9 @@ require (
 	golang.org/x/tools v0.18.0 // indirect
 	google.golang.org/api v0.166.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
-	google.golang.org/genproto v0.0.0-20240213162025-012b6fc9bca9 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240221002015-b0ce06bbee7c // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240213162025-012b6fc9bca9 // indirect
+	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240227224415-6ceb2ff114de // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240227224415-6ceb2ff114de // indirect
 	gopkg.in/retry.v1 v1.0.3 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )

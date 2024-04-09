@@ -3,7 +3,7 @@ module github.com/google/trillian-examples
 go 1.21
 
 require (
-	github.com/apache/beam/sdks/v2 v2.55.0
+	github.com/apache/beam/sdks/v2 v2.55.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/go-sql-driver/mysql v1.8.1

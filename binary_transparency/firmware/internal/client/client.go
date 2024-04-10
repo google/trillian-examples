@@ -96,9 +96,9 @@ func (c SubmitClient) PublishFirmware(manifest, image []byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to publish to log endpoint (%s): %w", u, err)
 	}
-	if resp.Request.Method != "POST" {
+	if r.Request.Method != "POST" {
 		// https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections#permanent_redirections
-		return fmt.Errorf("POST request to %q was converted to %s request to %q", u.String(), resp.Request.Method, resp.Request.URL)
+		return fmt.Errorf("POST request to %q was converted to %s request to %q", u.String(), r.Request.Method, r.Request.URL)
 	}
 	if r.StatusCode != http.StatusOK {
 		return errFromResponse("failed to submit to log", r)

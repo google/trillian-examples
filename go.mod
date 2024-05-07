@@ -23,7 +23,7 @@ require (
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
 	golang.org/x/crypto v0.23.0
 	golang.org/x/mod v0.17.0
-	golang.org/x/oauth2 v0.19.0
+	golang.org/x/oauth2 v0.20.0
 	golang.org/x/sync v0.7.0
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.34.0
@@ -33,8 +33,7 @@ require (
 require (
 	bitbucket.org/creachadair/shell v0.0.8 // indirect
 	cloud.google.com/go v0.112.1 // indirect
-	cloud.google.com/go/compute v1.24.0 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/iam v1.1.7 // indirect
 	cloud.google.com/go/profiler v0.4.0 // indirect
 	cloud.google.com/go/storage v1.39.1 // indirect

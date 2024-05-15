@@ -1,4 +1,4 @@
-FROM golang:1.22.3-bullseye@sha256:e72f9a1d29fbd6e1603df5a780e8f407caebef4dbb9f07536fc72f1c368298aa AS builder
+FROM golang:1.22.3-bullseye@sha256:e39ea97d70f3b88bd1684c69c6937c45cf97a8a0509dd46145d7095b83c5b748 AS builder
 LABEL stage=builder
 
 ARG GOFLAGS=""
@@ -19,7 +19,7 @@ COPY . .
 RUN go build ./binary_transparency/firmware/cmd/ft_personality
 
 # Build release image
-FROM golang:1.22.3-bullseye@sha256:e72f9a1d29fbd6e1603df5a780e8f407caebef4dbb9f07536fc72f1c368298aa
+FROM golang:1.22.3-bullseye@sha256:e39ea97d70f3b88bd1684c69c6937c45cf97a8a0509dd46145d7095b83c5b748
 
 COPY --from=builder /build/ft_personality /bin/ft_personality
 ENTRYPOINT ["/bin/ft_personality"]

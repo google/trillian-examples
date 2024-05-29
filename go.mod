@@ -1,6 +1,7 @@
 module github.com/google/trillian-examples
 
 go 1.21
+toolchain go1.22.2
 
 require (
 	github.com/apache/beam/sdks/v2 v2.56.0
@@ -9,7 +10,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang/glog v1.2.1
 	github.com/golang/mock v1.6.0
-	github.com/google/certificate-transparency-go v1.1.8
+	github.com/google/certificate-transparency-go v1.2.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.6.0
@@ -76,7 +77,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225 // indirect
-	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect

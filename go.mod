@@ -1,7 +1,7 @@
 module github.com/google/trillian-examples
 
 go 1.21
-toolchain go1.22.2
+toolchain go1.22.3
 
 require (
 	github.com/apache/beam/sdks/v2 v2.56.0
@@ -23,7 +23,7 @@ require (
 	github.com/u-root/u-root v0.14.0
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
 	golang.org/x/crypto v0.23.0
-	golang.org/x/mod v0.17.0
+	golang.org/x/mod v0.18.0
 	golang.org/x/oauth2 v0.20.0
 	golang.org/x/sync v0.7.0
 	google.golang.org/grpc v1.64.0

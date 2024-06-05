@@ -3,89 +3,179 @@ updates:
 - package-ecosystem: gomod
   directory: /
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /binary_transparency/firmware/cmd/ft_personality
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /binary_transparency/firmware/cmd/ftmapserver
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /clone/cmd/ctclone
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /clone/cmd/ctverify
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /clone/cmd/sumdbclone
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /integration
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /serverless/deploy/github/distributor/combine_witness_signatures
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: gomod
   directory: /serverless/deploy/github/distributor/combine_witness_signatures
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /serverless/deploy/github/distributor/update_logs_index
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: gomod
   directory: /serverless/deploy/github/distributor/update_logs_index
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /serverless/deploy/github/log/leaf_validator
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /serverless/deploy/github/log/sequence_and_integrate
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: gomod
   directory: /serverless/experimental/gcp-log/gcs_uploader
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: gomod
   directory: /serverless/experimental/gcp-log
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /sumdbaudit/docker/mirror
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"
 
 - package-ecosystem: docker
   directory: /sumdbaudit/docker/witness
   schedule:
-    interval: daily
+    interval: weekly
+  groups:
+    all-deps:
+      applies-to: version-updates
+      patterns:
+        - "*"

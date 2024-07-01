@@ -20,8 +20,8 @@ github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1/go.mod h1:xomTg6
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
-github.com/apache/beam/sdks/v2 v2.56.0 h1:dbtSGGbxTR9myE6JxRk5iAfEVVwnmtWVSu8lt8Pfz3s=
-github.com/apache/beam/sdks/v2 v2.56.0/go.mod h1:Xjsof4TTctXyMT78woX0K3JF1efJR6NwL1VQUPls5/0=
+github.com/apache/beam/sdks/v2 v2.57.0 h1:LrUQI9aEKzOHhDQuG9WIYfaIDfek+stCPf8vpwexKww=
+github.com/apache/beam/sdks/v2 v2.57.0/go.mod h1:fjR6f5OXus3quvl5n+6F12o/Er8uiaMVMNtwN55yZwA=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/census-instrumentation/opencensus-proto v0.2.1/go.mod h1:f6KPmirojxKA12rnyqOA5BBL4O983OfeGPqjHWSTneU=

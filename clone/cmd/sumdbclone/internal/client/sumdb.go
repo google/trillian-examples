@@ -121,10 +121,14 @@ func (c *SumDBClient) tilePath(offset int) string {
 	return nStr
 }
 
+// dataToLeaves splits the raw bytes received when requesting a data
+// tile into the constituent leaf data chunks. The splitting is performed
+// based on two consecutive newlines, and each returned leaf terminates
+// with a single newline.
 func dataToLeaves(data []byte) [][]byte {
 	leaves := bytes.Split(data, []byte{'\n', '\n'})
 	for i, l := range leaves {
-		leaves[i] = append(l, '\n')
+		leaves[i] = append(bytes.TrimSpace(l), '\n')
 	}
 	return leaves
 }

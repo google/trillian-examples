@@ -63,6 +63,9 @@ func TestLeavesAtOffset(t *testing.T) {
 		if l[len(l)-1] != '\n' {
 			t.Errorf("expected string terminating in newline, got: %x", l)
 		}
+		if l[len(l)-2] == '\n' {
+			t.Errorf("expected string terminating in single newline, but got: %x", l)
+		}
 		expStart := "golang.org/x/"
 		if got, want := string(l[:len(expStart)]), expStart; got != want {
 			t.Errorf("got prefix '%s', wanted '%s'", got, want)

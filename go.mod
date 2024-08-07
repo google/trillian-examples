@@ -24,9 +24,9 @@ require (
 	github.com/u-root/u-root v0.14.0
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
 	golang.org/x/crypto v0.25.0
-	golang.org/x/mod v0.19.0
-	golang.org/x/oauth2 v0.21.0
-	golang.org/x/sync v0.7.0
+	golang.org/x/mod v0.20.0
+	golang.org/x/oauth2 v0.22.0
+	golang.org/x/sync v0.8.0
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 	k8s.io/klog/v2 v2.130.1

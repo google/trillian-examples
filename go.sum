@@ -26,8 +26,8 @@ github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1/go.mod h1:xomTg6
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
-github.com/apache/beam/sdks/v2 v2.58.0 h1:II4uobVUcEYCzJPM4HqApZ/8bjvv+C0ZVeIV527261g=
-github.com/apache/beam/sdks/v2 v2.58.0/go.mod h1:jo2HHkE4jRS0lZSkUK2zyEun5Lj5U+HxvI6B/vAuIlA=
+github.com/apache/beam/sdks/v2 v2.58.1 h1:bx0nCi3q3o9TcMGT8/5wWnuf7oCm/46DrSRVE/uVhsU=
+github.com/apache/beam/sdks/v2 v2.58.1/go.mod h1:jo2HHkE4jRS0lZSkUK2zyEun5Lj5U+HxvI6B/vAuIlA=
 github.com/avast/retry-go/v4 v4.6.0 h1:K9xNA+KeB8HHc2aWFuLb25Offp+0iVRXEvFx8IinRJA=
 github.com/avast/retry-go/v4 v4.6.0/go.mod h1:gvWlPhBVsvBbLkVGDg/KwvBv0bEkCOLRRSHKIr2PyOE=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=

@@ -20,7 +20,7 @@ require (
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/serverless-log v0.0.0-20230914155322-9b6f31f76f1f
 	github.com/u-root/u-root v0.14.0
-	github.com/usbarmory/tamago v0.0.0-20240709092616-e66ddf95a867
+	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
 	golang.org/x/crypto v0.26.0
 	golang.org/x/mod v0.20.0
 	golang.org/x/oauth2 v0.22.0

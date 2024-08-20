@@ -54,7 +54,9 @@ func TestMapCheckpoint(t *testing.T) {
 				if !strings.HasSuffix(r.URL.Path, api.MapHTTPGetCheckpoint) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
-				fmt.Fprintln(w, test.body)
+				if _, err := fmt.Fprintln(w, test.body); err != nil {
+					t.Errorf("fmt.Fprintln: %v", err)
+				}
 			}))
 			defer ts.Close()
 
@@ -122,7 +124,9 @@ func TestAggregation(t *testing.T) {
 		t.Run(test.desc, func(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if body, ok := test.bodies[r.URL.Path]; ok {
-					fmt.Fprint(w, body)
+					if _, err := fmt.Fprint(w, body); err != nil {
+						t.Errorf("fmt.Fprint: %v", err)
+					}
 				} else {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}

@@ -80,11 +80,11 @@ func TestAppend(t *testing.T) {
 		ctx := context.Background()
 		personality, err := p.NewPersonality(*trillianAddr, *treeID, mustGetSigner(t))
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		chkptOldRaw, err := personality.GetChkpt(ctx)
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		chkptOld := mustOpenCheckpoint(t, chkptOldRaw)
 		// Add a random entry so we can be sure it's new.
@@ -94,7 +94,7 @@ func TestAppend(t *testing.T) {
 		}
 		chkptNewRaw, err := personality.Append(ctx, entry)
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		chkptNew := mustOpenCheckpoint(t, chkptNewRaw)
 		if chkptNew.Size <= chkptOld.Size {
@@ -116,12 +116,12 @@ func TestUpdate(t *testing.T) {
 		ctx := context.Background()
 		personality, err := p.NewPersonality(*trillianAddr, *treeID, mustGetSigner(t))
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		client := NewClient(personality, mustGetVerifier(t))
 		chkptRaw, err := personality.GetChkpt(ctx)
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		client.chkpt = mustOpenCheckpoint(t, chkptRaw)
 		entry := make([]byte, 10)
@@ -133,7 +133,7 @@ func TestUpdate(t *testing.T) {
 		}
 		chkptNewRaw, pf, err := personality.UpdateChkpt(ctx, client.chkpt.Size)
 		if err != nil {
-			t.Fatalf(err.Error())
+			t.Fatal(err)
 		}
 		got := client.UpdateChkpt(chkptNewRaw, pf)
 		if got != nil {
@@ -183,7 +183,7 @@ func TestIncl(t *testing.T) {
 			ctx := context.Background()
 			personality, err := p.NewPersonality(*trillianAddr, *treeID, mustGetSigner(t))
 			if err != nil {
-				t.Fatalf(err.Error())
+				t.Fatal(err)
 			}
 			var chkptRaw []byte
 			// Append all the entries we plan to add, folding in
@@ -194,7 +194,7 @@ func TestIncl(t *testing.T) {
 				chkptRaw, err = personality.Append(ctx, bs)
 				if err != nil {
 					// If the checkpoint didn't update that's a problem.
-					t.Fatalf(err.Error())
+					t.Fatal(err)
 				}
 			}
 			client := NewClient(personality, mustGetVerifier(t))

@@ -68,7 +68,9 @@ func TestGetWitnessCheckpoint(t *testing.T) {
 				if !strings.HasSuffix(r.URL.Path, api.WitnessGetCheckpoint) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
-				fmt.Fprint(w, string(test.body))
+				if _, err := fmt.Fprint(w, string(test.body)); err != nil {
+					t.Errorf("fmt.Fprint: %v", err)
+				}
 			}))
 			defer ts.Close()
 

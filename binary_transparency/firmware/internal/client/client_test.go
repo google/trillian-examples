@@ -198,7 +198,9 @@ func TestGetCheckpoint(t *testing.T) {
 				if !strings.HasSuffix(r.URL.Path, api.HTTPGetRoot) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
-				fmt.Fprint(w, string(test.body))
+				if _, err := fmt.Fprint(w, string(test.body)); err != nil {
+					t.Errorf("fmt.Fprint: %v", err)
+				}
 			}))
 			defer ts.Close()
 
@@ -263,7 +265,9 @@ func TestGetInclusion(t *testing.T) {
 				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPGetInclusion) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
-				fmt.Fprintln(w, test.body)
+				if _, err := fmt.Fprintln(w, test.body); err != nil {
+					t.Errorf("fmt.Fprintln: %v", err)
+				}
 			}))
 			defer ts.Close()
 
@@ -318,7 +322,9 @@ func TestGetManifestAndProof(t *testing.T) {
 				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPGetManifestEntryAndProof) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
-				fmt.Fprintln(w, test.body)
+				if _, err := fmt.Fprintln(w, test.body); err != nil {
+					t.Errorf("fmt.Fprintln: %v", err)
+				}
 			}))
 			defer ts.Close()
 
@@ -379,7 +385,9 @@ func TestGetConsistency(t *testing.T) {
 				if !strings.HasPrefix(r.URL.Path[1:], api.HTTPGetConsistency) {
 					t.Fatalf("Got unexpected HTTP request on %q", r.URL.Path)
 				}
-				fmt.Fprintln(w, test.body)
+				if _, err := fmt.Fprintln(w, test.body); err != nil {
+					t.Errorf("fmt.Fprintln: %v", err)
+				}
 			}))
 			defer ts.Close()
 

@@ -1,6 +1,7 @@
 module github.com/google/trillian-examples
 
-go 1.22.5
+go 1.22.6
+
 require (
 	github.com/apache/beam/sdks/v2 v2.58.1
 	github.com/cenkalti/backoff/v4 v4.3.0

@@ -44,6 +44,7 @@ steps:
     docker tag gcr.io/$PROJECT_ID/log_signer:latest deployment_trillian-log-signer
 
     # Bring up an ephemeral trillian instance using the docker-compose config in the Trillian repo:
+    go mod tidy
     export TRILLIAN_PATH="$(go list -f '{{.Dir}}' github.com/google/trillian)"
 
     # We need to fix up Trillian's docker-compose to connect to the CloudBuild network to that tests can use it:

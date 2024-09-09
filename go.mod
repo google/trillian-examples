@@ -14,16 +14,16 @@ require (
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.6.1
 	github.com/gorilla/mux v1.8.1
-	github.com/mattn/go-sqlite3 v1.14.22
+	github.com/mattn/go-sqlite3 v1.14.23
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/transparency-dev/formats v0.0.0-20230914071414-5732692f1e50
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/serverless-log v0.0.0-20230914155322-9b6f31f76f1f
 	github.com/u-root/u-root v0.14.0
 	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
-	golang.org/x/crypto v0.26.0
-	golang.org/x/mod v0.20.0
-	golang.org/x/oauth2 v0.22.0
+	golang.org/x/crypto v0.27.0
+	golang.org/x/mod v0.21.0
+	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.8.0
 	google.golang.org/grpc v1.66.0
 	google.golang.org/protobuf v1.34.2
@@ -77,8 +77,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
 	golang.org/x/net v0.28.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
-	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
+	golang.org/x/text v0.18.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	google.golang.org/api v0.194.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect

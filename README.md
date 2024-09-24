@@ -1,8 +1,8 @@
 # Trillian examples
 
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/google/trillian-examples/badge)](https://securityscorecards.dev/viewer/?uri=github.com/google/trillian-examples)
-[![GoDoc](https://godoc.org/github.com/google/trillian?status.svg)](https://godoc.org/github.com/google/trillian-examples)
-[![Slack Status](https://img.shields.io/badge/Slack-Chat-blue.svg)](https://gtrillian.slack.com/)
+[![GoDoc](https://godoc.org/github.com/google/trillian-examples?status.svg)](https://godoc.org/github.com/google/trillian-examples)
+[![Slack Status](https://img.shields.io/badge/Slack-Chat-blue.svg)](https://transparency-dev.slack.com/)
 
 
 This repository contains example applications built on top of

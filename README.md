@@ -20,8 +20,8 @@ Currently the examples here are:
    of binaries/updates.
 * [helloworld](helloworld): A simple example demonstrating the correct
    configuration of a Trillian log, personality, and client.
-* [sumdbaudit](sumdbaudit): Demonstration of an auditor for the
-   [GoLang SumDB](https://go.googlesource.com/proposal/+/master/design/25530-sumdb.md)
+* [sumdbverify](clone/cmd/sumdbverify): Demonstration of an auditor for the
+   [Go SumDB](https://go.googlesource.com/proposal/+/master/design/25530-sumdb.md)
    module proxy, which clones a log and verifies the data in it.
 
 The general-purpose components are:

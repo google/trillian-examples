@@ -56,10 +56,10 @@ func NewDatabaseDirect(db *sql.DB) (*Database, error) {
 }
 
 func (d *Database) init() error {
-	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leaves (id INTEGER PRIMARY KEY, data BLOB)"); err != nil {
+	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS leaves (id BIGINT UNSIGNED PRIMARY KEY, data BLOB)"); err != nil {
 		return err
 	}
-	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS checkpoints (size INTEGER PRIMARY KEY, data BLOB, compactRange BLOB)"); err != nil {
+	if _, err := d.db.Exec("CREATE TABLE IF NOT EXISTS checkpoints (size BIGINT UNSIGNED PRIMARY KEY, data BLOB, compactRange BLOB)"); err != nil {
 		return err
 	}
 	return nil

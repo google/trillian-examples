@@ -159,23 +159,3 @@ updates:
       applies-to: version-updates
       patterns:
         - "*"
-
-- package-ecosystem: docker
-  directory: /sumdbaudit/docker/mirror
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /sumdbaudit/docker/witness
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"

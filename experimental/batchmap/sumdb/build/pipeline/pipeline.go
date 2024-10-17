@@ -29,7 +29,7 @@ import (
 type InputLog interface {
 	// Head returns the metadata of available entries.
 	Head() (checkpoint []byte, count int64, err error)
-	// Entries returns a PCollection of Metadata, containing entries in range [start, end).
+	// Entries returns a PCollection of InputLogLeaf, containing entries in range [start, end).
 	Entries(s beam.Scope, start, end int64) beam.PCollection
 }
 
@@ -71,12 +71,13 @@ func (b *MapBuilder) Create(s beam.Scope, size int64) (beam.PCollection, beam.PC
 		return tiles, logs, InputLogMetadata{}, err
 	}
 
-	records := b.source.Entries(s.Scope("source"), 0, endID)
-	entries := CreateEntries(s, b.treeID, records)
+	rawLogLeaves := b.source.Entries(s.Scope("source"), 0, endID)
+	metadata := beam.ParDo(s.Scope("parseStatements"), ParseStatementFn, rawLogLeaves)
+	entries := CreateEntries(s, b.treeID, metadata)
 
 	if b.versionLogs {
 		var logEntries beam.PCollection
-		logEntries, logs = MakeVersionLogs(s, b.treeID, records)
+		logEntries, logs = MakeVersionLogs(s, b.treeID, metadata)
 		entries = beam.Flatten(s, entries, logEntries)
 	}
 

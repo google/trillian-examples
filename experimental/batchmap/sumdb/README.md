@@ -25,7 +25,7 @@ Confirming that the entry is committed to by the log only meets this goal if the
 If the log ever contained entries that provided different hashes for the same `module@version` then the verification would still check out, but the security goal would not be met.
 
 N.B. This is theoretical and has not happened; the whole of the SumDB log has been verified for duplicate entries and none have been found.
-A tool to perform this checking is provided in this repo: https://github.com/google/trillian-examples/tree/master/sumdbaudit, so go look for yourself if you're now worried!
+A tool to perform this checking is provided in this repo: https://github.com/google/trillian-examples/tree/master/clone/cmd/sumdbverify, so go look for yourself if you're now worried!
 
 ### On to Maps
 
@@ -70,15 +70,16 @@ Given this information, another party would detect any false construction if the
 
 There are some pre-requisites to running this demo:
  1. Have set up the environment and successfully run the [Trillian batchmap demo](https://github.com/google/trillian/tree/master/experimental/batchmap)
- 2. Have run the [sumdbaudit](https://github.com/google/trillian-examples/tree/master/sumdbaudit) example and have the `sum.db` file it generates on your machine; this mirror of the log is used as the input to the map
+ 2. Have run the [sumdbclone](https://github.com/google/trillian-examples/tree/master/clone/cmd/sumdbclone) tool; this mirror of the log is used as the input to the map
 
 Congratulations on getting this far.
 Now, assuming the Python Portable Beam runner is listening on port `8099` the following will generate the verifiable map for every entry downloaded from the SumDB (assumed working directory is the one containg this README):
 
- * `go run build/map.go --alsologtostderr --v=1 --runner=universal --endpoint=localhost:8099 --environment_type=LOOPBACK --sum_db=/path/to/sum.db --map_db=/path/to/map.db --count=256`
+ * `go run build/map.go --alsologtostderr --v=1 --runner=universal --endpoint=localhost:8099 --environment_type=LOOPBACK --sum_db=root:example@tcp(127.0.0.1:33006)/sumdb --map_db=/path/to/map.db --count=256`
 
 This will create a sqlite database at `/path/to/map.db` and store key/values for the first 256 entries from the SumDB log.
 Note that this will actually create 512 entries in the map, as each entry in the log has 2 key+value pairs.
+The `sum_db` flag must be provided with the correct MySQL connection URI to the database containing the clone of the log.
 
 Remove the `count` parameter to process every entry, though you might want to do this while you make a nice cup of tea.
 

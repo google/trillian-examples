@@ -49,19 +49,17 @@ func TestCreateAndUpdateEquivalence(t *testing.T) {
 		},
 	}
 
+	// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
+	// golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 	inputLog := fakeLog{
-		entries: []Metadata{
+		entries: []InputLogLeaf{
 			{
-				Module:   "foo",
-				Version:  "v1.0.0",
-				RepoHash: "abcdefab",
-				ModHash:  "deadbeef",
+				ID:   0,
+				Data: []byte("foo v1.0.0 h1:abcdefab\nfoo v1.0.0/go.mod h1:deadbeef\n"),
 			},
 			{
-				Module:   "bar",
-				Version:  "v0.0.1",
-				RepoHash: "abcdefab",
-				ModHash:  "deadbeef",
+				ID:   1,
+				Data: []byte("bar v0.0.1 h1:abcdefab\nbar v0.0.1/go.mod h1:deadbeef\n"),
 			},
 		},
 		head: []byte("this is just passed around"),
@@ -102,7 +100,7 @@ func TestCreateAndUpdateEquivalence(t *testing.T) {
 }
 
 type fakeLog struct {
-	entries []Metadata
+	entries []InputLogLeaf
 	head    []byte
 }
 

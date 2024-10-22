@@ -71,8 +71,7 @@ func (b *MapBuilder) Create(s beam.Scope, size int64) (beam.PCollection, beam.PC
 		return tiles, logs, InputLogMetadata{}, err
 	}
 
-	rawLogLeaves := b.source.Entries(s.Scope("source"), 0, endID)
-	metadata := beam.ParDo(s.Scope("parseStatements"), ParseStatementFn, rawLogLeaves)
+	metadata := ParseLogInputs(s, b.source.Entries(s.Scope("source"), 0, endID))
 	entries := CreateEntries(s, b.treeID, metadata)
 
 	if b.versionLogs {
@@ -111,8 +110,8 @@ func (b *MapBuilder) Update(s beam.Scope, lastTiles beam.PCollection, provenance
 		return tiles, InputLogMetadata{}, fmt.Errorf("startID (%d) >= endID (%d)", startID, endID)
 	}
 
-	records := b.source.Entries(s.Scope("source"), startID, endID)
-	entries := CreateEntries(s, b.treeID, records)
+	metadata := ParseLogInputs(s, b.source.Entries(s.Scope("source"), 0, endID))
+	entries := CreateEntries(s, b.treeID, metadata)
 
 	glog.Infof("Updating with range [%d, %d)", startID, endID)
 	tiles, err = batchmap.Update(s, lastTiles, entries, b.treeID, hash, b.prefixStrata)

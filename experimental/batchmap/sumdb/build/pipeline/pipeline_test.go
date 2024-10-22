@@ -55,11 +55,11 @@ func TestCreateAndUpdateEquivalence(t *testing.T) {
 		entries: []InputLogLeaf{
 			{
 				ID:   0,
-				Data: []byte("foo v1.0.0 h1:abcdefab\nfoo v1.0.0/go.mod h1:deadbeef"),
+				Data: []byte("foo v1.0.0 h1:abcdefab\nfoo v1.0.0/go.mod h1:deadbeef\n"),
 			},
 			{
 				ID:   1,
-				Data: []byte("bar v0.0.1 h1:abcdefab\nbar v0.0.1/go.mod h1:deadbeef"),
+				Data: []byte("bar v0.0.1 h1:abcdefab\nbar v0.0.1/go.mod h1:deadbeef\n"),
 			},
 		},
 		head: []byte("this is just passed around"),

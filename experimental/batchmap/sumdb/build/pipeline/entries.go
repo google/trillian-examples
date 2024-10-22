@@ -64,7 +64,7 @@ func ParseStatementFn(l InputLogLeaf) Metadata {
 	index := l.ID
 	lines := strings.Split(string(l.Data), "\n")
 
-	if len(lines) != 2 {
+	if len(lines) != 3 {
 		panic(fmt.Errorf("Expected 2 lines in log leaf, but got %d", len(lines)))
 	}
 	line0Parts := line0RE.FindStringSubmatch(lines[0])

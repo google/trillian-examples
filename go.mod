@@ -9,7 +9,7 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang/glog v1.2.2
 	github.com/golang/mock v1.6.0
-	github.com/google/certificate-transparency-go v1.2.1
+	github.com/google/certificate-transparency-go v1.2.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.6.1
@@ -77,10 +77,10 @@ require (
 	go.opentelemetry.io/otel/metric v1.29.0 // indirect
 	go.opentelemetry.io/otel/trace v1.29.0 // indirect
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
-	golang.org/x/net v0.29.0 // indirect
+	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
-	golang.org/x/time v0.6.0 // indirect
+	golang.org/x/time v0.7.0 // indirect
 	google.golang.org/api v0.199.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240903143218-8af14fe29dc1 // indirect

@@ -117,6 +117,7 @@ func main() {
 	if err := mapDB.WriteRevision(rev, inputLogMetadata.Checkpoint, inputLogMetadata.Entries); err != nil {
 		glog.Exitf("Failed to finalize map revison %d: %v", rev, err)
 	}
+	glog.Infof("Map generated successfully! Data output at %q", *mapDBString)
 }
 
 func sinkFromFlags() (*mapdb.TileDB, int, error) {

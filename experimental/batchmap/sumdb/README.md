@@ -73,15 +73,15 @@ There are some pre-requisites to running this demo:
  2. Have run the [sumdbclone](https://github.com/google/trillian-examples/tree/master/clone/cmd/sumdbclone) tool; this mirror of the log is used as the input to the map
 
 Congratulations on getting this far.
-Now, assuming the Python Portable Beam runner is listening on port `8099` the following will generate the verifiable map for every entry downloaded from the SumDB (assumed working directory is the one containg this README):
 
- * `go run build/map.go --alsologtostderr --v=1 --runner=universal --endpoint=localhost:8099 --environment_type=LOOPBACK --sum_db=root:example@tcp(127.0.0.1:33006)/sumdb --map_db=/path/to/map.db --count=256`
+ * `go run build/map.go --alsologtostderr --v=1 --sum_db=root:example@tcp(127.0.0.1:33006)/sumdb --map_db=/path/to/map.db --count=1024`
 
-This will create a sqlite database at `/path/to/map.db` and store key/values for the first 256 entries from the SumDB log.
-Note that this will actually create 512 entries in the map, as each entry in the log has 2 key+value pairs.
+This will create a sqlite database at `/path/to/map.db` and store key/values for the first 1024 entries from the SumDB log.
+Note that this will actually create 2048 entries in the map, as each entry in the log has 2 key+value pairs.
 The `sum_db` flag must be provided with the correct MySQL connection URI to the database containing the clone of the log.
 
 Remove the `count` parameter to process every entry, though you might want to do this while you make a nice cup of tea.
+TODO(mhutchinson): This is currently failing for me, presumably because the runner is hitting memory limits.
 
 ### Verifying
 

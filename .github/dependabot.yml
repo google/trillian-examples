@@ -1,7 +1,12 @@
 version: 2
 updates:
 - package-ecosystem: gomod
-  directory: /
+  directories:
+    - /
+    - /serverless/deploy/github/distributor/combine_witness_signatures
+    - /serverless/deploy/github/distributor/update_logs_index
+    - /serverless/experimental/gcp-log
+    - /serverless/experimental/gcp-log/gcs_uploader
   schedule:
     interval: weekly
   groups:
@@ -21,7 +26,17 @@ updates:
         - "*"
 
 - package-ecosystem: docker
-  directory: /binary_transparency/firmware/cmd/ft_personality
+  directories:
+    - /binary_transparency/firmware/cmd/ft_personality
+    - /binary_transparency/firmware/cmd/ftmapserver
+    - /clone/cmd/ctclone
+    - /clone/cmd/ctverify
+    - /clone/cmd/sumdbclone
+    - /integration
+    - /serverless/deploy/github/distributor/combine_witness_signatures
+    - /serverless/deploy/github/distributor/update_logs_index
+    - /serverless/deploy/github/log/leaf_validator
+    - /serverless/deploy/github/log/sequence_and_integrate
   schedule:
     interval: weekly
   groups:
@@ -30,132 +45,3 @@ updates:
       patterns:
         - "*"
 
-- package-ecosystem: docker
-  directory: /binary_transparency/firmware/cmd/ftmapserver
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /clone/cmd/ctclone
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /clone/cmd/ctverify
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /clone/cmd/sumdbclone
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /integration
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /serverless/deploy/github/distributor/combine_witness_signatures
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: gomod
-  directory: /serverless/deploy/github/distributor/combine_witness_signatures
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /serverless/deploy/github/distributor/update_logs_index
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: gomod
-  directory: /serverless/deploy/github/distributor/update_logs_index
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /serverless/deploy/github/log/leaf_validator
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: docker
-  directory: /serverless/deploy/github/log/sequence_and_integrate
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: gomod
-  directory: /serverless/experimental/gcp-log/gcs_uploader
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"
-
-- package-ecosystem: gomod
-  directory: /serverless/experimental/gcp-log
-  schedule:
-    interval: weekly
-  groups:
-    all-deps:
-      applies-to: version-updates
-      patterns:
-        - "*"

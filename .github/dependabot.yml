@@ -3,10 +3,6 @@ updates:
 - package-ecosystem: gomod
   directories:
     - /
-    - /serverless/deploy/github/distributor/combine_witness_signatures
-    - /serverless/deploy/github/distributor/update_logs_index
-    - /serverless/experimental/gcp-log
-    - /serverless/experimental/gcp-log/gcs_uploader
   schedule:
     interval: weekly
   groups:
@@ -33,10 +29,6 @@ updates:
     - /clone/cmd/ctverify
     - /clone/cmd/sumdbclone
     - /integration
-    - /serverless/deploy/github/distributor/combine_witness_signatures
-    - /serverless/deploy/github/distributor/update_logs_index
-    - /serverless/deploy/github/log/leaf_validator
-    - /serverless/deploy/github/log/sequence_and_integrate
   schedule:
     interval: weekly
   groups:

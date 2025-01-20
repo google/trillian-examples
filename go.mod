@@ -7,9 +7,9 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/go-sql-driver/mysql v1.8.1
-	github.com/golang/glog v1.2.3
+	github.com/golang/glog v1.2.4
 	github.com/golang/mock v1.6.0
-	github.com/google/certificate-transparency-go v1.3.0
+	github.com/google/certificate-transparency-go v1.3.1
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-github/v39 v39.2.0
 	github.com/google/trillian v1.7.1
@@ -25,8 +25,8 @@ require (
 	golang.org/x/mod v0.22.0
 	golang.org/x/oauth2 v0.25.0
 	golang.org/x/sync v0.10.0
-	google.golang.org/grpc v1.69.2
-	google.golang.org/protobuf v1.36.2
+	google.golang.org/grpc v1.69.4
+	google.golang.org/protobuf v1.36.3
 	k8s.io/klog/v2 v2.130.1
 )
 
@@ -94,7 +94,7 @@ require (
 	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	golang.org/x/time v0.8.0 // indirect
+	golang.org/x/time v0.9.0 // indirect
 	google.golang.org/api v0.214.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect

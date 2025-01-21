@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/google/trillian-examples/clone/logdb"
+	"k8s.io/klog/v2"
 )
 
 // MapFn takes the raw leaf data from a log entry and outputs the SHA256 hashes
@@ -56,18 +57,48 @@ func (b IndexBuilder) init(ctx context.Context) error {
 		return err
 	}
 
-	_ = idx
-	_ = ctx
-
 	// Kick off a thread to read from the DB from the index onwards and:
 	//  - update the WAL
-	//  - announce new updates via a channel
+	//  - announce new updates via a channel (TODO)
+
+	go b.pullFromDatabase(ctx, idx)
 
 	// Kick off a thread to:
 	//  - read snapshot of the WAL and populate map
-	//  - consume entries  from the channel to update the map
+	//  - consume entries from the channel to update the map
 
 	return nil
+}
+
+func (b IndexBuilder) pullFromDatabase(ctx context.Context, start uint64) {
+	size, rawCp, _, err := b.log.GetLatestCheckpoint(ctx)
+	if err != nil {
+		klog.Exitf("Panic: failed to get latest checkpoint from DB: %v", err)
+	}
+
+	if size > start {
+		leaves := make(chan logdb.StreamResult, 1)
+		b.log.StreamLeaves(ctx, start, size, leaves)
+
+		for i := start; i < size; i++ {
+			l := <-leaves
+			if l.Err != nil {
+				klog.Exitf("Panic: failed to read leaf at index %d: %v", i, err)
+			}
+			hashes := b.mapFn(l.Leaf)
+			if err := b.addIndex(i, hashes); err != nil {
+				klog.Exitf("failed to add index to entry for leaf %d: %v", i, err)
+			}
+		}
+	}
+
+	// TODO(mhutchinson): the raw log checkpoint needs to be propagated into the map checkpoint
+	_ = rawCp
+}
+
+func (b IndexBuilder) addIndex(idx uint64, hashes [][]byte) error {
+	// TODO(mhutchinson): this should also push this off to the map construction code
+	return b.wal.append(idx, hashes)
 }
 
 type writeAheadLog struct {
@@ -84,7 +115,9 @@ func (l *writeAheadLog) init() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	scanner := bufio.NewScanner(f)
 	l.entries = make([]string, 0, 64)
@@ -103,6 +136,16 @@ func (l *writeAheadLog) init() (uint64, error) {
 		l.entries = l.entries[:len(l.entries)-1]
 	}
 	return 0, nil
+}
+
+func (l *writeAheadLog) append(idx uint64, hashes [][]byte) error {
+	e, err := marshalWalEntry(idx, hashes)
+	if err != nil {
+		return fmt.Errorf("failed to marshal entry: %v", err)
+	}
+	// TODO(mhutchinson): write out the entry
+	_ = e
+	return nil
 }
 
 // unmarshalWalEntry parses a line from the WAL.

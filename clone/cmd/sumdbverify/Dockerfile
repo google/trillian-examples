@@ -1,4 +1,4 @@
-FROM golang:1.22.8-alpine3.20@sha256:f56a8a4a1aea41bc4694728b69c219af1523aea15690cbbed82dc9bac81e6603 AS builder
+FROM golang:1.23.6-alpine3.20@sha256:22caeb4deced0138cb4ae154db260b22d1b2ef893dde7f84415b619beae90901 AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS

@@ -37,7 +37,6 @@ func boot(kernel uint, params uint) {
 		// RNGB driver doesn't play well with previous initializations
 		imx6ul.RNGB.Reset()
 
-		imx6ul.ARM.DisableInterrupts()
 		imx6ul.ARM.FlushDataCache()
 		imx6ul.ARM.DisableCache()
 

@@ -1,6 +1,8 @@
 module github.com/google/trillian-examples
 
-go 1.22.8
+go 1.24.0
+
+toolchain go1.24.1
 
 require (
 	github.com/apache/beam/sdks/v2 v2.62.0
@@ -20,7 +22,7 @@ require (
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/serverless-log v0.0.0-20230914155322-9b6f31f76f1f
 	github.com/u-root/u-root v0.14.0
-	github.com/usbarmory/tamago v0.0.0-20221104085030-4122a878196a
+	github.com/usbarmory/tamago v0.0.0-20250310080134-5e23c7fd40b0
 	golang.org/x/crypto v0.33.0
 	golang.org/x/mod v0.23.0
 	golang.org/x/oauth2 v0.26.0

@@ -23,7 +23,7 @@ require (
 	github.com/transparency-dev/serverless-log v0.0.0-20230914155322-9b6f31f76f1f
 	github.com/u-root/u-root v0.14.0
 	github.com/usbarmory/tamago v0.0.0-20250310080134-5e23c7fd40b0
-	golang.org/x/crypto v0.33.0
+	golang.org/x/crypto v0.35.0
 	golang.org/x/mod v0.23.0
 	golang.org/x/oauth2 v0.26.0
 	golang.org/x/sync v0.11.0
@@ -93,7 +93,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.32.0 // indirect
 	go.opentelemetry.io/otel/trace v1.32.0 // indirect
 	golang.org/x/exp v0.0.0-20240325151524-a685a6edb6d8 // indirect
-	golang.org/x/net v0.34.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.9.0 // indirect

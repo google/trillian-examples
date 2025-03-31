@@ -1,9 +1,6 @@
 module github.com/google/trillian-examples
 
 go 1.24.0
-
-toolchain go1.24.1
-
 require (
 	github.com/apache/beam/sdks/v2 v2.63.0
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -28,7 +25,7 @@ require (
 	golang.org/x/oauth2 v0.28.0
 	golang.org/x/sync v0.12.0
 	google.golang.org/grpc v1.71.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.6
 	k8s.io/klog/v2 v2.130.1
 )
 

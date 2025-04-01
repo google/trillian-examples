@@ -4,7 +4,7 @@ updates:
   directories:
     - /
   schedule:
-    interval: weekly
+    interval: monthly
   groups:
     all-deps:
       applies-to: version-updates
@@ -14,7 +14,7 @@ updates:
 - package-ecosystem: github-actions
   directory: /
   schedule:
-    interval: weekly
+    interval: monthly
   groups:
     all-deps:
       applies-to: version-updates
@@ -30,7 +30,7 @@ updates:
     - /clone/cmd/sumdbclone
     - /integration
   schedule:
-    interval: weekly
+    interval: monthly
   groups:
     all-deps:
       applies-to: version-updates

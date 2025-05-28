@@ -9,7 +9,11 @@ Discussions are welcome, please join us on [Transparency-Dev Slack](https://join
 
 ## Overview
 
-The core idea is basically to construct an index like you would find in the back of a book, i.e. search terms are mapped to a pointer to where the data can be found. A verifiable index represents an efficient data structure to allow point lookups to common queries over a single log. The result of looking up a key in a verifiable index is a uint64 pointer to the index in the origin log. The index has a checkpoint that commits to its state at any particular log size. Every point lookup (i.e. query) in the map is verifiable, as is the construction of the index itself.
+The core idea is basically to construct an index like you would find in the back of a book, i.e. search terms are mapped to a _pointer_ to where the data can be found.
+A verifiable index represents an efficient data structure to allow point lookups to common queries over a single log.
+The result of looking up a key in a verifiable index is a list of uint64 pointers to the origin log, i.e. a list of indices in the origin log where the leaf data matches the index function.
+The index has a checkpoint that commits to its state at any particular log size.
+Every point lookup (i.e. query) in the map is verifiable, as is the construction of the index itself.
 
 ## Applications
 
@@ -22,6 +26,21 @@ These indices exist for both ecosystems at the moment, but they aren’t verifia
 
 ## Core Idea; TL;DR
 
+The Verifiable Index has 3 data structures involved (and is informally called a Map Sandwich, as the Map sits between two Logs):
+
+1. The _Input Log_ that is to be indexed
+2. The _Verifiable Index_ containing pointers back into the _Input Log_
+3. The _Output Log_ that contains a list of all revisions of the map
+
+The Input Log likely aready exists before the Verifiable Index is added, but the Output Log is required in order to make the Verifiable Index historically verifiable.
+For example, in Certificate Transparency, the Input Log could be any of the CT Logs.
+In order to make certificates in a log be efficiently looked up by domain, an operator can spin up Verifiable Index and a corresponding Output Log.
+The Index would map domain names to indices in the Input Log where the cert is for this domain.
+
+> [!TIP]
+> Note that the map doesn't have a "signed map root", i.e. it has no direct analog for a Log Checkpoint.
+> Instead, the state of a Verifiable Index is committed to by including its state as a leaf in the Output Log.
+
 ### Constructing
 
 1. Log data is consumed leaf by leaf  
@@ -30,26 +49,43 @@ These indices exist for both ecosystems at the moment, but they aren’t verifia
    2. The raw domains are not output, but are hashed. If privacy is important, a VRF could be used here.  
 3. The output from the MapFn stage represents a sequence of update operations to the map  
    1. This output stream can be serialized for data recovery (see [Write Ahead Map Transaction Log](#write-ahead-map-transaction-log))  
-4. The map is computed for these update operations and is served to users
+4. The map is computed for these update operations and a root is calculated
+5. The root hash is written as a new leaf into the Output Log, along with the checkpoint from the Input Log that was consumed to create this revision
+6. The Output Log is witnessed, and an Output Log Checkpoint is made available with witness signatures
 
 ### Reading
 
-Users looking up values in the map need to know about the MapFn in order to know what the correct key hash is for, e.g. `maps.google.com`. The values returned for a verifiable point lookup under this key would be a list of `uint64` values that represent indices into the log. To find the certs for these values, the original log is queried at these indices.
+Users looking up values in the map need to know about the MapFn in order to know what the correct key hash is for, e.g. `maps.google.com`.
+The values returned for a verifiable point lookup under this key would be a list of `uint64` values that represent indices into the log.
+To find the certs for these values, the original log is queried at these indices.
+
+Given a key to read, a read operation needs to return:
+ - A witnessed Output Log Checkpoint
+ - The latest value in this log, with an inclusion proof to the Output Log Checkpoint
+   - The value in this log commits to the Input Log state, and also contains a Verifiable Index root hash
+ - The value at the given key in the Verifiable Index, and an inclusion proof
+
+Verifying this involves verifying the following chain:
+ - The Output Log Checkpoint is signed by the Map Operator, and sufficient witnesses
+ - The inclusion proof in the Output Log: this ties the Map Root Hash to the Output Log Checkpoint
+ - The inclusion proof in the Verifiable Index: this ties the indices returned to the key and the Map Root Hash
 
 ### Verifying
 
-The correct construction of the map can be verified by any other party. The only requirement is compute resources to be able to build the map, and a clear understanding of the MapFn (hence the importance for this to be universally specified). The verifier builds a map at the same size as the verifiable index and if the map checkpoint has the same root hash then both maps are equivalent and the map has been verified for correct construction.
+The correct construction of the map can be verified by any other party.
+The only requirement is compute resources to be able to build the map, and a clear understanding of the MapFn (hence the importance for this to be universally specified).
+The verifier builds a map at the same size as the verifiable index and if the map checkpoint has the same root hash then both maps are equivalent and the map has been verified for correct construction.
 
 ## Sub-Problems
 
-### MapFn Specified in Universal Language {#mapfn-specified-in-universal-language}
+### MapFn Specified in Universal Language
 
 Being able to specify which keys are relevant to any particular entry in the log is critical to allow a verifier to check for correct construction of the map. Ideally this MapFn would be specified in a universal way, to allow the verifier to be running a different technology stack than the core map operator. i.e. having the Go implementation be the specification is undesirable, as it puts a lot of tax on the verifier to reproduce this behaviour identically in another environment.
 
 Some options:
 
-* Formal spec  
 * WASM ([go docs](https://go.dev/wiki/WebAssembly))  
+* Formal spec  
 * Functional language that can be transpiled
 
 In any case, the MapFn functionally needs to be of the form:
@@ -75,7 +111,15 @@ for leaf := <- log {
 
 i.e. consume each entry in the log, apply the map function in order to determine the keys to update, and then output this operation to the next stage of the pipeline.
 
-### Write Ahead Map Transaction Log {#write-ahead-map-transaction-log}
+> [!IMPORTANT]
+> This describes the MapFn as returning key hashes.
+> We _may_ want to have the map return the raw key (e.g. `maps.google.com`) so that a prefix trie can be constructed.
+
+> [!IMPORTANT]
+> The `MapFn` is fixed for the life of the Verifiable Index.
+> There are strategies that could be employed to allow updates, but these are out of scope for any early drafts.
+
+### Write Ahead Map Transaction Log
 
 Having a compact append-only transaction log allows the map process to restart and pick up from where it last crashed efficiently. It also neatly divides the problem space: before this stage you have downloading logs and applying the MapFn, and after this stage you have the challenges of maintaining an efficient map data structure for updates and reads.
 
@@ -100,6 +144,11 @@ And now we have the crux of the problem. The fun part 😀
 Requirements:
 
 * Values are indices, appended in incremental order. Could be a list or a log.
+
+Ideas for map implementation:
+ - CONIKS: easy because we already have an implementation in the Trillian repository
+ - [SEEMless](https://eprint.iacr.org/2018/607.pdf): need a Go implementation
+ - [AKD](https://github.com/facebook/akd): need a Go implementation
 
 TODO(mhutchinson): Finish writing this up.
 

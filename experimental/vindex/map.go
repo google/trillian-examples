@@ -20,7 +20,9 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -45,22 +47,27 @@ func NewIndexBuilder(ctx context.Context, log *logdb.Database, mapFn MapFn, walP
 	return b, b.init(ctx)
 }
 
+// IndexBuilder pulls data from a clone log DB, applies a MapFn, and outputs
+// the resulting operations needed on the map to a write-ahead log.
 type IndexBuilder struct {
 	log   *logdb.Database
 	mapFn MapFn
 	wal   *writeAheadLog
 }
 
+func (b IndexBuilder) Close() error {
+	return b.wal.close()
+}
+
 func (b IndexBuilder) init(ctx context.Context) error {
+	// Ready the write-ahead log, to determine the index we can guarantee we processed
 	idx, err := b.wal.init()
 	if err != nil {
 		return err
 	}
 
-	// Kick off a thread to read from the DB from the index onwards and:
-	//  - update the WAL
-	//  - announce new updates via a channel (TODO)
-
+	// Kick off a thread to read from the DB wherever the WAL was last written.
+	// This thread will only write to the WAL.
 	go b.pullFromDatabase(ctx, idx)
 
 	// Kick off a thread to:
@@ -86,9 +93,10 @@ func (b IndexBuilder) pullFromDatabase(ctx context.Context, start uint64) {
 				klog.Exitf("Panic: failed to read leaf at index %d: %v", i, err)
 			}
 			hashes := b.mapFn(l.Leaf)
-			if err := b.addIndex(i, hashes); err != nil {
+			if err := b.wal.append(i, hashes); err != nil {
 				klog.Exitf("failed to add index to entry for leaf %d: %v", i, err)
 			}
+			// TODO(mhutchinson): announce updates to map construction code
 		}
 	}
 
@@ -96,21 +104,45 @@ func (b IndexBuilder) pullFromDatabase(ctx context.Context, start uint64) {
 	_ = rawCp
 }
 
-func (b IndexBuilder) addIndex(idx uint64, hashes [][]byte) error {
-	// TODO(mhutchinson): this should also push this off to the map construction code
-	return b.wal.append(idx, hashes)
-}
-
 type writeAheadLog struct {
 	walPath string
-
-	entries []string
+	f       *os.File
 }
 
-// init reads the file and determines what the last mapped log index was, and returns it.
-// This method populates entries with the lines from the WAL up to and including the last
-// good entry.
+// init verifies that the log is in good shape, and returns the index that is expected next.
+// It also opens the log for appending to.
+//
+// Note that it returns the next expected index to avoid awkwardness with the meaning of 0,
+// which could mean 0 was successfully read from a previous run, or that there was no log.
 func (l *writeAheadLog) init() (uint64, error) {
+	idx, err := l.validate()
+
+	ffs := os.O_WRONLY | os.O_APPEND
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return idx, err
+		}
+		ffs |= os.O_CREATE
+	} else {
+		// If the file exists, then we expect the next index to be returned
+		idx++
+	}
+	// Open the file for writing in append-only, creating it if needed
+	l.f, err = os.OpenFile(l.walPath, ffs, 0666)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open file for writing: %s", err)
+	}
+	return idx, err
+}
+
+func (l *writeAheadLog) close() error {
+	return l.f.Close()
+}
+
+// validate reads the file and determines what the last mapped log index was, and returns it.
+// The assumption is that all lines ending with a newline were written correctly.
+// If there are any errors in the file then this throws an error.
+func (l *writeAheadLog) validate() (uint64, error) {
 	f, err := os.Open(l.walPath)
 	if err != nil {
 		return 0, err
@@ -118,24 +150,64 @@ func (l *writeAheadLog) init() (uint64, error) {
 	defer func() {
 		_ = f.Close()
 	}()
-
-	scanner := bufio.NewScanner(f)
-	l.entries = make([]string, 0, 64)
-	for scanner.Scan() {
-		l.entries = append(l.entries, scanner.Text())
+	fi, err := f.Stat()
+	if err != nil {
+		return 0, err
 	}
 
-	// Parse from the end, being tolerant of any corruption on final entries.
-	// Any corrupt entries are dropped.
-	for len(l.entries) > 0 {
-		lastEntry := l.entries[len(l.entries)-1]
-		idx, _, err := unmarshalWalEntry(lastEntry)
-		if err == nil {
-			return idx, nil
+	// Handle trivial case of empty file
+	size := fi.Size()
+	if size == 0 {
+		if err := os.Remove(l.walPath); err != nil {
+			return 0, fmt.Errorf("failed to delete empty file: %s", err)
 		}
-		l.entries = l.entries[:len(l.entries)-1]
+		return 0, os.ErrNotExist
 	}
-	return 0, nil
+
+	// Confirm last character is a newline
+	// TODO(mhutchinson): support ignoring incomplete lines
+	lastChar := make([]byte, 1)
+	if _, err := f.ReadAt(lastChar, size-1); err != nil {
+		return 0, err
+	}
+	if lastChar[0] != '\n' {
+		return 0, fmt.Errorf("expected final newline but got '%x'", lastChar[0])
+	}
+
+	// Read from the end of the file in stripes, terminating when we either:
+	// a) find another newline; or
+	// b) we have read from the beginning of the file
+	var lastLine string
+	const stripeSize = 1024
+	readStripe := make([]byte, stripeSize)
+	// Set it up so we read all but the last character (we know it's a newline)
+	currOffset := size - 1 - stripeSize
+
+	for {
+		if currOffset < 0 {
+			// If the stripe is bigger than the remaining file contents, adjust the offset
+			// and scale down what we'll read to avoid reading duplicates.
+			readStripe = readStripe[:stripeSize+currOffset]
+			currOffset = 0
+		}
+		if _, err := f.ReadAt(readStripe, currOffset); err != nil {
+			return 0, err
+		}
+		lastLine = string(readStripe) + lastLine
+		if idx := strings.LastIndexByte(lastLine, '\n'); idx > 0 {
+			lastLine = lastLine[idx+1:]
+			break
+		}
+		if currOffset == 0 {
+			// We read from the start of the file so lastLine is full
+			break
+		}
+		currOffset = currOffset - stripeSize
+	}
+
+	idx, _, err := unmarshalWalEntry(lastLine)
+
+	return idx, err
 }
 
 func (l *writeAheadLog) append(idx uint64, hashes [][]byte) error {
@@ -143,9 +215,48 @@ func (l *writeAheadLog) append(idx uint64, hashes [][]byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal entry: %v", err)
 	}
-	// TODO(mhutchinson): write out the entry
-	_ = e
+	l.f.WriteString(fmt.Sprintf("%s\n", e))
 	return nil
+}
+
+func newLogReader(path string) (*logReader, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	return &logReader{
+		f: f,
+		r: bufio.NewReader(f),
+	}, nil
+}
+
+type logReader struct {
+	f       *os.File
+	r       *bufio.Reader
+	partial string
+}
+
+// next returns the next index, hashes, and any error.
+// TODO(mhutchinson): change this as its inconvenient with EOF handling,
+// which should be common when reader hits the end of the file but more is
+// to be written.
+func (r *logReader) next() (uint64, [][]byte, error) {
+	line, err := r.r.ReadString('\n')
+	if err != nil {
+		if err == io.EOF {
+			r.partial = line
+		}
+		return 0, nil, err
+	}
+
+	// Make sure any partial lines are prepended, and drop the final newline
+	line = r.partial + line[:len(line)-1]
+	r.partial = ""
+	return unmarshalWalEntry(line)
+}
+
+func (r *logReader) close() error {
+	return r.f.Close()
 }
 
 // unmarshalWalEntry parses a line from the WAL.

@@ -215,8 +215,8 @@ func (l *writeAheadLog) append(idx uint64, hashes [][]byte) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal entry: %v", err)
 	}
-	l.f.WriteString(fmt.Sprintf("%s\n", e))
-	return nil
+	_, err = l.f.WriteString(fmt.Sprintf("%s\n", e))
+	return err
 }
 
 func newLogReader(path string) (*logReader, error) {

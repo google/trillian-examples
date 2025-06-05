@@ -127,7 +127,7 @@ func (l *writeAheadLog) init() (uint64, error) {
 		if !errors.Is(err, os.ErrNotExist) {
 			return idx, err
 		}
-		ffs |= os.O_EXCL
+		ffs |= os.O_CREATE | os.O_EXCL
 	} else {
 		// If the file exists, then we expect the next index to be returned
 		idx++

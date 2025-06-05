@@ -36,6 +36,11 @@ import (
 // A leaf can be recorded at any number of entries, including no entries (in which case an empty slice must be returned).
 type MapFn func([]byte) [][]byte
 
+// NewIndexBuilder returns an IndexBuilder that pulls entries from the given clonedb database, determines
+// indices for each one using the mapFn, and then writes the entries out to a Write Ahead Log at the given
+// path.
+// Note that only one IndexBuilder should exist for any given walPath at any time. The behaviour is unspecified,
+// but likely broken, if multiple processes are writing to the same file at any given time.
 func NewIndexBuilder(ctx context.Context, log *logdb.Database, mapFn MapFn, walPath string) (IndexBuilder, error) {
 	b := IndexBuilder{
 		log:   log,
@@ -115,20 +120,20 @@ type writeAheadLog struct {
 // Note that it returns the next expected index to avoid awkwardness with the meaning of 0,
 // which could mean 0 was successfully read from a previous run, or that there was no log.
 func (l *writeAheadLog) init() (uint64, error) {
-	idx, err := l.validate()
-
 	ffs := os.O_WRONLY | os.O_APPEND
+
+	idx, err := l.validate()
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return idx, err
 		}
-		ffs |= os.O_CREATE
+		ffs |= os.O_EXCL
 	} else {
 		// If the file exists, then we expect the next index to be returned
 		idx++
 	}
 	// Open the file for writing in append-only, creating it if needed
-	l.f, err = os.OpenFile(l.walPath, ffs, 0666)
+	l.f, err = os.OpenFile(l.walPath, ffs, 0o644)
 	if err != nil {
 		return 0, fmt.Errorf("failed to open file for writing: %s", err)
 	}
@@ -237,7 +242,7 @@ type logReader struct {
 }
 
 // next returns the next index, hashes, and any error.
-// TODO(mhutchinson): change this as its inconvenient with EOF handling,
+// TODO(mhutchinson): change this as it's inconvenient with EOF handling,
 // which should be common when reader hits the end of the file but more is
 // to be written.
 func (r *logReader) next() (uint64, [][]byte, error) {

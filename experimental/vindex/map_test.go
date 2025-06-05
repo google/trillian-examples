@@ -18,6 +18,7 @@ package vindex
 
 import (
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -51,7 +52,7 @@ func TestWriteAheadLog_init(t *testing.T) {
 			wantErr:      false,
 		}, {
 			desc:         "indexes and hashes",
-			fileContents: "1 deadbeef feed0124\n",
+			fileContents: fmt.Sprintf("1 %s %s\n", mustHashEncode("1a"), mustHashEncode("1b")),
 			wantIdx:      2,
 			wantErr:      false,
 		}, {
@@ -125,7 +126,7 @@ func TestWriteAheadLog_roundtrip(t *testing.T) {
 
 	for i := range 33 {
 		hash := sha256.Sum256([]byte{byte(i)})
-		if err := wal.append(uint64(i), [][]byte{hash[:]}); err != nil {
+		if err := wal.append(uint64(i), [][32]byte{hash}); err != nil {
 			t.Error(err)
 		}
 	}
@@ -180,7 +181,7 @@ func TestWriteAndWriteLog(t *testing.T) {
 	eg.Go(func() error {
 		for i := range count {
 			hash := sha256.Sum256([]byte{byte(i)})
-			if err := wal.append(uint64(i), [][]byte{hash[:]}); err != nil {
+			if err := wal.append(uint64(i), [][32]byte{hash}); err != nil {
 				return err
 			}
 		}
@@ -233,7 +234,7 @@ func TestUnmarshal(t *testing.T) {
 			wantHashes: 0,
 		}, {
 			desc:       "index and hashes",
-			entry:      "1 deadbeef feed0124",
+			entry:      fmt.Sprintf("1 %s %s", mustHashEncode("1a"), mustHashEncode("1b")),
 			wantErr:    false,
 			wantIdx:    1,
 			wantHashes: 2,
@@ -260,4 +261,9 @@ func TestUnmarshal(t *testing.T) {
 			}
 		})
 	}
+}
+
+func mustHashEncode(data string) string {
+	h := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(h[:])
 }

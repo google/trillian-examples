@@ -85,7 +85,7 @@ func (s Server) handleSubmit(w http.ResponseWriter, r *http.Request) {
 	responseMessage := s.lookup(inputString)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, responseMessage)
+	_, _ = fmt.Fprint(w, responseMessage)
 }
 
 func (s Server) registerHandlers(r *mux.Router) {

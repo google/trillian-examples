@@ -55,8 +55,13 @@ func NewVerifiableIndex(ctx context.Context, log *logdb.Database, mapFn MapFn, w
 		return nil, err
 	}
 	reader, err := newLogReader(walPath)
+	if err != nil {
+		return nil, err
+	}
 	vtreeStorage := mpt.NewMemoryStorage()
-	mpt.InitStorage(sha256.Sum256, vtreeStorage)
+	if err := mpt.InitStorage(sha256.Sum256, vtreeStorage); err != nil {
+		return nil, fmt.Errorf("InitStorage: %s", err)
+	}
 	b := &VerifiableIndex{
 		log:       log,
 		mapFn:     mapFn,
@@ -183,7 +188,9 @@ func (b VerifiableIndex) buildMap(ctx context.Context) error {
 			}
 
 			// Finally, we update the vindex
-			b.vindex.Insert(h, [32]byte(sum.Sum(nil)))
+			if err := b.vindex.Insert(h, [32]byte(sum.Sum(nil))); err != nil {
+				return fmt.Errorf("Insert(): %s", err)
+			}
 			klog.V(1).Infof("Updated map: %x: %v", h, idxes)
 		}
 	}

@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -175,16 +176,7 @@ func (b VerifiableIndex) buildMap(ctx context.Context) error {
 			// TODO(mhutchinson): maybe use a log construction?
 			sum := sha256.New()
 			for _, idx := range idxes {
-				b := []byte{
-					byte(idx),
-					byte(idx >> 8),
-					byte(idx >> 16),
-					byte(idx >> 24),
-					byte(idx >> 32),
-					byte(idx >> 40),
-					byte(idx >> 48),
-					byte(idx >> 56)}
-				if _, err := sum.Write(b); err != nil {
+				if err := binary.Write(sum, binary.LittleEndian, idx); err != nil {
 					klog.Warning(err)
 					return err
 				}

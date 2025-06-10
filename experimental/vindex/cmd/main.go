@@ -28,7 +28,7 @@ import (
 	"github.com/google/trillian-examples/clone/logdb"
 	"github.com/google/trillian-examples/experimental/vindex"
 	"github.com/gorilla/mux"
-	"golang.org/x/mod/semver"
+	"golang.org/x/mod/module"
 	"k8s.io/klog/v2"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -121,7 +121,7 @@ func mapFnFromFlags() vindex.MapFn {
 		if line0Version != line1Version {
 			klog.Errorf("mismatched version names: (%s, %s)", line0Version, line0Version)
 		}
-		if semver.Prerelease(line0Version) != "" || semver.Build(line0Version) != "" {
+		if module.IsPseudoVersion(line0Version) {
 			// Drop any emphemeral builds
 			return nil
 		}

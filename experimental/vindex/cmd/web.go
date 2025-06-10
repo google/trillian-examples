@@ -15,6 +15,7 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -28,17 +29,11 @@ type FormData struct {
 	Message string
 }
 
-var tmpl *template.Template // Global template variable
-
-func init() {
-	// Parse the template file once when the program starts
-	// Must be in the 'templates' directory
-	var err error
-	tmpl, err = template.ParseFiles("experimental/vindex/cmd/templates/form.html")
-	if err != nil {
-		klog.Fatalf("Error parsing template: %v", err)
-	}
-}
+var (
+	//go:embed templates/form.html
+	templateStr string
+	tmpl        = template.Must(template.New("form").Parse(templateStr))
+)
 
 func NewServer(lookup func(string) string) Server {
 	return Server{

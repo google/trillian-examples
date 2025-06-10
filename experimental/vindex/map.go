@@ -154,6 +154,7 @@ func (b VerifiableIndex) syncFromDatabase(ctx context.Context) error {
 // buildMap reads from the WAL until the file has been consumed and the map has been
 // built up the WAL size.
 func (b VerifiableIndex) buildMap(ctx context.Context) error {
+	startWal := time.Now()
 	for b.mapSize < b.cpSize-1 {
 		select {
 		case <-ctx.Done():
@@ -176,24 +177,34 @@ func (b VerifiableIndex) buildMap(ctx context.Context) error {
 			idxes := b.data[h]
 			idxes = append(idxes, idx)
 			b.data[h] = idxes
-
-			// Here we hash by simply appending all indices in the list and hashing that
-			// TODO(mhutchinson): maybe use a log construction?
-			sum := sha256.New()
-			for _, idx := range idxes {
-				if err := binary.Write(sum, binary.LittleEndian, idx); err != nil {
-					klog.Warning(err)
-					return err
-				}
-			}
-
-			// Finally, we update the vindex
-			if err := b.vindex.Insert(h, [32]byte(sum.Sum(nil))); err != nil {
-				return fmt.Errorf("Insert(): %s", err)
-			}
-			klog.V(1).Infof("Updated map: %x: %v", h, idxes)
 		}
 	}
+	durationWal := time.Since(startWal)
+
+	startVIndex := time.Now()
+	// Build the verifiable index afterwards for several reasons:
+	//  1) doing this incrementally leads to a lot of duplicate work for keys with multiple values
+	//  2) updating the vindex is the only part that will need to block lookups
+	for h, idxes := range b.data {
+		// Here we hash by simply appending all indices in the list and hashing that
+		// TODO(mhutchinson): maybe use a log construction?
+		sum := sha256.New()
+		for _, idx := range idxes {
+			if err := binary.Write(sum, binary.LittleEndian, idx); err != nil {
+				klog.Warning(err)
+				return err
+			}
+		}
+
+		// Finally, we update the vindex
+		if err := b.vindex.Insert(h, [32]byte(sum.Sum(nil))); err != nil {
+			return fmt.Errorf("Insert(): %s", err)
+		}
+	}
+	durationVIndex := time.Since(startVIndex)
+	durationTotal := time.Since(startWal)
+
+	klog.Infof("buildMap: total=%s (wal=%s, vindex=%s)", durationTotal, durationWal, durationVIndex)
 	return nil
 }
 

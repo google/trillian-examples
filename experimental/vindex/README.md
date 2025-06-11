@@ -195,5 +195,6 @@ You will also have a WAL file at `~/sumdb.wal`, which will make future boots fas
 |  7  | Proofs served on Lookup                                   |   ❌   |
 |  8  | MapFn defined in WASM                                     |   ❌   |
 |  9  | Proper repository for this code to live long-term         |   ❌   |
+|  10 | Support reading directly from Input Log instead of Clone  |   ❌   |
 |  N  | Production ready                                          |   ❌   |
 

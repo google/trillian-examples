@@ -2,7 +2,7 @@
 
 Status: Experimental.
 
-This idea has been distilled from years of experiments with maps, and a pressing need to have an efficient way for an end-user to find data in logs without performing a full scan of all of the data.
+This idea has been distilled from years of experiments with maps, and a pressing need to have an efficient and verifiable way for an end-user to find _their_ data in logs without needing to download the whole log.
 
 This experiment should be considered a 20% project for the time being and isn't on the near-term official roadmap for transparency.dev.
 Discussions are welcome, please join us on [Transparency-Dev Slack](https://join.slack.com/t/transparency-dev/shared_invite/zt-27pkqo21d-okUFhur7YZ0rFoJVIOPznQ).
@@ -11,9 +11,12 @@ Discussions are welcome, please join us on [Transparency-Dev Slack](https://join
 
 The core idea is basically to construct an index like you would find in the back of a book, i.e. search terms are mapped to a _pointer_ to where the data can be found.
 A verifiable index represents an efficient data structure to allow point lookups to common queries over a single log.
+For example, a verifiable index over a module/package repository could be constructed to allow efficient lookup of all modules/packages with a given name.
+
 The result of looking up a key in a verifiable index is a list of uint64 pointers to the origin log, i.e. a list of indices in the origin log where the leaf data matches the index function.
 The index has a checkpoint that commits to its state at any particular log size.
 Every point lookup (i.e. query) in the map is verifiable, as is the construction of the index itself.
+The verifiable index commits to all evolutions of its state by committing to all published index roots in a witnessed output log.
 
 ## Applications
 
@@ -22,7 +25,7 @@ This verifiable map can be applied to any log where users have a need to enumera
 * CT: domain owners wish to query for all certs matching a particular domain  
 * SumDB: package owners want to find all releases for a given package
 
-These indices exist for both ecosystems at the moment, but they aren’t verifiable.
+Indices exist for both ecosystems at the moment, but they aren’t verifiable.
 
 ## Core Idea; TL;DR
 
@@ -32,14 +35,18 @@ The Verifiable Index has 3 data structures involved (and is informally called a 
 2. The _Verifiable Index_ containing pointers back into the _Input Log_
 3. The _Output Log_ that contains a list of all revisions of the map
 
-The Input Log likely aready exists before the Verifiable Index is added, but the Output Log is required in order to make the Verifiable Index historically verifiable.
-For example, in Certificate Transparency, the Input Log could be any of the CT Logs.
+The Input Log likely aready exists before the Verifiable Index is added, but the Output Log is new, and required in order to make the Verifiable Index historically verifiable.
+For example, in Certificate Transparency, the Input Log could be any one of the CT Logs.
 In order to make certificates in a log be efficiently looked up by domain, an operator can spin up Verifiable Index and a corresponding Output Log.
 The Index would map domain names to indices in the Input Log where the cert is for this domain.
 
 > [!TIP]
 > Note that the map doesn't have a "signed map root", i.e. it has no direct analog for a Log Checkpoint.
 > Instead, the state of a Verifiable Index is committed to by including its state as a leaf in the Output Log.
+
+> [!NOTE]
+> A Verifiable Index is constructed for a single Input Log.
+> For ecosystems of multiple logs (e.g. CT), there will be as many Verifiable Indices as there are Input Logs.
 
 ### Constructing
 
@@ -48,7 +55,7 @@ The Index would map domain names to indices in the Input Log where the cert is f
    1. e.g. for CT, this would be all of the domains that relate to a cert.  
    2. The raw domains are not output, but are hashed. If privacy is important, a VRF could be used here.  
 3. The output from the MapFn stage represents a sequence of update operations to the map  
-   1. This output stream can be serialized for data recovery (see [Write Ahead Map Transaction Log](#write-ahead-map-transaction-log))  
+   1. This output stream can be serialized for data recovery (see [Write Ahead Map Transaction Log](#write-ahead-map-transaction-log))
 4. The map is computed for these update operations and a root is calculated
 5. The root hash is written as a new leaf into the Output Log, along with the checkpoint from the Input Log that was consumed to create this revision
 6. The Output Log is witnessed, and an Output Log Checkpoint is made available with witness signatures
@@ -123,9 +130,14 @@ i.e. consume each entry in the log, apply the map function in order to determine
 
 Having a compact append-only transaction log allows the map process to restart and pick up from where it last crashed efficiently. It also neatly divides the problem space: before this stage you have downloading logs and applying the MapFn, and after this stage you have the challenges of maintaining an efficient map data structure for updates and reads.
 
-The core idea is to output at most a single record (row) for each entry in the log. A row has the first token being the log index, and the following (optional) values being the key hashes under which this index should appear.
+The core idea is to output at most a single record (row) for each entry in the log.
+A valid row has:
+ 1. the first token being the log index (string representation of uint64)
+ 1. the following (optional) space-separated values being the key hashes under which this index should appear
+ 1. a newline terminator
 
-Some use cases may have lots of entries in the log that do not map to any value, and so this supports omitting a log index if it has no updates required in the map. However, an empty value can be output as a form of sentinel to provide a milepost on restarts that prevents going back over large numbers of empty entries from the log.
+Some use cases may have lots of entries in the log that do not map to any value, and so this supports omitting a log index if it has no updates required in the map.
+However, an empty value can be output as a form of sentinel to provide a milepost on restarts that prevents going back over large numbers of empty entries from the log.
 
 ```
 0 HEX_HASH_1 HEX_HASH_2
@@ -135,20 +147,52 @@ Some use cases may have lots of entries in the log that do not map to any value,
 6 HEX_HASH_2
 ```
 
-In the above example, there is no map value for the entries at index 1, 4, or 5 in the log. It is undetermined whether index 7+ is present, and thus anyone replaying this log would need to assume that this needs to be recomputed starting from index 7\.
+In the above example, there is no map value for the entries at index 1, 4, or 5 in the log.
+It is undetermined whether index 7+ is present, and thus anyone replaying this log would need to assume that this needs to be recomputed starting from index 7.
 
 ### Turning Log into Efficient Map
 
-And now we have the crux of the problem. The fun part 😀
+The [WAL](#write-ahead-map-transaction-log) can be transformed directly into the data structures needed for serving lookups.
+This is implemented using two data structures that are maintained in lockstep:
+ - A Verifiable Prefix Trie based on [AKD](https://github.com/facebook/akd): https://github.com/FiloSottile/torchwood/tree/main/mpt; this maintains only the Merkle Tree
+ - A standard Go map; this stores the actual data, i.e. it maps each key to the list of all relevant indices
 
-Requirements:
+Keys in the map are hashes, according to whatever strategy [MapFn](#mapfn-specified-in-universal-language) returns.
+Values are an ordered list of indices.
 
-* Values are indices, appended in incremental order. Could be a list or a log.
+> [!NOTE]
+> The current mechanism for hashing the list of indices writes all values out as a single block, and hashes this with a single SHA256.
+> An alternative would be to build a Merkle tree of these values.
+> This would be slightly more complex conceptually, but could allow for incremental updating of values, and more proofs.
 
-Ideas for map implementation:
- - CONIKS: easy because we already have an implementation in the Trillian repository
- - [SEEMless](https://eprint.iacr.org/2018/607.pdf): need a Go implementation
- - [AKD](https://github.com/facebook/akd): need a Go implementation
 
-TODO(mhutchinson): Finish writing this up.
+## Status
+
+There is a basic end-to-end application written that currently only supports SumDB.
+This application:
+ - Reads a local [SumDB clone](https://github.com/google/trillian-examples/tree/master/clone/cmd/sumdbclone)
+ - Builds a map, in the format described above
+ - Serves a Lookup API via HTTP
+
+Running it:
+ 1. Have a fully mirrored SumDB using `sumdbclone` (the easiest way is to use `docker compose up`, and wait)
+ 1. Run the verifiable index binary: `go run ./experimental/vindex/cmd --logDSN="sumdb:letmein@tcp(127.0.0.1:33006)/sumdb"  --walPath ~/sumdb.wal`
+
+Providing the above works, you will have a web server hosting a form at http://localhost:8088.
+This form takes a package name for SumDB (e.g. `github.com/transparency-dev/tessera`), and outputs all indices in the SumDB log corresponding to that package.
+You will also have a WAL file at `~/sumdb.wal`, which will make future boots faster.
+
+## Milestones
+
+|  #  | Step                                                      | Status |
+| :-: | --------------------------------------------------------- | :----: |
+|  1  | Public code base and documentation for prototype          |   ✅   |
+|  2  | Implementation of Merkle Radix Tree                       |   ✅   |
+|  3  | Example written for mapping SumDB                         |   ✅   |
+|  4  | Example written for mapping CT                            |   ⚠️   |
+|  5  | Output log                                                |   ❌   |
+|  6  | Proofs served on Lookup                                   |   ❌   |
+|  7  | MapFn defined in WASM                                     |   ❌   |
+|  8  | Proper repository for this code to live long-term         |   ❌   |
+|  N  | Production ready                                          |   ❌   |
 

@@ -188,11 +188,12 @@ You will also have a WAL file at `~/sumdb.wal`, which will make future boots fas
 | :-: | --------------------------------------------------------- | :----: |
 |  1  | Public code base and documentation for prototype          |   ✅   |
 |  2  | Implementation of Merkle Radix Tree                       |   ✅   |
-|  3  | Example written for mapping SumDB                         |   ✅   |
-|  4  | Example written for mapping CT                            |   ⚠️   |
-|  5  | Output log                                                |   ❌   |
-|  6  | Proofs served on Lookup                                   |   ❌   |
-|  7  | MapFn defined in WASM                                     |   ❌   |
-|  8  | Proper repository for this code to live long-term         |   ❌   |
+|  3  | Incremental update                                        |   ✅   |
+|  4  | Example written for mapping SumDB                         |   ✅   |
+|  5  | Example written for mapping CT                            |   ⚠️   |
+|  6  | Output log                                                |   ❌   |
+|  7  | Proofs served on Lookup                                   |   ❌   |
+|  8  | MapFn defined in WASM                                     |   ❌   |
+|  9  | Proper repository for this code to live long-term         |   ❌   |
 |  N  | Production ready                                          |   ❌   |
 

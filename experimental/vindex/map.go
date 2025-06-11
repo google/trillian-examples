@@ -28,6 +28,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"filippo.io/torchwood/mpt"
@@ -81,28 +82,55 @@ type VerifiableIndex struct {
 	mapFn  MapFn
 	wal    *writeAheadLog
 	reader *logReader
-	vindex mpt.Tree
-	data   map[[32]byte][]uint64
+
+	indexMu sync.RWMutex // covers vindex and data
+	vindex  mpt.Tree
+	data    map[[32]byte][]uint64
 
 	nextIndex uint64 // nextIndex is the next index in the log to consume
 	rawCp     []byte // rawCp is the last checkpoint we started syncing to
 	cpSize    uint64 // cpSize is the tree size of rawCp
 	mapSize   uint64 // mapSize is the last index from the log that was put into the map
+
+	// servingSize is the size of the input log we are serving for.
+	// This a temporary workaround not having an output log, which we will eventually read to get
+	// the checkpoint size.
+	servingSize uint64
 }
 
-func (b VerifiableIndex) Close() error {
+func (b *VerifiableIndex) Close() error {
 	return b.wal.close()
 }
 
-func (b VerifiableIndex) Lookup(key string) (indices []uint64) {
-	// TODO(mhutchinson): This needs to return verifiable stuff
-	kh := sha256.Sum256([]byte(key))
-	return b.data[kh]
+// Lookup returns the values stored for the given key.
+// TODO(mhutchinson): This needs to return verifiable stuff
+func (b *VerifiableIndex) Lookup(key string) (indices []uint64) {
+	// Scope the lock to be as minimal as possible
+	lookupLocked := func(key string) []uint64 {
+		b.indexMu.RLock()
+		defer b.indexMu.RUnlock()
+		kh := sha256.Sum256([]byte(key))
+		return b.data[kh]
+	}
+
+	// TODO(mhutchinson): this should come from the latest map root in the (witnessed) output log.
+	// This map root, the witnessed output log checkpoint, and all proofs should also be served here.
+	size := b.servingSize
+
+	allIndices := lookupLocked(key)
+	for i, idx := range allIndices {
+		if idx >= size {
+			// If we have indices past the current size we are serving, drop them.
+			// Doing this allows us to update b.data with new indices while still serving from it.
+			return allIndices[:i]
+		}
+	}
+	return allIndices
 }
 
 // Update checks the input log for a new Checkpoint, and ensures that the Verifiable Index
 // is updated to the corresponding size.
-func (b VerifiableIndex) Update(ctx context.Context) error {
+func (b *VerifiableIndex) Update(ctx context.Context) error {
 	var eg errgroup.Group
 
 	var err error
@@ -110,9 +138,15 @@ func (b VerifiableIndex) Update(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get latest checkpoint from DB: %v", err)
 	}
+	if b.cpSize == b.servingSize {
+		klog.V(1).Infof("No update needed: checkpoint size is still %d", b.servingSize)
+		return nil
+	}
 	klog.Infof("Building map to log size of %d", b.cpSize)
 	eg.Go(func() error { return b.syncFromDatabase(ctx) })
 	eg.Go(func() error { return b.buildMap(ctx) })
+
+	b.servingSize = b.cpSize
 
 	return eg.Wait()
 }
@@ -120,7 +154,7 @@ func (b VerifiableIndex) Update(ctx context.Context) error {
 // syncFromDatabase reads the latest checkpoint from the DB mirror of the log.
 // It stores this checkpoint in the builder, and ensures the WAL is updated with
 // all VIndex updates required to represent the log.
-func (b VerifiableIndex) syncFromDatabase(ctx context.Context) error {
+func (b *VerifiableIndex) syncFromDatabase(ctx context.Context) error {
 	if b.cpSize > b.nextIndex {
 		leaves := make(chan logdb.StreamResult, 1)
 		go b.log.StreamLeaves(ctx, b.nextIndex, b.cpSize, leaves)
@@ -153,8 +187,9 @@ func (b VerifiableIndex) syncFromDatabase(ctx context.Context) error {
 
 // buildMap reads from the WAL until the file has been consumed and the map has been
 // built up the WAL size.
-func (b VerifiableIndex) buildMap(ctx context.Context) error {
+func (b *VerifiableIndex) buildMap(ctx context.Context) error {
 	startWal := time.Now()
+	updatedKeys := make(map[[32]byte]bool) // Allows us to efficiently update vindex after first init
 	for b.mapSize < b.cpSize-1 {
 		select {
 		case <-ctx.Done():
@@ -170,22 +205,42 @@ func (b VerifiableIndex) buildMap(ctx context.Context) error {
 			time.Sleep(10 * time.Millisecond)
 			continue
 		}
-		b.mapSize = idx
-		for _, h := range hashes {
-			klog.V(2).Infof("Read from WAL: index %d: %x", idx, h)
-			// Add the data to the key/value map
-			idxes := b.data[h]
-			idxes = append(idxes, idx)
-			b.data[h] = idxes
-		}
+
+		// Locking strategy when updating the map containing actual data is to lock for each log entry
+		// This more granular locking allows Lookup to still occur, and we can drop any indexes bigger than
+		// the tree size.
+		func() {
+			b.indexMu.Lock()
+			defer b.indexMu.Unlock()
+			b.mapSize = idx
+			for _, h := range hashes {
+				klog.V(2).Infof("Read from WAL: index %d: %x", idx, h)
+				// Add the data to the key/value map
+				idxes := b.data[h]
+				idxes = append(idxes, idx)
+				b.data[h] = idxes
+				updatedKeys[h] = true
+			}
+		}()
 	}
 	durationWal := time.Since(startWal)
 
 	startVIndex := time.Now()
-	// Build the verifiable index afterwards for several reasons:
+	// Build the verifiable index _afterwards_ for several reasons:
 	//  1) doing this incrementally leads to a lot of duplicate work for keys with multiple values
-	//  2) updating the vindex is the only part that will need to block lookups
-	for h, idxes := range b.data {
+	//  2) updating the vindex needs to block lookups for the whole update of the data structure
+
+	// Locking strategy for the verifiable index is to prevent all reads while this is being updated.
+	// TODO(mhutchinson): inside the same mutex we will need to update the output log with the calculated
+	// map root, and eventually witness checkpoints.
+	// If this is too slow (almost certain), then we need some strategy to allow us to serve a version of
+	// the vindex while also updating it. One approach could be to have 2 trees whenever we are performing
+	// an update.
+	b.indexMu.Lock()
+	defer b.indexMu.Unlock()
+	for h := range updatedKeys {
+		idxes := b.data[h]
+
 		// Here we hash by simply appending all indices in the list and hashing that
 		// TODO(mhutchinson): maybe use a log construction?
 		sum := sha256.New()

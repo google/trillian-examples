@@ -24,6 +24,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/trillian-examples/clone/logdb"
 	"github.com/google/trillian-examples/experimental/vindex"
@@ -75,14 +76,20 @@ func main() {
 	}
 
 	go func() {
-		// TODO(mhutchinson): This should update periodically.
-		// There is locking to consider here, as Lookup during Update isn't safe, yet.
-		if err := b.Update(ctx); err != nil {
-			klog.Exitf("Failed to update Verifiable Index: %s", err)
+		for {
+			if err := b.Update(ctx); err != nil {
+				klog.Exitf("Failed to update Verifiable Index: %s", err)
+			}
+			// On successful update, this should post the vindex root into an output log.
+			// Log is likely to be POSIX Tessera.
+			klog.Info("Verifiable Index updated")
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(30 * time.Second):
+			}
 		}
-		// On successful update, this should post the vindex root into an output log.
-		// Log is likely to be POSIX Tessera.
-		klog.Info("Verifiable Index built")
 	}()
 
 	e := make(chan error, 1)

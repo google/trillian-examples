@@ -19,6 +19,8 @@ package vindex
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -26,87 +28,254 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
+	"filippo.io/torchwood/mpt"
 	"github.com/google/trillian-examples/clone/logdb"
+	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 )
 
 // MapFn takes the raw leaf data from a log entry and outputs the SHA256 hashes
 // of the keys at which this leaf should be indexed under.
 // A leaf can be recorded at any number of entries, including no entries (in which case an empty slice must be returned).
-type MapFn func([]byte) [][]byte
+type MapFn func([]byte) [][32]byte
 
-// NewIndexBuilder returns an IndexBuilder that pulls entries from the given clonedb database, determines
+// NewVerifiableIndex returns an IndexBuilder that pulls entries from the given clonedb database, determines
 // indices for each one using the mapFn, and then writes the entries out to a Write Ahead Log at the given
 // path.
 // Note that only one IndexBuilder should exist for any given walPath at any time. The behaviour is unspecified,
 // but likely broken, if multiple processes are writing to the same file at any given time.
-func NewIndexBuilder(ctx context.Context, log *logdb.Database, mapFn MapFn, walPath string) (IndexBuilder, error) {
-	b := IndexBuilder{
-		log:   log,
-		mapFn: mapFn,
-		wal: &writeAheadLog{
-			walPath: walPath,
-		},
+func NewVerifiableIndex(ctx context.Context, log *logdb.Database, mapFn MapFn, walPath string) (*VerifiableIndex, error) {
+	wal := &writeAheadLog{
+		walPath: walPath,
 	}
-	return b, b.init(ctx)
+	ws, err := wal.init()
+	if err != nil {
+		return nil, err
+	}
+	reader, err := newLogReader(walPath)
+	if err != nil {
+		return nil, err
+	}
+	vtreeStorage := mpt.NewMemoryStorage()
+	if err := mpt.InitStorage(sha256.Sum256, vtreeStorage); err != nil {
+		return nil, fmt.Errorf("InitStorage: %s", err)
+	}
+	b := &VerifiableIndex{
+		log:       log,
+		mapFn:     mapFn,
+		wal:       wal,
+		reader:    reader,
+		vindex:    *mpt.NewTree(sha256.Sum256, vtreeStorage),
+		data:      map[[32]byte][]uint64{},
+		nextIndex: ws,
+	}
+	return b, nil
 }
 
-// IndexBuilder pulls data from a clone log DB, applies a MapFn, and outputs
+// VerifiableIndex pulls data from a clone log DB, applies a MapFn, and outputs
 // the resulting operations needed on the map to a write-ahead log.
-type IndexBuilder struct {
-	log   *logdb.Database
-	mapFn MapFn
-	wal   *writeAheadLog
+type VerifiableIndex struct {
+	log    *logdb.Database
+	mapFn  MapFn
+	wal    *writeAheadLog
+	reader *logReader
+
+	indexMu sync.RWMutex // covers vindex and data
+	vindex  mpt.Tree
+	data    map[[32]byte][]uint64
+
+	nextIndex uint64 // nextIndex is the next index in the log to consume
+	rawCp     []byte // rawCp is the last checkpoint we started syncing to
+	cpSize    uint64 // cpSize is the tree size of rawCp
+	mapSize   uint64 // mapSize is the last index from the log that was put into the map
+
+	// servingSize is the size of the input log we are serving for.
+	// This a temporary workaround not having an output log, which we will eventually read to get
+	// the checkpoint size.
+	servingSize uint64
 }
 
-func (b IndexBuilder) Close() error {
+func (b *VerifiableIndex) Close() error {
 	return b.wal.close()
 }
 
-func (b IndexBuilder) init(ctx context.Context) error {
-	// Ready the write-ahead log, to determine the index we can guarantee we processed
-	idx, err := b.wal.init()
-	if err != nil {
-		return err
+// Lookup returns the values stored for the given key.
+// TODO(mhutchinson): This needs to return verifiable stuff
+func (b *VerifiableIndex) Lookup(key string) (indices []uint64) {
+	// Scope the lock to be as minimal as possible
+	lookupLocked := func(key string) []uint64 {
+		b.indexMu.RLock()
+		defer b.indexMu.RUnlock()
+		kh := sha256.Sum256([]byte(key))
+		return b.data[kh]
 	}
 
-	// Kick off a thread to read from the DB wherever the WAL was last written.
-	// This thread will only write to the WAL.
-	go b.pullFromDatabase(ctx, idx)
+	// TODO(mhutchinson): this should come from the latest map root in the (witnessed) output log.
+	// This map root, the witnessed output log checkpoint, and all proofs should also be served here.
+	size := b.servingSize
 
-	// Kick off a thread to:
-	//  - read snapshot of the WAL and populate map
-	//  - consume entries from the channel to update the map
+	allIndices := lookupLocked(key)
+	for i, idx := range allIndices {
+		if idx >= size {
+			// If we have indices past the current size we are serving, drop them.
+			// Doing this allows us to update b.data with new indices while still serving from it.
+			return allIndices[:i]
+		}
+	}
+	return allIndices
+}
 
+// Update checks the input log for a new Checkpoint, and ensures that the Verifiable Index
+// is updated to the corresponding size.
+func (b *VerifiableIndex) Update(ctx context.Context) error {
+
+	var err error
+	cpSize, rawCp, _, err := b.log.GetLatestCheckpoint(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get latest checkpoint from DB: %v", err)
+	}
+	if cpSize == b.cpSize {
+		klog.V(1).Infof("No update needed: checkpoint size is still %d", b.servingSize)
+		return nil
+	}
+	b.cpSize = cpSize
+	b.rawCp = rawCp
+	klog.Infof("Building map to log size of %d", b.cpSize)
+
+	eg, cctx := errgroup.WithContext(ctx)
+	eg.Go(func() error { return b.syncFromDatabase(cctx) })
+	eg.Go(func() error { return b.buildMap(cctx) })
+
+	b.servingSize = b.cpSize
+
+	return eg.Wait()
+}
+
+// syncFromDatabase reads the latest checkpoint from the DB mirror of the log.
+// It stores this checkpoint in the builder, and ensures the WAL is updated with
+// all VIndex updates required to represent the log.
+func (b *VerifiableIndex) syncFromDatabase(ctx context.Context) error {
+	if b.cpSize > b.nextIndex {
+		leaves := make(chan logdb.StreamResult, 1)
+		go b.log.StreamLeaves(ctx, b.nextIndex, b.cpSize, leaves)
+
+		var l logdb.StreamResult
+		for ; b.nextIndex < b.cpSize; b.nextIndex++ {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case l = <-leaves:
+			}
+			if l.Err != nil {
+				return fmt.Errorf("failed to read leaf at index %d: %v", b.nextIndex, l.Err)
+			}
+			var hashes [][32]byte
+			var mapErr error
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						mapErr = fmt.Errorf("panic detected mapping index %d: %s", b.nextIndex, r)
+					}
+				}()
+				hashes = b.mapFn(l.Leaf)
+			}()
+			if mapErr != nil {
+				return mapErr
+			}
+			if len(hashes) == 0 && b.nextIndex < b.cpSize-1 {
+				// We can skip writing out values with no hashes, as long as we're
+				// not at the end of the log.
+				// If we are at the end of the log, we need to write out a value as a sentinel
+				// even if there are no hashes.
+				continue
+			}
+			if err := b.wal.append(b.nextIndex, hashes); err != nil {
+				return fmt.Errorf("failed to add index to entry for leaf %d: %v", b.nextIndex, err)
+			}
+		}
+	}
 	return nil
 }
 
-func (b IndexBuilder) pullFromDatabase(ctx context.Context, start uint64) {
-	size, rawCp, _, err := b.log.GetLatestCheckpoint(ctx)
-	if err != nil {
-		klog.Exitf("Panic: failed to get latest checkpoint from DB: %v", err)
+// buildMap reads from the WAL until the file has been consumed and the map has been
+// built up the WAL size.
+func (b *VerifiableIndex) buildMap(ctx context.Context) error {
+	startWal := time.Now()
+	updatedKeys := make(map[[32]byte]bool) // Allows us to efficiently update vindex after first init
+	for b.mapSize < b.cpSize-1 {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		idx, hashes, err := b.reader.next()
+		if err != nil {
+			if err != io.EOF {
+				return err
+			}
+			// Wait a small amount of time for more data to become available
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+
+		// Locking strategy when updating the map containing actual data is to lock for each log entry
+		// This more granular locking allows Lookup to still occur, and we can drop any indexes bigger than
+		// the tree size.
+		func() {
+			b.indexMu.Lock()
+			defer b.indexMu.Unlock()
+			b.mapSize = idx
+			for _, h := range hashes {
+				klog.V(2).Infof("Read from WAL: index %d: %x", idx, h)
+				// Add the data to the key/value map
+				idxes := b.data[h]
+				idxes = append(idxes, idx)
+				b.data[h] = idxes
+				updatedKeys[h] = true
+			}
+		}()
 	}
+	durationWal := time.Since(startWal)
 
-	if size > start {
-		leaves := make(chan logdb.StreamResult, 1)
-		b.log.StreamLeaves(ctx, start, size, leaves)
+	startVIndex := time.Now()
+	// Build the verifiable index _afterwards_ for several reasons:
+	//  1) doing this incrementally leads to a lot of duplicate work for keys with multiple values
+	//  2) updating the vindex needs to block lookups for the whole update of the data structure
 
-		for i := start; i < size; i++ {
-			l := <-leaves
-			if l.Err != nil {
-				klog.Exitf("Panic: failed to read leaf at index %d: %v", i, err)
+	// Locking strategy for the verifiable index is to prevent all reads while this is being updated.
+	// TODO(mhutchinson): inside the same mutex we will need to update the output log with the calculated
+	// map root, and eventually witness checkpoints.
+	// If this is too slow (almost certain), then we need some strategy to allow us to serve a version of
+	// the vindex while also updating it. One approach could be to have 2 trees whenever we are performing
+	// an update.
+	b.indexMu.Lock()
+	defer b.indexMu.Unlock()
+	for h := range updatedKeys {
+		idxes := b.data[h]
+
+		// Here we hash by simply appending all indices in the list and hashing that
+		// TODO(mhutchinson): maybe use a log construction?
+		sum := sha256.New()
+		for _, idx := range idxes {
+			if err := binary.Write(sum, binary.BigEndian, idx); err != nil {
+				klog.Warning(err)
+				return err
 			}
-			hashes := b.mapFn(l.Leaf)
-			if err := b.wal.append(i, hashes); err != nil {
-				klog.Exitf("failed to add index to entry for leaf %d: %v", i, err)
-			}
-			// TODO(mhutchinson): announce updates to map construction code
+		}
+
+		// Finally, we update the vindex
+		if err := b.vindex.Insert(h, [32]byte(sum.Sum(nil))); err != nil {
+			return fmt.Errorf("Insert(): %s", err)
 		}
 	}
+	durationVIndex := time.Since(startVIndex)
+	durationTotal := time.Since(startWal)
 
-	// TODO(mhutchinson): the raw log checkpoint needs to be propagated into the map checkpoint
-	_ = rawCp
+	klog.Infof("buildMap: total=%s (wal=%s, vindex=%s)", durationTotal, durationWal, durationVIndex)
+	return nil
 }
 
 type writeAheadLog struct {
@@ -215,7 +384,7 @@ func (l *writeAheadLog) validate() (uint64, error) {
 	return idx, err
 }
 
-func (l *writeAheadLog) append(idx uint64, hashes [][]byte) error {
+func (l *writeAheadLog) append(idx uint64, hashes [][32]byte) error {
 	e, err := marshalWalEntry(idx, hashes)
 	if err != nil {
 		return fmt.Errorf("failed to marshal entry: %v", err)
@@ -245,7 +414,7 @@ type logReader struct {
 // TODO(mhutchinson): change this as it's inconvenient with EOF handling,
 // which should be common when reader hits the end of the file but more is
 // to be written.
-func (r *logReader) next() (uint64, [][]byte, error) {
+func (r *logReader) next() (uint64, [][32]byte, error) {
 	line, err := r.r.ReadString('\n')
 	if err != nil {
 		if err == io.EOF {
@@ -266,20 +435,23 @@ func (r *logReader) close() error {
 
 // unmarshalWalEntry parses a line from the WAL.
 // This is the reverse of marshalWalEntry.
-func unmarshalWalEntry(e string) (uint64, [][]byte, error) {
+func unmarshalWalEntry(e string) (uint64, [][32]byte, error) {
 	tokens := strings.Split(e, " ")
 	idx, err := strconv.ParseUint(tokens[0], 10, 64)
 	if err != nil {
 		return 0, nil, fmt.Errorf("failed to parse idx from %q", e)
 	}
 
-	hashes := make([][]byte, 0, len(tokens)-1)
+	hashes := make([][32]byte, 0, len(tokens)-1)
 	for i, h := range tokens[1:] {
 		parsed, err := hex.DecodeString(h)
 		if err != nil {
 			return 0, nil, fmt.Errorf("failed to parse hex token %d from %q", i, e)
 		}
-		hashes = append(hashes, parsed)
+		if got, want := len(parsed), 32; got != want {
+			return 0, nil, fmt.Errorf("expected 32 byte hash but got %d bytes at idx %d", got, i)
+		}
+		hashes = append(hashes, [32]byte(parsed))
 	}
 
 	return idx, hashes, nil
@@ -287,13 +459,13 @@ func unmarshalWalEntry(e string) (uint64, [][]byte, error) {
 
 // unmarshalWalEntry converts an index and the hashes it affects into a line for the WAL.
 // This is the reverse of unmarshalWalEntry.
-func marshalWalEntry(idx uint64, hashes [][]byte) (string, error) {
+func marshalWalEntry(idx uint64, hashes [][32]byte) (string, error) {
 	sb := strings.Builder{}
 	if _, err := sb.WriteString(strconv.FormatUint(idx, 10)); err != nil {
 		return "", err
 	}
 	for _, h := range hashes {
-		if _, err := sb.WriteString(" " + hex.EncodeToString(h)); err != nil {
+		if _, err := sb.WriteString(" " + hex.EncodeToString(h[:])); err != nil {
 			return "", err
 		}
 	}

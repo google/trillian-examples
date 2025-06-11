@@ -42,6 +42,7 @@ require (
 	cloud.google.com/go/profiler v0.4.2 // indirect
 	cloud.google.com/go/storage v1.52.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/torchwood v0.5.1-0.20250605130057-fa65d721a6ce // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.27.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.51.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.51.0 // indirect

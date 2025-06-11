@@ -23,7 +23,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/golang/glog"
+	"k8s.io/klog/v2"
 )
 
 // ErrNoDataFound is returned when the DB appears valid but has no data in it.
@@ -78,7 +78,7 @@ func (d *Database) WriteCheckpoint(ctx context.Context, size uint64, checkpoint 
 	if err := row.Scan(&max); err != nil {
 		if err != sql.ErrNoRows {
 			if err := tx.Rollback(); err != nil {
-				glog.Errorf("tx.Rollback(): %v", err)
+				klog.Errorf("tx.Rollback(): %v", err)
 			}
 			return fmt.Errorf("Scan(): %v", err)
 		}
@@ -86,7 +86,7 @@ func (d *Database) WriteCheckpoint(ctx context.Context, size uint64, checkpoint 
 
 	if size <= max {
 		if err := tx.Rollback(); err != nil {
-			glog.Errorf("tx.Rollback(): %v", err)
+			klog.Errorf("tx.Rollback(): %v", err)
 		}
 		return nil
 	}
@@ -95,12 +95,12 @@ func (d *Database) WriteCheckpoint(ctx context.Context, size uint64, checkpoint 
 	enc := gob.NewEncoder(&srs)
 	if err := enc.Encode(compactRange); err != nil {
 		if err := tx.Rollback(); err != nil {
-			glog.Errorf("tx.Rollback(): %v", err)
+			klog.Errorf("tx.Rollback(): %v", err)
 		}
 		return fmt.Errorf("Encode(): %v", err)
 	}
 	if _, err := tx.ExecContext(ctx, "INSERT INTO checkpoints (size, data, compactRange) VALUES (?, ?, ?)", size, checkpoint, srs.Bytes()); err != nil {
-		glog.Errorf("tx.ExecContext(): %v", err)
+		klog.Errorf("tx.ExecContext(): %v", err)
 	}
 	return tx.Commit()
 }
@@ -132,7 +132,7 @@ func (d *Database) WriteLeaves(ctx context.Context, start uint64, leaves [][]byt
 	for li, l := range leaves {
 		lidx := uint64(li) + start
 		if _, err := tx.Exec("INSERT INTO leaves (id, data) VALUES (?, ?)", lidx, l); err != nil {
-			glog.Errorf("tx.Exec(): %v", err)
+			klog.Errorf("tx.Exec(): %v", err)
 		}
 	}
 	return tx.Commit()
@@ -150,7 +150,7 @@ func (d *Database) StreamLeaves(ctx context.Context, start, end uint64, out chan
 	}
 	defer func() {
 		if err := rows.Close(); err != nil {
-			glog.Errorf("rows.Close(): %v", err)
+			klog.Errorf("rows.Close(): %v", err)
 		}
 	}()
 	for rows.Next() {

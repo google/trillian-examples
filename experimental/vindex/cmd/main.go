@@ -92,18 +92,8 @@ func main() {
 		}
 	}()
 
-	e := make(chan error, 1)
-	go func() {
-		e <- hServer.ListenAndServe()
-		close(e)
-	}()
-	klog.Infof("HTTP server listening on %s", *addr)
-	<-ctx.Done()
-	klog.Info("Server shutting down")
-	if err := hServer.Shutdown(ctx); err != nil {
-		klog.Errorf("server.Shutdown(): %v", err)
-	}
-	if err := <-e; err != nil {
+	klog.Infof("Starting HTTP server listening on %s", *addr)
+	if err := hServer.ListenAndServe(); err != nil {
 		klog.Exit(err)
 	}
 }
@@ -115,6 +105,9 @@ func mapFnFromFlags() vindex.MapFn {
 	// MapFn is a selling point.
 	mapFn := func(data []byte) [][32]byte {
 		lines := strings.Split(string(data), "\n")
+		if len(lines) < 2 {
+			panic(fmt.Errorf("expected 2 lines but got %d", len(lines)))
+		}
 
 		line0Parts := line0RE.FindStringSubmatch(lines[0])
 		line0Module, line0Version := line0Parts[1], line0Parts[2]

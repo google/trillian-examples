@@ -154,7 +154,7 @@ It is undetermined whether index 7+ is present, and thus anyone replaying this l
 
 The [WAL](#write-ahead-map-transaction-log) can be transformed directly into the data structures needed for serving lookups.
 This is implemented using two data structures that are maintained in lockstep:
- - A Verifiable Prefix Trie based on [AKD](https://github.com/facebook/akd): https://github.com/FiloSottile/torchwood/tree/main/mpt; this maintains only the Merkle Tree
+ - A Verifiable Prefix Trie based on [AKD](https://github.com/facebook/akd): https://github.com/FiloSottile/torchwood/tree/main/mpt; this maintains only the Merkle tree
  - A standard Go map; this stores the actual data, i.e. it maps each key to the list of all relevant indices
 
 Keys in the map are hashes, according to whatever strategy [MapFn](#mapfn-specified-in-universal-language) returns.
@@ -164,7 +164,6 @@ Values are an ordered list of indices.
 > The current mechanism for hashing the list of indices writes all values out as a single block, and hashes this with a single SHA256.
 > An alternative would be to build a Merkle tree of these values.
 > This would be slightly more complex conceptually, but could allow for incremental updating of values, and more proofs.
-
 
 ## Status
 

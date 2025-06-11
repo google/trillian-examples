@@ -131,20 +131,23 @@ func (b *VerifiableIndex) Lookup(key string) (indices []uint64) {
 // Update checks the input log for a new Checkpoint, and ensures that the Verifiable Index
 // is updated to the corresponding size.
 func (b *VerifiableIndex) Update(ctx context.Context) error {
-	var eg errgroup.Group
 
 	var err error
-	b.cpSize, b.rawCp, _, err = b.log.GetLatestCheckpoint(ctx)
+	cpSize, rawCp, _, err := b.log.GetLatestCheckpoint(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get latest checkpoint from DB: %v", err)
 	}
-	if b.cpSize == b.servingSize {
+	if cpSize == b.cpSize {
 		klog.V(1).Infof("No update needed: checkpoint size is still %d", b.servingSize)
 		return nil
 	}
+	b.cpSize = cpSize
+	b.rawCp = rawCp
 	klog.Infof("Building map to log size of %d", b.cpSize)
-	eg.Go(func() error { return b.syncFromDatabase(ctx) })
-	eg.Go(func() error { return b.buildMap(ctx) })
+
+	eg, cctx := errgroup.WithContext(ctx)
+	eg.Go(func() error { return b.syncFromDatabase(cctx) })
+	eg.Go(func() error { return b.buildMap(cctx) })
 
 	b.servingSize = b.cpSize
 
@@ -169,7 +172,19 @@ func (b *VerifiableIndex) syncFromDatabase(ctx context.Context) error {
 			if l.Err != nil {
 				return fmt.Errorf("failed to read leaf at index %d: %v", b.nextIndex, l.Err)
 			}
-			hashes := b.mapFn(l.Leaf)
+			var hashes [][32]byte
+			var mapErr error
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						mapErr = fmt.Errorf("panic detected mapping index %d: %s", b.nextIndex, r)
+					}
+				}()
+				hashes = b.mapFn(l.Leaf)
+			}()
+			if mapErr != nil {
+				return mapErr
+			}
 			if len(hashes) == 0 && b.nextIndex < b.cpSize-1 {
 				// We can skip writing out values with no hashes, as long as we're
 				// not at the end of the log.
@@ -245,7 +260,7 @@ func (b *VerifiableIndex) buildMap(ctx context.Context) error {
 		// TODO(mhutchinson): maybe use a log construction?
 		sum := sha256.New()
 		for _, idx := range idxes {
-			if err := binary.Write(sum, binary.LittleEndian, idx); err != nil {
+			if err := binary.Write(sum, binary.BigEndian, idx); err != nil {
 				klog.Warning(err)
 				return err
 			}

@@ -13,7 +13,9 @@
 // limitations under the License.
 
 // vindex contains a prototype of an in-memory verifiable index.
-// This version uses the clone tool DB as the log source.
+// It reads data from an InputLog interface, applies a MapFn to every leaf in the
+// input log, and writes the mapped information out to a Write Ahead Log. Data is
+// read from the WAL, and the in-memory map is built from this.
 package vindex
 
 import (
@@ -32,7 +34,7 @@ import (
 	"time"
 
 	"filippo.io/torchwood/mpt"
-	"github.com/google/trillian-examples/clone/logdb"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
 )
@@ -42,12 +44,37 @@ import (
 // A leaf can be recorded at any number of entries, including no entries (in which case an empty slice must be returned).
 type MapFn func([]byte) [][32]byte
 
-// NewVerifiableIndex returns an IndexBuilder that pulls entries from the given clonedb database, determines
+// InputLog represents a connection to the input log from which map data will be built.
+// This can be a local or remote data source.
+type InputLog interface {
+	// GetCheckpoint returns the latest checkpoint committing to the input log state.
+	GetCheckpoint(ctx context.Context) (checkpoint []byte, err error)
+	// StreamLeaves returns all the leaves in the range [start, end), outputting them via
+	// the out channel.
+	// TODO(mhutchinson): This out channel would be better as a returned iterator.
+	StreamLeaves(ctx context.Context, start, end uint64, out chan<- InputLeaf)
+}
+
+// InputLeaf represents a single leaf in the input log.
+type InputLeaf struct {
+	// Leaf is the raw data stored at this leaf.
+	Leaf []byte
+	// Error contains any error fetching this leaf, and should be checked before Leaf.
+	Error error
+}
+
+// LogParseFn is a function that parses a checkpoint, validating it, and returns a parsed
+// checkpoint. This is expected to be a thin wrapper around log.ParseCheckpoint with the
+// validators set up according to the index operator's policy on the number of witnesses
+// required.
+type LogParseFn func(cpRaw []byte) (*log.Checkpoint, error)
+
+// NewVerifiableIndex returns an IndexBuilder that pulls entries from the given inputLog, determines
 // indices for each one using the mapFn, and then writes the entries out to a Write Ahead Log at the given
 // path.
 // Note that only one IndexBuilder should exist for any given walPath at any time. The behaviour is unspecified,
 // but likely broken, if multiple processes are writing to the same file at any given time.
-func NewVerifiableIndex(ctx context.Context, log *logdb.Database, mapFn MapFn, walPath string) (*VerifiableIndex, error) {
+func NewVerifiableIndex(ctx context.Context, inputLog InputLog, logParseFn LogParseFn, mapFn MapFn, walPath string) (*VerifiableIndex, error) {
 	wal := &writeAheadLog{
 		walPath: walPath,
 	}
@@ -64,24 +91,26 @@ func NewVerifiableIndex(ctx context.Context, log *logdb.Database, mapFn MapFn, w
 		return nil, fmt.Errorf("InitStorage: %s", err)
 	}
 	b := &VerifiableIndex{
-		log:       log,
-		mapFn:     mapFn,
-		wal:       wal,
-		reader:    reader,
-		vindex:    *mpt.NewTree(sha256.Sum256, vtreeStorage),
-		data:      map[[32]byte][]uint64{},
-		nextIndex: ws,
+		inputLog:   inputLog,
+		logParseFn: logParseFn,
+		mapFn:      mapFn,
+		wal:        wal,
+		reader:     reader,
+		vindex:     *mpt.NewTree(sha256.Sum256, vtreeStorage),
+		data:       map[[32]byte][]uint64{},
+		nextIndex:  ws,
 	}
 	return b, nil
 }
 
-// VerifiableIndex pulls data from a clone log DB, applies a MapFn, and outputs
-// the resulting operations needed on the map to a write-ahead log.
+// VerifiableIndex manages reading from the input log, mapping leaves, updating the WAL,
+// reading the WAL, and keeping the state of the in-memory index updated from the WAL.
 type VerifiableIndex struct {
-	log    *logdb.Database
-	mapFn  MapFn
-	wal    *writeAheadLog
-	reader *logReader
+	inputLog   InputLog
+	logParseFn LogParseFn
+	mapFn      MapFn
+	wal        *writeAheadLog
+	reader     *logReader
 
 	indexMu sync.RWMutex // covers vindex and data
 	vindex  mpt.Tree
@@ -98,6 +127,7 @@ type VerifiableIndex struct {
 	servingSize uint64
 }
 
+// Close ensures that any open connections are closed before returning.
 func (b *VerifiableIndex) Close() error {
 	return b.wal.close()
 }
@@ -131,22 +161,25 @@ func (b *VerifiableIndex) Lookup(key string) (indices []uint64) {
 // Update checks the input log for a new Checkpoint, and ensures that the Verifiable Index
 // is updated to the corresponding size.
 func (b *VerifiableIndex) Update(ctx context.Context) error {
-
-	var err error
-	cpSize, rawCp, _, err := b.log.GetLatestCheckpoint(ctx)
+	rawCp, err := b.inputLog.GetCheckpoint(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get latest checkpoint from DB: %v", err)
+		return fmt.Errorf("failed to get latest checkpoint from DB: %s", err)
 	}
-	if cpSize == b.cpSize {
+	cp, err := b.logParseFn(rawCp)
+	if err != nil {
+		return fmt.Errorf("failed to parse checkpoint: %s", err)
+	}
+
+	if cp.Size == b.cpSize {
 		klog.V(1).Infof("No update needed: checkpoint size is still %d", b.servingSize)
 		return nil
 	}
-	b.cpSize = cpSize
+	b.cpSize = cp.Size
 	b.rawCp = rawCp
 	klog.Infof("Building map to log size of %d", b.cpSize)
 
 	eg, cctx := errgroup.WithContext(ctx)
-	eg.Go(func() error { return b.syncFromDatabase(cctx) })
+	eg.Go(func() error { return b.syncFromInputLog(cctx) })
 	eg.Go(func() error { return b.buildMap(cctx) })
 
 	b.servingSize = b.cpSize
@@ -154,23 +187,27 @@ func (b *VerifiableIndex) Update(ctx context.Context) error {
 	return eg.Wait()
 }
 
-// syncFromDatabase reads the latest checkpoint from the DB mirror of the log.
-// It stores this checkpoint in the builder, and ensures the WAL is updated with
-// all VIndex updates required to represent the log.
-func (b *VerifiableIndex) syncFromDatabase(ctx context.Context) error {
+// syncFromInputLog reads the latest checkpoint from the input log, and ensures that the WAL
+// contains a corresponding entry for every index committed to by that checkpoint.
+//
+// TODO(mhutchinson): this doesn't perform any validation on the input log to check the
+// leaves correspond to the checkpoint root hash. This was reasonable while it was based on the
+// cloneDB, which performed this validation. Implementing this will require the index to store some
+// state alongside the WAL which contains a compact range of its current progress.
+func (b *VerifiableIndex) syncFromInputLog(ctx context.Context) error {
 	if b.cpSize > b.nextIndex {
-		leaves := make(chan logdb.StreamResult, 1)
-		go b.log.StreamLeaves(ctx, b.nextIndex, b.cpSize, leaves)
+		leaves := make(chan InputLeaf, 1)
+		go b.inputLog.StreamLeaves(ctx, b.nextIndex, b.cpSize, leaves)
 
-		var l logdb.StreamResult
+		var l InputLeaf
 		for ; b.nextIndex < b.cpSize; b.nextIndex++ {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case l = <-leaves:
 			}
-			if l.Err != nil {
-				return fmt.Errorf("failed to read leaf at index %d: %v", b.nextIndex, l.Err)
+			if err := l.Error; err != nil {
+				return fmt.Errorf("failed to read leaf at index %d: %v", b.nextIndex, err)
 			}
 			var hashes [][32]byte
 			var mapErr error

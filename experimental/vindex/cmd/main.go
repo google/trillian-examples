@@ -27,9 +27,9 @@ import (
 	"time"
 
 	"github.com/google/trillian-examples/clone/logdb"
-	"github.com/google/trillian-examples/experimental/vindex"
 	"github.com/gorilla/mux"
 	"github.com/transparency-dev/formats/log"
+	"github.com/transparency-dev/incubator/vindex"
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/sumdb/note"
 	"k8s.io/klog/v2"

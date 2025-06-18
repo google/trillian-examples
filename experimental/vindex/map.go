@@ -52,29 +52,29 @@ type InputLog interface {
 	// StreamLeaves returns all the leaves in the range [start, end), outputting them via
 	// the out channel.
 	// TODO(mhutchinson): This out channel would be better as a returned iterator.
-	StreamLeaves(ctx context.Context, start, end uint64, out chan<- InputLeaf)
+	StreamLeaves(ctx context.Context, start, end uint64, out chan<- LeafOrError)
 }
 
-// InputLeaf represents a single leaf in the input log.
-type InputLeaf struct {
+// LeafOrError represents a single leaf in the input log.
+type LeafOrError struct {
 	// Leaf is the raw data stored at this leaf.
 	Leaf []byte
 	// Error contains any error fetching this leaf, and should be checked before Leaf.
 	Error error
 }
 
-// LogParseFn is a function that parses a checkpoint, validating it, and returns a parsed
+// OpenCheckpointFn is a function that parses a checkpoint, validating it, and returns a parsed
 // checkpoint. This is expected to be a thin wrapper around log.ParseCheckpoint with the
 // validators set up according to the index operator's policy on the number of witnesses
 // required.
-type LogParseFn func(cpRaw []byte) (*log.Checkpoint, error)
+type OpenCheckpointFn func(cpRaw []byte) (*log.Checkpoint, error)
 
 // NewVerifiableIndex returns an IndexBuilder that pulls entries from the given inputLog, determines
 // indices for each one using the mapFn, and then writes the entries out to a Write Ahead Log at the given
 // path.
 // Note that only one IndexBuilder should exist for any given walPath at any time. The behaviour is unspecified,
 // but likely broken, if multiple processes are writing to the same file at any given time.
-func NewVerifiableIndex(ctx context.Context, inputLog InputLog, logParseFn LogParseFn, mapFn MapFn, walPath string) (*VerifiableIndex, error) {
+func NewVerifiableIndex(ctx context.Context, inputLog InputLog, logParseFn OpenCheckpointFn, mapFn MapFn, walPath string) (*VerifiableIndex, error) {
 	wal := &writeAheadLog{
 		walPath: walPath,
 	}
@@ -107,7 +107,7 @@ func NewVerifiableIndex(ctx context.Context, inputLog InputLog, logParseFn LogPa
 // reading the WAL, and keeping the state of the in-memory index updated from the WAL.
 type VerifiableIndex struct {
 	inputLog   InputLog
-	logParseFn LogParseFn
+	logParseFn OpenCheckpointFn
 	mapFn      MapFn
 	wal        *writeAheadLog
 	reader     *logReader
@@ -182,9 +182,10 @@ func (b *VerifiableIndex) Update(ctx context.Context) error {
 	eg.Go(func() error { return b.syncFromInputLog(cctx) })
 	eg.Go(func() error { return b.buildMap(cctx) })
 
+	err = eg.Wait()
 	b.servingSize = b.cpSize
 
-	return eg.Wait()
+	return err
 }
 
 // syncFromInputLog reads the latest checkpoint from the input log, and ensures that the WAL
@@ -196,10 +197,12 @@ func (b *VerifiableIndex) Update(ctx context.Context) error {
 // state alongside the WAL which contains a compact range of its current progress.
 func (b *VerifiableIndex) syncFromInputLog(ctx context.Context) error {
 	if b.cpSize > b.nextIndex {
-		leaves := make(chan InputLeaf, 1)
+		ctx, done := context.WithCancel(ctx)
+		defer done()
+		leaves := make(chan LeafOrError, 1)
 		go b.inputLog.StreamLeaves(ctx, b.nextIndex, b.cpSize, leaves)
 
-		var l InputLeaf
+		var l LeafOrError
 		for ; b.nextIndex < b.cpSize; b.nextIndex++ {
 			select {
 			case <-ctx.Done():

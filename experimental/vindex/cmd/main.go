@@ -110,13 +110,13 @@ func (a *logDBAdapter) GetCheckpoint(ctx context.Context) (checkpoint []byte, er
 	return cp, err
 }
 
-func (a *logDBAdapter) StreamLeaves(ctx context.Context, start, end uint64, out chan<- vindex.InputLeaf) {
+func (a *logDBAdapter) StreamLeaves(ctx context.Context, start, end uint64, out chan<- vindex.LeafOrError) {
 	inChan := make(chan logdb.StreamResult)
 	go func() {
 		defer close(out)
 
 		for r := range inChan {
-			out <- vindex.InputLeaf{
+			out <- vindex.LeafOrError{
 				Leaf:  r.Leaf,
 				Error: r.Err,
 			}

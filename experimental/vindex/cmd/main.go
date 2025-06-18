@@ -29,7 +29,9 @@ import (
 	"github.com/google/trillian-examples/clone/logdb"
 	"github.com/google/trillian-examples/experimental/vindex"
 	"github.com/gorilla/mux"
+	"github.com/transparency-dev/formats/log"
 	"golang.org/x/mod/module"
+	"golang.org/x/mod/sumdb/note"
 	"k8s.io/klog/v2"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -54,11 +56,12 @@ func main() {
 
 	ctx := context.Background()
 
-	log, err := logdb.NewDatabase(*logDSN)
+	logDB, err := logdb.NewDatabase(*logDSN)
 	if err != nil {
 		klog.Exitf("Failed to connect to DB: %s", err)
 	}
-	b, err := vindex.NewVerifiableIndex(ctx, log, mapFnFromFlags(), walPathFromFlags())
+
+	b, err := vindex.NewVerifiableIndex(ctx, &logDBAdapter{logDB}, logParserFromFlags(), mapFnFromFlags(), walPathFromFlags())
 	if err != nil {
 		klog.Exitf("NewIndexBuilder(): %v", err)
 	}
@@ -95,6 +98,46 @@ func main() {
 	klog.Infof("Starting HTTP server listening on %s", *addr)
 	if err := hServer.ListenAndServe(); err != nil {
 		klog.Exit(err)
+	}
+}
+
+type logDBAdapter struct {
+	cloneDB *logdb.Database
+}
+
+func (a *logDBAdapter) GetCheckpoint(ctx context.Context) (checkpoint []byte, err error) {
+	_, cp, _, err := a.cloneDB.GetLatestCheckpoint(ctx)
+	return cp, err
+}
+
+func (a *logDBAdapter) StreamLeaves(ctx context.Context, start, end uint64, out chan<- vindex.LeafOrError) {
+	inChan := make(chan logdb.StreamResult)
+	go func() {
+		defer close(out)
+
+		for r := range inChan {
+			out <- vindex.LeafOrError{
+				Leaf:  r.Leaf,
+				Error: r.Err,
+			}
+		}
+	}()
+	a.cloneDB.StreamLeaves(ctx, start, end, inChan)
+}
+
+func logParserFromFlags() func(cpRaw []byte) (*log.Checkpoint, error) {
+	// TODO(mhutchinson): Implement a flag-selectable switch for which verifier to use.
+	// While we only support sumDB, this is hard-coded.
+	const vkey = "sum.golang.org+033de0ae+Ac4zctda0e5eza+HJyk9SxEdh+s3Ux18htTTAD8OuAn8"
+	const origin = "go.sum database tree"
+	verifier, err := note.NewVerifier(vkey)
+	if err != nil {
+		klog.Exitf("Failed to create verifier: %s", err)
+	}
+	return func(cpRaw []byte) (*log.Checkpoint, error) {
+		// No witnesses required yet
+		cp, _, _, err := log.ParseCheckpoint(cpRaw, origin, verifier)
+		return cp, err
 	}
 }
 

@@ -1,6 +1,6 @@
 module github.com/google/trillian-examples
 
-go 1.24.0
+go 1.24.1
 
 require (
 	github.com/apache/beam/sdks/v2 v2.65.0
@@ -16,13 +16,14 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
-	github.com/transparency-dev/formats v0.0.0-20230914071414-5732692f1e50
+	github.com/transparency-dev/formats v0.0.0-20250616090723-6ce2fd29df16
+	github.com/transparency-dev/incubator v0.0.0-20250618154410-b8f0be2f6584
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/serverless-log v0.0.0-20230914155322-9b6f31f76f1f
 	github.com/u-root/u-root v0.14.0
 	github.com/usbarmory/tamago v0.0.0-20250310080134-5e23c7fd40b0
 	golang.org/x/crypto v0.38.0
-	golang.org/x/mod v0.24.0
+	golang.org/x/mod v0.25.0
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/sync v0.14.0
 	google.golang.org/grpc v1.72.2

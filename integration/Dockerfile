@@ -1,12 +1,12 @@
 # This Dockerfile builds a base image for the CloudBuild integration testing.
-FROM golang:1.24.4-bullseye@sha256:dfd72198d14bc22f270c9e000c304a2ffd19f5a5f693fad82643311afdc6b568 AS testbase
+FROM golang:1.24.5-bookworm@sha256:ef8c5c733079ac219c77edab604c425d748c740d8699530ea6aced9de79aea40 AS testbase
 
 WORKDIR /testbase
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
 
-RUN echo "deb http://deb.debian.org/debian bullseye-backports main contrib non-free" >> /etc/apt/sources.list
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main contrib non-free" >> /etc/apt/sources.list
 RUN apt-get update && apt-get -y install curl docker-compose lsof netcat unzip wget xxd
 
 RUN cd /usr/bin && curl -L -O https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 && mv jq-linux64 /usr/bin/jq && chmod +x /usr/bin/jq

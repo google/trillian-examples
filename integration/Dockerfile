@@ -1,5 +1,5 @@
 # This Dockerfile builds a base image for the CloudBuild integration testing.
-FROM golang:1.24.6-bookworm@sha256:2679c15c940573aded505b2f2fbbd4e718b5172327aae3ab9f43a10a5c700dfc AS testbase
+FROM golang:1.25.0-bookworm@sha256:81dc45d05a7444ead8c92a389621fafabc8e40f8fd1a19d7e5df14e61e98bc1a AS testbase
 
 WORKDIR /testbase
 

@@ -234,13 +234,7 @@ func mapFnFromFlags() vindex.MapFn {
 }
 
 func runWebServer(vi *vindex.VerifiableIndex, outLogDir string) {
-	web := NewServer(func(h [sha256.Size]byte) ([]uint64, error) {
-		idxes, size := vi.Lookup(h)
-		if size == 0 {
-			return nil, errors.New("index not populated")
-		}
-		return idxes, nil
-	})
+	web := NewServer(vi.Lookup)
 
 	olfs := http.FileServer(http.Dir(outLogDir))
 	r := mux.NewRouter()

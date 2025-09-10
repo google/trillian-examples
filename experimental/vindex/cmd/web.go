@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
@@ -27,14 +28,14 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func NewServer(lookup func([sha256.Size]byte) ([]uint64, error)) Server {
+func NewServer(lookup func(context.Context, [sha256.Size]byte) (api.LookupResponse, error)) Server {
 	return Server{
 		lookup: lookup,
 	}
 }
 
 type Server struct {
-	lookup func([sha256.Size]byte) ([]uint64, error)
+	lookup func(context.Context, [sha256.Size]byte) (api.LookupResponse, error)
 }
 
 // handleLookup handles GET requests for looking up map entries.
@@ -58,15 +59,13 @@ func (s Server) handleLookup(w http.ResponseWriter, r *http.Request) {
 
 	klog.V(2).Infof("Received hash from request: '%s'", h)
 
-	idxes, err := s.lookup([sha256.Size]byte(h))
+	resp, err := s.lookup(r.Context(), [sha256.Size]byte(h))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("lookup failed: %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	var resp api.LookupResponse
-	resp.IndexValue = idxes
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		klog.Warningf("failed to encode response: %v", err)
 	}

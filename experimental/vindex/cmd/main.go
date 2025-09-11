@@ -46,6 +46,7 @@ var (
 	storageDir           = flag.String("storage_dir", "", "Root directory in which to store the data for the demo. This will create subdirectories for the Output Log, and allocate space to store the verifiable map persistence.")
 	listen               = flag.String("addr", ":8088", "Address to set up HTTP server listening on")
 	outputLogPrivKeyFile = flag.String("output_log_private_key", "", "Location of private key file. If unset, uses the contents of the OUTPUT_LOG_PRIVATE_KEY environment variable.")
+	persistIndex         = flag.Bool("persist_index", false, "Set to true to enable disk persistence of the Merkle tree")
 
 	// Example leaf:
 	// golang.org/x/text v0.3.0 h1:g61tztE5qeGQ89tm6NTjjM9VPIm088od1l6aSorWRWg=
@@ -66,6 +67,8 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	if *storageDir == "" {
 		return errors.New("storage_dir must be set")
 	}
@@ -99,7 +102,7 @@ func run(ctx context.Context) error {
 	outputLog, outputCloser := outputLogOrDie(ctx, outputLogDir)
 	defer outputCloser()
 
-	vi, err := vindex.NewVerifiableIndex(ctx, inputLog, mapFnFromFlags(), outputLog, mapRoot)
+	vi, err := vindex.NewVerifiableIndex(ctx, inputLog, mapFnFromFlags(), outputLog, mapRoot, vindex.Options{PersistIndex: *persistIndex})
 	if err != nil {
 		return fmt.Errorf("failed to build verifiable index: %v", err)
 	}
@@ -108,7 +111,15 @@ func run(ctx context.Context) error {
 	go maintainMap(ctx, vi)
 
 	// Run a web server to handle queries over the verifiable index.
-	go runWebServer(vi, outputLogDir)
+	server := createWebServer(vi, outputLogDir)
+	go func() {
+		err := server.ListenAndServe()
+		if err != http.ErrServerClosed {
+			klog.Warning(err)
+			cancel()
+		}
+	}()
+	klog.Infof("Started HTTP server listening on %s", *listen)
 	<-ctx.Done()
 	return nil
 }
@@ -233,7 +244,7 @@ func mapFnFromFlags() vindex.MapFn {
 	return mapFn
 }
 
-func runWebServer(vi *vindex.VerifiableIndex, outLogDir string) {
+func createWebServer(vi *vindex.VerifiableIndex, outLogDir string) *http.Server {
 	web := NewServer(vi.Lookup)
 
 	olfs := http.FileServer(http.Dir(outLogDir))
@@ -244,10 +255,7 @@ func runWebServer(vi *vindex.VerifiableIndex, outLogDir string) {
 		Addr:    *listen,
 		Handler: r,
 	}
-	go func() {
-		_ = hServer.ListenAndServe()
-	}()
-	klog.Infof("Started HTTP server listening on %s", *listen)
+	return hServer
 }
 
 // maintainMap reads entries from the log and sync them to the vindex.

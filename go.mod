@@ -17,15 +17,15 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.32
 	github.com/perlin-network/life v0.0.0-20191203030451-05c0e0f7eaea
 	github.com/transparency-dev/formats v0.0.0-20250723101439-be3b1008ec3a
-	github.com/transparency-dev/incubator v0.0.0-20250904134322-c3f334a65cac
+	github.com/transparency-dev/incubator v0.0.0-20250911141328-7ca4925e3528
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/serverless-log v0.0.0-20230914155322-9b6f31f76f1f
 	github.com/u-root/u-root v0.15.0
 	github.com/usbarmory/tamago v0.0.0-20250310080134-5e23c7fd40b0
 	golang.org/x/crypto v0.41.0
-	golang.org/x/mod v0.27.0
+	golang.org/x/mod v0.28.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.16.0
+	golang.org/x/sync v0.17.0
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
 	k8s.io/klog/v2 v2.130.1

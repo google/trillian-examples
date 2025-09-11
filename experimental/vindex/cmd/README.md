@@ -7,9 +7,12 @@ This binary takes a [Go SumDB clone](../../../clone/cmd/sumdbclone/) and generat
 This requires a populated [Go SumDB clone](../../../clone/cmd/sumdbclone/) that can be addressed.
 Once this DB is populated, assuming that it was invoked via the `docker compose` setup, the following command will generate a verifiable index from it:
 
-```bash
+```shell
 # Corresponding public key: example.com/sumdb/vindex+dc01ec4b+AZGQkIvW6u5vtO1DH9NtQUYSUW77q8temEuuXSOlg98+
-OUTPUT_LOG_PRIVATE_KEY=PRIVATE+KEY+example.com/sumdb/vindex+dc01ec4b+Ac2oB+MNIOn72g69VfVEL2PdXhk3MASCO9XRhWDkHqW8 go run ./experimental/vindex/cmd --logDSN="sumdb:letmein@tcp(127.0.0.1:33006)/sumdb"  --storage_dir ~/vindex-sumdb/
+OUTPUT_LOG_PRIVATE_KEY=PRIVATE+KEY+example.com/sumdb/vindex+dc01ec4b+Ac2oB+MNIOn72g69VfVEL2PdXhk3MASCO9XRhWDkHqW8 go run ./experimental/vindex/cmd \
+  --logDSN="sumdb:letmein@tcp(127.0.0.1:33006)/sumdb"  \
+  --storage_dir ~/vindex-sumdb/ \
+  --v=1
 ```
 
 Depending on the machine you run this on, and the size of the SumDB log, this could take several minutes before the Verifiable Index is available.
@@ -17,7 +20,10 @@ Depending on the machine you run this on, and the size of the SumDB log, this co
 Once this is running, you can inspect the Output Log using:
 
 ```shell
-go run github.com/mhutchinson/woodpecker@main --custom_log_type=tiles --custom_log_url=http://localhost:8088/outputlog/ --custom_log_vkey=example.com/sumdb/vindex+dc01ec4b+AZGQkIvW6u5vtO1DH9NtQUYSUW77q8temEuuXSOlg98+
+go run github.com/mhutchinson/woodpecker@main \
+  --custom_log_type=tiles \
+  --custom_log_url=http://localhost:8088/outputlog/ \
+  --custom_log_vkey=example.com/sumdb/vindex+dc01ec4b+AZGQkIvW6u5vtO1DH9NtQUYSUW77q8temEuuXSOlg98+
 ```
 
 Use left/right cursor to browse, and `q` to quit.
@@ -25,7 +31,10 @@ Use left/right cursor to browse, and `q` to quit.
 This log is processed into a verifiable map which can be looked up using the following command:
 
 ```shell
-go run github.com/transparency-dev/incubator/vindex/cmd/client --base_url http://localhost:8088/vindex/ --lookup=github.com/transparency-dev/tessera
+go run github.com/transparency-dev/incubator/vindex/cmd/client \
+  --vindex_base_url http://localhost:8088/vindex/ \
+  --out_log_pub_key=example.com/sumdb/vindex+dc01ec4b+AZGQkIvW6u5vtO1DH9NtQUYSUW77q8temEuuXSOlg98+ \
+  --lookup=github.com/transparency-dev/tessera
 ```
 
 ### Troubleshooting

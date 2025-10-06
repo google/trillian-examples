@@ -42,7 +42,7 @@ type WitnessOpts struct {
 // Main kickstarts the witness
 func Main(ctx context.Context, opts WitnessOpts) error {
 	if len(opts.WSFile) == 0 {
-		return errors.New("Witness Store file is required")
+		return errors.New("witness store file is required")
 	}
 
 	ws, err := ws.NewStorage(opts.WSFile)

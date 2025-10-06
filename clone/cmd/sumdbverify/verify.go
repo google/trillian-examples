@@ -194,7 +194,7 @@ func (v sumdbVerifier) verifyLeaves(ctx context.Context) (uint64, error) {
 		return 0, fmt.Errorf("GetRootHash(): %v", err)
 	}
 	if !bytes.Equal(rootHash, cp.Hash) {
-		return 0, fmt.Errorf("Data corruption: checkpoint from DB has hash %x but calculated hash %x from leaves", cp.Hash, rootHash)
+		return 0, fmt.Errorf("data corruption: checkpoint from DB has hash %x but calculated hash %x from leaves", cp.Hash, rootHash)
 	}
 	return index, nil
 }

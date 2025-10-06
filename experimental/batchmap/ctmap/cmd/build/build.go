@@ -222,7 +222,7 @@ func (w *writeCheckpointFn) ProcessElement(ctx context.Context, t *batchmap.Tile
 		return err
 	}
 
-	if _, err := fd.Write([]byte(fmt.Sprintf("%d\n%x\n", w.EntryCount, root))); err != nil {
+	if _, err := fd.Write(fmt.Appendf(nil, "%d\n%x\n", w.EntryCount, root)); err != nil {
 		return err
 	}
 	if _, err := fd.Write(w.LogCheckpoint); err != nil {

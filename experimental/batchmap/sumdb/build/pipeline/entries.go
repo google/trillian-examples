@@ -65,17 +65,17 @@ func ParseStatementFn(l InputLogLeaf) Metadata {
 	lines := strings.Split(string(l.Data), "\n")
 
 	if len(lines) != 3 {
-		panic(fmt.Errorf("Expected 2 lines in log leaf, but got %d", len(lines)))
+		panic(fmt.Errorf("expected 2 lines in log leaf, but got %d", len(lines)))
 	}
 	line0Parts := line0RE.FindStringSubmatch(lines[0])
 	if got, want := len(line0Parts), 4; got != want {
-		panic(fmt.Errorf("Regexp: line0 expected %d submatches, but got %d", want, got))
+		panic(fmt.Errorf("regexp: line0 expected %d submatches, but got %d", want, got))
 	}
 	line0Module, line0Version, line0Hash := line0Parts[1], line0Parts[2], line0Parts[3]
 
 	line1Parts := line1RE.FindStringSubmatch(lines[1])
 	if got, want := len(line1Parts), 4; got != want {
-		panic(fmt.Errorf("Regexp: line1 expected %d submatches, but got %d (%q)", want, got, lines[1]))
+		panic(fmt.Errorf("regexp: line1 expected %d submatches, but got %d (%q)", want, got, lines[1]))
 	}
 	line1Module, line1Version, line1Hash := line1Parts[1], line1Parts[2], line1Parts[3]
 
@@ -113,7 +113,7 @@ type mapEntryFn struct {
 
 func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*batchmap.Entry)) {
 	h := hash.New()
-	h.Write([]byte(fmt.Sprintf("%s %s/go.mod", m.Module, m.Version)))
+	h.Write(fmt.Appendf(nil, "%s %s/go.mod", m.Module, m.Version))
 	modKey := h.Sum(nil)
 	modLeafID := node.NewID(string(modKey), uint(len(modKey)*8))
 
@@ -123,7 +123,7 @@ func (fn *mapEntryFn) ProcessElement(m Metadata, emit func(*batchmap.Entry)) {
 	})
 
 	h = hash.New()
-	h.Write([]byte(fmt.Sprintf("%s %s", m.Module, m.Version)))
+	h.Write(fmt.Appendf(nil, "%s %s", m.Module, m.Version))
 	repoKey := h.Sum(nil)
 	repoLeafID := node.NewID(string(repoKey), uint(len(repoKey)*8))
 

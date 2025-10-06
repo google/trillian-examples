@@ -158,6 +158,6 @@ func ClaimantForType(t api.StatementType) (*Claimant, error) {
 	case api.MalwareStatementType:
 		return &AnnotatorMalware, nil
 	default:
-		return nil, fmt.Errorf("Unknown Claimant type %v", t)
+		return nil, fmt.Errorf("unknown Claimant type %v", t)
 	}
 }

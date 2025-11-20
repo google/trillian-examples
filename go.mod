@@ -1,9 +1,9 @@
 module github.com/google/trillian-examples
 
-go 1.25.0
+go 1.25.2
 
 require (
-	github.com/apache/beam/sdks/v2 v2.68.0
+	github.com/apache/beam/sdks/v2 v2.69.0
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/dsoprea/go-ext4 v0.0.0-20190528173430-c13b09fc0ff8
 	github.com/go-sql-driver/mysql v1.9.3
@@ -20,12 +20,12 @@ require (
 	github.com/transparency-dev/merkle v0.0.2
 	github.com/transparency-dev/serverless-log v0.0.0-20230914155322-9b6f31f76f1f
 	github.com/u-root/u-root v0.15.0
-	github.com/usbarmory/tamago v1.25.1
+	github.com/usbarmory/tamago v1.25.4
 	golang.org/x/crypto v0.45.0
-	golang.org/x/mod v0.29.0
-	golang.org/x/oauth2 v0.31.0
+	golang.org/x/mod v0.30.0
+	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.18.0
-	google.golang.org/grpc v1.75.1
+	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/klog/v2 v2.130.1
 )
@@ -34,13 +34,13 @@ require (
 	bitbucket.org/creachadair/shell v0.0.8 // indirect
 	cel.dev/expr v0.24.0 // indirect
 	cloud.google.com/go v0.121.6 // indirect
-	cloud.google.com/go/auth v0.16.5 // indirect
+	cloud.google.com/go/auth v0.17.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
-	cloud.google.com/go/compute/metadata v0.8.0 // indirect
+	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cloud.google.com/go/iam v1.5.2 // indirect
 	cloud.google.com/go/monitoring v1.24.2 // indirect
 	cloud.google.com/go/profiler v0.4.3 // indirect
-	cloud.google.com/go/storage v1.56.1 // indirect
+	cloud.google.com/go/storage v1.57.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.29.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.53.0 // indirect
@@ -52,7 +52,7 @@ require (
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v28.3.3+incompatible // indirect
+	github.com/docker/docker v28.5.1+incompatible // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dsoprea/go-logging v0.0.0-20200710184922-b02d349568dd // indirect
@@ -62,10 +62,10 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-interpreter/wagon v0.6.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.2 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang-cz/devslog v0.0.15 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20250602020802-c6617b811d0e // indirect
@@ -101,11 +101,11 @@ require (
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
-	golang.org/x/time v0.12.0 // indirect
-	google.golang.org/api v0.248.0 // indirect
+	golang.org/x/time v0.13.0 // indirect
+	google.golang.org/api v0.252.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250818200422-3122310a409c // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250818200422-3122310a409c // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251002232023-7c0ddcbb5797 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )

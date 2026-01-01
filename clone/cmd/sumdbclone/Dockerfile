@@ -1,4 +1,4 @@
-FROM golang:1.25.4-alpine3.22@sha256:d3f0cf7723f3429e3f9ed846243970b20a2de7bae6a5b66fc5914e228d831bbb AS builder
+FROM golang:1.25.5-alpine3.22@sha256:3587db7cc96576822c606d119729370dbf581931c5f43ac6d3fa03ab4ed85a10 AS builder
 
 ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
@@ -18,7 +18,7 @@ COPY . .
 RUN go build ./clone/cmd/sumdbclone
 
 # Build release image
-FROM alpine:3.22.2@sha256:4b7ce07002c69e8f3d704a9c5d6fd3053be500b7f1c69fc0d80990c2ad8dd412
+FROM alpine:3.23.2@sha256:865b95f46d98cf867a156fe4a135ad3fe50d2056aa3f25ed31662dff6da4eb62
 
 COPY --from=builder /build/sumdbclone /bin/sumdbclone
 ENTRYPOINT ["/bin/sumdbclone"]

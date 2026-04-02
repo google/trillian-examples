@@ -66,7 +66,7 @@ func (l LogCheckpoint) String() string {
 func (l LogCheckpoint) Marshal() []byte {
 	b := bytes.Buffer{}
 	b.Write(l.Checkpoint.Marshal())
-	b.WriteString(fmt.Sprintf("%d\n", l.TimestampNanos))
+	fmt.Fprintf(&b, "%d\n", l.TimestampNanos)
 	return b.Bytes()
 }
 

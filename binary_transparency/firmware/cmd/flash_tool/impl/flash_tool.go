@@ -257,7 +257,7 @@ func verifyAnnotations(ctx context.Context, c *client.ReadonlyClient, logSigVeri
 	// bundle would be provided to the device.
 	preimage, ip, err := mc.Aggregation(ctx, mcp.Revision, pb.InclusionProof.LeafIndex)
 	if err != nil {
-		return fmt.Errorf("failed to get map value for %q: %w", pb.InclusionProof.LeafIndex, err)
+		return fmt.Errorf("failed to get map value for %d: %w", pb.InclusionProof.LeafIndex, err)
 	}
 	// 1. Check: the proof is for the correct key.
 	kbs := sha512.Sum512_256([]byte(fmt.Sprintf("summary:%d", pb.InclusionProof.LeafIndex)))

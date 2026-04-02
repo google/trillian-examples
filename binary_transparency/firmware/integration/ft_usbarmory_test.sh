@@ -12,6 +12,7 @@ cd ${INTEGRATION_DIR}/..
     banner "Build armory bootloader"
     cd devices/usbarmory/bootloader
     unset GOFLAGS
+    export GOOSPKG=github.com/usbarmory/tamago
     make CROSS_COMPILE=arm-none-eabi- TARGET=usbarmory imx BOOT=uSD START=1024512
 )
 

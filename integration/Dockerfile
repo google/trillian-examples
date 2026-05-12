@@ -1,5 +1,5 @@
 # This Dockerfile builds a base image for the CloudBuild integration testing.
-FROM golang:1.26.1-bookworm@sha256:8e8aa801e8417ef0b5c42b504dd34db3db911bb73dba933bd8bde75ed815fdbb AS testbase
+FROM golang:1.26.2-bookworm@sha256:47ce5636e9936b2c5cbf708925578ef386b4f8872aec74a67bd13a627d242b19 AS testbase
 
 WORKDIR /testbase
 
@@ -18,7 +18,7 @@ RUN mkdir protoc && \
 
 # Tamago bits
 RUN apt-get -y install binutils-arm-none-eabi build-essential make u-boot-tools fuse fuse2fs
-RUN curl -sfL https://github.com/usbarmory/tamago-go/releases/download/tamago-go1.26.1/tamago-go1.26.1.linux-amd64.tar.gz | tar -xzf - -C /
+RUN curl -sfL https://github.com/usbarmory/tamago-go/releases/download/tamago-go1.26.2/tamago-go1.26.2.linux-amd64.tar.gz | tar -xzf - -C /
 ENV TAMAGO=/usr/local/tamago-go/bin/go
 
 ENV GOPATH /go
